@@ -1,0 +1,34 @@
+.navbar-navy {
+  background-color: #001f3f;
+}
+.navbar-navy .navbar-brand,
+.navbar-navy .nav-link,
+.navbar-navy .navbar-text,
+.navbar-navy .btn {
+  color: white;
+}
+.navbar-navy .btn-outline-secondary {
+  color: white;
+  border-color: white;
+}
+.navbar-navy .btn-outline-secondary:hover {
+  background-color: rgba(255,255,255,0.1);
+}
+
+.btn-logout {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.875rem;
+  color: white;
+  background: transparent;
+  border: 1px solid white;
+}
+.btn-logout:hover {
+  background-color: rgba(255,255,255,0.2);
+  text-decoration: none;
+}
+.table th {
+  vertical-align: middle;
+}
+.table td {
+  vertical-align: middle;
+}

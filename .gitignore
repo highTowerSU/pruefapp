@@ -1,0 +1,22 @@
+# Abhängigkeiten
+/vendor/
+/node_modules/
+
+# Systemdateien
+.DS_Store
+Thumbs.db
+
+# Build-Output (optional)
+public/webfonts/
+public/css/fontawesome.min.css
+public/js/fontawesome.min.js
+
+# SQLite-Datenbank
+*.sqlite
+*.sqlite-journal
+
+# PHP-Sessions (optional)
+*.sess
+
+# Logfiles
+*.log
