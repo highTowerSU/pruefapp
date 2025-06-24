@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($title ?? 'Seite') ?></title>
     <!-- Styles -->
-<link rel="stylesheet" href="public/css/bootstrap.min.css">
-<link rel="stylesheet" href="public/css/tablesorter-bootstrap5.css">
+<link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="node_modules/tabulator-tables/dist/css/tabulator_bootstrap5.min.css">
 <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.min.css">
 <link rel="stylesheet" href="public/css/custom.css">
 
@@ -33,20 +33,13 @@
 </template>
 
 <!-- Scripts -->
-<script src="public/js/jquery.min.js"></script>
-<script src="public/js/bootstrap.bundle.min.js"></script>
-<script src="public/js/jquery.tablesorter.min.js"></script>
+<script src="node_modules/jquery/dist/jquery.min.js"></script>
+<script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="node_modules/tabulator-tables/dist/js/tabulator.min.js"></script>
+
 
 <script>
 $(function() {
-  $("table.tablesorter").tablesorter({
-    theme: 'bootstrap',
-    headerTemplate: '{content} {icon}',
-    widgets: ['zebra'],
-    widgetOptions : {
-      zebra : ["even", "odd"]
-    }
-  });
   const template = document.getElementById('popover-template').innerHTML;
   const buttons = document.querySelectorAll('[data-bs-toggle="popover"]');
 
@@ -87,6 +80,6 @@ $(function() {
 });
 
 </script>
-
+<?php if (!empty($scripts)) echo $scripts; ?>
 </body>
 </html>

@@ -41,7 +41,7 @@ function generate_username($firstname, $lastname) {
     $base = strtolower(substr($firstname, 0, 1) . $lastname);
     $username = $base;
     $i = 1;
-    while (R::findOne('nutzer', ' benutzername = ? ', [$username])) {
+    while (R::findOne('teilnehmer', ' benutzername = ? ', [$username])) {
         $username = $base . $i;
         $i++;
     }

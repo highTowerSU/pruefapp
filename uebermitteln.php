@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             continue;
         }
 
-        $n = R::dispense('nutzer');
+        $n = R::dispense('teilnehmer');
         $n->vorname = trim($eintrag['vorname']);
         $n->nachname = trim($eintrag['nachname']);
         $n->geburtsdatum = trim($eintrag['geburtsdatum']);

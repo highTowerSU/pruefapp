@@ -5,7 +5,7 @@ if (!isset($_GET['kurs']) || !($kurs = R::load('kurs', $_GET['kurs'])) || !$kurs
     die("Ungültiger Kurs");
 }
 
-$nutzer = R::findAll('nutzer', 'kurs_id = ? ORDER BY nachname, vorname', [$kurs->id]);
+$nutzer = R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kurs->id]);
 
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="moodle_export_kurs_' . $kurs->id . '.csv"');

@@ -29,18 +29,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['manuell'])) {
         $n->passwort = generate_password();
         $n->email = generate_email($n->benutzername);
         $n->kurs = $kurs;
+		$n->deleted = 0;
         R::store($n);
     }
     header("Location: teilnehmer.php?kurs=" . $kurs->id);
     exit;
 }
 
-$nutzer = R::findAll('nutzer', 'kurs_id = ? ORDER BY nachname, vorname AND deleted = 0', [$kurs->id]);
+$nutzer = R::findAll('nutzer', 'kurs_id = ? AND deleted = 0 ORDER BY nachname, vorname', [$kurs->id]);
 
 $content = render_template('teilnehmer_table.php', [
     'kurs' => $kurs,
     'nutzer' => $nutzer
 ]);
-$content .= render_template('import_manual_form.php', ['kurs' => $kurs]);
+$scripts = render_template('teilnehmer_scripts.php', ['kurs' => $kurs->id]);
+//$content .= render_template('import_manual_form.php', ['kurs' => $kurs]);
 
-echo render_template('layout.php', ['title' => 'Teilnehmer – ' . $kurs->name, 'content' => $content]);
+echo render_template('layout.php', ['title' => 'Teilnehmer – ' . $kurs->name, 'content' => $content,
+    'scripts' => $scripts, ]);
+

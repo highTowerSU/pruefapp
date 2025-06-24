@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['csv']['tmp_name']))
         $row = array_combine($header, $data);
         if (!$row) continue;
 
-        $n = R::dispense('nutzer');
+        $n = R::dispense('teilnehmer');
         $n->vorname = trim($row['Vorname'] ?? '');
         $n->nachname = trim($row['Nachname'] ?? '');
         $n->geburtsdatum = trim($row['Geburtsdatum'] ?? '');
@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['csv']['tmp_name']))
         $n->passwort = generate_password();
         $n->email = generate_email($n->benutzername);
         $n->kurs = $kurs;
+		$n->deleted = 0;
         R::store($n);
     }
     fclose($handle);

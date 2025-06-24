@@ -4,7 +4,7 @@ require_once 'lib.inc.php';
 if (isset($_GET['delete_kurs'])) {
     $kurs = R::load('kurs', $_GET['delete_kurs']);
     if ($kurs->id) {
-        $nutzer = R::count('nutzer', 'kurs_id = ?', [$kurs->id]);
+        $nutzer = R::count('teilnehmer', 'kurs_id = ?', [$kurs->id]);
         if ($nutzer === 0) {
             R::trash($kurs);
         } else {

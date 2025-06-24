@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $row = array_combine($header, $data);
             if (!$row) continue;
 
-            $n = R::dispense('nutzer');
+            $n = R::dispense('teilnehmer');
             $n->vorname = trim($row['Vorname'] ?? '');
             $n->nachname = trim($row['Nachname'] ?? '');
             $n->geburtsdatum = trim($row['Geburtsdatum'] ?? '');
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($eintrag['vorname']) || empty($eintrag['nachname']) || empty($eintrag['geburtsdatum'])) {
                 continue;
             }
-            $n = R::dispense('nutzer');
+            $n = R::dispense('teilnehmer');
             $n->vorname = trim($eintrag['vorname']);
             $n->nachname = trim($eintrag['nachname']);
             $n->geburtsdatum = trim($eintrag['geburtsdatum']);
