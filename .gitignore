@@ -20,3 +20,6 @@ public/js/fontawesome.min.js
 
 # Logfiles
 *.log
+
+composer
+composer.phar
