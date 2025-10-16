@@ -44,10 +44,7 @@
 
   themeObserver.observe(document.documentElement, { attributes: true });
 
-  const table = new TabulatorLib('#teilnehmer-tabelle', {
-  layout: "fitColumns",
-  placeholder: "Keine Teilnehmer gefunden.",
-  columns: [
+  const columns = [
     { title: "Vorname", field: "vorname", editor: canManage ? "input" : false },
     { title: "Nachname", field: "nachname", editor: canManage ? "input" : false },
     { title: "Geburtsdatum", field: "geburtsdatum", editor: canManage ? "input" : false },
@@ -151,61 +148,61 @@
 
   const table = new TabulatorLib('#teilnehmer-tabelle', tableOptions);
 
-const showTableError = (message) => {
-  if (typeof table.alertError === "function") {
-    table.alertError(message);
-  } else {
-    console.error(message);
-  }
-};
-
-const reloadParticipants = () => {
-  fetch(apiUrl, {
-    headers: { "Accept": "application/json" }
-  }).then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+  const showTableError = (message) => {
+    if (typeof table.alertError === "function") {
+      table.alertError(message);
+    } else {
+      console.error(message);
     }
+  };
 
-    return response.json();
-  }).then(data => {
-    if (!Array.isArray(data)) {
-      throw new Error("Antwort ist kein Array");
-    }
+  const reloadParticipants = () => {
+    fetch(apiUrl, {
+      headers: { "Accept": "application/json" }
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
-    table.setData(data);
-  }).catch(error => {
-    console.error("Teilnehmer konnten nicht geladen werden", error);
-    table.setData([]);
-    showTableError("Teilnehmer konnten nicht geladen werden.");
-  });
-};
+      return response.json();
+    }).then(data => {
+      if (!Array.isArray(data)) {
+        throw new Error("Antwort ist kein Array");
+      }
 
-reloadParticipants();
+      table.setData(data);
+    }).catch(error => {
+      console.error("Teilnehmer konnten nicht geladen werden", error);
+      table.setData([]);
+      showTableError("Teilnehmer konnten nicht geladen werden.");
+    });
+  };
 
-if (canManage) {
-  document.getElementById('btn-add-row')?.addEventListener('click', () => {
-    table
-      .addRow({}, true)
-      .then(row => {
-        table.scrollToRow(row, "center", true);
-        row.getCell("vorname")?.edit();
-      })
-      .catch(() => {
-        table.alertError?.("Neue Zeile konnte nicht hinzugefügt werden.");
-      });
-  });
-}
+  reloadParticipants();
 
-document.addEventListener('click', (event) => {
-  if (event.target.closest('.btn-popover-confirm') || event.target.closest('.popover')) {
-    return;
+  if (canManage) {
+    document.getElementById('btn-add-row')?.addEventListener('click', () => {
+      table
+        .addRow({}, true)
+        .then(row => {
+          table.scrollToRow(row, "center", true);
+          row.getCell("vorname")?.edit();
+        })
+        .catch(() => {
+          table.alertError?.("Neue Zeile konnte nicht hinzugefügt werden.");
+        });
+    });
   }
 
-  document.querySelectorAll('.btn-popover-confirm[data-confirmed="true"]').forEach(button => {
-    button.dataset.confirmed = "false";
-    Popover.getInstance(button)?.hide();
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('.btn-popover-confirm') || event.target.closest('.popover')) {
+      return;
+    }
+
+    document.querySelectorAll('.btn-popover-confirm[data-confirmed="true"]').forEach(button => {
+      button.dataset.confirmed = "false";
+      Popover.getInstance(button)?.hide();
+    });
   });
-});
 })();
 </script>
