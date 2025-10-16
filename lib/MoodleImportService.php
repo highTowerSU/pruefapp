@@ -186,6 +186,18 @@ class MoodleImportService
         ];
     }
 
+    public function getCommandPreview(): ?string
+    {
+        if (!$this->canImport()) {
+            return null;
+        }
+
+        $tempDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
+        $placeholder = $tempDir . DIRECTORY_SEPARATOR . uniqid('moodle_import_', false);
+
+        return $this->buildCommand($placeholder);
+    }
+
     private function createCsvFile(array $teilnehmer, ?string $courseShortname, ?string $roleShortname): string
     {
         $file = tempnam(sys_get_temp_dir(), 'moodle_import_');

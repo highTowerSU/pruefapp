@@ -3,6 +3,7 @@
 /** @var array $teilnehmer */
 /** @var array $status */
 /** @var bool $canImport */
+/** @var string|null $commandPreview */
 ?>
 
 <div class="card mb-4">
@@ -84,6 +85,13 @@
                 Hinweis: Der Import nutzt das Moodle-CLI-Skript <code>admin/tool/uploaduser/cli/uploaduser.php</code>. Stelle sicher, dass die ausführende PHP-Version
                 Zugriff auf die Moodle-Konfiguration besitzt.
             </p>
+            <?php if (!empty($commandPreview)): ?>
+                <hr>
+                <p class="mb-2 small text-muted">
+                    Für eine manuelle Ausführung kann folgender Befehl genutzt werden. Der Platzhalter für die CSV-Datei wird während des Imports automatisch erstellt:
+                </p>
+                <pre class="small mb-0"><code><?= htmlspecialchars($commandPreview, ENT_QUOTES) ?></code></pre>
+            <?php endif; ?>
         </div>
     </div>
 <?php endif; ?>
