@@ -140,6 +140,7 @@ try {
   R::createRevisionSupport(R::dispense("nutzer"));
   R::createRevisionSupport(R::dispense("kurs"));
   R::createRevisionSupport(R::dispense("teilnehmer"));
+  R::createRevisionSupport(R::dispense("uebermittlungslink"));
 } catch(Exception $e) {
 
 }
