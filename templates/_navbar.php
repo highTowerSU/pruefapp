@@ -84,6 +84,11 @@
                       aria-haspopup="true">
                 <i class="fa-solid fa-user" aria-hidden="true"></i>
                 <span><?= htmlspecialchars($displayName) ?></span>
+                <?php if ($roleLabel !== null): ?>
+                  <span class="badge text-bg-secondary ms-1" title="Rolle: <?= htmlspecialchars($roleLabel) ?>">
+                    <?= htmlspecialchars($roleLabel) ?>
+                  </span>
+                <?php endif; ?>
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>">
                 <?php if ($userManagementUrl !== null && current_user_has_role('admin')): ?>
@@ -97,11 +102,6 @@
                 </li>
               </ul>
             </div>
-            <?php if ($roleLabel !== null): ?>
-              <span class="badge text-bg-secondary" title="Rolle: <?= htmlspecialchars($roleLabel) ?>">
-                <?= htmlspecialchars($roleLabel) ?>
-              </span>
-            <?php endif; ?>
           </div>
         <?php endif; ?>
 
