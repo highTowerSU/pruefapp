@@ -138,8 +138,7 @@ class ParticipantController
             if ($id > 0) {
                 $teilnehmer = R::load('teilnehmer', $id);
                 if ($teilnehmer->id && (int) $teilnehmer->kurs_id === (int) $kurs->id) {
-                    $teilnehmer->deleted = 1;
-                    R::store($teilnehmer);
+                    R::trash($teilnehmer);
                 }
             }
 
@@ -165,7 +164,6 @@ class ParticipantController
             } else {
                 $teilnehmer = R::dispense('teilnehmer');
                 $teilnehmer->kurs = $kurs;
-                $teilnehmer->deleted = 0;
                 $teilnehmer->passwort = generate_password();
                 $teilnehmer->benutzername = '';
             }
@@ -211,7 +209,7 @@ class ParticipantController
 
     private static function participantsForCourse(int $kursId): array
     {
-        return R::findAll('teilnehmer', 'kurs_id = ? AND (deleted IS NULL OR deleted = 0) ORDER BY nachname, vorname', [$kursId]);
+        return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
     }
 
     private static function handleCsvImport(\RedBeanPHP\OODBBean $kurs): void
@@ -246,7 +244,6 @@ class ParticipantController
             $teilnehmer->passwort = generate_password();
             $teilnehmer->email = generate_email($teilnehmer->benutzername);
             $teilnehmer->kurs = $kurs;
-            $teilnehmer->deleted = 0;
 
             R::store($teilnehmer);
         }

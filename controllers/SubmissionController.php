@@ -46,7 +46,6 @@ class SubmissionController
                 }
                 $teilnehmer->quelle = 'extern';
                 $teilnehmer->kurs = $kurs;
-                $teilnehmer->deleted = 0;
 
                 R::store($teilnehmer);
             }
