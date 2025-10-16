@@ -33,7 +33,7 @@ class MoodleImportService
 
         $this->defaultOptions = $defaultOptions + [
             'delimiter' => 'comma',
-            'encoding' => 'utf-8',
+            'encoding' => 'UTF-8',
             'ignoreerrors' => true,
             'updatemode' => '0',
             'noemail' => true,
