@@ -25,6 +25,7 @@ if (!class_exists('RedBeanPHP\\R')) {
 
 require_once __DIR__ . '/htmx.php';
 require_once __DIR__ . '/router.php';
+require_once __DIR__ . '/branding.php';
 
 function base_path(): string
 {

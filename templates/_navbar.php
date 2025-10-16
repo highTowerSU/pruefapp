@@ -1,6 +1,9 @@
 <nav class="navbar navbar-expand-lg navbar-navy mb-4 noprint">
   <div class="container">
-    <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">Moodle-Zugang</a>
+    <?php $branding = $branding ?? get_branding(); ?>
+    <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
+      <?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?>
+    </a>
     <div class="d-flex align-items-center ms-auto gap-3">
       <div class="dropdown">
         <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="themeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
