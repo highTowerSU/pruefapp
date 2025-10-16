@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../lib/MoodleCourseService.php';
+
 use \RedBeanPHP\R as R;
 
 class CourseController
@@ -157,11 +159,102 @@ class CourseController
             return [303, ['Location' => url_for('kurse')], ''];
         }
 
+        $moodleCopyRequested = isset($_POST['moodle_copy']) && $_POST['moodle_copy'] !== '';
+        $moodleTemplateShortname = trim((string) ($_POST['moodle_template_shortname'] ?? ''));
+        $moodleTargetShortname = trim((string) ($_POST['moodle_new_shortname'] ?? ''));
+        $moodleTargetFullname = trim((string) ($_POST['moodle_new_fullname'] ?? ''));
+        $moodleVisible = isset($_POST['moodle_visible']) ? 1 : 0;
+
+        if ($moodleCopyRequested && $moodleTargetFullname === '') {
+            $moodleTargetFullname = $kursname;
+        }
+
+        $moodleCopyMessage = '';
+        $moodleCourseId = null;
+
+        if ($moodleCopyRequested) {
+            if ($moodleTemplateShortname === '' || $moodleTargetShortname === '') {
+                $error = 'Bitte gib sowohl den Quellkurs als auch den neuen Moodle-Shortname an.';
+                if ($isHx) {
+                    return self::tableResponse(null, $error, 422);
+                }
+
+                $_SESSION['fehlermeldung'] = $error;
+                return [303, ['Location' => url_for('kurse')], ''];
+            }
+
+            $moodleCourseService = new MoodleCourseService();
+
+            if (!$moodleCourseService->canDuplicate()) {
+                $error = 'Der Moodle-Kurskopie-Assistent ist nicht korrekt konfiguriert. Bitte prüfe den Pfad zum Skript course/management/cli/duplicate_course.php.';
+                if ($isHx) {
+                    return self::tableResponse(null, $error, 422);
+                }
+
+                $_SESSION['fehlermeldung'] = $error;
+                return [303, ['Location' => url_for('kurse')], ''];
+            }
+
+            try {
+                $result = $moodleCourseService->duplicateCourse(
+                    $moodleTemplateShortname,
+                    $moodleTargetFullname,
+                    $moodleTargetShortname,
+                    ['visible' => $moodleVisible ? 1 : 0]
+                );
+            } catch (\Throwable $exception) {
+                $error = 'Moodle-Kurs konnte nicht kopiert werden: ' . $exception->getMessage();
+                if ($isHx) {
+                    return self::tableResponse(null, $error, 422);
+                }
+
+                $_SESSION['fehlermeldung'] = $error;
+                return [303, ['Location' => url_for('kurse')], ''];
+            }
+
+            if ((int) $result['exit_code'] !== 0) {
+                $output = !empty($result['output']) ? ' Ausgabe: ' . implode(' ', array_map('trim', $result['output'])) : '';
+                $error = 'Moodle-Kurskopie fehlgeschlagen. Rückgabecode: ' . $result['exit_code'] . '.' . $output;
+                if ($isHx) {
+                    return self::tableResponse(null, $error, 422);
+                }
+
+                $_SESSION['fehlermeldung'] = $error;
+                return [303, ['Location' => url_for('kurse')], ''];
+            }
+
+            $moodleCourseId = $result['course_id'] ?? null;
+            $moodleCopyMessage = sprintf(
+                ' Moodle-Kurs "%s" wurde aus "%s" kopiert.',
+                $moodleTargetShortname,
+                $moodleTemplateShortname
+            );
+
+            if (!empty($result['output'])) {
+                $trimmed = trim(implode(' ', array_map('trim', $result['output'])));
+                if ($trimmed !== '') {
+                    $moodleCopyMessage .= ' ' . $trimmed;
+                }
+            }
+        }
+
         $kurs = R::dispense('kurs');
         $kurs->name = $kursname;
+        if ($moodleTargetShortname !== '') {
+            $kurs->moodle_course_shortname = $moodleTargetShortname;
+        }
+        if ($moodleCopyRequested && $moodleTemplateShortname !== '') {
+            $kurs->moodle_template_shortname = $moodleTemplateShortname;
+        }
+        if ($moodleTargetFullname !== '') {
+            $kurs->moodle_course_fullname = $moodleTargetFullname;
+        }
+        if ($moodleCourseId !== null) {
+            $kurs->moodle_course_id = (int) $moodleCourseId;
+        }
         R::store($kurs);
 
-        $successMessage = sprintf('Kurs "%s" wurde angelegt.', $kursname);
+        $successMessage = sprintf('Kurs "%s" wurde angelegt.', $kursname) . $moodleCopyMessage;
         if ($isHx) {
             return self::tableResponse($successMessage);
         }
