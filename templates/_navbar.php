@@ -126,7 +126,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php if ($hasKeycloakLink): ?>
                   <li>
                     <a class="dropdown-item" href="<?= htmlspecialchars($keycloakAccountUrl, ENT_QUOTES) ?>" target="_blank" rel="noopener">
-                      Keycloak-Profil
+                      Mein Konto …
                     </a>
                   </li>
                 <?php endif; ?>
