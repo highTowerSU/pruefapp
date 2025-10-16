@@ -1,4 +1,5 @@
-<script>
+<script type="module">
+import { Popover } from <?= json_encode(url_for('node_modules/bootstrap/dist/js/bootstrap.esm.js'), JSON_UNESCAPED_SLASHES) ?>;
 const tableElement = document.getElementById('teilnehmer-tabelle');
 const kursId = tableElement?.dataset.kursId;
 
@@ -34,7 +35,7 @@ const table = new Tabulator('#teilnehmer-tabelle', {
         const button = e.target.closest("button") ?? cell.getElement().querySelector("button");
         if (!button) return;
 
-        const popover = bootstrap.Popover.getOrCreateInstance(button, {
+        const popover = Popover.getOrCreateInstance(button, {
           trigger: "manual",
           container: document.body
         });
@@ -53,7 +54,7 @@ const table = new Tabulator('#teilnehmer-tabelle', {
             }
 
             activeButton.dataset.confirmed = "false";
-            bootstrap.Popover.getInstance(activeButton)?.hide();
+            Popover.getInstance(activeButton)?.hide();
           });
 
           popover.show();
@@ -96,7 +97,7 @@ document.addEventListener('click', (event) => {
 
   document.querySelectorAll('.btn-popover-confirm[data-confirmed="true"]').forEach(button => {
     button.dataset.confirmed = "false";
-    bootstrap.Popover.getInstance(button)?.hide();
+    Popover.getInstance(button)?.hide();
   });
 });
 </script>
