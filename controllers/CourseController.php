@@ -4,6 +4,89 @@ use \RedBeanPHP\R as R;
 
 class CourseController
 {
+    public static function showSettings(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse((int)($params['id'] ?? 0));
+        if ($kurs === null) {
+            return [404, [], '<h1>404 – Kurs nicht gefunden</h1>'];
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $kurs->feld_email_aktiv = isset($_POST['feld_email_aktiv']) ? 1 : 0;
+            $kurs->feld_geburtsort_aktiv = isset($_POST['feld_geburtsort_aktiv']) ? 1 : 0;
+            R::store($kurs);
+
+            $_SESSION['meldung'] = 'Einstellungen gespeichert.';
+
+            return [303, ['Location' => '/kurse'], ''];
+        }
+
+        $content = render_template('kurseinstellungen_form.php', ['kurs' => $kurs]);
+        $body = render_template('layout.php', [
+            'title' => 'Kurseinstellungen – ' . $kurs->name,
+            'content' => $content,
+        ]);
+
+        return [200, [], $body];
+    }
+
+    public static function linkSettings(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse((int)($params['id'] ?? 0));
+        if ($kurs === null) {
+            return [404, [], '<h1>404 – Kurs nicht gefunden</h1>'];
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $action = $_POST['action'] ?? '';
+
+            if ($action === 'toggle') {
+                $kurs->uebermittlung_aktiv = $kurs->uebermittlung_aktiv ? 0 : 1;
+                $_SESSION['meldung'] = $kurs->uebermittlung_aktiv
+                    ? 'Übermittlungslink aktiviert.'
+                    : 'Übermittlungslink deaktiviert.';
+            } elseif ($action === 'regenerate') {
+                $kurs->token = bin2hex(random_bytes(8));
+                $kurs->uebermittlung_aktiv = 1;
+                $_SESSION['meldung'] = 'Neuer Link generiert.';
+            }
+
+            R::store($kurs);
+
+            return [303, ['Location' => '/kurse/' . $kurs->id . '/link'], ''];
+        }
+
+        if (!$kurs->token) {
+            $kurs->token = bin2hex(random_bytes(8));
+            $kurs->uebermittlung_aktiv = 1;
+            R::store($kurs);
+        }
+
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
+        $basePath = $basePath === '' ? '' : $basePath;
+        $link = sprintf(
+            '%s://%s%s/uebermitteln/%s',
+            $scheme,
+            $host,
+            $basePath,
+            $kurs->token
+        );
+
+        $content = render_template('link_erzeugen.php', [
+            'kurs' => $kurs,
+            'link' => $link,
+        ]);
+
+        $body = render_template('layout.php', [
+            'title' => 'Link zur Teilnehmerdateneingabe – ' . $kurs->name,
+            'content' => $content,
+        ]);
+
+        return [200, [], $body];
+    }
+
     public static function index(array $params, bool $isHx): array
     {
         if ($isHx) {
@@ -113,5 +196,12 @@ class CourseController
                 'error' => $error,
             ]),
         ];
+    }
+
+    private static function findCourse(int $id): ?\RedBeanPHP\OODBBean
+    {
+        $kurs = R::load('kurs', $id);
+
+        return $kurs->id ? $kurs : null;
     }
 }

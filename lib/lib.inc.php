@@ -19,8 +19,8 @@ foreach ($autoloadCandidates as $autoloadPath) {
     }
 }
 
-if (!class_exists('RedBeanPHP\\R') && file_exists($baseDir . '/rb.php')) {
-    require_once $baseDir . '/rb.php';
+if (!class_exists('RedBeanPHP\\R')) {
+    throw new \RuntimeException('RedBeanPHP konnte nicht geladen werden. Bitte Composer-Abhängigkeiten installieren.');
 }
 
 require_once __DIR__ . '/htmx.php';
@@ -45,13 +45,26 @@ function initialisiere_oidc(bool $force = false): void {
 }
 
 // Seiten ohne Login-Anforderung
-$freieSeiten = ['uebermitteln.php', 'callback.php', 'login.php', 'logout.php'];
+$freieSeiten = ['callback.php', 'login.php', 'logout.php'];
 $aktuelleSeite = basename($_SERVER['PHP_SELF']);
+$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/';
+
+$freiePfade = [
+    '#^/uebermitteln(/|$)#',
+];
+
+$istFreieRoute = false;
+foreach ($freiePfade as $pattern) {
+    if (preg_match($pattern, $requestPath)) {
+        $istFreieRoute = true;
+        break;
+    }
+}
 
 // callback.php braucht OIDC zwingend
 if ($aktuelleSeite === 'callback.php') {
     initialisiere_oidc(force: true);
-} elseif (!in_array($aktuelleSeite, $freieSeiten)) {
+} elseif (!in_array($aktuelleSeite, $freieSeiten) && !$istFreieRoute) {
     initialisiere_oidc();
 }
 

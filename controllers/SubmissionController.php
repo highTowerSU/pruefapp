@@ -1,0 +1,59 @@
+<?php
+
+use \RedBeanPHP\R as R;
+
+class SubmissionController
+{
+    public static function form(array $params, bool $isHx): array
+    {
+        $token = $params['token'] ?? '';
+        $kurs = R::findOne('kurs', ' token = ? ', [$token]);
+
+        if (!$kurs) {
+            return [404, [], '<h1>Ungültiger Link</h1>'];
+        }
+
+        if (!$kurs->uebermittlung_aktiv) {
+            return [403, [], '<h1>Dieser Übermittlungslink ist derzeit deaktiviert.</h1>'];
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            foreach ($_POST['person'] ?? [] as $eintrag) {
+                $vorname = trim($eintrag['vorname'] ?? '');
+                $nachname = trim($eintrag['nachname'] ?? '');
+                $geburtsdatum = trim($eintrag['geburtsdatum'] ?? '');
+
+                if ($vorname === '' || $nachname === '' || $geburtsdatum === '') {
+                    continue;
+                }
+
+                $teilnehmer = R::dispense('teilnehmer');
+                $teilnehmer->vorname = $vorname;
+                $teilnehmer->nachname = $nachname;
+                $teilnehmer->geburtsdatum = $geburtsdatum;
+                $teilnehmer->geburtsort = $kurs->feld_geburtsort_aktiv ? trim($eintrag['geburtsort'] ?? '') : '';
+                $teilnehmer->email = $kurs->feld_email_aktiv ? trim($eintrag['email'] ?? '') : '';
+                $teilnehmer->benutzername = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
+                $teilnehmer->passwort = generate_password();
+                $teilnehmer->quelle = 'extern';
+                $teilnehmer->kurs = $kurs;
+                $teilnehmer->deleted = 0;
+
+                R::store($teilnehmer);
+            }
+
+            return [303, ['Location' => '/uebermitteln/' . $kurs->token . '?danke=1'], ''];
+        }
+
+        $content = isset($_GET['danke'])
+            ? '<div class="alert alert-success">Vielen Dank. Die Daten wurden übermittelt.</div>'
+            : render_template('uebermitteln_form.php', ['kurs' => $kurs]);
+
+        $body = render_template('layout.php', [
+            'title' => 'Teilnehmerdaten übermitteln',
+            'content' => $content,
+        ]);
+
+        return [200, [], $body];
+    }
+}

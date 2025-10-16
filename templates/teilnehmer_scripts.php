@@ -1,7 +1,12 @@
 <script>
-const kursId = new URLSearchParams(window.location.search).get("kurs");
+const tableElement = document.getElementById('teilnehmer-tabelle');
+const kursId = tableElement?.dataset.kursId;
 
-const table = new Tabulator("#teilnehmer-tabelle", {
+if (!kursId) {
+  throw new Error('Kurs-ID nicht gefunden.');
+}
+
+const table = new Tabulator('#teilnehmer-tabelle', {
   layout: "fitColumns",
   ajaxURL: "api/teilnehmer.php?kurs=" + kursId,
   ajaxConfig: "GET",
