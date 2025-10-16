@@ -239,7 +239,17 @@ class MoodleImportService
                 continue;
             }
 
-            $parts[] = $flag . '=' . escapeshellarg((string) $value);
+            $stringValue = (string) $value;
+
+            if (
+                in_array($option, ['delimiter', 'encoding', 'updatemode'], true)
+                && preg_match('/^[A-Za-z0-9_-]+$/', $stringValue)
+            ) {
+                $parts[] = $flag . '=' . $stringValue;
+                continue;
+            }
+
+            $parts[] = $flag . '=' . escapeshellarg($stringValue);
         }
 
         return implode(' ', $parts);
