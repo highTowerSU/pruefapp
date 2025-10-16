@@ -42,7 +42,7 @@ class SubmissionController
                 R::store($teilnehmer);
             }
 
-            return [303, ['Location' => '/uebermitteln/' . $kurs->token . '?danke=1'], ''];
+            return [303, ['Location' => url_for('uebermitteln/' . $kurs->token . '?danke=1')], ''];
         }
 
         $content = isset($_GET['danke'])
