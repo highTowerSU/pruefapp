@@ -23,6 +23,17 @@ if (!class_exists('RedBeanPHP\\R')) {
     throw new \RuntimeException('RedBeanPHP konnte nicht geladen werden. Bitte Composer-Abhängigkeiten installieren.');
 }
 
+spl_autoload_register(function (string $class): void {
+    if (strpos($class, 'Model_') !== 0) {
+        return;
+    }
+
+    $file = __DIR__ . '/models/' . substr($class, 6) . '.php';
+    if (is_file($file)) {
+        require_once $file;
+    }
+});
+
 require_once __DIR__ . '/htmx.php';
 require_once __DIR__ . '/router.php';
 

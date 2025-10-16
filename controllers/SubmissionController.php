@@ -31,8 +31,6 @@ class SubmissionController
                     continue;
                 }
 
-                $hatEintraege = true;
-
                 $teilnehmer = R::dispense('teilnehmer');
                 $teilnehmer->vorname = $vorname;
                 $teilnehmer->nachname = $nachname;
@@ -48,7 +46,12 @@ class SubmissionController
                 $teilnehmer->kurs = $kurs;
                 $teilnehmer->deleted = 0;
 
-                R::store($teilnehmer);
+                try {
+                    R::store($teilnehmer);
+                    $hatEintraege = true;
+                } catch (\InvalidArgumentException $exception) {
+                    continue;
+                }
             }
 
             if ($hatEintraege) {
