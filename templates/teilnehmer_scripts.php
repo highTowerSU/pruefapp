@@ -25,6 +25,24 @@
   const { Popover } = bootstrapLib;
   const apiUrl = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
 
+  const tableBootstrapClasses = ['table', 'table-striped', 'table-hover', 'table-sm'];
+  tableElement.classList.add(...tableBootstrapClasses);
+
+  const syncTableTheme = () => {
+    const theme = document.documentElement.getAttribute('data-bs-theme');
+    tableElement.classList.toggle('table-dark', theme === 'dark');
+  };
+
+  syncTableTheme();
+
+  const themeObserver = new MutationObserver((mutations) => {
+    if (mutations.some(mutation => mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme')) {
+      syncTableTheme();
+    }
+  });
+
+  themeObserver.observe(document.documentElement, { attributes: true });
+
   const table = new TabulatorLib('#teilnehmer-tabelle', {
   layout: "fitColumns",
   placeholder: "Keine Teilnehmer gefunden.",
