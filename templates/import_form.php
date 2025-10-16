@@ -20,7 +20,7 @@
 
     <button type="button" id="btn-add" class="btn btn-secondary mb-3">+ Zeile hinzufügen</button><br>
     <button class="btn btn-primary">Importieren</button>
-    <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer" class="btn btn-link">Zurück</a>
+    <a href="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer'), ENT_QUOTES) ?>" class="btn btn-link">Zurück</a>
 </form>
 
 <script>

@@ -1,14 +1,14 @@
 <div class="d-flex flex-wrap gap-2 mb-3">
-  <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer/import" class="btn btn-sm btn-success">
+  <a href="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer/import'), ENT_QUOTES) ?>" class="btn btn-sm btn-success">
     <i class="fa-solid fa-file-import"></i> Import
   </a>
-  <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer/export" class="btn btn-sm btn-outline-primary">
+  <a href="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer/export'), ENT_QUOTES) ?>" class="btn btn-sm btn-outline-primary">
     <i class="fa-solid fa-file-export"></i> Export (CSV)
   </a>
-  <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer/druck" class="btn btn-sm btn-outline-secondary" target="_blank">
+  <a href="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer/druck'), ENT_QUOTES) ?>" class="btn btn-sm btn-outline-secondary" target="_blank">
     <i class="fa-solid fa-print"></i> Druckansicht
   </a>
-  <a href="/kurse" class="btn btn-sm btn-link">Zurück zur Übersicht</a>
+  <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>" class="btn btn-sm btn-link">Zurück zur Übersicht</a>
 </div>
 
 <div class="d-flex justify-content-between align-items-center mb-2">

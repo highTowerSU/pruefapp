@@ -18,7 +18,7 @@ class CourseController
 
             $_SESSION['meldung'] = 'Einstellungen gespeichert.';
 
-            return [303, ['Location' => '/kurse'], ''];
+            return [303, ['Location' => url_for('kurse')], ''];
         }
 
         $content = render_template('kurseinstellungen_form.php', ['kurs' => $kurs]);
@@ -53,7 +53,7 @@ class CourseController
 
             R::store($kurs);
 
-            return [303, ['Location' => '/kurse/' . $kurs->id . '/link'], ''];
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/link')], ''];
         }
 
         if (!$kurs->token) {
@@ -62,17 +62,7 @@ class CourseController
             R::store($kurs);
         }
 
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $basePath = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
-        $basePath = $basePath === '' ? '' : $basePath;
-        $link = sprintf(
-            '%s://%s%s/uebermitteln/%s',
-            $scheme,
-            $host,
-            $basePath,
-            $kurs->token
-        );
+        $link = absolute_url_for('uebermitteln/' . $kurs->token);
 
         $content = render_template('link_erzeugen.php', [
             'kurs' => $kurs,
@@ -124,7 +114,7 @@ class CourseController
             }
 
             $_SESSION['fehlermeldung'] = $error;
-            return [303, ['Location' => '/kurse'], ''];
+            return [303, ['Location' => url_for('kurse')], ''];
         }
 
         $kurs = R::dispense('kurs');
@@ -137,7 +127,7 @@ class CourseController
         }
 
         $_SESSION['meldung'] = $successMessage;
-        return [303, ['Location' => '/kurse'], ''];
+        return [303, ['Location' => url_for('kurse')], ''];
     }
 
     public static function delete(array $params, bool $isHx): array
@@ -152,7 +142,7 @@ class CourseController
             }
 
             $_SESSION['fehlermeldung'] = $error;
-            return [303, ['Location' => '/kurse'], ''];
+            return [303, ['Location' => url_for('kurse')], ''];
         }
 
         $teilnehmerAnzahl = R::count('teilnehmer', 'kurs_id = ?', [$kurs->id]);
@@ -163,7 +153,7 @@ class CourseController
             }
 
             $_SESSION['fehlermeldung'] = $error;
-            return [303, ['Location' => '/kurse'], ''];
+            return [303, ['Location' => url_for('kurse')], ''];
 
         }
 
@@ -175,7 +165,7 @@ class CourseController
         }
 
         $_SESSION['meldung'] = $message;
-        return [303, ['Location' => '/kurse'], ''];
+        return [303, ['Location' => url_for('kurse')], ''];
     }
 
     private static function allCourses(): array

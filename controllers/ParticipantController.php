@@ -41,7 +41,7 @@ class ParticipantController
 
             $_SESSION['meldung'] = 'Teilnehmer wurden importiert.';
 
-            return [303, ['Location' => '/kurse/' . $kurs->id . '/teilnehmer'], ''];
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
         }
 
         $content = render_template('import_form.php', ['kurs' => $kurs]);
