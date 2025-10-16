@@ -102,6 +102,11 @@
   width: auto;
 }
 
+.img-responsive {
+  max-width: 100%;
+  height: auto;
+}
+
 .page-header-logo {
   max-height: 64px;
   width: auto;
