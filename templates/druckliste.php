@@ -11,7 +11,7 @@
 
 <div class="mb-3 noprint">
     <button onclick="window.print()" class="btn btn-primary">Drucken</button>
-    <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer" class="btn btn-link">Zurück</a>
+    <a href="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer'), ENT_QUOTES) ?>" class="btn btn-link">Zurück</a>
 </div>
 
 <?php if (empty($nutzer)): ?>

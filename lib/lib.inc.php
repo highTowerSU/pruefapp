@@ -26,6 +26,48 @@ if (!class_exists('RedBeanPHP\\R')) {
 require_once __DIR__ . '/htmx.php';
 require_once __DIR__ . '/router.php';
 
+function base_path(): string
+{
+    static $basePath = null;
+
+    if ($basePath !== null) {
+        return $basePath;
+    }
+
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    $dir = str_replace('\\', '/', dirname($scriptName));
+
+    if ($dir === '/' || $dir === '.' || $dir === '') {
+        $dir = '';
+    }
+
+    $basePath = rtrim($dir, '/');
+
+    return $basePath;
+}
+
+function url_for(string $path = ''): string
+{
+    $base = base_path();
+
+    $normalized = ltrim($path, '/');
+    $normalized = $normalized === '' ? '' : '/' . $normalized;
+
+    if ($base === '') {
+        return $normalized === '' ? '/' : $normalized;
+    }
+
+    return $normalized === '' ? ($base === '' ? '/' : $base) : $base . $normalized;
+}
+
+function absolute_url_for(string $path = ''): string
+{
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+
+    return sprintf('%s://%s%s', $scheme, $host, url_for($path));
+}
+
 function initialisiere_oidc(bool $force = false): void {
     $seitenname = basename($_SERVER['PHP_SELF']);
 
@@ -36,10 +78,10 @@ function initialisiere_oidc(bool $force = false): void {
             'moodle-user-gen',
             'ThDCoZOf8xzFoGkpzA9AUSzNmDQftNGa'
         );
-        $oidc->setRedirectURL('https://vserver2.koenigsbl.au/moodle_user_gen/callback.php');
+        $oidc->setRedirectURL(absolute_url_for('callback.php'));
         $oidc->authenticate();
         $_SESSION['user'] = $oidc->requestUserInfo();
-        header('Location: /kurse');
+        header('Location: ' . url_for('kurse'));
         exit;
     }
 }

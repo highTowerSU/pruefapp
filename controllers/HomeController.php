@@ -6,7 +6,7 @@ class HomeController
     {
         // Bei HTMX-Anfragen direkt auf die Kursverwaltung umleiten
         if ($isHx) {
-            return [200, ['HX-Redirect' => '/kurse'], ''];
+            return [200, ['HX-Redirect' => url_for('kurse')], ''];
         }
 
         $content = render_template('home.php');

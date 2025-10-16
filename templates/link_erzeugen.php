@@ -27,6 +27,6 @@
             <button class="btn btn-warning">Neuen Link erzeugen</button>
         </form>
 
-        <a href="/kurse" class="btn btn-link ms-2">Zurück</a>
+        <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>" class="btn btn-link ms-2">Zurück</a>
     </div>
 </div>

@@ -15,5 +15,6 @@ if ($tn->id) {
     $_SESSION['meldung'] = 'Teilnehmer nicht gefunden.';
 }
 
-header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '/kurse'));
+$redirect = $_SERVER['HTTP_REFERER'] ?? url_for('kurse');
+header('Location: ' . $redirect);
 exit;

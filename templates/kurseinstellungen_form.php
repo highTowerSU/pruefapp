@@ -14,5 +14,5 @@
     </div>
 
     <button class="btn btn-primary">Speichern</button>
-    <a href="/kurse" class="btn btn-link">Zurück</a>
+    <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>" class="btn btn-link">Zurück</a>
 </form>
