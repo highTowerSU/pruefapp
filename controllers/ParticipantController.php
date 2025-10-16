@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../lib/MoodleImportService.php';
+
 use \RedBeanPHP\R as R;
 
 class ParticipantController
@@ -129,6 +131,79 @@ class ParticipantController
         return [200, [], $body];
     }
 
+    public static function moodleImport(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return self::notFoundResponse();
+        }
+
+        $teilnehmer = self::participantsForCourse($kurs->id);
+        $courseShortname = trim((string) ($kurs->moodle_course_shortname ?? ''));
+        $courseRole = trim((string) ($kurs->moodle_course_role ?? 'student'));
+        if ($courseRole === '') {
+            $courseRole = 'student';
+        }
+        $service = new MoodleImportService();
+        $status = $service->getStatus();
+
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if (!$service->canImport()) {
+                $_SESSION['fehlermeldung'] = 'Der Moodle-Import ist nicht korrekt konfiguriert. Bitte überprüfe den Pfad zum Moodle-Upload-Skript.';
+            } elseif (count($teilnehmer) === 0) {
+                $_SESSION['meldung'] = 'Es sind keine Teilnehmer für den Moodle-Import vorhanden.';
+                unset($_SESSION['fehlermeldung']);
+            } else {
+                try {
+                    $result = $service->importParticipants(
+                        $teilnehmer,
+                        $courseShortname !== '' ? $courseShortname : null,
+                        $courseShortname !== '' ? $courseRole : null
+                    );
+
+                    if ($result['exit_code'] === 0) {
+                        $count = count($teilnehmer);
+                        $message = $count === 1
+                            ? '1 Teilnehmer wurde an Moodle übergeben.'
+                            : sprintf('%d Teilnehmer wurden an Moodle übergeben.', $count);
+                        if ($courseShortname !== '') {
+                            $message .= ' Zielkurs: ' . $courseShortname . '.';
+                        }
+                        if (!empty($result['output'])) {
+                            $message .= ' ' . implode(' ', array_map('trim', $result['output']));
+                        }
+                        $_SESSION['meldung'] = $message;
+                        unset($_SESSION['fehlermeldung']);
+                    } else {
+                        $errorMessage = 'Moodle-Import fehlgeschlagen. Rückgabecode: ' . $result['exit_code'] . '.';
+                        if (!empty($result['output'])) {
+                            $errorMessage .= ' Ausgabe: ' . implode(' ', array_map('trim', $result['output']));
+                        }
+                        $_SESSION['fehlermeldung'] = $errorMessage;
+                    }
+                } catch (\RuntimeException $exception) {
+                    $_SESSION['fehlermeldung'] = $exception->getMessage();
+                }
+            }
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        $content = render_template('moodle_import.php', [
+            'kurs' => $kurs,
+            'teilnehmer' => $teilnehmer,
+            'status' => $status,
+            'canImport' => $service->canImport(),
+        ]);
+
+        $body = render_template('layout.php', [
+            'title' => 'Moodle-Import – ' . $kurs->name,
+            'content' => $content,
+        ]);
+
+        return [200, [], $body];
+    }
+
     public static function print(array $params, bool $isHx): array
     {
         $kurs = self::findCourse($params);
@@ -162,11 +237,24 @@ class ParticipantController
         }
 
         $teilnehmer = self::participantsForCourse($kurs->id);
+        $courseShortname = trim((string) ($kurs->moodle_course_shortname ?? ''));
+        $courseRole = trim((string) ($kurs->moodle_course_role ?? 'student'));
+        if ($courseRole === '') {
+            $courseRole = 'student';
+        }
+        $includeCourse = $courseShortname !== '';
 
         $rows = [];
-        $rows[] = ['username', 'password', 'firstname', 'lastname', 'email', 'profile_field_birthdate', 'profile_field_birthplace'];
+        $header = ['username', 'password', 'firstname', 'lastname', 'email', 'profile_field_birthdate', 'profile_field_birthplace'];
+        if ($includeCourse) {
+            $header[] = 'course1';
+            if ($courseRole !== '') {
+                $header[] = 'role1';
+            }
+        }
+        $rows[] = $header;
         foreach ($teilnehmer as $tn) {
-            $rows[] = [
+            $row = [
                 $tn->benutzername,
                 $tn->passwort,
                 $tn->vorname,
@@ -175,6 +263,15 @@ class ParticipantController
                 $tn->geburtsdatum,
                 $tn->geburtsort,
             ];
+
+            if ($includeCourse) {
+                $row[] = $courseShortname;
+                if ($courseRole !== '') {
+                    $row[] = $courseRole;
+                }
+            }
+
+            $rows[] = $row;
         }
 
         $fh = fopen('php://temp', 'r+');
@@ -567,6 +664,33 @@ class ParticipantController
             $teilnehmer = R::dispense('teilnehmer');
             $teilnehmer->kurs = $kurs;
 
+            if (isset($values['vorname'])) {
+                $teilnehmer->vorname = $values['vorname'];
+            }
+
+            if (isset($values['nachname'])) {
+                $teilnehmer->nachname = $values['nachname'];
+            }
+
+            if (isset($values['geburtsdatum'])) {
+                $teilnehmer->geburtsdatum = $values['geburtsdatum'];
+            }
+
+            if (isset($values['geburtsort'])) {
+                $teilnehmer->geburtsort = $values['geburtsort'];
+            }
+
+            if (isset($values['benutzername'])) {
+                $teilnehmer->benutzername = $values['benutzername'];
+            }
+
+            if (isset($values['email'])) {
+                $teilnehmer->email = $values['email'];
+            }
+
+            if (isset($values['passwort'])) {
+                $teilnehmer->passwort = $values['passwort'];
+            }
             $teilnehmer->vorname = $values['vorname'] ?? '';
             $teilnehmer->nachname = $values['nachname'] ?? '';
             $teilnehmer->geburtsdatum = normalize_birthdate((string) ($values['geburtsdatum'] ?? ''));
