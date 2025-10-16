@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-lg navbar-navy mb-4">
+<nav class="navbar navbar-expand-lg navbar-navy mb-4 noprint">
   <div class="container-fluid">
     <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">Moodle-Zugang</a>
     <div class="d-flex ms-auto">
