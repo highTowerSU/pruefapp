@@ -5,9 +5,20 @@
       <?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?>
     </a>
     <div class="d-flex align-items-center ms-auto gap-3">
-      <?php if (isset($_SESSION['user'])): ?>
-        <span class="navbar-text me-3">
-          Eingeloggt als <strong><?= htmlspecialchars($_SESSION['user']->preferred_username ?? 'Nutzer') ?></strong>
+      <?php $authUser = current_user(); ?>
+      <?php if ($authUser !== null): ?>
+        <?php
+          $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
+        ?>
+        <span class="navbar-text me-3 d-flex align-items-center gap-2">
+          <span>
+            Eingeloggt als <strong><?= htmlspecialchars($displayName) ?></strong>
+          </span>
+          <?php if (!empty($authUser->role)): ?>
+            <span class="badge text-bg-secondary" title="Rolle: <?= htmlspecialchars(role_label((string) $authUser->role)) ?>">
+              <?= htmlspecialchars(role_label((string) $authUser->role)) ?>
+            </span>
+          <?php endif; ?>
         </span>
         <a href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>" class="btn btn-logout">Logout</a>
       <?php endif; ?>
