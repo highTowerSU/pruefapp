@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../lib/lib.inc.php';
-require_once __DIR__ . '/../controllers/HomeController.php';
-require_once __DIR__ . '/../controllers/CourseController.php';
+require_once __DIR__ . '/lib/lib.inc.php';
+require_once __DIR__ . '/controllers/HomeController.php';
+require_once __DIR__ . '/controllers/CourseController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
