@@ -97,6 +97,9 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
             } else {
                 $userManagementUrl = null;
             }
+            $keycloakAccountUrl = keycloak_account_console_base_url();
+            $hasManagementLink = $userManagementUrl !== null && current_user_has_role('admin');
+            $hasKeycloakLink = $keycloakAccountUrl !== null;
           ?>
           <div class="d-flex align-items-center gap-2">
             <div class="dropdown">
@@ -115,10 +118,19 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php endif; ?>
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>">
-                <?php if ($userManagementUrl !== null && current_user_has_role('admin')): ?>
+                <?php if ($hasManagementLink): ?>
                   <li>
                     <a class="dropdown-item" href="<?= htmlspecialchars($userManagementUrl, ENT_QUOTES) ?>">Nutzerverwaltung</a>
                   </li>
+                <?php endif; ?>
+                <?php if ($hasKeycloakLink): ?>
+                  <li>
+                    <a class="dropdown-item" href="<?= htmlspecialchars($keycloakAccountUrl, ENT_QUOTES) ?>" target="_blank" rel="noopener">
+                      Keycloak-Profil
+                    </a>
+                  </li>
+                <?php endif; ?>
+                <?php if ($hasManagementLink || $hasKeycloakLink): ?>
                   <li><hr class="dropdown-divider"></li>
                 <?php endif; ?>
                 <li>

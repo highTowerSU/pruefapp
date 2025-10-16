@@ -450,6 +450,24 @@ function keycloak_admin_console_base_url(): ?string
     return $serverUrl . '/admin/master/console/#/realms/' . rawurlencode($realm);
 }
 
+function keycloak_account_console_base_url(): ?string
+{
+    $configured = env_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL');
+    if ($configured !== null) {
+        return rtrim($configured, '/');
+    }
+
+    $serverUrl = env_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
+    $realm = env_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
+
+    $serverUrl = rtrim($serverUrl, '/');
+    if ($serverUrl === '') {
+        return null;
+    }
+
+    return $serverUrl . '/realms/' . rawurlencode($realm) . '/account';
+}
+
 function keycloak_user_admin_url(?string $userId): ?string
 {
     $userId = trim((string) $userId);
