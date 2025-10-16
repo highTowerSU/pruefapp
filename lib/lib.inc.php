@@ -37,6 +37,7 @@ spl_autoload_register(function (string $class): void {
 require_once __DIR__ . '/htmx.php';
 require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
+require_once __DIR__ . '/audit_log.php';
 
 // Datenbankverbindung initialisieren
 $dbCandidates = [
@@ -356,6 +357,41 @@ if ($aktuelleSeite === 'callback.php') {
 } elseif (!in_array($aktuelleSeite, $freieSeiten) && !$istFreieRoute) {
     initialisiere_oidc();
 }
+
+// DB-Verbindung (weiter wie bisher)
+$dbCandidates = [
+    $baseDir . '/data/moodle_user_gen/db.sqlite',
+    dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
+    $baseDir . '/db.sqlite',
+];
+
+$dbPath = null;
+foreach ($dbCandidates as $candidate) {
+    $dir = dirname($candidate);
+    if (file_exists($candidate) || is_dir($dir)) {
+        $dbPath = $candidate;
+        break;
+    }
+}
+
+if ($dbPath === null) {
+    $primaryDir = dirname($dbCandidates[0]);
+    if (!is_dir($primaryDir)) {
+        @mkdir($primaryDir, 0777, true);
+    }
+    $dbPath = $dbCandidates[0];
+}
+
+R::setup('sqlite:' . $dbPath);
+R::freeze(false);
+try {
+  R::createRevisionSupport(R::dispense("nutzer"));
+  R::createRevisionSupport(R::dispense("kurs"));
+  R::createRevisionSupport(R::dispense("teilnehmer"));
+  R::createRevisionSupport(R::dispense("uebermittlungslink"));
+  R::createRevisionSupport(R::dispense("auditlog"));
+} catch(Exception $e) {
+
 
 if (isset($_SESSION['auth_user_id'])) {
     current_user();

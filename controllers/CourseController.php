@@ -18,9 +18,30 @@ class CourseController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $previousEmail = (bool) ($kurs->feld_email_aktiv ?? false);
+            $previousGeburtsort = (bool) ($kurs->feld_geburtsort_aktiv ?? false);
+
             $kurs->feld_email_aktiv = isset($_POST['feld_email_aktiv']) ? 1 : 0;
             $kurs->feld_geburtsort_aktiv = isset($_POST['feld_geburtsort_aktiv']) ? 1 : 0;
             R::store($kurs);
+
+            $changes = [];
+            if ($previousEmail !== (bool) $kurs->feld_email_aktiv) {
+                $changes['feld_email_aktiv_alt'] = $previousEmail;
+                $changes['feld_email_aktiv_neu'] = (bool) $kurs->feld_email_aktiv;
+            }
+
+            if ($previousGeburtsort !== (bool) $kurs->feld_geburtsort_aktiv) {
+                $changes['feld_geburtsort_aktiv_alt'] = $previousGeburtsort;
+                $changes['feld_geburtsort_aktiv_neu'] = (bool) $kurs->feld_geburtsort_aktiv;
+            }
+
+            if ($changes !== []) {
+                audit_log('kurseinstellungen_aktualisiert', array_merge([
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                ], $changes));
+            }
 
             $_SESSION['meldung'] = 'Einstellungen gespeichert.';
 
@@ -60,6 +81,14 @@ class CourseController
                 $link->kurs = $kurs;
                 R::store($link);
 
+                audit_log('uebermittlungslink_erstellt', [
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                    'link_id' => (int) $link->id,
+                    'bezeichnung' => $bezeichnung,
+                    'token_vorschau' => audit_log_mask_token((string) $link->token),
+                ]);
+
                 $_SESSION['meldung'] = 'Neuer Übermittlungslink wurde erstellt.';
             } else {
                 $linkId = isset($_POST['link_id']) ? (int) $_POST['link_id'] : 0;
@@ -71,21 +100,52 @@ class CourseController
                 }
 
                 if ($action === 'toggle') {
+                    $previousState = (bool) $link->aktiv;
                     $link->aktiv = $link->aktiv ? 0 : 1;
                     $_SESSION['meldung'] = $link->aktiv
                         ? 'Übermittlungslink wurde aktiviert.'
                         : 'Übermittlungslink wurde deaktiviert.';
                     R::store($link);
+
+                    audit_log($link->aktiv ? 'uebermittlungslink_aktiviert' : 'uebermittlungslink_deaktiviert', [
+                        'kurs_id' => (int) $kurs->id,
+                        'kurs_name' => (string) $kurs->name,
+                        'link_id' => (int) $link->id,
+                        'bezeichnung' => (string) $link->bezeichnung,
+                        'vorher_aktiv' => $previousState,
+                        'aktiv' => (bool) $link->aktiv,
+                    ]);
                 } elseif ($action === 'regenerate') {
+                    $previousToken = (string) $link->token;
                     $link->token = bin2hex(random_bytes(8));
                     $link->aktiv = 1;
                     R::store($link);
                     $_SESSION['meldung'] = 'Der Link wurde neu erzeugt und aktiviert.';
+
+                    audit_log('uebermittlungslink_regeneriert', [
+                        'kurs_id' => (int) $kurs->id,
+                        'kurs_name' => (string) $kurs->name,
+                        'link_id' => (int) $link->id,
+                        'bezeichnung' => (string) $link->bezeichnung,
+                        'token_alt' => audit_log_mask_token($previousToken),
+                        'token_neu' => audit_log_mask_token((string) $link->token),
+                    ]);
                 } elseif ($action === 'rename') {
                     $bezeichnung = trim($_POST['name'] ?? '');
+                    $previousName = (string) $link->bezeichnung;
                     $link->bezeichnung = $bezeichnung;
                     R::store($link);
                     $_SESSION['meldung'] = 'Bezeichnung gespeichert.';
+
+                    if ($previousName !== $bezeichnung) {
+                        audit_log('uebermittlungslink_umbenannt', [
+                            'kurs_id' => (int) $kurs->id,
+                            'kurs_name' => (string) $kurs->name,
+                            'link_id' => (int) $link->id,
+                            'bezeichnung_alt' => $previousName,
+                            'bezeichnung_neu' => $bezeichnung,
+                        ]);
+                    }
                 }
             }
 
@@ -266,6 +326,11 @@ class CourseController
         }
         R::store($kurs);
 
+        audit_log('kurs_angelegt', [
+            'kurs_id' => (int) $kurs->id,
+            'kurs_name' => $kursname,
+        ]);
+
         $successMessage = sprintf('Kurs "%s" wurde angelegt.', $kursname) . $moodleCopyMessage;
         if ($isHx) {
             return self::tableResponse($successMessage);
@@ -307,6 +372,10 @@ class CourseController
         }
 
         R::trash($kurs);
+        audit_log('kurs_geloescht', [
+            'kurs_id' => $id,
+            'kurs_name' => (string) $kurs->name,
+        ]);
         $message = sprintf('Kurs "%s" wurde gelöscht.', $kurs->name);
 
         if ($isHx) {
