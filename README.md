@@ -13,6 +13,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Mandantenfähiges Branding inklusive Firmenverwaltung, Logo-Upload und Impressumssteuerung
 - Individuelle Navigationsfarben pro Firma
 - Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung
+- Schnellzugriff auf die persönliche Keycloak-Account-Seite über das Benutzermenü
 
 
 ## Voraussetzungen
@@ -45,6 +46,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 ## Konfiguration
 
 - `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Admin-Oberfläche eines Realms. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet.
+- `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Account-Oberfläche für Nutzer*innen. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet.
 - `APP_KEYCLOAK_SERVER_URL` – Basis-URL der Keycloak-Instanz (Standard: `https://login.koenigsbl.au`).
 - `APP_KEYCLOAK_REALM` – Name des Keycloak-Realms (Standard: `koenigsbl.au`).
 - Der Pfad zur Moodle-Installation kann im Backend unter „Konfiguration“ gesetzt werden. Alternativ greift die Umgebungsvariable `MOODLE_PATH`.
