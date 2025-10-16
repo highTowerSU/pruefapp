@@ -1,4 +1,9 @@
-<form method="post" class="mb-4">
+<form method="post"
+      class="mb-4"
+      hx-post="kurse"
+      hx-target="#kurs-tabelle"
+      hx-swap="outerHTML"
+      hx-on::after-request="if (event.detail.successful) { this.reset(); const input = this.querySelector('[name=kursname]'); if (input) { input.focus(); } }">
     <div class="row g-2">
         <div class="col-md-6">
             <input type="text" name="kursname" class="form-control" placeholder="Neuer Kursname" required>
@@ -9,22 +14,8 @@
     </div>
 </form>
 
-<table class="table table-striped align-middle">
-  <thead class="table-dark">
-    <tr>
-      <th style="width: 30%;">Kursname</th>
-      <th class="text-nowrap">Aktionen</th>
-    </tr>
-  </thead>
-  <tbody>
-    <?php foreach ($kurse as $kurs): ?>
-      <tr>
-        <td><?= htmlspecialchars($kurs->name) ?></td>
-        <td class="text-nowrap">
-  <?php include 'templates/kurs_buttons.php'; ?>
-</td>
-      </tr>
-    <?php endforeach; ?>
-  </tbody>
-</table>
-
+<?= render_template('kurs_table.php', [
+    'kurse' => $kurse,
+    'message' => $message ?? null,
+    'error' => $error ?? null,
+]) ?>
