@@ -1,5 +1,7 @@
 # Moodle User Generator
 
+Softwareprojekt der CENEOS GmbH – entwickelt für die Firmengruppe Koenigsbl.au.
+
 Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse und Teilnehmer*innen für Moodle vorbereitet werden können. Die Anwendung basiert auf PHP, nutzt RedBeanPHP als ORM und bindet ein Keycloak/OpenID-Connect-Login ein.
 
 ## Features
