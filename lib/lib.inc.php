@@ -93,6 +93,22 @@ function initialize_database(): void
     $initialized = true;
 }
 
+function env_value(string $name): ?string
+{
+    $value = getenv($name);
+    if ($value === false) {
+        $value = $_ENV[$name] ?? null;
+    }
+
+    if ($value === null) {
+        return null;
+    }
+
+    $value = trim((string) $value);
+
+    return $value === '' ? null : $value;
+}
+
 function base_path(): string
 {
     static $basePath = null;
@@ -302,14 +318,57 @@ function current_user_has_role(string ...$roles): bool
     return false;
 }
 
-function role_label(string $role): string
+function available_user_roles(): array
 {
-    $map = [
+    return [
         'admin' => 'Administrator/in',
         'user' => 'Betrachter/in',
     ];
+}
 
-    return $map[strtolower($role)] ?? ucfirst($role);
+function role_label(string $role): string
+{
+    $roles = available_user_roles();
+    $normalized = strtolower($role);
+
+    return $roles[$normalized] ?? ucfirst($role);
+}
+
+function keycloak_admin_console_base_url(): ?string
+{
+    $configured = env_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL');
+    if ($configured !== null) {
+        return rtrim($configured, '/');
+    }
+
+    $serverUrl = env_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
+    $realm = env_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
+
+    $serverUrl = rtrim($serverUrl, '/');
+    if ($serverUrl === '') {
+        return null;
+    }
+
+    return $serverUrl . '/admin/master/console/#/realms/' . rawurlencode($realm);
+}
+
+function keycloak_user_admin_url(?string $userId): ?string
+{
+    $userId = trim((string) $userId);
+    if ($userId === '') {
+        return null;
+    }
+
+    $base = keycloak_admin_console_base_url();
+    if ($base === null || $base === '') {
+        return null;
+    }
+
+    if (!preg_match('#/users/?$#', $base)) {
+        $base = rtrim($base, '/') . '/users';
+    }
+
+    return $base . '/' . rawurlencode($userId);
 }
 
 function initialisiere_oidc(bool $force = false): void {
