@@ -48,7 +48,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         <?php $brandLogoUrl = preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo); ?>
         <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES) ?>"
              alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? '')) ?>"
-             class="navbar-brand-logo">
+             class="navbar-brand-logo img-responsive">
       <?php endif; ?>
       <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?></span>
     </a>
