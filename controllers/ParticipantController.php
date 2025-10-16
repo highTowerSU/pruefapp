@@ -37,48 +37,47 @@ class ParticipantController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $result = self::handleCsvImport($kurs);
+            if (isset($_POST['mapping_submitted'])) {
+                $header = self::decodeHeaderPayload((string) ($_POST['header_payload'] ?? ''));
+                $rows = self::decodeRowsPayload((string) ($_POST['rows_payload'] ?? ''));
 
-            if ($result['imported'] > 0) {
-                $message = $result['imported'] === 1
-                    ? '1 Teilnehmer wurde importiert.'
-                    : sprintf('%d Teilnehmer wurden importiert.', $result['imported']);
-                $_SESSION['meldung'] = $message;
-            } else {
-                $_SESSION['meldung'] = 'Es wurden keine Teilnehmer importiert.';
-            }
-
-            if ($result['failed'] > 0) {
-                $errorMessage = $result['failed'] === 1
-                    ? '1 Zeile konnte nicht importiert werden.'
-                    : sprintf('%d Zeilen konnten nicht importiert werden.', $result['failed']);
-
-                if (!empty($result['errors'])) {
-                    $errorMessage .= ' ' . implode(' ', $result['errors']);
-                }
-
-                $_SESSION['fehlermeldung'] = $errorMessage;
-            } else {
-                unset($_SESSION['fehlermeldung']);
-            }
+                if ($header === null || $rows === null) {
+                    $_SESSION['fehlermeldung'] = 'Zuordnung konnte nicht verarbeitet werden.';
 
                     return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
                 }
 
                 $mapping = self::sanitizeMapping($_POST['mapping'] ?? [], $header);
+                $result = self::importRows($kurs, $rows, $mapping);
 
-                $imported = self::importRows($kurs, $rows, $mapping);
+                if ($result['imported'] > 0) {
+                    $_SESSION['meldung'] = $result['imported'] === 1
+                        ? '1 Teilnehmer wurde importiert.'
+                        : sprintf('%d Teilnehmer wurden importiert.', $result['imported']);
+                } else {
+                    $_SESSION['meldung'] = 'Es wurden keine Teilnehmer importiert.';
+                }
 
-                $_SESSION['meldung'] = $imported === 1
-                    ? '1 Teilnehmer wurde importiert.'
-                    : sprintf('%d Teilnehmer wurden importiert.', $imported);
+                if ($result['failed'] > 0) {
+                    $errorMessage = $result['failed'] === 1
+                        ? '1 Zeile konnte nicht importiert werden.'
+                        : sprintf('%d Zeilen konnten nicht importiert werden.', $result['failed']);
+
+                    if (!empty($result['errors'])) {
+                        $errorMessage .= ' ' . implode(' ', $result['errors']);
+                    }
+
+                    $_SESSION['fehlermeldung'] = $errorMessage;
+                } else {
+                    unset($_SESSION['fehlermeldung']);
+                }
 
                 return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
             }
 
-            $result = self::parseUploadedCsv($_FILES['csv'] ?? null);
+            $parsed = self::parseUploadedCsv($_FILES['csv'] ?? null);
 
-            if ($result === null) {
+            if ($parsed === null) {
                 $_SESSION['fehlermeldung'] = 'CSV-Datei konnte nicht gelesen werden.';
 
                 return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
@@ -87,7 +86,7 @@ class ParticipantController
             $fieldLabels = self::fieldLabels();
             $initialMapping = [];
             foreach (array_keys($fieldLabels) as $fieldKey) {
-                $guess = self::guessColumn($result['header'], $fieldKey);
+                $guess = self::guessColumn($parsed['header'], $fieldKey);
                 if ($guess !== null) {
                     $initialMapping[$fieldKey] = $guess;
                 }
@@ -95,13 +94,13 @@ class ParticipantController
 
             $content = render_template('import_mapping.php', [
                 'kurs' => $kurs,
-                'headers' => $result['header'],
-                'previewRows' => array_slice($result['rows'], 0, 5),
-                'rowCount' => count($result['rows']),
+                'headers' => $parsed['header'],
+                'previewRows' => array_slice($parsed['rows'], 0, 5),
+                'rowCount' => count($parsed['rows']),
                 'fieldLabels' => $fieldLabels,
                 'initialMapping' => $initialMapping,
-                'rowsPayload' => self::encodeRowsPayload($result['rows']),
-                'headerPayload' => self::encodeHeaderPayload($result['header']),
+                'rowsPayload' => self::encodeRowsPayload($parsed['rows']),
+                'headerPayload' => self::encodeHeaderPayload($parsed['header']),
             ]);
 
             $body = render_template('layout.php', [
@@ -284,27 +283,26 @@ class ParticipantController
         return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
     }
 
-    private static function handleCsvImport(\RedBeanPHP\OODBBean $kurs): array
+    private static function parseUploadedCsv(?array $file): ?array
     {
-        $result = [
-            'imported' => 0,
-            'failed' => 0,
-            'errors' => [],
-        ];
+        if ($file === null || !is_array($file)) {
+            return null;
+        }
 
-        if (empty($_FILES['csv']['tmp_name'])) {
-            return $result;
+        $error = isset($file['error']) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
+        if ($error !== UPLOAD_ERR_OK || empty($file['tmp_name'])) {
+            return null;
         }
 
         $handle = fopen($file['tmp_name'], 'r');
         if ($handle === false) {
-            return $result;
+            return null;
         }
 
         $rawHeader = fgetcsv($handle);
         if ($rawHeader === false) {
             fclose($handle);
-            return $result;
+            return null;
         }
 
         $header = self::normalizeHeader($rawHeader);
@@ -515,9 +513,13 @@ class ParticipantController
         return $clean;
     }
 
-    private static function importRows(\RedBeanPHP\OODBBean $kurs, array $rows, array $mapping): int
+    private static function importRows(\RedBeanPHP\OODBBean $kurs, array $rows, array $mapping): array
     {
-        $imported = 0;
+        $result = [
+            'imported' => 0,
+            'failed' => 0,
+            'errors' => [],
+        ];
 
         foreach ($rows as $row) {
             if (!is_array($row)) {
@@ -548,16 +550,37 @@ class ParticipantController
             $teilnehmer = R::dispense('teilnehmer');
             $teilnehmer->kurs = $kurs;
 
+            $teilnehmer->vorname = $values['vorname'] ?? '';
+            $teilnehmer->nachname = $values['nachname'] ?? '';
+            $teilnehmer->geburtsdatum = $values['geburtsdatum'] ?? '';
+            $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
+
+            $username = $values['benutzername'] ?? '';
+            if ($username === '' && $teilnehmer->vorname !== '' && $teilnehmer->nachname !== '') {
+                $username = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
+            }
+            $teilnehmer->benutzername = $username;
+
+            $password = $values['passwort'] ?? '';
+            if ($password === '') {
+                $password = generate_password();
+            }
+            $teilnehmer->passwort = $password;
+
+            $email = $values['email'] ?? '';
+            if ($email === '' && $teilnehmer->benutzername !== '') {
+                $email = generate_email($teilnehmer->benutzername);
+            }
+            $teilnehmer->email = $email;
+
             try {
                 R::store($teilnehmer);
                 $result['imported']++;
-            } catch (\InvalidArgumentException $exception) {
+            } catch (\Throwable $exception) {
                 $result['failed']++;
                 $result['errors'][] = $exception->getMessage();
             }
         }
-
-        fclose($handle);
 
         $result['errors'] = array_values(array_unique($result['errors']));
 
