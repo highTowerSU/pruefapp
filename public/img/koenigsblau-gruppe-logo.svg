@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" role="img" aria-labelledby="title desc">
+  <title id="title">Firmengruppe Königsblau</title>
+  <desc id="desc">Stilisiertes Logo der Firmengruppe Königsblau</desc>
+  <rect width="160" height="48" rx="12" fill="#0a2740" />
+  <path d="M36 12l8 12-8 12-8-12z" fill="#1e88e5" />
+  <path d="M52 12l8 12-8 12-8-12z" fill="#64b5f6" />
+  <text x="74" y="30" font-family="'Montserrat', 'Segoe UI', sans-serif" font-size="16" fill="#e3f2fd" font-weight="600">Königsblau</text>
+</svg>

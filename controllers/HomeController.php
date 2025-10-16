@@ -9,10 +9,14 @@ class HomeController
             return [200, ['HX-Redirect' => url_for('kurse')], ''];
         }
 
-        $content = render_template('home.php');
+        $branding = get_branding();
+        $content = render_template('home.php', [
+            'branding' => $branding,
+        ]);
         $body = render_template('layout.php', [
-            'title' => 'Moodle Zugang',
+            'title' => $branding['app_title'],
             'content' => $content,
+            'branding' => $branding,
         ]);
 
         return [200, [], $body];

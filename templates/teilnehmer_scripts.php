@@ -11,8 +11,6 @@ const apiUrl = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
 
 const table = new Tabulator('#teilnehmer-tabelle', {
   layout: "fitColumns",
-  ajaxURL: apiUrl,
-  ajaxConfig: "GET",
   placeholder: "Keine Teilnehmer gefunden.",
   columns: [
     { title: "Vorname", field: "vorname", editor: "input" },
@@ -46,7 +44,16 @@ const table = new Tabulator('#teilnehmer-tabelle', {
           const id = button.dataset.id;
           fetch(apiUrl + "?delete=" + id, {
             method: "POST"
-          }).then(() => table.replaceData());
+          }).then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            return null;
+          }).then(() => reloadParticipants()).catch(error => {
+            console.error("Löschen des Teilnehmers fehlgeschlagen", error);
+            showTableError("Teilnehmer konnte nicht gelöscht werden.");
+          });
         } else {
           document.querySelectorAll('.btn-popover-confirm[data-confirmed="true"]').forEach(activeButton => {
             if (activeButton === button) {
@@ -78,13 +85,55 @@ const table = new Tabulator('#teilnehmer-tabelle', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
-    }).then(r => r.json()).then(res => {
+    }).then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response.json();
+    }).then(res => {
       if (res && typeof res === "object") {
         cell.getRow().update(res);
       }
+    }).catch(error => {
+      console.error("Speichern des Teilnehmers fehlgeschlagen", error);
+      showTableError("Änderungen konnten nicht gespeichert werden.");
+      reloadParticipants();
     });
   }
 });
+
+const showTableError = (message) => {
+  if (typeof table.alertError === "function") {
+    table.alertError(message);
+  } else {
+    console.error(message);
+  }
+};
+
+const reloadParticipants = () => {
+  fetch(apiUrl, {
+    headers: { "Accept": "application/json" }
+  }).then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }).then(data => {
+    if (!Array.isArray(data)) {
+      throw new Error("Antwort ist kein Array");
+    }
+
+    table.setData(data);
+  }).catch(error => {
+    console.error("Teilnehmer konnten nicht geladen werden", error);
+    table.setData([]);
+    showTableError("Teilnehmer konnten nicht geladen werden.");
+  });
+};
+
+reloadParticipants();
 
 document.getElementById('btn-add-row')?.addEventListener('click', () => {
   table

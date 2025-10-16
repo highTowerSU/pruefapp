@@ -29,6 +29,50 @@
                 }
             };
 
+            const themeOrder = ['light', 'dark', 'auto'];
+            const themeLabels = {
+                light: 'Hell',
+                dark: 'Dunkel',
+                auto: 'Automatisch'
+            };
+            const themeIcons = {
+                light: 'fa-sun',
+                dark: 'fa-moon',
+                auto: 'fa-circle-half-stroke'
+            };
+
+            const updateThemeUI = (theme) => {
+                document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
+                    const value = button.getAttribute('data-bs-theme-value');
+                    const isActive = value === theme;
+                    button.classList.toggle('active', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                const cycleButton = document.getElementById('themeCycleButton');
+                if (!cycleButton) {
+                    return;
+                }
+
+                const iconElement = cycleButton.querySelector('[data-theme-icon]');
+                const iconClass = themeIcons[theme] ?? themeIcons.auto;
+                if (iconElement) {
+                    iconElement.className = `fas ${iconClass}`;
+                }
+
+                const label = themeLabels[theme] ?? theme;
+                const description = `Theme umschalten (aktuell: ${label})`;
+                cycleButton.dataset.currentTheme = theme;
+                cycleButton.setAttribute('aria-label', description);
+                cycleButton.setAttribute('title', description);
+            };
+
+            const applyTheme = (theme) => {
+                setStoredTheme(theme);
+                setTheme(theme);
+                updateThemeUI(theme);
+            };
+
             setTheme(getPreferredTheme());
 
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -38,32 +82,25 @@
             });
 
             window.addEventListener('DOMContentLoaded', () => {
-                const storedTheme = getStoredTheme() || 'auto';
-                const activeButton = document.querySelector(`[data-bs-theme-value="${storedTheme}"]`);
-                if (activeButton) {
-                    activeButton.classList.add('active');
-                    activeButton.setAttribute('aria-pressed', 'true');
-                }
+                const initialTheme = getStoredTheme() || 'auto';
+                updateThemeUI(initialTheme);
 
                 document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
-                    if (button !== activeButton) {
-                        button.setAttribute('aria-pressed', 'false');
-                    }
-
                     button.addEventListener('click', () => {
                         const theme = button.getAttribute('data-bs-theme-value');
-                        setStoredTheme(theme);
-                        setTheme(theme);
-
-                        document.querySelectorAll('[data-bs-theme-value].active').forEach(active => {
-                            active.classList.remove('active');
-                            active.setAttribute('aria-pressed', 'false');
-                        });
-
-                        button.classList.add('active');
-                        button.setAttribute('aria-pressed', 'true');
+                        applyTheme(theme);
                     });
                 });
+
+                const cycleButton = document.getElementById('themeCycleButton');
+                if (cycleButton) {
+                    cycleButton.addEventListener('click', () => {
+                        const storedTheme = getStoredTheme() || cycleButton.dataset.currentTheme || 'auto';
+                        const currentIndex = themeOrder.indexOf(storedTheme);
+                        const nextTheme = themeOrder[(currentIndex + 1) % themeOrder.length] || themeOrder[0];
+                        applyTheme(nextTheme);
+                    });
+                }
             });
         })();
     </script>
@@ -75,10 +112,12 @@
 
 
 </head>
-<body>
+<?php $branding = $branding ?? get_branding(); ?>
+<body class="d-flex flex-column min-vh-100">
 <?php include "templates/_navbar.php"; ?>
+<main class="flex-grow-1">
 <div class="container py-4">
-    <h1><?= htmlspecialchars($title ?? 'Seite') ?></h1>
+    <h1><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
         <?php if (!empty($_SESSION['meldung'])): ?>
   <div class="alert alert-info"><?= htmlspecialchars($_SESSION['meldung']) ?></div>
   <?php unset($_SESSION['meldung']); ?>
@@ -90,6 +129,57 @@
 
     <?= $content ?>
 </div>
+</main>
+
+<footer class="footer mt-auto py-4 border-top bg-body-tertiary">
+  <div class="container">
+    <div class="row align-items-center gy-3">
+      <div class="col-lg">
+        <div class="text-uppercase fw-semibold small text-secondary mb-1">
+          Softwareprojekt der <?= htmlspecialchars($branding['project_owner'] ?? '') ?>
+        </div>
+        <p class="mb-0 text-body-secondary small">
+          <?php if (!empty($branding['primary_client'])): ?>
+            Entwickelt für <?= htmlspecialchars($branding['primary_client']) ?>
+            <?php if (!empty($branding['group_reference']) && $branding['group_reference'] !== $branding['primary_client']): ?>
+              – einsetzbar innerhalb der <?= htmlspecialchars($branding['group_reference']) ?>.
+            <?php else: ?>
+              .
+            <?php endif; ?>
+          <?php endif; ?>
+        </p>
+      </div>
+      <?php if (!empty($branding['logos'])): ?>
+        <div class="col-lg-auto ms-lg-auto">
+          <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-3 footer-logos">
+            <?php foreach ($branding['logos'] as $logo): ?>
+              <?php if (!empty($logo['path'])): ?>
+                <img src="<?= htmlspecialchars(url_for($logo['path']), ENT_QUOTES) ?>"
+                     alt="<?= htmlspecialchars($logo['alt'] ?? '') ?>"
+                     class="footer-logo img-fluid">
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endif; ?>
+    </div>
+    <?php $legal = $branding['legal'] ?? []; ?>
+    <?php if (!empty($legal['impressum']['url']) || !empty($legal['privacy']['url'])): ?>
+      <div class="mt-3 small">
+        <?php if (!empty($legal['impressum']['url'])): ?>
+          <a class="link-secondary text-decoration-none me-3" href="<?= htmlspecialchars($legal['impressum']['url'], ENT_QUOTES) ?>" target="_blank" rel="noopener">
+            <?= htmlspecialchars($legal['impressum']['label'] ?? 'Impressum') ?>
+          </a>
+        <?php endif; ?>
+        <?php if (!empty($legal['privacy']['url'])): ?>
+          <a class="link-secondary text-decoration-none" href="<?= htmlspecialchars($legal['privacy']['url'], ENT_QUOTES) ?>" target="_blank" rel="noopener">
+            <?= htmlspecialchars($legal['privacy']['label'] ?? 'Datenschutz') ?>
+          </a>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+  </div>
+</footer>
 
 <!-- Scripts -->
     <script src="<?= htmlspecialchars(url_for('node_modules/jquery/dist/jquery.min.js'), ENT_QUOTES) ?>"></script>

@@ -54,3 +54,19 @@
   border-color: var(--bs-primary);
   color: var(--bs-primary-contrast);
 }
+
+.footer-logo {
+  height: 40px;
+  width: auto;
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.12));
+}
+
+.footer-logos {
+  gap: 1.5rem !important;
+}
+
+@media (max-width: 576px) {
+  .footer-logo {
+    height: 32px;
+  }
+}

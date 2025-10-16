@@ -31,8 +31,6 @@ class SubmissionController
                     continue;
                 }
 
-                $hatEintraege = true;
-
                 $teilnehmer = R::dispense('teilnehmer');
                 $teilnehmer->vorname = $vorname;
                 $teilnehmer->nachname = $nachname;
@@ -47,7 +45,12 @@ class SubmissionController
                 $teilnehmer->quelle = 'extern';
                 $teilnehmer->kurs = $kurs;
 
-                R::store($teilnehmer);
+                try {
+                    R::store($teilnehmer);
+                    $hatEintraege = true;
+                } catch (\InvalidArgumentException $exception) {
+                    continue;
+                }
             }
 
             if ($hatEintraege) {

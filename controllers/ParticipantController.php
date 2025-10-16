@@ -37,12 +37,30 @@ class ParticipantController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if (isset($_POST['mapping_submitted'])) {
-                $header = self::decodeHeaderPayload($_POST['header_payload'] ?? '');
-                $rows = self::decodeRowsPayload($_POST['rows_payload'] ?? '');
+            $result = self::handleCsvImport($kurs);
 
-                if ($header === null || $rows === null) {
-                    $_SESSION['fehlermeldung'] = 'Die übermittelten Importdaten sind ungültig. Bitte starten Sie den Import erneut.';
+            if ($result['imported'] > 0) {
+                $message = $result['imported'] === 1
+                    ? '1 Teilnehmer wurde importiert.'
+                    : sprintf('%d Teilnehmer wurden importiert.', $result['imported']);
+                $_SESSION['meldung'] = $message;
+            } else {
+                $_SESSION['meldung'] = 'Es wurden keine Teilnehmer importiert.';
+            }
+
+            if ($result['failed'] > 0) {
+                $errorMessage = $result['failed'] === 1
+                    ? '1 Zeile konnte nicht importiert werden.'
+                    : sprintf('%d Zeilen konnten nicht importiert werden.', $result['failed']);
+
+                if (!empty($result['errors'])) {
+                    $errorMessage .= ' ' . implode(' ', $result['errors']);
+                }
+
+                $_SESSION['fehlermeldung'] = $errorMessage;
+            } else {
+                unset($_SESSION['fehlermeldung']);
+            }
 
                     return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
                 }
@@ -241,7 +259,11 @@ class ParticipantController
                 $teilnehmer->email = generate_email($teilnehmer->benutzername);
             }
 
-            R::store($teilnehmer);
+            try {
+                R::store($teilnehmer);
+            } catch (\InvalidArgumentException $exception) {
+                return self::jsonResponse(422, ['error' => $exception->getMessage()]);
+            }
 
             return self::jsonResponse(200, self::participantToArray($teilnehmer));
         }
@@ -262,21 +284,27 @@ class ParticipantController
         return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
     }
 
-    private static function parseUploadedCsv(?array $file): ?array
+    private static function handleCsvImport(\RedBeanPHP\OODBBean $kurs): array
     {
-        if (!$file || empty($file['tmp_name']) || !is_readable($file['tmp_name'])) {
-            return null;
+        $result = [
+            'imported' => 0,
+            'failed' => 0,
+            'errors' => [],
+        ];
+
+        if (empty($_FILES['csv']['tmp_name'])) {
+            return $result;
         }
 
         $handle = fopen($file['tmp_name'], 'r');
         if ($handle === false) {
-            return null;
+            return $result;
         }
 
         $rawHeader = fgetcsv($handle);
         if ($rawHeader === false) {
             fclose($handle);
-            return null;
+            return $result;
         }
 
         $header = self::normalizeHeader($rawHeader);
@@ -520,58 +548,20 @@ class ParticipantController
             $teilnehmer = R::dispense('teilnehmer');
             $teilnehmer->kurs = $kurs;
 
-            $teilnehmer->vorname = $values['vorname'] ?? '';
-            $teilnehmer->nachname = $values['nachname'] ?? '';
-            $teilnehmer->geburtsdatum = $values['geburtsdatum'] ?? '';
-            $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
-
-            $username = $values['benutzername'] ?? '';
-            $username = trim($username);
-
-            if ($username === '' && $teilnehmer->vorname !== '' && $teilnehmer->nachname !== '') {
-                $username = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
+            try {
+                R::store($teilnehmer);
+                $result['imported']++;
+            } catch (\InvalidArgumentException $exception) {
+                $result['failed']++;
+                $result['errors'][] = $exception->getMessage();
             }
-
-            if ($username !== '') {
-                $username = self::ensureUniqueUsername($username);
-            }
-
-            if ($username === '' && $teilnehmer->vorname === '' && $teilnehmer->nachname === '') {
-                // Ohne Namen oder Benutzernamen macht ein Import keinen Sinn.
-                continue;
-            }
-
-            $password = $values['passwort'] ?? '';
-            if ($password === '') {
-                $password = generate_password();
-            }
-
-            $email = $values['email'] ?? '';
-            if ($email === '' && $username !== '') {
-                $email = generate_email($username);
-            }
-
-            $teilnehmer->benutzername = $username;
-            $teilnehmer->passwort = $password;
-            $teilnehmer->email = $email;
-
-            R::store($teilnehmer);
-            $imported++;
         }
 
-        return $imported;
-    }
+        fclose($handle);
 
-    private static function ensureUniqueUsername(string $username): string
-    {
-        $candidate = $username;
-        $suffix = 1;
-        while (R::findOne('teilnehmer', ' benutzername = ? ', [$candidate])) {
-            $candidate = $username . $suffix;
-            $suffix++;
-        }
+        $result['errors'] = array_values(array_unique($result['errors']));
 
-        return $candidate;
+        return $result;
     }
 
     private static function notFoundResponse(): array
