@@ -57,7 +57,17 @@ class MoodleImportService
             return '';
         }
 
-        return $this->moodleRoot . '/admin/cli/uploaduser.php';
+        $modernPath = $this->moodleRoot . '/admin/tool/uploaduser/cli/uploaduser.php';
+        if (is_file($modernPath)) {
+            return $modernPath;
+        }
+
+        $legacyPath = $this->moodleRoot . '/admin/cli/uploaduser.php';
+        if (is_file($legacyPath)) {
+            return $legacyPath;
+        }
+
+        return $modernPath;
     }
 
     public function isConfigured(): bool

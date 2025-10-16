@@ -10,7 +10,7 @@
         <h4 class="card-title">Teilnehmer nach Moodle importieren</h4>
         <p class="card-text">
             Für diesen Kurs sind aktuell <strong><?= count($teilnehmer) ?></strong> Teilnehmer<?= count($teilnehmer) === 1 ? '' : 'innen' ?> erfasst.
-            Die Daten werden als CSV vorbereitet und über das Moodle-CLI-Skript <code>uploaduser.php</code> importiert.
+            Die Daten werden als CSV vorbereitet und über das Moodle-CLI-Skript <code>admin/tool/uploaduser/cli/uploaduser.php</code> importiert.
         </p>
 
         <?php if (!empty($kurs->moodle_course_shortname ?? '')): ?>
@@ -81,7 +81,7 @@
                 <li>Moodle versendet keine Benachrichtigungen, da die Option <code>--noemail</code> gesetzt wird.</li>
             </ul>
             <p class="mb-0 text-muted small">
-                Hinweis: Der Import nutzt das Moodle-CLI-Skript <code>admin/cli/uploaduser.php</code>. Stelle sicher, dass die ausführende PHP-Version
+                Hinweis: Der Import nutzt das Moodle-CLI-Skript <code>admin/tool/uploaduser/cli/uploaduser.php</code>. Stelle sicher, dass die ausführende PHP-Version
                 Zugriff auf die Moodle-Konfiguration besitzt.
             </p>
         </div>
