@@ -77,12 +77,16 @@ function initialize_database(): void
     R::setup('sqlite:' . $dbPath);
     R::freeze(false);
 
-    try {
-        foreach (['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'auditlog'] as $table) {
-            R::createRevisionSupport(R::dispense($table));
+    if (method_exists(R::class, 'createRevisionSupport')) {
+        try {
+            foreach (['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'auditlog'] as $table) {
+                R::createRevisionSupport(R::dispense($table));
+            }
+        } catch (\Throwable $throwable) {
+            error_log('Failed to enable RedBean revision support: ' . $throwable->getMessage());
         }
-    } catch (\Throwable $throwable) {
-        error_log('Failed to enable RedBean revision support: ' . $throwable->getMessage());
+    } else {
+        error_log('Failed to enable RedBean revision support: extension createRevisionSupport not available.');
     }
 
     $initialized = true;
