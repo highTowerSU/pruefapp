@@ -12,12 +12,11 @@
     <i class="fa-solid fa-link"></i> Link
   </a>
   <button type="button"
-        class="btn btn-sm btn-danger btn-popover-confirm"
-        data-kurs-id="<?= $kurs->id ?>"
-        data-bs-toggle="popover"
-        data-bs-trigger="focus"
-        data-bs-content="Wirklich löschen?"
-        title="Bestätigung erforderlich">
-  <i class="fa-solid fa-trash"></i> Löschen
-</button>
+          class="btn btn-sm btn-danger"
+          hx-delete="kurse/<?= $kurs->id ?>"
+          hx-target="#kurs-tabelle"
+          hx-swap="outerHTML"
+          hx-confirm="Wirklich löschen?">
+    <i class="fa-solid fa-trash"></i> Löschen
+  </button>
 </div>
