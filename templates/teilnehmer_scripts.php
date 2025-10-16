@@ -6,9 +6,11 @@ if (!kursId) {
   throw new Error('Kurs-ID nicht gefunden.');
 }
 
+const apiUrl = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
+
 const table = new Tabulator('#teilnehmer-tabelle', {
   layout: "fitColumns",
-  ajaxURL: "api/teilnehmer.php?kurs=" + kursId,
+  ajaxURL: apiUrl,
   ajaxConfig: "GET",
   placeholder: "Keine Teilnehmer gefunden.",
   columns: [
@@ -34,7 +36,7 @@ const table = new Tabulator('#teilnehmer-tabelle', {
 
         if (button.dataset.confirmed === "true") {
           const id = button.dataset.id;
-          fetch("api/teilnehmer.php?kurs=" + kursId + "&delete=" + id, {
+          fetch(apiUrl + "?delete=" + id, {
             method: "POST"
           }).then(() => table.replaceData());
         } else {
@@ -50,7 +52,7 @@ const table = new Tabulator('#teilnehmer-tabelle', {
   ],
   cellEdited: function(cell) {
     const data = cell.getRow().getData();
-    fetch("api/teilnehmer.php?kurs=" + kursId, {
+    fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
