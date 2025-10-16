@@ -5,6 +5,7 @@ use \RedBeanPHP\R as R;
 session_start();
 
 $baseDir = dirname(__DIR__);
+$appConfigCache = [];
 
 $autoloadCandidates = [
     $baseDir . '/vendor/autoload.php',
@@ -40,6 +41,103 @@ require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 
 initialize_database();
+
+/**
+ * Retrieves a stored application configuration value.
+ */
+function get_app_config(string $key, ?string $default = null): ?string
+{
+    global $appConfigCache;
+
+    $normalizedKey = trim($key);
+    if ($normalizedKey === '') {
+        return $default;
+    }
+
+    if (array_key_exists($normalizedKey, $appConfigCache)) {
+        return $appConfigCache[$normalizedKey];
+    }
+
+    if (!R::testConnection()) {
+        return $default;
+    }
+
+    $bean = R::findOne('appconfig', ' name = ? ', [$normalizedKey]);
+    if ($bean === null) {
+        $appConfigCache[$normalizedKey] = $default;
+
+        return $default;
+    }
+
+    $value = (string) ($bean->value ?? '');
+    $appConfigCache[$normalizedKey] = $value;
+
+    return $value;
+}
+
+/**
+ * Stores a configuration value in the application database.
+ */
+function set_app_config(string $key, ?string $value): void
+{
+    global $appConfigCache;
+
+    $normalizedKey = trim($key);
+    if ($normalizedKey === '') {
+        throw new \InvalidArgumentException('Configuration key must not be empty.');
+    }
+
+    if (!R::testConnection()) {
+        throw new \RuntimeException('Keine Datenbankverbindung für Konfigurationsspeicherung verfügbar.');
+    }
+
+    $normalizedValue = $value !== null ? trim((string) $value) : null;
+
+    R::begin();
+    try {
+        $bean = R::findOne('appconfig', ' name = ? ', [$normalizedKey]);
+
+        if ($normalizedValue === null || $normalizedValue === '') {
+            if ($bean !== null) {
+                R::trash($bean);
+            }
+        } else {
+            if ($bean === null) {
+                $bean = R::dispense('appconfig');
+                $bean->name = $normalizedKey;
+                $bean->created_at = date('c');
+            }
+
+            $bean->value = $normalizedValue;
+            $bean->updated_at = date('c');
+            R::store($bean);
+        }
+
+        R::commit();
+    } catch (\Throwable $exception) {
+        R::rollback();
+        throw $exception;
+    }
+
+    unset($appConfigCache[$normalizedKey]);
+}
+
+function moodle_root_path(): string
+{
+    $envRoot = env_value('MOODLE_PATH');
+    if ($envRoot !== null) {
+        return rtrim($envRoot, DIRECTORY_SEPARATOR);
+    }
+
+    $configured = get_app_config('moodle_path', '');
+    $configured = is_string($configured) ? trim($configured) : '';
+
+    if ($configured === '') {
+        return '';
+    }
+
+    return rtrim($configured, DIRECTORY_SEPARATOR);
+}
 
 function initialize_database(): void
 {
