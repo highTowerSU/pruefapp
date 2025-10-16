@@ -1,6 +1,12 @@
 :root[data-bs-theme="dark"] .tabulator {
   background-color: var(--bs-body-bg);
   color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-tableholder,
+:root[data-bs-theme="dark"] .tabulator .tabulator-tableholder .tabulator-table {
+  background-color: var(--bs-body-bg);
 }
 
 :root[data-bs-theme="dark"] .tabulator .tabulator-header,
@@ -8,6 +14,19 @@
   background-color: var(--bs-tertiary-bg);
   color: var(--bs-body-color);
   border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col {
+  border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-col-content,
+:root[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-col-title {
+  color: inherit;
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-col-sorter .tabulator-arrow {
+  border-bottom-color: var(--bs-secondary-color);
 }
 
 :root[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col,
@@ -32,6 +51,29 @@
 
 :root[data-bs-theme="dark"] .tabulator .tabulator-row .tabulator-cell {
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-row .tabulator-cell.tabulator-editing input,
+:root[data-bs-theme="dark"] .tabulator .tabulator-row .tabulator-cell.tabulator-editing select {
+  color: var(--bs-body-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-alert {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-alert .tabulator-alert-msg {
+  background: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-alert .tabulator-alert-msg.tabulator-alert-state-msg {
+  border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-alert .tabulator-alert-msg.tabulator-alert-state-error {
+  border-color: var(--bs-danger);
+  color: var(--bs-danger-text-emphasis);
 }
 
 :root[data-bs-theme="dark"] .tabulator .tabulator-placeholder-contents {
