@@ -4,6 +4,7 @@
 
   const tableElement = document.getElementById('teilnehmer-tabelle');
   const kursId = tableElement?.dataset.kursId;
+  const canManage = tableElement?.dataset.canManage === '1';
 
   if (!kursId) {
     console.error('Kurs-ID nicht gefunden.');
@@ -25,17 +26,17 @@
   const { Popover } = bootstrapLib;
   const apiUrl = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
 
-  const table = new TabulatorLib('#teilnehmer-tabelle', {
-  layout: "fitColumns",
-  placeholder: "Keine Teilnehmer gefunden.",
-  columns: [
-    { title: "Vorname", field: "vorname", editor: "input" },
-    { title: "Nachname", field: "nachname", editor: "input" },
-    { title: "Geburtsdatum", field: "geburtsdatum", editor: "input" },
-    { title: "Geburtsort", field: "geburtsort", editor: "input" },
+  const columns = [
+    { title: "Vorname", field: "vorname", editor: canManage ? "input" : false },
+    { title: "Nachname", field: "nachname", editor: canManage ? "input" : false },
+    { title: "Geburtsdatum", field: "geburtsdatum", editor: canManage ? "input" : false },
+    { title: "Geburtsort", field: "geburtsort", editor: canManage ? "input" : false },
     { title: "Benutzername", field: "benutzername" },
-    { title: "E-Mail", field: "email" },
-    {
+    { title: "E-Mail", field: "email" }
+  ];
+
+  if (canManage) {
+    columns.push({
       title: "Aktion",
       formatter: function(cell) {
         const id = cell.getRow().getData().id;
@@ -93,31 +94,41 @@
           }, 3000);
         }
       }
-    }
-  ],
-  cellEdited: function(cell) {
-    const data = cell.getRow().getData();
-    fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    }).then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      return response.json();
-    }).then(res => {
-      if (res && typeof res === "object") {
-        cell.getRow().update(res);
-      }
-    }).catch(error => {
-      console.error("Speichern des Teilnehmers fehlgeschlagen", error);
-      showTableError("Änderungen konnten nicht gespeichert werden.");
-      reloadParticipants();
     });
   }
-});
+
+  const tableOptions = {
+    layout: "fitColumns",
+    placeholder: "Keine Teilnehmer gefunden.",
+    columns
+  };
+
+  if (canManage) {
+    tableOptions.cellEdited = function(cell) {
+      const data = cell.getRow().getData();
+      fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        return response.json();
+      }).then(res => {
+        if (res && typeof res === "object") {
+          cell.getRow().update(res);
+        }
+      }).catch(error => {
+        console.error("Speichern des Teilnehmers fehlgeschlagen", error);
+        showTableError("Änderungen konnten nicht gespeichert werden.");
+        reloadParticipants();
+      });
+    };
+  }
+
+  const table = new TabulatorLib('#teilnehmer-tabelle', tableOptions);
 
 const showTableError = (message) => {
   if (typeof table.alertError === "function") {
@@ -151,17 +162,19 @@ const reloadParticipants = () => {
 
 reloadParticipants();
 
-document.getElementById('btn-add-row')?.addEventListener('click', () => {
-  table
-    .addRow({}, true)
-    .then(row => {
-      table.scrollToRow(row, "center", true);
-      row.getCell("vorname")?.edit();
-    })
-    .catch(() => {
-      table.alertError?.("Neue Zeile konnte nicht hinzugefügt werden.");
-    });
-});
+if (canManage) {
+  document.getElementById('btn-add-row')?.addEventListener('click', () => {
+    table
+      .addRow({}, true)
+      .then(row => {
+        table.scrollToRow(row, "center", true);
+        row.getCell("vorname")?.edit();
+      })
+      .catch(() => {
+        table.alertError?.("Neue Zeile konnte nicht hinzugefügt werden.");
+      });
+  });
+}
 
 document.addEventListener('click', (event) => {
   if (event.target.closest('.btn-popover-confirm') || event.target.closest('.popover')) {

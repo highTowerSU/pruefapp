@@ -11,13 +11,17 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        $canManageParticipants = current_user_has_role('admin');
+
         $content = render_template('teilnehmer_table.php', [
             'kurs' => $kurs,
+            'canManageParticipants' => $canManageParticipants,
         ]);
 
         $scripts = render_template('teilnehmer_scripts.php', [
             'kursId' => $kurs->id,
             'apiUrl' => url_for('kurse/' . $kurs->id . '/teilnehmer/api'),
+            'canManageParticipants' => $canManageParticipants,
         ]);
 
         $body = render_template('layout.php', [
@@ -36,42 +40,33 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $result = self::handleCsvImport($kurs);
+            if (isset($_POST['mapping_submitted'])) {
+                $rows = self::decodeRowsPayload($_POST['rows_payload'] ?? '');
+                $header = self::decodeHeaderPayload($_POST['header_payload'] ?? '');
 
-            if ($result['imported'] > 0) {
-                $message = $result['imported'] === 1
-                    ? '1 Teilnehmer wurde importiert.'
-                    : sprintf('%d Teilnehmer wurden importiert.', $result['imported']);
-                $_SESSION['meldung'] = $message;
-            } else {
-                $_SESSION['meldung'] = 'Es wurden keine Teilnehmer importiert.';
-            }
-
-            if ($result['failed'] > 0) {
-                $errorMessage = $result['failed'] === 1
-                    ? '1 Zeile konnte nicht importiert werden.'
-                    : sprintf('%d Zeilen konnten nicht importiert werden.', $result['failed']);
-
-                if (!empty($result['errors'])) {
-                    $errorMessage .= ' ' . implode(' ', $result['errors']);
-                }
-
-                $_SESSION['fehlermeldung'] = $errorMessage;
-            } else {
-                unset($_SESSION['fehlermeldung']);
-            }
+                if ($rows === null || $header === null) {
+                    $_SESSION['fehlermeldung'] = 'Importdaten konnten nicht verarbeitet werden.';
 
                     return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
                 }
 
                 $mapping = self::sanitizeMapping($_POST['mapping'] ?? [], $header);
-
                 $imported = self::importRows($kurs, $rows, $mapping);
 
-                $_SESSION['meldung'] = $imported === 1
-                    ? '1 Teilnehmer wurde importiert.'
-                    : sprintf('%d Teilnehmer wurden importiert.', $imported);
+                if ($imported > 0) {
+                    $_SESSION['meldung'] = $imported === 1
+                        ? '1 Teilnehmer wurde importiert.'
+                        : sprintf('%d Teilnehmer wurden importiert.', $imported);
+                } else {
+                    $_SESSION['meldung'] = 'Es wurden keine Teilnehmer importiert.';
+                }
+
+                unset($_SESSION['fehlermeldung']);
 
                 return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
             }
@@ -149,6 +144,10 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $teilnehmer = self::participantsForCourse($kurs->id);
 
         $rows = [];
@@ -199,6 +198,10 @@ class ParticipantController
             $payload = array_map([self::class, 'participantToArray'], $teilnehmer);
 
             return self::jsonResponse(200, array_values($payload));
+        }
+
+        if (!current_user_has_role('admin')) {
+            return self::jsonResponse(403, ['error' => 'Aktion nicht erlaubt']);
         }
 
         if ($method === 'POST' && isset($_GET['delete'])) {
