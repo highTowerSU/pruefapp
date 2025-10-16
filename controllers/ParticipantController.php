@@ -37,9 +37,30 @@ class ParticipantController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            self::handleCsvImport($kurs);
+            $result = self::handleCsvImport($kurs);
 
-            $_SESSION['meldung'] = 'Teilnehmer wurden importiert.';
+            if ($result['imported'] > 0) {
+                $message = $result['imported'] === 1
+                    ? '1 Teilnehmer wurde importiert.'
+                    : sprintf('%d Teilnehmer wurden importiert.', $result['imported']);
+                $_SESSION['meldung'] = $message;
+            } else {
+                $_SESSION['meldung'] = 'Es wurden keine Teilnehmer importiert.';
+            }
+
+            if ($result['failed'] > 0) {
+                $errorMessage = $result['failed'] === 1
+                    ? '1 Zeile konnte nicht importiert werden.'
+                    : sprintf('%d Zeilen konnten nicht importiert werden.', $result['failed']);
+
+                if (!empty($result['errors'])) {
+                    $errorMessage .= ' ' . implode(' ', $result['errors']);
+                }
+
+                $_SESSION['fehlermeldung'] = $errorMessage;
+            } else {
+                unset($_SESSION['fehlermeldung']);
+            }
 
             return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
         }
@@ -191,7 +212,11 @@ class ParticipantController
                 $teilnehmer->email = generate_email($teilnehmer->benutzername);
             }
 
-            R::store($teilnehmer);
+            try {
+                R::store($teilnehmer);
+            } catch (\InvalidArgumentException $exception) {
+                return self::jsonResponse(422, ['error' => $exception->getMessage()]);
+            }
 
             return self::jsonResponse(200, self::participantToArray($teilnehmer));
         }
@@ -212,21 +237,27 @@ class ParticipantController
         return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
     }
 
-    private static function handleCsvImport(\RedBeanPHP\OODBBean $kurs): void
+    private static function handleCsvImport(\RedBeanPHP\OODBBean $kurs): array
     {
+        $result = [
+            'imported' => 0,
+            'failed' => 0,
+            'errors' => [],
+        ];
+
         if (empty($_FILES['csv']['tmp_name'])) {
-            return;
+            return $result;
         }
 
         $handle = fopen($_FILES['csv']['tmp_name'], 'r');
         if ($handle === false) {
-            return;
+            return $result;
         }
 
         $header = fgetcsv($handle);
         if (!$header) {
             fclose($handle);
-            return;
+            return $result;
         }
 
         while (($data = fgetcsv($handle)) !== false) {
@@ -245,10 +276,20 @@ class ParticipantController
             $teilnehmer->email = generate_email($teilnehmer->benutzername);
             $teilnehmer->kurs = $kurs;
 
-            R::store($teilnehmer);
+            try {
+                R::store($teilnehmer);
+                $result['imported']++;
+            } catch (\InvalidArgumentException $exception) {
+                $result['failed']++;
+                $result['errors'][] = $exception->getMessage();
+            }
         }
 
         fclose($handle);
+
+        $result['errors'] = array_values(array_unique($result['errors']));
+
+        return $result;
     }
 
     private static function notFoundResponse(): array
