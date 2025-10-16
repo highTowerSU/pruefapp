@@ -743,25 +743,16 @@ class ParticipantController
                 $teilnehmer->geburtsort = $values['geburtsort'];
             }
 
-            if (isset($values['benutzername'])) {
-                $teilnehmer->benutzername = $values['benutzername'];
-            }
-
-            if (isset($values['email'])) {
-                $teilnehmer->email = $values['email'];
-            }
-
-            if (isset($values['passwort'])) {
-                $teilnehmer->passwort = $values['passwort'];
-            }
             $teilnehmer->vorname = $values['vorname'] ?? '';
             $teilnehmer->nachname = $values['nachname'] ?? '';
             $teilnehmer->geburtsdatum = normalize_birthdate((string) ($values['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
 
-            $username = $values['benutzername'] ?? '';
+            $username = sanitize_username($values['benutzername'] ?? '');
             if ($username === '' && $teilnehmer->vorname !== '' && $teilnehmer->nachname !== '') {
                 $username = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
+            } elseif ($username !== '') {
+                $username = ensure_unique_username($username);
             }
             $teilnehmer->benutzername = $username;
 
@@ -771,7 +762,7 @@ class ParticipantController
             }
             $teilnehmer->passwort = $password;
 
-            $email = $values['email'] ?? '';
+            $email = normalize_email_address($values['email'] ?? '');
             if ($email === '' && $teilnehmer->benutzername !== '') {
                 $email = generate_email($teilnehmer->benutzername);
             }

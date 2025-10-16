@@ -1,5 +1,7 @@
 <?php
 
+use RedBeanPHP\R as R;
+
 class MoodleImportService
 {
     private string $moodleRoot;
@@ -228,13 +230,39 @@ class MoodleImportService
                     continue;
                 }
 
-                $username = (string) ($row->benutzername ?? '');
-                $password = (string) ($row->passwort ?? '');
                 $firstname = (string) ($row->vorname ?? '');
                 $lastname = (string) ($row->nachname ?? '');
-                $email = (string) ($row->email ?? '');
+                $password = (string) ($row->passwort ?? '');
                 $birthdate = (string) ($row->geburtsdatum ?? '');
                 $birthplace = (string) ($row->geburtsort ?? '');
+
+                $originalUsername = (string) ($row->benutzername ?? '');
+                $username = sanitize_username($originalUsername);
+                if ($username === '' && $firstname !== '' && $lastname !== '') {
+                    $username = generate_username($firstname, $lastname);
+                } elseif ($username !== '') {
+                    $username = ensure_unique_username($username, isset($row->id) ? (int) $row->id : null);
+                }
+
+                $originalEmail = (string) ($row->email ?? '');
+                $email = normalize_email_address($originalEmail);
+                if ($email === '' && $username !== '') {
+                    $email = generate_email($username);
+                }
+
+                $needsSave = false;
+                if ($username !== $originalUsername && $username !== '') {
+                    $row->benutzername = $username;
+                    $needsSave = true;
+                }
+                if ($email !== $originalEmail && $email !== '') {
+                    $row->email = $email;
+                    $needsSave = true;
+                }
+
+                if ($needsSave) {
+                    R::store($row);
+                }
 
                 $csvRow = [
                     $username,
