@@ -6,6 +6,7 @@
     @media print {
         .noprint { display: none; }
         .break-page { break-after: page; }
+        .break-page:last-of-type { break-after: auto; }
     }
 </style>
 
