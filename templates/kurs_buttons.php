@@ -8,7 +8,7 @@
   <a href="kurseinstellungen.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-secondary">
     <i class="fa-solid fa-gear"></i> Einstellungen
   </a>
-  <a href="link.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-info">
+  <a href="link_erzeugen.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-info">
     <i class="fa-solid fa-link"></i> Link
   </a>
   <button type="button"

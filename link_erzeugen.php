@@ -1,5 +1,5 @@
 <?php
-require_once 'lib.inc.php';
+require_once 'lib/lib.inc.php';
 
 if (!isset($_GET['kurs']) || !($kurs = R::load('kurs', $_GET['kurs'])) || !$kurs->id) {
     die("Ungültiger Kurs");
@@ -22,11 +22,13 @@ if (isset($_GET['umschalten'])) {
     exit;
 }
 
-$link = 'https://' . $_SERVER['HTTP_HOST'] . '/uebermitteln.php?token=' . $kurs->token;
+$link = 'https://' . $_SERVER['HTTP_HOST'] . '/moodle_user_gen/uebermitteln.php?token=' . $kurs->token;
 
 $status = $kurs->uebermittlung_aktiv
     ? '<span class="badge bg-success">Link aktiv</span>'
     : '<span class="badge bg-danger">Link deaktiviert</span>';
+
+$umschaltenText = $kurs->uebermittlung_aktiv ? 'deaktivieren' : 'aktivieren';
 
 $content = <<<HTML
 <p>Gib diesen Link an deine Kunden weiter:</p>
@@ -34,7 +36,7 @@ $content = <<<HTML
 <p>Status: $status</p>
 
 <a href="?kurs={$kurs->id}&umschalten=1" class="btn btn-outline-primary">
-  Link ${kurs->uebermittlung_aktiv ? 'deaktivieren' : 'aktivieren'}
+  Link $umschaltenText
 </a>
 <a href="?kurs={$kurs->id}&neu=1" class="btn btn-warning">Neuen Link erzeugen</a>
 <a href="index.php" class="btn btn-link">Zurück</a>

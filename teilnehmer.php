@@ -1,5 +1,5 @@
 <?php
-require_once 'lib.inc.php';
+require_once 'lib/lib.inc.php';
 
 if (!isset($_GET['kurs']) || !($kurs = R::load('kurs', $_GET['kurs'])) || !$kurs->id) {
     die("Ungültiger Kurs");
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['manuell'])) {
     exit;
 }
 
-$nutzer = R::findAll('nutzer', 'kurs_id = ? AND deleted = 0 ORDER BY nachname, vorname', [$kurs->id]);
+$nutzer = R::findAll('nutzer', 'kurs_id = ? ORDER BY nachname, vorname', [$kurs->id]);
 
 $content = render_template('teilnehmer_table.php', [
     'kurs' => $kurs,

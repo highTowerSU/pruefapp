@@ -35,7 +35,8 @@
 <!-- Scripts -->
 <script src="node_modules/jquery/dist/jquery.min.js"></script>
 <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-<script src="node_modules/tabulator-tables/dist/js/tabulator.min.js"></script>
+<script src="node_modules/htmx.org/dist/htmx.min.js"></script>
+<!--<script src="node_modules/tabulator-tables/dist/js/tabulator.min.js"></script>-->
 
 
 <script>
@@ -64,7 +65,7 @@ $(function() {
       const teilnehmerId = $btn.data("teilnehmer-id");
 
       if (kursId) {
-        window.location.href = "kurs_loeschen.php?kurs_id=" + kursId;
+        window.location.href = "index.php?delete_kurs=" + kursId;
       } else if (teilnehmerId) {
         window.location.href = "teilnehmer_loeschen.php?id=" + teilnehmerId;
       }

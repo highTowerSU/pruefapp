@@ -1,46 +1,23 @@
 <?php
-require_once '../lib.inc.php';
+require_once '../lib/lib.inc.php';
+
 header('Content-Type: application/json');
 
-$kursId = isset($_GET['kurs']) ? (int)$_GET['kurs'] : 0;
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $teilnehmer = R::findAll('teilnehmer', 'kurs_id = ? AND deleted = 0', [$kursId]);
-    echo json_encode(array_values(R::exportAll($teilnehmer)));
+$kurs_id = $_GET['kurs'] ?? null;
+if (!$kurs_id || !R::load('kurs', $kurs_id)->id) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Ungültiger Kurs']);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    if (!$input || !$kursId) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Ungültige Daten']);
-        exit;
-    }
-
-    $n = isset($input['id']) ? R::load('teilnehmer', $input['id']) : R::dispense('teilnehmer');
-    if ($n->id === 0) {
-        $n->kurs_id = $kursId;
-        $n->deleted = 0;
-    }
-
-    foreach (['vorname', 'nachname', 'geburtsdatum', 'geburtsort', 'benutzername', 'email'] as $feld) {
-        if (isset($input[$feld])) {
-            $n->$feld = $input[$feld];
-        }
-    }
-
-    $id = R::store($n);
-    echo json_encode(['success' => true, 'id' => $id]);
-    exit;
-}
-
-if (isset($_GET['delete'])) {
-    $n = R::load('teilnehmer', (int)$_GET['delete']);
-    if ($n->id && $n->kurs_id == $kursId) {
+// Softdelete
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['delete'])) {
+    $id = (int)$_GET['delete'];
+    $n = R::load('teilnehmer', $id);
+    if ($n->id && $n->kurs_id == $kurs_id) {
         $n->deleted = 1;
         R::store($n);
-        echo json_encode(['success' => true]);
+        echo json_encode(['status' => 'ok']);
     } else {
         http_response_code(404);
         echo json_encode(['error' => 'Nicht gefunden']);
@@ -48,3 +25,38 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
+// Bearbeiten oder Hinzufügen
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true) ?? [];
+
+    if (isset($data['id'])) {
+        $n = R::load('teilnehmer', (int)$data['id']);
+        if (!$n->id || $n->kurs_id != $kurs_id) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Zugriff verweigert']);
+            exit;
+        }
+    } else {
+        $n = R::dispense('teilnehmer');
+        $n->kurs_id = $kurs_id;
+        $n->deleted = 0;
+    }
+
+    foreach (['vorname','nachname','geburtsdatum','geburtsort'] as $f) {
+        if (isset($data[$f])) $n->$f = $data[$f];
+    }
+
+    // Nur neue TN erhalten Benutzername / E-Mail
+    if (!$n->id && isset($n->vorname, $n->nachname)) {
+        $n->benutzername = generate_username($n->vorname, $n->nachname);
+        $n->email = generate_email($n->benutzername);
+    }
+
+    R::store($n);
+    echo json_encode(['id' => $n->id]);
+    exit;
+}
+
+// Ausgabe aller Teilnehmer (nicht gelöscht)
+$nutzer = R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kurs_id]);
+echo json_encode(array_map(fn($n) => $n->export(), $nutzer));

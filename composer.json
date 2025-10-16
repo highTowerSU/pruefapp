@@ -1,5 +1,7 @@
 {
     "require": {
-        "jumbojett/openid-connect-php": "^1.0"
+        "jumbojett/openid-connect-php": "^1.0",
+        "gabordemooij/redbean": "dev-master",
+        "hightowersu/redbean_rebean": "dev-master"
     }
 }

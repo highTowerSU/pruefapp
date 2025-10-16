@@ -1,5 +1,5 @@
 <?php
-require_once 'lib.inc.php';
+require_once 'lib/lib.inc.php';
 
 if (!isset($_GET['token']) || !($kurs = R::findOne('kurs', ' token = ? ', [$_GET['token']]))) {
 if (!$kurs->uebermittlung_aktiv) { die("Dieser Übermittlungslink ist derzeit deaktiviert."); }

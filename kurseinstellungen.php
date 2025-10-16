@@ -1,5 +1,5 @@
 <?php
-require_once 'lib.inc.php';
+require_once 'lib/lib.inc.php';
 
 if (!isset($_GET['kurs']) || !($kurs = R::load('kurs', $_GET['kurs'])) || !$kurs->id) {
     die("Kurs nicht gefunden.");

@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'lib.inc.php';
+require_once 'lib/lib.inc.php';
 
 if (!isset($_GET['id'])) {
     http_response_code(400);
@@ -9,9 +9,8 @@ if (!isset($_GET['id'])) {
 
 $tn = R::load('teilnehmer', (int)$_GET['id']);
 if ($tn->id) {
-    $tn->deleted = 1;
-    R::store($tn);
-    $_SESSION['meldung'] = 'Teilnehmer wurde als gelöscht markiert.';
+    R::trash($tn);
+    $_SESSION['meldung'] = 'Teilnehmer wurde gelöscht.';
 } else {
     $_SESSION['meldung'] = 'Teilnehmer nicht gefunden.';
 }
