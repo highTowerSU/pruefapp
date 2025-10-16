@@ -35,6 +35,9 @@ class SubmissionController
                 $teilnehmer->email = $kurs->feld_email_aktiv ? trim($eintrag['email'] ?? '') : '';
                 $teilnehmer->benutzername = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
                 $teilnehmer->passwort = generate_password();
+                if ($teilnehmer->email === '' && $teilnehmer->benutzername !== '') {
+                    $teilnehmer->email = generate_email($teilnehmer->benutzername);
+                }
                 $teilnehmer->quelle = 'extern';
                 $teilnehmer->kurs = $kurs;
                 $teilnehmer->deleted = 0;
