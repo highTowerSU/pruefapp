@@ -38,7 +38,6 @@ class ParticipantController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             self::handleCsvImport($kurs);
-            self::handleManualImport($kurs);
 
             $_SESSION['meldung'] = 'Teilnehmer wurden importiert.';
 
@@ -253,36 +252,6 @@ class ParticipantController
         }
 
         fclose($handle);
-    }
-
-    private static function handleManualImport(\RedBeanPHP\OODBBean $kurs): void
-    {
-        if (empty($_POST['manuell']) || !is_array($_POST['manuell'])) {
-            return;
-        }
-
-        foreach ($_POST['manuell'] as $eintrag) {
-            $vorname = trim($eintrag['vorname'] ?? '');
-            $nachname = trim($eintrag['nachname'] ?? '');
-            $geburtsdatum = trim($eintrag['geburtsdatum'] ?? '');
-
-            if ($vorname === '' || $nachname === '' || $geburtsdatum === '') {
-                continue;
-            }
-
-            $teilnehmer = R::dispense('teilnehmer');
-            $teilnehmer->vorname = $vorname;
-            $teilnehmer->nachname = $nachname;
-            $teilnehmer->geburtsdatum = $geburtsdatum;
-            $teilnehmer->geburtsort = trim($eintrag['geburtsort'] ?? '');
-            $teilnehmer->benutzername = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
-            $teilnehmer->passwort = generate_password();
-            $teilnehmer->email = generate_email($teilnehmer->benutzername);
-            $teilnehmer->kurs = $kurs;
-            $teilnehmer->deleted = 0;
-
-            R::store($teilnehmer);
-        }
     }
 
     private static function notFoundResponse(): array
