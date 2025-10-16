@@ -413,3 +413,64 @@ function render_passwort(string $pw): string {
     }
     return $html;
 }
+
+/**
+ * @return DateTimeImmutable|null
+ */
+function create_strict_date(string $format, string $value): ?\DateTimeImmutable
+{
+    if ($value === '') {
+        return null;
+    }
+
+    $date = \DateTimeImmutable::createFromFormat('!' . $format, $value);
+    if ($date === false) {
+        return null;
+    }
+
+    $errors = \DateTimeImmutable::getLastErrors();
+    if ($errors === false) {
+        return $date;
+    }
+
+    if (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0) {
+        return null;
+    }
+
+    return $date;
+}
+
+function normalize_birthdate(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    $german = create_strict_date('d.m.Y', $value);
+    if ($german instanceof \DateTimeImmutable) {
+        return $german->format('Y-m-d');
+    }
+
+    $iso = create_strict_date('Y-m-d', $value);
+    if ($iso instanceof \DateTimeImmutable) {
+        return $iso->format('Y-m-d');
+    }
+
+    return $value;
+}
+
+function format_birthdate_for_display(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    $iso = create_strict_date('Y-m-d', $value);
+    if ($iso instanceof \DateTimeImmutable) {
+        return $iso->format('d.m.Y');
+    }
+
+    return $value;
+}
