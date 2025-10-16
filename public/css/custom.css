@@ -97,22 +97,6 @@
   color: var(--bs-primary-contrast);
 }
 
-.footer-logo {
-  height: 40px;
-  width: auto;
-  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.12));
-}
-
-.footer-logos {
-  gap: 1.5rem !important;
-}
-
-@media (max-width: 576px) {
-  .footer-logo {
-    height: 32px;
-  }
-}
-
 .navbar-brand-logo {
   height: 32px;
   width: auto;
@@ -131,4 +115,43 @@
   .page-header-logo {
     max-height: 48px;
   }
+}
+
+.navbar-themed {
+  background-color: var(--navbar-bg, var(--bs-primary));
+  color: var(--navbar-color, var(--bs-body-color));
+}
+
+.navbar-themed .navbar-brand,
+.navbar-themed .navbar-brand:hover,
+.navbar-themed .navbar-brand:focus,
+.navbar-themed .nav-link,
+.navbar-themed .nav-link:hover,
+.navbar-themed .nav-link:focus {
+  color: var(--navbar-color, #ffffff);
+}
+
+.navbar-themed .nav-link {
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.navbar-themed .nav-link:hover,
+.navbar-themed .nav-link:focus,
+.navbar-themed .nav-link.active {
+  opacity: 1;
+}
+
+.navbar-themed .btn-outline-navbar {
+  color: var(--navbar-color, #ffffff);
+  border-color: var(--navbar-color, #ffffff);
+  background-color: transparent;
+}
+
+.navbar-themed .btn-outline-navbar:hover,
+.navbar-themed .btn-outline-navbar:focus,
+.navbar-themed .btn-outline-navbar:active {
+  color: var(--navbar-bg, var(--bs-body-bg));
+  background-color: var(--navbar-color, #ffffff);
+  border-color: var(--navbar-color, #ffffff);
 }

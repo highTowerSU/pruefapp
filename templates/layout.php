@@ -127,7 +127,7 @@
                 : url_for($headerLogo);
           ?>
           <img src="<?= htmlspecialchars($headerLogoUrl, ENT_QUOTES) ?>"
-               alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? '') ?>"
+               alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? '')) ?>"
                class="page-header-logo img-fluid">
         <?php endif; ?>
         <div>
@@ -153,36 +153,36 @@
 
 <footer class="footer mt-auto py-4 border-top bg-body-tertiary">
   <div class="container">
-    <div class="row align-items-center gy-3">
-      <div class="col-lg">
-        <div class="text-uppercase fw-semibold small text-secondary mb-1">
-          Softwareprojekt der <?= htmlspecialchars($branding['project_owner'] ?? '') ?>
-        </div>
-        <p class="mb-0 text-body-secondary small">
-          <?php if (!empty($branding['primary_client'])): ?>
-            Entwickelt für <?= htmlspecialchars($branding['primary_client']) ?>
-            <?php if (!empty($branding['group_reference']) && $branding['group_reference'] !== $branding['primary_client']): ?>
-              – einsetzbar innerhalb der <?= htmlspecialchars($branding['group_reference']) ?>.
-            <?php else: ?>
-              .
-            <?php endif; ?>
+    <?php
+      $projectOwner = trim((string)($branding['project_owner'] ?? ''));
+      $primaryClient = trim((string)($branding['primary_client'] ?? ''));
+      $groupReference = trim((string)($branding['group_reference'] ?? ''));
+    ?>
+    <?php if ($projectOwner !== '' || $primaryClient !== '' || $groupReference !== ''): ?>
+      <div class="row align-items-center gy-3">
+        <div class="col-lg">
+          <?php if ($projectOwner !== ''): ?>
+            <div class="text-uppercase fw-semibold small text-secondary mb-1">
+              Softwareprojekt der <?= htmlspecialchars($projectOwner) ?>
+            </div>
           <?php endif; ?>
-        </p>
-      </div>
-      <?php if (!empty($branding['logos'])): ?>
-        <div class="col-lg-auto ms-lg-auto">
-          <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-3 footer-logos">
-            <?php foreach ($branding['logos'] as $logo): ?>
-              <?php if (!empty($logo['path'])): ?>
-                <img src="<?= htmlspecialchars(url_for($logo['path']), ENT_QUOTES) ?>"
-                     alt="<?= htmlspecialchars($logo['alt'] ?? '') ?>"
-                     class="footer-logo img-fluid">
+          <?php if ($primaryClient !== ''): ?>
+            <p class="mb-0 text-body-secondary small">
+              Entwickelt für <?= htmlspecialchars($primaryClient) ?>
+              <?php if ($groupReference !== '' && strcasecmp($groupReference, $primaryClient) !== 0): ?>
+                – einsetzbar innerhalb der <?= htmlspecialchars($groupReference) ?>.
+              <?php else: ?>
+                .
               <?php endif; ?>
-            <?php endforeach; ?>
-          </div>
+            </p>
+          <?php elseif ($groupReference !== ''): ?>
+            <p class="mb-0 text-body-secondary small">
+              Einsetzbar innerhalb der <?= htmlspecialchars($groupReference) ?>.
+            </p>
+          <?php endif; ?>
         </div>
-      <?php endif; ?>
-    </div>
+      </div>
+    <?php endif; ?>
     <?php $legal = $branding['legal'] ?? []; ?>
     <?php if (!empty($legal['impressum']['url']) || !empty($legal['privacy']['url'])): ?>
       <div class="mt-3 small">
