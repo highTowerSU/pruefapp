@@ -63,31 +63,6 @@
       <textarea class="form-control" id="home_details" name="home_details" rows="3"><?= htmlspecialchars($company['home_details']) ?></textarea>
     </div>
 
-    <div class="row g-4">
-      <div class="col-lg-4">
-        <div class="mb-3">
-          <label class="form-label" for="primary_client">Primärer Kunde</label>
-          <input type="text" class="form-control" id="primary_client" name="primary_client" value="<?= htmlspecialchars($company['primary_client']) ?>">
-          <div class="form-text">Optionaler Hinweis für spezifische Ansprechpartner*innen.</div>
-        </div>
-      </div>
-      <div class="col-lg-4">
-        <div class="mb-3">
-          <label class="form-label">Projektträger</label>
-          <div class="form-control-plaintext fw-semibold"><?= htmlspecialchars($company['project_owner'] ?? branding_project_owner()) ?></div>
-          <input type="hidden" name="project_owner" value="<?= htmlspecialchars($company['project_owner'] ?? branding_project_owner()) ?>">
-          <div class="form-text">Dieser Wert ist fest vorgegeben.</div>
-        </div>
-      </div>
-      <div class="col-lg-4">
-        <div class="mb-3">
-          <label class="form-label" for="group_reference">Firmengruppe</label>
-          <input type="text" class="form-control" id="group_reference" name="group_reference" value="<?= htmlspecialchars($company['group_reference']) ?>">
-          <div class="form-text">Standard: Firmengruppe Koenigsbl.au.</div>
-        </div>
-      </div>
-    </div>
-
     <hr>
 
     <div class="row g-4">

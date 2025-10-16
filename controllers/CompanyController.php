@@ -166,9 +166,6 @@ class CompanyController
                     $company->home_headline = $data['home_headline'];
                     $company->home_intro = $data['home_intro'];
                     $company->home_details = $data['home_details'];
-                    $company->primary_client = $data['primary_client'];
-                    $company->project_owner = branding_project_owner();
-                    $company->group_reference = $data['group_reference'];
                     $company->header_logo_path = $data['header_logo_path'];
                     $company->header_logo_alt = $data['header_logo_alt'] !== '' ? $data['header_logo_alt'] : $data['name'];
                     $company->nav_background_color = $data['nav_background_color'];
@@ -230,8 +227,6 @@ class CompanyController
             $companyData['home_headline'] = $data['home_headline'];
             $companyData['home_intro'] = $data['home_intro'];
             $companyData['home_details'] = $data['home_details'];
-            $companyData['primary_client'] = $data['primary_client'];
-            $companyData['group_reference'] = $data['group_reference'];
             $companyData['header_logo_path'] = $data['header_logo_path'];
             $companyData['header_logo_url'] = self::resolveAssetPath($data['header_logo_path']);
             $companyData['header_logo_alt'] = $data['header_logo_alt'] ?: $data['name'];
@@ -273,9 +268,6 @@ class CompanyController
         $data['home_headline'] = trim((string) ($input['home_headline'] ?? ''));
         $data['home_intro'] = trim((string) ($input['home_intro'] ?? ''));
         $data['home_details'] = trim((string) ($input['home_details'] ?? ''));
-        $data['primary_client'] = trim((string) ($input['primary_client'] ?? ''));
-        $data['project_owner'] = branding_project_owner();
-        $data['group_reference'] = trim((string) ($input['group_reference'] ?? '')) ?: branding_default_group_reference();
         $data['header_logo_path'] = trim((string) ($input['header_logo_path'] ?? ''));
         $data['header_logo_alt'] = trim((string) ($input['header_logo_alt'] ?? ''));
         $data['nav_background_color'] = self::sanitizeColor((string) ($input['nav_background_color'] ?? ''));
@@ -352,10 +344,6 @@ class CompanyController
         $navBackground = self::sanitizeColor((string) ($company->nav_background_color ?? ''));
         $navText = self::sanitizeColor((string) ($company->nav_text_color ?? ''));
 
-        $groupReference = trim((string) ($company->group_reference ?? ''));
-        if ($groupReference === '') {
-            $groupReference = branding_default_group_reference();
-        }
 
         return [
             'id' => (int) $company->id,
@@ -366,9 +354,6 @@ class CompanyController
             'home_headline' => (string) ($company->home_headline ?? ''),
             'home_intro' => (string) ($company->home_intro ?? ''),
             'home_details' => (string) ($company->home_details ?? ''),
-            'primary_client' => (string) ($company->primary_client ?? ''),
-            'project_owner' => branding_project_owner(),
-            'group_reference' => $groupReference,
             'header_logo_path' => $headerLogoPath,
             'header_logo_url' => self::resolveAssetPath($headerLogoPath),
             'header_logo_alt' => $headerLogoAlt,

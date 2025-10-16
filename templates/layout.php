@@ -138,25 +138,11 @@
 
 <footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
   <div class="container">
-    <?php
-      $projectOwner = branding_project_owner();
-      $primaryClient = trim((string)($branding['primary_client'] ?? ''));
-      $defaultGroup = branding_default_group_reference();
-      $groupReference = trim((string)($branding['group_reference'] ?? '')) ?: $defaultGroup;
-    ?>
     <div class="row align-items-center gy-3">
       <div class="col-lg">
         <div class="text-uppercase fw-semibold small text-secondary mb-1">
-          Softwareprojekt der <?= htmlspecialchars($projectOwner) ?>
+          Softwareprojekt der CENEOS GmbH
         </div>
-        <p class="mb-0 text-body-secondary small">
-          Entwickelt für Firmengruppe Koenigsbl.au<?php if ($primaryClient !== '' && strcasecmp($primaryClient, 'Firmengruppe Koenigsbl.au') !== 0): ?> – Primärer Kunde: <?= htmlspecialchars($primaryClient) ?><?php endif; ?>.
-        </p>
-        <?php if (strcasecmp($groupReference, $defaultGroup) !== 0): ?>
-          <p class="mb-0 text-body-secondary small">
-            Firmengruppe: <?= htmlspecialchars($groupReference) ?>.
-          </p>
-        <?php endif; ?>
       </div>
     </div>
     <?php $legal = $branding['legal'] ?? []; ?>
