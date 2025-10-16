@@ -1,7 +1,7 @@
 <tr>
     <td><?= htmlspecialchars($user->vorname) ?></td>
     <td><?= htmlspecialchars($user->nachname) ?></td>
-    <td><?= htmlspecialchars($user->geburtsdatum) ?></td>
+    <td><?= htmlspecialchars(format_birthdate_for_display((string) $user->geburtsdatum)) ?></td>
     <td><?= htmlspecialchars($user->geburtsort) ?></td>
     <td><?= htmlspecialchars($user->benutzername) ?></td>
     <td><?= htmlspecialchars($user->passwort) ?></td>

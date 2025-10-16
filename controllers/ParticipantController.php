@@ -237,7 +237,7 @@ class ParticipantController
 
             $teilnehmer->vorname = trim((string) ($data['vorname'] ?? ''));
             $teilnehmer->nachname = trim((string) ($data['nachname'] ?? ''));
-            $teilnehmer->geburtsdatum = trim((string) ($data['geburtsdatum'] ?? ''));
+            $teilnehmer->geburtsdatum = normalize_birthdate((string) ($data['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = trim((string) ($data['geburtsort'] ?? ''));
 
             if (array_key_exists('email', $data)) {
@@ -552,7 +552,7 @@ class ParticipantController
 
             $teilnehmer->vorname = $values['vorname'] ?? '';
             $teilnehmer->nachname = $values['nachname'] ?? '';
-            $teilnehmer->geburtsdatum = $values['geburtsdatum'] ?? '';
+            $teilnehmer->geburtsdatum = normalize_birthdate((string) ($values['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
 
             $username = $values['benutzername'] ?? '';
@@ -598,7 +598,7 @@ class ParticipantController
             'id' => (int) $teilnehmer->id,
             'vorname' => (string) $teilnehmer->vorname,
             'nachname' => (string) $teilnehmer->nachname,
-            'geburtsdatum' => (string) $teilnehmer->geburtsdatum,
+            'geburtsdatum' => format_birthdate_for_display((string) $teilnehmer->geburtsdatum),
             'geburtsort' => (string) $teilnehmer->geburtsort,
             'benutzername' => (string) $teilnehmer->benutzername,
             'email' => (string) ($teilnehmer->email ?? ''),
