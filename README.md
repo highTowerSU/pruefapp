@@ -9,6 +9,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Import, Export und Druck von Teilnehmerlisten
 - Generierung von Benutzernamen, Passwörtern und E-Mail-Adressen
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
+- Mandantenfähiges Branding inklusive Firmenverwaltung und Logo-/Impressumssteuerung
 
 ## Voraussetzungen
 

@@ -117,11 +117,31 @@
 <?php include "templates/_navbar.php"; ?>
 <main class="flex-grow-1">
 <div class="container py-4">
-    <h1><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
+    <header class="page-header mb-4">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <?php $headerLogo = $branding['header_logo']['path'] ?? ''; ?>
+        <?php if (!empty($headerLogo)): ?>
+          <?php
+            $headerLogoUrl = preg_match('#^https?://#i', $headerLogo)
+                ? $headerLogo
+                : url_for($headerLogo);
+          ?>
+          <img src="<?= htmlspecialchars($headerLogoUrl, ENT_QUOTES) ?>"
+               alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? '') ?>"
+               class="page-header-logo img-fluid">
+        <?php endif; ?>
+        <div>
+          <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
+          <?php if (!empty($branding['company_name'])): ?>
+            <p class="mb-0 text-body-secondary">für <?= htmlspecialchars($branding['company_name']) ?></p>
+          <?php endif; ?>
+        </div>
+      </div>
+    </header>
         <?php if (!empty($_SESSION['meldung'])): ?>
   <div class="alert alert-info"><?= htmlspecialchars($_SESSION['meldung']) ?></div>
   <?php unset($_SESSION['meldung']); ?>
-<?php endif; ?>
+  <?php endif; ?>
 <?php if (!empty($_SESSION['fehlermeldung'])): ?>
   <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['fehlermeldung']) ?></div>
   <?php unset($_SESSION['fehlermeldung']); ?>

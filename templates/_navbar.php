@@ -20,16 +20,36 @@
         $auditActive = $currentPath === $auditLogUrl || strpos($currentPath, $auditPrefix . '/') === 0;
     }
     ?>
-    <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
-      <?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?>
+    <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
+      <?php $brandLogo = $branding['header_logo']['path'] ?? ''; ?>
+      <?php if (!empty($brandLogo)): ?>
+        <?php $brandLogoUrl = preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo); ?>
+        <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES) ?>"
+             alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? '') ?>"
+             class="navbar-brand-logo">
+      <?php endif; ?>
+      <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?></span>
     </a>
 
     <div class="d-flex align-items-center ms-auto gap-4 flex-wrap justify-content-end">
       <?php $authUser = current_user(); ?>
       <?php if ($authUser !== null): ?>
+        <?php
+          $companyUrl = url_for('firmen');
+          $companyPrefix = rtrim($companyUrl, '/');
+          $companyActive = false;
+          if ($companyPrefix === '') {
+              $companyActive = $currentPath === '/' || $currentPath === '';
+          } else {
+              $companyActive = $currentPath === $companyUrl || strpos($currentPath, $companyPrefix . '/') === 0;
+          }
+        ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $coursesActive ? ' fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $auditActive ? ' fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
+          <?php if (current_user_has_role('admin')): ?>
+            <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $companyActive ? ' fw-semibold text-decoration-underline' : '' ?>">Firmen</a>
+          <?php endif; ?>
         </div>
       <?php endif; ?>
 
