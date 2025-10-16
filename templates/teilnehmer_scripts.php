@@ -34,9 +34,6 @@ const table = new Tabulator('#teilnehmer-tabelle', {
         const button = e.target.closest("button") ?? cell.getElement().querySelector("button");
         if (!button) return;
 
-        e.preventDefault();
-        e.stopPropagation();
-
         const popover = bootstrap.Popover.getOrCreateInstance(button, {
           trigger: "manual",
           container: document.body

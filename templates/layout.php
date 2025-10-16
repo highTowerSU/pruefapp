@@ -1,8 +1,72 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-bs-theme="auto">
 <head>
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($title ?? 'Seite') ?></title>
+    <script>
+        (() => {
+            'use strict';
+
+            const storageKey = 'theme';
+            const getStoredTheme = () => localStorage.getItem(storageKey);
+            const setStoredTheme = theme => localStorage.setItem(storageKey, theme);
+
+            const getPreferredTheme = () => {
+                const storedTheme = getStoredTheme();
+                if (storedTheme) {
+                    return storedTheme;
+                }
+
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            };
+
+            const setTheme = theme => {
+                if (theme === 'auto') {
+                    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    document.documentElement.setAttribute('data-bs-theme', systemPrefersDark ? 'dark' : 'light');
+                } else {
+                    document.documentElement.setAttribute('data-bs-theme', theme);
+                }
+            };
+
+            setTheme(getPreferredTheme());
+
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (getStoredTheme() !== 'light' && getStoredTheme() !== 'dark') {
+                    setTheme(getPreferredTheme());
+                }
+            });
+
+            window.addEventListener('DOMContentLoaded', () => {
+                const storedTheme = getStoredTheme() || 'auto';
+                const activeButton = document.querySelector(`[data-bs-theme-value="${storedTheme}"]`);
+                if (activeButton) {
+                    activeButton.classList.add('active');
+                    activeButton.setAttribute('aria-pressed', 'true');
+                }
+
+                document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
+                    if (button !== activeButton) {
+                        button.setAttribute('aria-pressed', 'false');
+                    }
+
+                    button.addEventListener('click', () => {
+                        const theme = button.getAttribute('data-bs-theme-value');
+                        setStoredTheme(theme);
+                        setTheme(theme);
+
+                        document.querySelectorAll('[data-bs-theme-value].active').forEach(active => {
+                            active.classList.remove('active');
+                            active.setAttribute('aria-pressed', 'false');
+                        });
+
+                        button.classList.add('active');
+                        button.setAttribute('aria-pressed', 'true');
+                    });
+                });
+            });
+        })();
+    </script>
     <!-- Styles -->
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/bootstrap/dist/css/bootstrap.min.css'), ENT_QUOTES) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/css/tabulator_bootstrap5.min.css'), ENT_QUOTES) ?>">
