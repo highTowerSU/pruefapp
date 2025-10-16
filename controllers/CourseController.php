@@ -6,6 +6,10 @@ class CourseController
 {
     public static function showSettings(array $params, bool $isHx): array
     {
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $kurs = self::findCourse((int)($params['id'] ?? 0));
         if ($kurs === null) {
             return [404, [], '<h1>404 – Kurs nicht gefunden</h1>'];
@@ -32,6 +36,10 @@ class CourseController
 
     public static function linkSettings(array $params, bool $isHx): array
     {
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $kurs = self::findCourse((int)($params['id'] ?? 0));
         if ($kurs === null) {
             return [404, [], '<h1>404 – Kurs nicht gefunden</h1>'];
@@ -145,6 +153,10 @@ class CourseController
 
     public static function create(array $params, bool $isHx): array
     {
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $kursname = isset($_POST['kursname']) ? trim($_POST['kursname']) : '';
 
         if ($kursname === '') {
@@ -172,6 +184,10 @@ class CourseController
 
     public static function delete(array $params, bool $isHx): array
     {
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $id = isset($params['id']) ? (int) $params['id'] : 0;
         $kurs = R::load('kurs', $id);
 

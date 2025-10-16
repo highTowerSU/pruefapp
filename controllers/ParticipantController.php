@@ -11,13 +11,17 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        $canManageParticipants = current_user_has_role('admin');
+
         $content = render_template('teilnehmer_table.php', [
             'kurs' => $kurs,
+            'canManageParticipants' => $canManageParticipants,
         ]);
 
         $scripts = render_template('teilnehmer_scripts.php', [
             'kursId' => $kurs->id,
             'apiUrl' => url_for('kurse/' . $kurs->id . '/teilnehmer/api'),
+            'canManageParticipants' => $canManageParticipants,
         ]);
 
         $body = render_template('layout.php', [
@@ -36,6 +40,10 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['mapping_submitted'])) {
                 $header = self::decodeHeaderPayload((string) ($_POST['header_payload'] ?? ''));
@@ -43,6 +51,7 @@ class ParticipantController
 
                 if ($header === null || $rows === null) {
                     $_SESSION['fehlermeldung'] = 'Zuordnung konnte nicht verarbeitet werden.';
+
 
                     return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
                 }
@@ -148,6 +157,10 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $teilnehmer = self::participantsForCourse($kurs->id);
 
         $rows = [];
@@ -198,6 +211,10 @@ class ParticipantController
             $payload = array_map([self::class, 'participantToArray'], $teilnehmer);
 
             return self::jsonResponse(200, array_values($payload));
+        }
+
+        if (!current_user_has_role('admin')) {
+            return self::jsonResponse(403, ['error' => 'Aktion nicht erlaubt']);
         }
 
         if ($method === 'POST' && isset($_GET['delete'])) {
