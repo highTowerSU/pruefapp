@@ -133,13 +133,37 @@ class MoodleImportService
             $command = $this->buildCommand($tempFile);
             $output = [];
             $exitCode = 1;
+
+            if (function_exists('audit_log')) {
+                audit_log('moodle_import_ausgefuehrt', [
+                    'befehl' => $command,
+                    'csv_datei' => $tempFile,
+                ]);
+            }
+
             exec($command . ' 2>&1', $output, $exitCode);
 
-            return [
+            $result = [
                 'exit_code' => $exitCode,
                 'output' => $output,
                 'command' => $command,
             ];
+
+            if (function_exists('audit_log')) {
+                $logContext = [
+                    'befehl' => $command,
+                    'exit_code' => $exitCode,
+                    'ausgabe' => array_map(static fn ($line) => trim((string) $line), $output),
+                ];
+
+                if ($exitCode === 0) {
+                    audit_log('moodle_import_erfolgreich', $logContext);
+                } else {
+                    audit_log('moodle_import_fehlgeschlagen', $logContext);
+                }
+            }
+
+            return $result;
         } finally {
             if (is_file($tempFile)) {
                 @unlink($tempFile);
