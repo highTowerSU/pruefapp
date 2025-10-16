@@ -133,6 +133,9 @@ class MoodleImportService
             $command = $this->buildCommand($tempFile);
             $output = [];
             $exitCode = 1;
+
+//            echo $command; die();
+
             exec($command . ' 2>&1', $output, $exitCode);
 
             return [
