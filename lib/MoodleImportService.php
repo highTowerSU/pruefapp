@@ -29,7 +29,7 @@ class MoodleImportService
 
         $this->phpBinary = $phpBinary !== null
             ? $phpBinary
-            : ($envPhp ?: PHP_BINARY);
+            : $this->detectPhpBinary($envPhp ?: PHP_BINARY);
 
         $this->defaultOptions = $defaultOptions + [
             'delimiter' => 'comma',
@@ -39,6 +39,24 @@ class MoodleImportService
             'noemail' => true,
             'skipemail' => true,
         ];
+    }
+
+    private function detectPhpBinary(string $candidate): string
+    {
+        $binary = $candidate !== '' ? $candidate : PHP_BINARY;
+        $basename = basename($binary);
+
+        if ($basename !== '' && stripos($basename, 'php-fpm') !== false) {
+            $cliBinary = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php';
+
+            if (is_file($cliBinary) && is_executable($cliBinary)) {
+                return $cliBinary;
+            }
+
+            return 'php';
+        }
+
+        return $binary;
     }
 
     public function getMoodleRoot(): string
@@ -131,7 +149,7 @@ class MoodleImportService
             'script_path' => $script,
             'script_exists' => $this->scriptExists(),
             'php_binary' => $this->phpBinary,
-            'php_exists' => $this->phpBinary !== '' && is_file($this->phpBinary),
+            'php_exists' => $this->phpBinaryExists(),
         ];
     }
 
@@ -225,5 +243,31 @@ class MoodleImportService
         }
 
         return implode(' ', $parts);
+    }
+
+    private function phpBinaryExists(): bool
+    {
+        if ($this->phpBinary === '') {
+            return false;
+        }
+
+        if (strpbrk($this->phpBinary, '/\\') !== false) {
+            return is_file($this->phpBinary) && is_executable($this->phpBinary);
+        }
+
+        $paths = explode(PATH_SEPARATOR, (string) getenv('PATH'));
+
+        foreach ($paths as $path) {
+            $candidate = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $this->phpBinary;
+            if ($candidate === DIRECTORY_SEPARATOR . $this->phpBinary) {
+                continue;
+            }
+
+            if (is_file($candidate) && is_executable($candidate)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
