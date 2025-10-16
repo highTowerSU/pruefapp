@@ -12,7 +12,14 @@ class Router {
 
       $regex = '#^' . preg_replace('#\{(\w+)\}#','(?P<$1>[^/]+)',$pattern) . '$#';
       if (preg_match($regex, $path, $mats)) {
-        return $handler($mats, $isHx);
+        $named = [];
+        foreach ($mats as $key => $value) {
+          if (!is_int($key)) {
+            $named[$key] = $value;
+          }
+        }
+
+        return $handler($named, $isHx);
       }
     }
     return [404, [], '<h1>404 Not Found</h1>'];

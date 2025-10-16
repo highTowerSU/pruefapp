@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kurs->feld_email_aktiv = isset($_POST['feld_email_aktiv']) ? 1 : 0;
     $kurs->feld_geburtsort_aktiv = isset($_POST['feld_geburtsort_aktiv']) ? 1 : 0;
     R::store($kurs);
-    header("Location: index.php");
+    header("Location: /kurse");
     exit;
 }
 

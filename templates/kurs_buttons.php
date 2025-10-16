@@ -13,10 +13,16 @@
   </a>
   <button type="button"
           class="btn btn-sm btn-danger"
-          hx-delete="kurse/<?= $kurs->id ?>"
+          data-double-confirm
+          hx-delete="/kurse/<?= $kurs->id ?>"
           hx-target="#kurs-tabelle"
           hx-swap="outerHTML"
-          hx-confirm="Wirklich löschen?">
-    <i class="fa-solid fa-trash"></i> Löschen
+          hx-trigger="confirmed">
+    <span data-label-default>
+      <i class="fa-solid fa-trash"></i> Löschen
+    </span>
+    <span data-label-confirm class="d-none">
+      <i class="fa-solid fa-circle-exclamation"></i> Nochmal klicken
+    </span>
   </button>
 </div>

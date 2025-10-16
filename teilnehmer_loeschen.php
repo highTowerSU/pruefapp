@@ -15,5 +15,5 @@ if ($tn->id) {
     $_SESSION['meldung'] = 'Teilnehmer nicht gefunden.';
 }
 
-header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? 'index.php'));
+header('Location: ' . ($_SERVER['HTTP_REFERER'] ?? '/kurse'));
 exit;

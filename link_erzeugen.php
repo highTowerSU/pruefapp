@@ -39,7 +39,7 @@ $content = <<<HTML
   Link $umschaltenText
 </a>
 <a href="?kurs={$kurs->id}&neu=1" class="btn btn-warning">Neuen Link erzeugen</a>
-<a href="index.php" class="btn btn-link">Zurück</a>
+<a href="/kurse" class="btn btn-link">Zurück</a>
 HTML;
 
 echo render_template('layout.php', [

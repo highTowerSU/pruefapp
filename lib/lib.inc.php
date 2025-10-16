@@ -1,11 +1,30 @@
 <?php
-session_start();
-
-require_once 'vendor/autoload.php';
-require_once 'lib/htmx.php';
-require_once 'lib/router.php';
 
 use \RedBeanPHP\R as R;
+
+session_start();
+
+$baseDir = dirname(__DIR__);
+
+$autoloadCandidates = [
+    $baseDir . '/vendor/autoload.php',
+    __DIR__ . '/vendor/autoload.php',
+    dirname($baseDir) . '/vendor/autoload.php',
+];
+
+foreach ($autoloadCandidates as $autoloadPath) {
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
+        break;
+    }
+}
+
+if (!class_exists('RedBeanPHP\\R') && file_exists($baseDir . '/rb.php')) {
+    require_once $baseDir . '/rb.php';
+}
+
+require_once __DIR__ . '/htmx.php';
+require_once __DIR__ . '/router.php';
 
 function initialisiere_oidc(bool $force = false): void {
     $seitenname = basename($_SERVER['PHP_SELF']);
@@ -20,7 +39,7 @@ function initialisiere_oidc(bool $force = false): void {
         $oidc->setRedirectURL('https://vserver2.koenigsbl.au/moodle_user_gen/callback.php');
         $oidc->authenticate();
         $_SESSION['user'] = $oidc->requestUserInfo();
-        header('Location: index.php');
+        header('Location: /kurse');
         exit;
     }
 }
@@ -37,7 +56,30 @@ if ($aktuelleSeite === 'callback.php') {
 }
 
 // DB-Verbindung (weiter wie bisher)
-R::setup('sqlite:' . __DIR__ . '/../../../data/moodle_user_gen/db.sqlite');
+$dbCandidates = [
+    $baseDir . '/data/moodle_user_gen/db.sqlite',
+    dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
+    $baseDir . '/db.sqlite',
+];
+
+$dbPath = null;
+foreach ($dbCandidates as $candidate) {
+    $dir = dirname($candidate);
+    if (file_exists($candidate) || is_dir($dir)) {
+        $dbPath = $candidate;
+        break;
+    }
+}
+
+if ($dbPath === null) {
+    $primaryDir = dirname($dbCandidates[0]);
+    if (!is_dir($primaryDir)) {
+        @mkdir($primaryDir, 0777, true);
+    }
+    $dbPath = $dbCandidates[0];
+}
+
+R::setup('sqlite:' . $dbPath);
 R::freeze(false);
 try {
   R::createRevisionSupport(R::dispense("nutzer"));
@@ -68,9 +110,10 @@ function generate_email($username) {
 }
 
 function render_template($file, $vars = []) {
+    global $baseDir;
     extract($vars);
     ob_start();
-    include __DIR__ . '/..//templates/' . $file;
+    include $baseDir . '/templates/' . $file;
     return ob_get_clean();
 }
 

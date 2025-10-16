@@ -41,7 +41,7 @@ class CourseController
             }
 
             $_SESSION['fehlermeldung'] = $error;
-            return [303, ['Location' => 'index.php'], ''];
+            return [303, ['Location' => '/kurse'], ''];
         }
 
         $kurs = R::dispense('kurs');
@@ -54,7 +54,7 @@ class CourseController
         }
 
         $_SESSION['meldung'] = $successMessage;
-        return [303, ['Location' => 'index.php'], ''];
+        return [303, ['Location' => '/kurse'], ''];
     }
 
     public static function delete(array $params, bool $isHx): array
@@ -69,7 +69,7 @@ class CourseController
             }
 
             $_SESSION['fehlermeldung'] = $error;
-            return [303, ['Location' => 'index.php'], ''];
+            return [303, ['Location' => '/kurse'], ''];
         }
 
         $teilnehmerAnzahl = R::count('teilnehmer', 'kurs_id = ?', [$kurs->id]);
@@ -80,7 +80,8 @@ class CourseController
             }
 
             $_SESSION['fehlermeldung'] = $error;
-            return [303, ['Location' => 'index.php'], ''];
+            return [303, ['Location' => '/kurse'], ''];
+
         }
 
         R::trash($kurs);
@@ -91,7 +92,7 @@ class CourseController
         }
 
         $_SESSION['meldung'] = $message;
-        return [303, ['Location' => 'index.php'], ''];
+        return [303, ['Location' => '/kurse'], ''];
     }
 
     private static function allCourses(): array
