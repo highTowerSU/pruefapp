@@ -1,15 +1,31 @@
-<script type="module">
-import { Popover } from <?= json_encode(url_for('node_modules/bootstrap/dist/js/bootstrap.esm.js'), JSON_UNESCAPED_SLASHES) ?>;
-const tableElement = document.getElementById('teilnehmer-tabelle');
-const kursId = tableElement?.dataset.kursId;
+<script>
+(() => {
+  'use strict';
 
-if (!kursId) {
-  throw new Error('Kurs-ID nicht gefunden.');
-}
+  const tableElement = document.getElementById('teilnehmer-tabelle');
+  const kursId = tableElement?.dataset.kursId;
 
-const apiUrl = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
+  if (!kursId) {
+    console.error('Kurs-ID nicht gefunden.');
+    return;
+  }
 
-const table = new Tabulator('#teilnehmer-tabelle', {
+  const bootstrapLib = window.bootstrap;
+  if (!bootstrapLib || typeof bootstrapLib.Popover !== 'function') {
+    console.error('Bootstrap Popover konnte nicht geladen werden.');
+    return;
+  }
+
+  const TabulatorLib = window.Tabulator;
+  if (typeof TabulatorLib !== 'function') {
+    console.error('Tabulator konnte nicht geladen werden.');
+    return;
+  }
+
+  const { Popover } = bootstrapLib;
+  const apiUrl = <?= json_encode($apiUrl, JSON_UNESCAPED_SLASHES) ?>;
+
+  const table = new TabulatorLib('#teilnehmer-tabelle', {
   layout: "fitColumns",
   placeholder: "Keine Teilnehmer gefunden.",
   columns: [
@@ -157,4 +173,5 @@ document.addEventListener('click', (event) => {
     Popover.getInstance(button)?.hide();
   });
 });
+})();
 </script>
