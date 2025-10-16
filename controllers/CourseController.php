@@ -81,6 +81,7 @@ class CourseController
 
             $_SESSION['fehlermeldung'] = $error;
             return [303, ['Location' => '/kurse'], ''];
+
         }
 
         R::trash($kurs);

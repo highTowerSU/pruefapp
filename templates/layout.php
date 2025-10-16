@@ -12,7 +12,7 @@
 
 </head>
 <body>
-<?php include __DIR__ . '/_navbar.php'; ?>
+<?php include "templates/_navbar.php"; ?>
 <div class="container py-4">
     <h1><?= htmlspecialchars($title ?? 'Seite') ?></h1>
         <?php if (!empty($_SESSION['meldung'])): ?>
@@ -32,51 +32,6 @@
 <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="node_modules/htmx.org/dist/htmx.min.js"></script>
 <!--<script src="node_modules/tabulator-tables/dist/js/tabulator.min.js"></script>-->
-<script>
-(function() {
-  const CONFIRM_CLASS = 'btn-outline-danger';
-  document.addEventListener('click', function (event) {
-    const button = event.target.closest('[data-double-confirm]');
-    if (!button) {
-      return;
-    }
-
-    const defaultLabel = button.querySelector('[data-label-default]');
-    const confirmLabel = button.querySelector('[data-label-confirm]');
-
-    if (button.dataset.armed === 'true') {
-      button.dataset.armed = 'false';
-      button.classList.remove(CONFIRM_CLASS);
-      button.classList.add('btn-danger');
-      if (defaultLabel && confirmLabel) {
-        confirmLabel.classList.add('d-none');
-        defaultLabel.classList.remove('d-none');
-      }
-      button.dispatchEvent(new CustomEvent('confirmed', { bubbles: true }));
-    } else {
-      event.preventDefault();
-      button.dataset.armed = 'true';
-      button.classList.add(CONFIRM_CLASS);
-      button.classList.remove('btn-danger');
-      if (defaultLabel && confirmLabel) {
-        defaultLabel.classList.add('d-none');
-        confirmLabel.classList.remove('d-none');
-      }
-      window.setTimeout(function () {
-        if (button.dataset.armed === 'true') {
-          button.dataset.armed = 'false';
-          button.classList.remove(CONFIRM_CLASS);
-          button.classList.add('btn-danger');
-          if (defaultLabel && confirmLabel) {
-            confirmLabel.classList.add('d-none');
-            defaultLabel.classList.remove('d-none');
-          }
-        }
-      }, 3500);
-    }
-  });
-})();
-</script>
 
 <?php if (!empty($scripts)) echo $scripts; ?>
 </body>

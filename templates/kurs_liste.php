@@ -1,6 +1,6 @@
 <form method="post"
       class="mb-4"
-      hx-post="/kurse"
+      hx-post="kurse"
       hx-target="#kurs-tabelle"
       hx-swap="outerHTML"
       hx-on::after-request="if (event.detail.successful) { this.reset(); const input = this.querySelector('[name=kursname]'); if (input) { input.focus(); } }">
