@@ -118,25 +118,10 @@
 <main class="flex-grow-1">
 <div class="container py-4">
     <header class="page-header mb-4">
-      <div class="d-flex align-items-center gap-3 flex-wrap">
-        <?php $headerLogo = $branding['header_logo']['path'] ?? ''; ?>
-        <?php if (!empty($headerLogo)): ?>
-          <?php
-            $headerLogoUrl = preg_match('#^https?://#i', $headerLogo)
-                ? $headerLogo
-                : url_for($headerLogo);
-          ?>
-          <img src="<?= htmlspecialchars($headerLogoUrl, ENT_QUOTES) ?>"
-               alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? '')) ?>"
-               class="page-header-logo img-fluid">
-        <?php endif; ?>
-        <div>
-          <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
-          <?php if (!empty($branding['company_name'])): ?>
-            <p class="mb-0 text-body-secondary">für <?= htmlspecialchars($branding['company_name']) ?></p>
-          <?php endif; ?>
-        </div>
-      </div>
+      <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
+      <?php if (!empty($branding['company_name'])): ?>
+        <p class="mb-0 text-body-secondary">für <?= htmlspecialchars($branding['company_name']) ?></p>
+      <?php endif; ?>
     </header>
         <?php if (!empty($_SESSION['meldung'])): ?>
   <div class="alert alert-info"><?= htmlspecialchars($_SESSION['meldung']) ?></div>
@@ -151,7 +136,7 @@
 </div>
 </main>
 
-<footer class="footer mt-auto py-4 border-top bg-body-tertiary">
+<footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
   <div class="container">
     <?php
       $projectOwner = trim((string)($branding['project_owner'] ?? ''));
