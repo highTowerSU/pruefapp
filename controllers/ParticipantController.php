@@ -37,11 +37,61 @@ class ParticipantController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            self::handleCsvImport($kurs);
+            if (isset($_POST['mapping_submitted'])) {
+                $header = self::decodeHeaderPayload($_POST['header_payload'] ?? '');
+                $rows = self::decodeRowsPayload($_POST['rows_payload'] ?? '');
 
-            $_SESSION['meldung'] = 'Teilnehmer wurden importiert.';
+                if ($header === null || $rows === null) {
+                    $_SESSION['fehlermeldung'] = 'Die übermittelten Importdaten sind ungültig. Bitte starten Sie den Import erneut.';
 
-            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
+                    return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
+                }
+
+                $mapping = self::sanitizeMapping($_POST['mapping'] ?? [], $header);
+
+                $imported = self::importRows($kurs, $rows, $mapping);
+
+                $_SESSION['meldung'] = $imported === 1
+                    ? '1 Teilnehmer wurde importiert.'
+                    : sprintf('%d Teilnehmer wurden importiert.', $imported);
+
+                return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
+            }
+
+            $result = self::parseUploadedCsv($_FILES['csv'] ?? null);
+
+            if ($result === null) {
+                $_SESSION['fehlermeldung'] = 'CSV-Datei konnte nicht gelesen werden.';
+
+                return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
+            }
+
+            $fieldLabels = self::fieldLabels();
+            $initialMapping = [];
+            foreach (array_keys($fieldLabels) as $fieldKey) {
+                $guess = self::guessColumn($result['header'], $fieldKey);
+                if ($guess !== null) {
+                    $initialMapping[$fieldKey] = $guess;
+                }
+            }
+
+            $content = render_template('import_mapping.php', [
+                'kurs' => $kurs,
+                'headers' => $result['header'],
+                'previewRows' => array_slice($result['rows'], 0, 5),
+                'rowCount' => count($result['rows']),
+                'fieldLabels' => $fieldLabels,
+                'initialMapping' => $initialMapping,
+                'rowsPayload' => self::encodeRowsPayload($result['rows']),
+                'headerPayload' => self::encodeHeaderPayload($result['header']),
+            ]);
+
+            $body = render_template('layout.php', [
+                'title' => 'Import – ' . $kurs->name,
+                'content' => $content,
+            ]);
+
+            return [200, [], $body];
         }
 
         $content = render_template('import_form.php', ['kurs' => $kurs]);
@@ -212,43 +262,316 @@ class ParticipantController
         return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
     }
 
-    private static function handleCsvImport(\RedBeanPHP\OODBBean $kurs): void
+    private static function parseUploadedCsv(?array $file): ?array
     {
-        if (empty($_FILES['csv']['tmp_name'])) {
-            return;
+        if (!$file || empty($file['tmp_name']) || !is_readable($file['tmp_name'])) {
+            return null;
         }
 
-        $handle = fopen($_FILES['csv']['tmp_name'], 'r');
+        $handle = fopen($file['tmp_name'], 'r');
         if ($handle === false) {
-            return;
+            return null;
         }
 
-        $header = fgetcsv($handle);
-        if (!$header) {
+        $rawHeader = fgetcsv($handle);
+        if ($rawHeader === false) {
             fclose($handle);
-            return;
+            return null;
         }
+
+        $header = self::normalizeHeader($rawHeader);
+        $rows = [];
 
         while (($data = fgetcsv($handle)) !== false) {
-            $row = array_combine($header, $data);
-            if (!$row) {
+            if ($data === [null] || $data === false) {
+                continue;
+            }
+
+            $assoc = self::combineRow($header, $data);
+            if ($assoc === null) {
+                continue;
+            }
+
+            $rows[] = $assoc;
+        }
+
+        fclose($handle);
+
+        return [
+            'header' => $header,
+            'rows' => $rows,
+        ];
+    }
+
+    private static function normalizeHeader(array $rawHeader): array
+    {
+        $header = [];
+
+        foreach ($rawHeader as $index => $value) {
+            $name = trim((string) $value);
+            if ($name === '') {
+                $name = 'Spalte ' . ($index + 1);
+            }
+
+            $uniqueName = $name;
+            $suffix = 2;
+            while (in_array($uniqueName, $header, true)) {
+                $uniqueName = $name . ' (' . $suffix . ')';
+                $suffix++;
+            }
+
+            $header[] = $uniqueName;
+        }
+
+        return $header;
+    }
+
+    private static function combineRow(array $header, array $data): ?array
+    {
+        $columnCount = count($header);
+        if (count($data) < $columnCount) {
+            $data = array_pad($data, $columnCount, '');
+        } elseif (count($data) > $columnCount) {
+            $data = array_slice($data, 0, $columnCount);
+        }
+
+        $row = array_combine($header, $data);
+        if ($row === false) {
+            return null;
+        }
+
+        return $row;
+    }
+
+    private static function encodeRowsPayload(array $rows): string
+    {
+        return base64_encode(json_encode($rows, JSON_UNESCAPED_UNICODE));
+    }
+
+    private static function encodeHeaderPayload(array $header): string
+    {
+        return base64_encode(json_encode($header, JSON_UNESCAPED_UNICODE));
+    }
+
+    private static function decodeRowsPayload(string $payload): ?array
+    {
+        if ($payload === '') {
+            return null;
+        }
+
+        $json = base64_decode($payload, true);
+        if ($json === false) {
+            return null;
+        }
+
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            return null;
+        }
+
+        $rows = [];
+        foreach ($data as $row) {
+            if (is_array($row)) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    private static function decodeHeaderPayload(string $payload): ?array
+    {
+        if ($payload === '') {
+            return null;
+        }
+
+        $json = base64_decode($payload, true);
+        if ($json === false) {
+            return null;
+        }
+
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            return null;
+        }
+
+        $header = [];
+        foreach ($data as $value) {
+            if (is_string($value) && $value !== '') {
+                $header[] = $value;
+            }
+        }
+
+        return $header === [] ? null : $header;
+    }
+
+    private static function fieldLabels(): array
+    {
+        return [
+            'vorname' => 'Vorname',
+            'nachname' => 'Nachname',
+            'geburtsdatum' => 'Geburtsdatum',
+            'geburtsort' => 'Geburtsort',
+            'benutzername' => 'Benutzername',
+            'email' => 'E-Mail-Adresse',
+            'passwort' => 'Passwort',
+        ];
+    }
+
+    private static function guessColumn(array $header, string $fieldKey): ?string
+    {
+        $normalizedHeader = [];
+        foreach ($header as $original) {
+            $normalizedHeader[$original] = self::normalizeColumnName($original);
+        }
+
+        $candidates = self::fieldCandidates();
+        $candidateList = $candidates[$fieldKey] ?? [];
+
+        foreach ($candidateList as $candidate) {
+            foreach ($normalizedHeader as $original => $normalized) {
+                if ($normalized === $candidate) {
+                    return $original;
+                }
+            }
+        }
+
+        foreach ($candidateList as $candidate) {
+            foreach ($normalizedHeader as $original => $normalized) {
+                if ($candidate !== '' && strpos($normalized, $candidate) !== false) {
+                    return $original;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function normalizeColumnName(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        $normalized = str_replace(['_', '-'], ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+
+        return $normalized;
+    }
+
+    private static function fieldCandidates(): array
+    {
+        return [
+            'vorname' => ['vorname', 'first name', 'firstname', 'given name'],
+            'nachname' => ['nachname', 'last name', 'lastname', 'surname', 'family name'],
+            'geburtsdatum' => ['geburtsdatum', 'birthdate', 'date of birth', 'geburtstag', 'profile field birthdate'],
+            'geburtsort' => ['geburtsort', 'birthplace', 'place of birth', 'profile field birthplace'],
+            'benutzername' => ['benutzername', 'username', 'user name', 'login'],
+            'email' => ['email', 'e-mail', 'mail'],
+            'passwort' => ['passwort', 'password'],
+        ];
+    }
+
+    private static function sanitizeMapping(array $mapping, array $header): array
+    {
+        $allowed = array_keys(self::fieldLabels());
+        $headerLookup = array_fill_keys($header, true);
+        $clean = [];
+
+        foreach ($allowed as $fieldKey) {
+            $column = isset($mapping[$fieldKey]) ? (string) $mapping[$fieldKey] : '';
+            if ($column !== '' && isset($headerLookup[$column])) {
+                $clean[$fieldKey] = $column;
+            } else {
+                $clean[$fieldKey] = '';
+            }
+        }
+
+        return $clean;
+    }
+
+    private static function importRows(\RedBeanPHP\OODBBean $kurs, array $rows, array $mapping): int
+    {
+        $imported = 0;
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $values = [];
+            foreach ($mapping as $field => $column) {
+                if ($column === '' || !array_key_exists($column, $row)) {
+                    continue;
+                }
+
+                $values[$field] = trim((string) ($row[$column] ?? ''));
+            }
+
+            $hasData = false;
+            foreach ($values as $value) {
+                if ($value !== '') {
+                    $hasData = true;
+                    break;
+                }
+            }
+
+            if (!$hasData) {
                 continue;
             }
 
             $teilnehmer = R::dispense('teilnehmer');
-            $teilnehmer->vorname = trim($row['Vorname'] ?? '');
-            $teilnehmer->nachname = trim($row['Nachname'] ?? '');
-            $teilnehmer->geburtsdatum = trim($row['Geburtsdatum'] ?? '');
-            $teilnehmer->geburtsort = trim($row['Geburtsort'] ?? '');
-            $teilnehmer->benutzername = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
-            $teilnehmer->passwort = generate_password();
-            $teilnehmer->email = generate_email($teilnehmer->benutzername);
             $teilnehmer->kurs = $kurs;
 
+            $teilnehmer->vorname = $values['vorname'] ?? '';
+            $teilnehmer->nachname = $values['nachname'] ?? '';
+            $teilnehmer->geburtsdatum = $values['geburtsdatum'] ?? '';
+            $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
+
+            $username = $values['benutzername'] ?? '';
+            $username = trim($username);
+
+            if ($username === '' && $teilnehmer->vorname !== '' && $teilnehmer->nachname !== '') {
+                $username = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
+            }
+
+            if ($username !== '') {
+                $username = self::ensureUniqueUsername($username);
+            }
+
+            if ($username === '' && $teilnehmer->vorname === '' && $teilnehmer->nachname === '') {
+                // Ohne Namen oder Benutzernamen macht ein Import keinen Sinn.
+                continue;
+            }
+
+            $password = $values['passwort'] ?? '';
+            if ($password === '') {
+                $password = generate_password();
+            }
+
+            $email = $values['email'] ?? '';
+            if ($email === '' && $username !== '') {
+                $email = generate_email($username);
+            }
+
+            $teilnehmer->benutzername = $username;
+            $teilnehmer->passwort = $password;
+            $teilnehmer->email = $email;
+
             R::store($teilnehmer);
+            $imported++;
         }
 
-        fclose($handle);
+        return $imported;
+    }
+
+    private static function ensureUniqueUsername(string $username): string
+    {
+        $candidate = $username;
+        $suffix = 1;
+        while (R::findOne('teilnehmer', ' benutzername = ? ', [$candidate])) {
+            $candidate = $username . $suffix;
+            $suffix++;
+        }
+
+        return $candidate;
     }
 
     private static function notFoundResponse(): array
