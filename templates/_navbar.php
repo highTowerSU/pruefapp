@@ -1,6 +1,9 @@
 <nav class="navbar navbar-expand-lg navbar-navy mb-4 noprint">
   <div class="container">
-    <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">Moodle-Zugang</a>
+    <?php $branding = $branding ?? get_branding(); ?>
+    <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
+      <?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?>
+    </a>
     <div class="d-flex align-items-center ms-auto gap-3">
       <?php if (isset($_SESSION['user'])): ?>
         <span class="navbar-text me-3">

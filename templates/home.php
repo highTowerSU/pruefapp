@@ -1,10 +1,13 @@
+<?php $branding = $branding ?? get_branding(); ?>
 <div class="row align-items-stretch g-4">
   <div class="col-lg-7">
     <div class="p-4 bg-body-tertiary border rounded-3 shadow-sm h-100">
-      <h2 class="h4 mb-3">Willkommen zur Zugangsdaten-Verwaltung</h2>
+      <h2 class="h4 mb-3"><?= htmlspecialchars($branding['home_headline'] ?? 'Willkommen in der Kursverwaltung') ?></h2>
+      <p class="mb-3 text-body-secondary">
+        <?= htmlspecialchars($branding['home_intro'] ?? 'Hier verwaltest du deine Kurse, importierst Teilnehmerlisten und erzeugst Einladungslinks.') ?>
+      </p>
       <p class="mb-4 text-body-secondary">
-        Hier verwaltest du Moodle-Kurse, importierst Teilnehmerlisten und erzeugst Einladungslinks.
-        Starte direkt in die Kursverwaltung, um neue Kurse anzulegen oder bestehende zu pflegen.
+        <?= htmlspecialchars($branding['home_details'] ?? 'Das Modul bleibt flexibel erweiterbar und unterstützt die Unternehmensgruppe in ihrer täglichen Zusammenarbeit.') ?>
       </p>
       <a class="btn btn-primary" href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>">Zur Kursverwaltung</a>
     </div>
