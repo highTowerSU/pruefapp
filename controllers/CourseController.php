@@ -198,6 +198,7 @@ class CourseController
             'kurse' => $kurse,
             'message' => null,
             'error' => null,
+            'moodleCourseOptions' => self::moodleCourseOptions(),
         ]);
 
         $body = render_template('layout.php', [
@@ -389,6 +390,40 @@ class CourseController
     private static function allCourses(): array
     {
         return R::find('kurs', ' ORDER BY name ');
+    }
+
+    private static function moodleCourseOptions(): array
+    {
+        $rows = R::getAll(
+            'SELECT id, name, moodle_course_shortname, moodle_course_fullname'
+            . ' FROM kurs WHERE TRIM(COALESCE(moodle_course_shortname, "")) <> "" ORDER BY name'
+        );
+
+        return array_map(
+            static function (array $row): array {
+                $shortname = (string) ($row['moodle_course_shortname'] ?? '');
+                $fullname = (string) ($row['moodle_course_fullname'] ?? '');
+                $name = (string) ($row['name'] ?? '');
+
+                $displayParts = array_filter([
+                    $shortname !== '' ? $shortname : null,
+                    $fullname !== '' ? $fullname : null,
+                ]);
+
+                $display = $displayParts !== []
+                    ? implode(' · ', $displayParts)
+                    : ($shortname !== '' ? $shortname : ($fullname !== '' ? $fullname : $name));
+
+                return [
+                    'id' => (int) ($row['id'] ?? 0),
+                    'name' => $name,
+                    'shortname' => $shortname,
+                    'fullname' => $fullname,
+                    'display' => $display,
+                ];
+            },
+            $rows
+        );
     }
 
     private static function tableResponse(?string $message = null, ?string $error = null, int $status = 200): array
