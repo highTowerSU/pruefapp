@@ -11,13 +11,17 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        $canManageParticipants = current_user_has_role('admin');
+
         $content = render_template('teilnehmer_table.php', [
             'kurs' => $kurs,
+            'canManageParticipants' => $canManageParticipants,
         ]);
 
         $scripts = render_template('teilnehmer_scripts.php', [
             'kursId' => $kurs->id,
             'apiUrl' => url_for('kurse/' . $kurs->id . '/teilnehmer/api'),
+            'canManageParticipants' => $canManageParticipants,
         ]);
 
         $body = render_template('layout.php', [
@@ -36,6 +40,10 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['mapping_submitted'])) {
                 $header = self::decodeHeaderPayload((string) ($_POST['header_payload'] ?? ''));
@@ -43,6 +51,7 @@ class ParticipantController
 
                 if ($header === null || $rows === null) {
                     $_SESSION['fehlermeldung'] = 'Zuordnung konnte nicht verarbeitet werden.';
+
 
                     return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
                 }
@@ -163,6 +172,10 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
+        if (!current_user_has_role('admin')) {
+            return forbidden_response();
+        }
+
         $teilnehmer = self::participantsForCourse($kurs->id);
 
         $rows = [];
@@ -215,6 +228,10 @@ class ParticipantController
             return self::jsonResponse(200, array_values($payload));
         }
 
+        if (!current_user_has_role('admin')) {
+            return self::jsonResponse(403, ['error' => 'Aktion nicht erlaubt']);
+        }
+
         if ($method === 'POST' && isset($_GET['delete'])) {
             $id = (int) $_GET['delete'];
             if ($id > 0) {
@@ -260,7 +277,7 @@ class ParticipantController
 
             $teilnehmer->vorname = trim((string) ($data['vorname'] ?? ''));
             $teilnehmer->nachname = trim((string) ($data['nachname'] ?? ''));
-            $teilnehmer->geburtsdatum = trim((string) ($data['geburtsdatum'] ?? ''));
+            $teilnehmer->geburtsdatum = normalize_birthdate((string) ($data['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = trim((string) ($data['geburtsort'] ?? ''));
 
             if (array_key_exists('email', $data)) {
@@ -609,7 +626,7 @@ class ParticipantController
 
             $teilnehmer->vorname = $values['vorname'] ?? '';
             $teilnehmer->nachname = $values['nachname'] ?? '';
-            $teilnehmer->geburtsdatum = $values['geburtsdatum'] ?? '';
+            $teilnehmer->geburtsdatum = normalize_birthdate((string) ($values['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
 
             $username = $values['benutzername'] ?? '';
@@ -655,7 +672,7 @@ class ParticipantController
             'id' => (int) $teilnehmer->id,
             'vorname' => (string) $teilnehmer->vorname,
             'nachname' => (string) $teilnehmer->nachname,
-            'geburtsdatum' => (string) $teilnehmer->geburtsdatum,
+            'geburtsdatum' => format_birthdate_for_display((string) $teilnehmer->geburtsdatum),
             'geburtsort' => (string) $teilnehmer->geburtsort,
             'benutzername' => (string) $teilnehmer->benutzername,
             'email' => (string) ($teilnehmer->email ?? ''),

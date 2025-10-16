@@ -10,7 +10,7 @@ class Model_Teilnehmer extends SimpleModel
 
         $bean->vorname = trim((string) ($bean->vorname ?? ''));
         $bean->nachname = trim((string) ($bean->nachname ?? ''));
-        $bean->geburtsdatum = trim((string) ($bean->geburtsdatum ?? ''));
+        $bean->geburtsdatum = normalize_birthdate((string) ($bean->geburtsdatum ?? ''));
         $bean->geburtsort = trim((string) ($bean->geburtsort ?? ''));
         $bean->benutzername = trim((string) ($bean->benutzername ?? ''));
         $bean->email = trim((string) ($bean->email ?? ''));
