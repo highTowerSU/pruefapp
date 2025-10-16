@@ -1,0 +1,56 @@
+:root[data-bs-theme="dark"] .tabulator {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-header,
+:root[data-bs-theme="dark"] .tabulator .tabulator-footer {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col,
+:root[data-bs-theme="dark"] .tabulator .tabulator-tableholder {
+  background-color: transparent;
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-row {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-row.tabulator-row-even {
+  background-color: color-mix(in srgb, var(--bs-body-bg) 80%, var(--bs-tertiary-bg));
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-row.tabulator-selected {
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary-text-emphasis);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-row .tabulator-cell {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-placeholder-contents {
+  color: var(--bs-secondary-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-edit-box,
+:root[data-bs-theme="dark"] .tabulator .tabulator-popup-container {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-footer .tabulator-page {
+  color: inherit;
+}
+
+:root[data-bs-theme="dark"] .tabulator .tabulator-footer .tabulator-page.active {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: var(--bs-primary-contrast);
+}

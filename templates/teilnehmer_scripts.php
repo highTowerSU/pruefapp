@@ -87,7 +87,15 @@ const table = new Tabulator('#teilnehmer-tabelle', {
 });
 
 document.getElementById('btn-add-row')?.addEventListener('click', () => {
-  table.addRow({});
+  table
+    .addRow({}, true)
+    .then(row => {
+      table.scrollToRow(row, "center", true);
+      row.getCell("vorname")?.edit();
+    })
+    .catch(() => {
+      table.alertError?.("Neue Zeile konnte nicht hinzugefügt werden.");
+    });
 });
 
 document.addEventListener('click', (event) => {
