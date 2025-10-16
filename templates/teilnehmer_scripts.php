@@ -31,7 +31,7 @@ const table = new Tabulator('#teilnehmer-tabelle', {
       width: 60,
       hozAlign: "center",
       cellClick: function(e, cell) {
-        const button = e.target.closest("button");
+        const button = e.target.closest("button") ?? cell.getElement().querySelector("button");
         if (!button) return;
 
         const popover = bootstrap.Popover.getOrCreateInstance(button, {
