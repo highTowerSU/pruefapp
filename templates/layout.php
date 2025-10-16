@@ -136,7 +136,7 @@
 </div>
 </main>
 
-<footer class="footer mt-auto py-4 border-top bg-body-tertiary">
+<footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
   <div class="container">
     <div class="row align-items-center gy-3">
       <div class="col-lg">

@@ -52,6 +52,7 @@ function initialize_database(): void
     global $baseDir;
 
     $dbCandidates = [
+        $baseDir . '/../../data/moodle_user_gen/db.sqlite',
         $baseDir . '/data/moodle_user_gen/db.sqlite',
         dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
         $baseDir . '/db.sqlite',
