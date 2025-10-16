@@ -668,7 +668,7 @@ function normalize_email_address(string $email): string
     [$local, $domain] = $parts;
     $local = transliterate_to_ascii($local);
     $local = strtolower($local);
-    $local = preg_replace("~[^a-z0-9!#\$%&'*+/=?^_`{|}.~-]+~", '', $local) ?? '';
+    $local = preg_replace("~[^a-z0-9!#\$%&'*+/=?^_`{|}.\~-]+~", '', $local) ?? '';
     $local = trim($local, '.');
 
     $domain = transliterate_to_ascii($domain);
