@@ -32,7 +32,15 @@ class MoodleImportService
             : $this->detectPhpBinary($envPhp ?: PHP_BINARY);
 
         $this->defaultOptions = $defaultOptions + [
-            'delimiter' => 'comma',
+            // Moodle expects the delimiter option to contain the literal character and not
+            // the human readable name (e.g. "comma"). Passing the word would make Moodle
+            // interpret the first character ("c") as separator which leads to the
+            // "csvfewcolumns" error because the CSV is no longer parsed correctly.
+            // Providing both the character and the matching delimiter name keeps backwards
+            // compatibility with Moodle's CLI while ensuring the generated CSV is parsed
+            // with the intended separator.
+            'delimiter' => ',',
+            'delimitername' => 'comma',
             'encoding' => 'UTF-8',
             'ignoreerrors' => true,
             'updatemode' => '0',
