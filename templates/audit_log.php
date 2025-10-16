@@ -1,10 +1,67 @@
 <?php
 /** @var array<int, array<string, mixed>> $entries */
+/** @var array<string, mixed> $pagination */
+
+$pagination = $pagination ?? [
+    'total_entries' => count($entries),
+    'first_item' => count($entries) > 0 ? 1 : 0,
+    'last_item' => count($entries),
+    'page' => 1,
+    'total_pages' => 1,
+    'has_previous' => false,
+    'has_next' => false,
+    'previous_page' => null,
+    'next_page' => null,
+];
+
+$baseAuditUrl = url_for('admin/audit-log');
+$previousUrl = $pagination['has_previous']
+    ? ($pagination['previous_page'] === 1
+        ? $baseAuditUrl
+        : url_for('admin/audit-log?page=' . (string) $pagination['previous_page']))
+    : '#';
+$nextUrl = $pagination['has_next']
+    ? url_for('admin/audit-log?page=' . (string) $pagination['next_page'])
+    : '#';
 ?>
 
 <?php if (empty($entries)): ?>
     <p class="text-body-secondary">Es wurden noch keine Aktionen protokolliert.</p>
 <?php else: ?>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div class="text-body-secondary small">
+            Einträge <?= (int) $pagination['first_item'] ?>–<?= (int) $pagination['last_item'] ?> von <?= (int) $pagination['total_entries'] ?>
+        </div>
+        <nav aria-label="Audit-Log-Paginierung">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item<?= $pagination['has_previous'] ? '' : ' disabled' ?>">
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars($previousUrl, ENT_QUOTES) ?>"
+                        aria-label="Vorherige Seite"
+                        <?= $pagination['has_previous'] ? '' : 'tabindex="-1" aria-disabled="true"' ?>
+                    >
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item active" aria-current="page">
+                    <span class="page-link">
+                        Seite <?= (int) $pagination['page'] ?> von <?= (int) $pagination['total_pages'] ?>
+                    </span>
+                </li>
+                <li class="page-item<?= $pagination['has_next'] ? '' : ' disabled' ?>">
+                    <a
+                        class="page-link"
+                        href="<?= htmlspecialchars($nextUrl, ENT_QUOTES) ?>"
+                        aria-label="Nächste Seite"
+                        <?= $pagination['has_next'] ? '' : 'tabindex="-1" aria-disabled="true"' ?>
+                    >
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
