@@ -24,27 +24,51 @@ const table = new Tabulator('#teilnehmer-tabelle', {
       title: "Aktion",
       formatter: function(cell) {
         const id = cell.getRow().getData().id;
-        return `<button class="btn btn-sm btn-danger btn-popover-confirm" data-id="${id}" data-confirmed="false" data-bs-toggle="popover" title="Wirklich löschen?">
+        return `<button class="btn btn-sm btn-danger btn-popover-confirm" data-id="${id}" data-confirmed="false" data-bs-toggle="popover" data-bs-trigger="manual" data-bs-placement="left" data-bs-content="Wirklich löschen?">
           <i class="fa-solid fa-trash"></i>
         </button>`;
       },
       width: 60,
       hozAlign: "center",
       cellClick: function(e, cell) {
-        const button = e.target.closest("button");
+        const button = e.target.closest("button") ?? cell.getElement().querySelector("button");
         if (!button) return;
 
+        e.preventDefault();
+        e.stopPropagation();
+
+        const popover = bootstrap.Popover.getOrCreateInstance(button, {
+          trigger: "manual",
+          container: document.body
+        });
+
         if (button.dataset.confirmed === "true") {
+          popover.hide();
+          button.dataset.confirmed = "false";
           const id = button.dataset.id;
           fetch(apiUrl + "?delete=" + id, {
             method: "POST"
           }).then(() => table.replaceData());
         } else {
+          document.querySelectorAll('.btn-popover-confirm[data-confirmed="true"]').forEach(activeButton => {
+            if (activeButton === button) {
+              return;
+            }
+
+            activeButton.dataset.confirmed = "false";
+            bootstrap.Popover.getInstance(activeButton)?.hide();
+          });
+
+          popover.show();
           button.dataset.confirmed = "true";
-          button.setAttribute("title", "Nochmal klicken zum Löschen");
+
           setTimeout(() => {
+            if (button.dataset.confirmed !== "true") {
+              return;
+            }
+
             button.dataset.confirmed = "false";
-            button.setAttribute("title", "Wirklich löschen?");
+            popover.hide();
           }, 3000);
         }
       }
@@ -66,5 +90,16 @@ const table = new Tabulator('#teilnehmer-tabelle', {
 
 document.getElementById('btn-add-row')?.addEventListener('click', () => {
   table.addRow({});
+});
+
+document.addEventListener('click', (event) => {
+  if (event.target.closest('.btn-popover-confirm') || event.target.closest('.popover')) {
+    return;
+  }
+
+  document.querySelectorAll('.btn-popover-confirm[data-confirmed="true"]').forEach(button => {
+    button.dataset.confirmed = "false";
+    bootstrap.Popover.getInstance(button)?.hide();
+  });
 });
 </script>
