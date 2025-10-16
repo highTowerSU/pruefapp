@@ -39,40 +39,53 @@ require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 
-// Datenbankverbindung initialisieren
-$dbCandidates = [
-    $baseDir . '/data/moodle_user_gen/db.sqlite',
-    dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
-    $baseDir . '/db.sqlite',
-];
+initialize_database();
 
-$dbPath = null;
-foreach ($dbCandidates as $candidate) {
-    $dir = dirname($candidate);
-    if (file_exists($candidate) || is_dir($dir)) {
-        $dbPath = $candidate;
-        break;
+function initialize_database(): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
     }
-}
 
-if ($dbPath === null) {
-    $primaryDir = dirname($dbCandidates[0]);
-    if (!is_dir($primaryDir)) {
-        @mkdir($primaryDir, 0777, true);
+    global $baseDir;
+
+    $dbCandidates = [
+        $baseDir . '/data/moodle_user_gen/db.sqlite',
+        dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
+        $baseDir . '/db.sqlite',
+    ];
+
+    $dbPath = null;
+    foreach ($dbCandidates as $candidate) {
+        $dir = dirname($candidate);
+        if (file_exists($candidate) || is_dir($dir)) {
+            $dbPath = $candidate;
+            break;
+        }
     }
-    $dbPath = $dbCandidates[0];
-}
 
-R::setup('sqlite:' . $dbPath);
-R::freeze(false);
-try {
-  R::createRevisionSupport(R::dispense("nutzer"));
-  R::createRevisionSupport(R::dispense("kurs"));
-  R::createRevisionSupport(R::dispense("teilnehmer"));
-  R::createRevisionSupport(R::dispense("uebermittlungslink"));
-  R::createRevisionSupport(R::dispense("oauthuser"));
-} catch(Exception $e) {
+    if ($dbPath === null) {
+        $primaryDir = dirname($dbCandidates[0]);
+        if (!is_dir($primaryDir)) {
+            @mkdir($primaryDir, 0777, true);
+        }
+        $dbPath = $dbCandidates[0];
+    }
 
+    R::setup('sqlite:' . $dbPath);
+    R::freeze(false);
+
+    try {
+        foreach (['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'auditlog'] as $table) {
+            R::createRevisionSupport(R::dispense($table));
+        }
+    } catch (\Throwable $throwable) {
+        error_log('Failed to enable RedBean revision support: ' . $throwable->getMessage());
+    }
+
+    $initialized = true;
 }
 
 function base_path(): string
@@ -358,41 +371,7 @@ if ($aktuelleSeite === 'callback.php') {
     initialisiere_oidc();
 }
 
-// DB-Verbindung (weiter wie bisher)
-$dbCandidates = [
-    $baseDir . '/data/moodle_user_gen/db.sqlite',
-    dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
-    $baseDir . '/db.sqlite',
-];
-
-$dbPath = null;
-foreach ($dbCandidates as $candidate) {
-    $dir = dirname($candidate);
-    if (file_exists($candidate) || is_dir($dir)) {
-        $dbPath = $candidate;
-        break;
-    }
-}
-
-if ($dbPath === null) {
-    $primaryDir = dirname($dbCandidates[0]);
-    if (!is_dir($primaryDir)) {
-        @mkdir($primaryDir, 0777, true);
-    }
-    $dbPath = $dbCandidates[0];
-}
-
-R::setup('sqlite:' . $dbPath);
-R::freeze(false);
-try {
-    R::createRevisionSupport(R::dispense('nutzer'));
-    R::createRevisionSupport(R::dispense('kurs'));
-    R::createRevisionSupport(R::dispense('teilnehmer'));
-    R::createRevisionSupport(R::dispense('uebermittlungslink'));
-    R::createRevisionSupport(R::dispense('auditlog'));
-} catch (Exception $e) {
-    error_log('Failed to enable RedBean revision support: ' . $e->getMessage());
-}
+initialize_database();
 if (isset($_SESSION['auth_user_id'])) {
     current_user();
 }
