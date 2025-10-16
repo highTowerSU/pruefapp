@@ -78,7 +78,8 @@
           button.dataset.confirmed = "false";
           const id = button.dataset.id;
           fetch(apiUrl + "?delete=" + id, {
-            method: "POST"
+            method: "POST",
+            credentials: "same-origin"
           }).then(response => {
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}`);
@@ -127,6 +128,7 @@
       fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify(data)
       }).then(response => {
         if (!response.ok) {
@@ -158,7 +160,8 @@
 
   const reloadParticipants = () => {
     fetch(apiUrl, {
-      headers: { "Accept": "application/json" }
+      headers: { "Accept": "application/json" },
+      credentials: "same-origin"
     }).then(response => {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
