@@ -4,13 +4,13 @@
     <div class="d-flex align-items-center ms-auto gap-3">
       <div class="dropdown">
         <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="themeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fas fa-circle-half-stroke me-2" id="themeDropdownIcon"></i>
-          <span id="themeDropdownLabel">Automatisch</span>
+          <i class="fas fa-circle-half-stroke me-2"></i>
+          Theme
         </button>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
-          <li><button type="button" class="dropdown-item" data-theme-value="light">Hell</button></li>
-          <li><button type="button" class="dropdown-item" data-theme-value="dark">Dunkel</button></li>
-          <li><button type="button" class="dropdown-item" data-theme-value="auto">Automatisch</button></li>
+          <li><button type="button" class="dropdown-item" data-bs-theme-value="light">Hell</button></li>
+          <li><button type="button" class="dropdown-item" data-bs-theme-value="dark">Dunkel</button></li>
+          <li><button type="button" class="dropdown-item" data-bs-theme-value="auto">Automatisch</button></li>
         </ul>
       </div>
       <?php if (isset($_SESSION['user'])): ?>
