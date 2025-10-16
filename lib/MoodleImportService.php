@@ -8,14 +8,19 @@ class MoodleImportService
 
     public function __construct(?string $moodleRoot = null, ?string $phpBinary = null, array $defaultOptions = [])
     {
-        $envRoot = getenv('MOODLE_PATH');
-        if ($envRoot === false && isset($_ENV['MOODLE_PATH'])) {
-            $envRoot = (string) $_ENV['MOODLE_PATH'];
+        if ($moodleRoot !== null) {
+            $resolvedRoot = rtrim($moodleRoot, DIRECTORY_SEPARATOR);
+        } elseif (function_exists('moodle_root_path')) {
+            $resolvedRoot = moodle_root_path();
+        } else {
+            $envRoot = getenv('MOODLE_PATH');
+            if ($envRoot === false && isset($_ENV['MOODLE_PATH'])) {
+                $envRoot = (string) $_ENV['MOODLE_PATH'];
+            }
+            $resolvedRoot = rtrim((string) ($envRoot ?: ''), DIRECTORY_SEPARATOR);
         }
 
-        $this->moodleRoot = $moodleRoot !== null
-            ? rtrim($moodleRoot, DIRECTORY_SEPARATOR)
-            : rtrim((string) ($envRoot ?: ''), DIRECTORY_SEPARATOR);
+        $this->moodleRoot = $resolvedRoot;
 
         $envPhp = getenv('MOODLE_PHP_BIN');
         if ($envPhp === false && isset($_ENV['MOODLE_PHP_BIN'])) {

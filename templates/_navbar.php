@@ -12,6 +12,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $coursesUrl = url_for('kurse');
     $auditLogUrl = url_for('admin/audit-log');
     $userAdminUrl = url_for('admin/nutzer');
+    $settingsUrl = url_for('admin/konfiguration');
 
     $coursesPrefix = rtrim($coursesUrl, '/');
     if ($coursesPrefix === '') {
@@ -33,6 +34,13 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     } else {
         $userAdminActive = $currentPath === $userAdminUrl || strpos($currentPath, $userAdminPrefix . '/') === 0;
     }
+    $settingsPrefix = rtrim($settingsUrl, '/');
+    if ($settingsPrefix === '') {
+        $settingsActive = $currentPath === '/' || $currentPath === '';
+    } else {
+        $settingsActive = $currentPath === $settingsUrl || strpos($currentPath, $settingsPrefix . '/') === 0;
+    }
+
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
       <?php $brandLogo = $branding['header_logo']['path'] ?? ''; ?>
@@ -64,6 +72,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           <?php if (current_user_has_role('admin')): ?>
             <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $userAdminActive ? ' fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
             <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $companyActive ? ' fw-semibold text-decoration-underline' : '' ?>">Firmen</a>
+            <a href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $settingsActive ? ' fw-semibold text-decoration-underline' : '' ?>">Konfiguration</a>
           <?php endif; ?>
         </div>
       <?php endif; ?>

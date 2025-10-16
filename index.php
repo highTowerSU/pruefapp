@@ -6,6 +6,7 @@ require_once __DIR__ . '/controllers/ParticipantController.php';
 require_once __DIR__ . '/controllers/SubmissionController.php';
 require_once __DIR__ . '/controllers/AdminController.php';
 require_once __DIR__ . '/controllers/CompanyController.php';
+require_once __DIR__ . '/controllers/SettingsController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
@@ -36,6 +37,8 @@ $routes = [
     ['POST', '/firmen/{id}/bearbeiten', fn($params, $isHx) => CompanyController::update($params, $isHx)],
     ['POST', '/firmen/{id}/standard', fn($params, $isHx) => CompanyController::makeDefault($params, $isHx)],
     ['POST', '/firmen/{id}/loeschen', fn($params, $isHx) => CompanyController::delete($params, $isHx)],
+    ['GET', '/admin/konfiguration', fn($params, $isHx) => SettingsController::general($params, $isHx)],
+    ['POST', '/admin/konfiguration', fn($params, $isHx) => SettingsController::general($params, $isHx)],
     ['GET', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
     ['POST', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
 ];

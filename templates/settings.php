@@ -1,0 +1,102 @@
+<?php
+/** @var array<string, string> $values */
+/** @var array<string, string> $errors */
+/** @var string $storedMoodlePath */
+/** @var string $effectiveMoodlePath */
+/** @var string|null $envOverride */
+/** @var array<string, mixed> $moodleStatus */
+
+$values = $values ?? ['moodle_path' => ''];
+$errors = $errors ?? [];
+$storedMoodlePath = $storedMoodlePath ?? '';
+$effectiveMoodlePath = $effectiveMoodlePath ?? '';
+$envOverride = $envOverride ?? null;
+$moodleStatus = $moodleStatus ?? [];
+?>
+
+<?php if (!empty($errors['general'])): ?>
+  <div class="alert alert-danger" role="alert">
+    <?= htmlspecialchars($errors['general'], ENT_QUOTES) ?>
+  </div>
+<?php endif; ?>
+
+<form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
+  <div class="card-header">
+    <h2 class="h5 mb-0">Allgemeine Einstellungen</h2>
+  </div>
+  <div class="card-body">
+    <div class="mb-3">
+      <label for="moodle_path" class="form-label">Pfad zur Moodle-Installation</label>
+      <input
+        type="text"
+        id="moodle_path"
+        name="moodle_path"
+        class="form-control<?= isset($errors['moodle_path']) ? ' is-invalid' : '' ?>"
+        value="<?= htmlspecialchars($values['moodle_path'] ?? '', ENT_QUOTES) ?>"
+        placeholder="/var/www/moodle"
+        autocomplete="off"
+      >
+      <div class="form-text">
+        Bitte gib das Wurzelverzeichnis der Moodle-Installation an. Lasse das Feld leer, um die Einstellung zu löschen.
+      </div>
+      <?php if (isset($errors['moodle_path'])): ?>
+        <div class="invalid-feedback">
+          <?= htmlspecialchars($errors['moodle_path'], ENT_QUOTES) ?>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <?php if (!empty($envOverride)): ?>
+      <div class="alert alert-warning" role="alert">
+        Die Umgebungsvariable <code>MOODLE_PATH</code> ist gesetzt und überschreibt den hier gespeicherten Wert.
+      </div>
+    <?php endif; ?>
+  </div>
+  <div class="card-footer text-end">
+    <button type="submit" class="btn btn-primary">
+      <i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>
+      Speichern
+    </button>
+  </div>
+</form>
+
+<section class="card shadow-sm">
+  <div class="card-header">
+    <h2 class="h5 mb-0">Status der Moodle-Integration</h2>
+  </div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-5 col-lg-4">Gespeicherter Pfad</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= $storedMoodlePath !== '' ? '<code>' . htmlspecialchars($storedMoodlePath, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Aktiv verwendeter Pfad</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= $effectiveMoodlePath !== '' ? '<code>' . htmlspecialchars($effectiveMoodlePath, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Upload-Skript</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?php $scriptPath = (string) ($moodleStatus['script_path'] ?? ''); ?>
+        <?= $scriptPath !== '' ? '<code>' . htmlspecialchars($scriptPath, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Skript gefunden</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= !empty($moodleStatus['script_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">PHP-Binary</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?php $phpBinary = (string) ($moodleStatus['php_binary'] ?? ''); ?>
+        <?= $phpBinary !== '' ? '<code>' . htmlspecialchars($phpBinary, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">PHP-Binary gefunden</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= !empty($moodleStatus['php_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+      </dd>
+    </dl>
+  </div>
+</section>
