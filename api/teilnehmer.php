@@ -58,5 +58,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Ausgabe aller Teilnehmer (nicht gelöscht)
-$nutzer = R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kurs_id]);
+$nutzer = R::findAll('teilnehmer', 'kurs_id = ? AND (deleted IS NULL OR deleted = 0) ORDER BY nachname, vorname', [$kurs_id]);
 echo json_encode(array_map(fn($n) => $n->export(), $nutzer));

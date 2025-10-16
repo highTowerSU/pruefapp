@@ -11,7 +11,7 @@
 
 <div class="mb-3 noprint">
     <button onclick="window.print()" class="btn btn-primary">Drucken</button>
-    <a href="teilnehmer.php?kurs=<?= $kurs->id ?>" class="btn btn-link">Zurück</a>
+    <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer" class="btn btn-link">Zurück</a>
 </div>
 
 <?php if (empty($nutzer)): ?>

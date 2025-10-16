@@ -1,14 +1,14 @@
 <div class="d-flex flex-wrap gap-2">
-  <a href="import.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-success">
+  <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer/import" class="btn btn-sm btn-success">
     <i class="fa-solid fa-file-import"></i> Import
   </a>
-  <a href="teilnehmer.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-primary">
+  <a href="/kurse/<?= (int) $kurs->id ?>/teilnehmer" class="btn btn-sm btn-primary">
     <i class="fa-solid fa-users"></i> Teilnehmer
   </a>
-  <a href="kurseinstellungen.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-secondary">
+  <a href="/kurse/<?= (int) $kurs->id ?>/einstellungen" class="btn btn-sm btn-secondary">
     <i class="fa-solid fa-gear"></i> Einstellungen
   </a>
-  <a href="link_erzeugen.php?kurs=<?= $kurs->id ?>" class="btn btn-sm btn-info">
+  <a href="/kurse/<?= (int) $kurs->id ?>/link" class="btn btn-sm btn-info">
     <i class="fa-solid fa-link"></i> Link
   </a>
   <button type="button"
