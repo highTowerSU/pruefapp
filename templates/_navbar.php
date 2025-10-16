@@ -1,7 +1,13 @@
-<nav class="navbar navbar-expand-lg navbar-navy mb-4 noprint">
+<?php
+$branding = $branding ?? get_branding();
+$navColors = $branding['nav_colors'] ?? [];
+$navBackgroundColor = $navColors['background'] ?? '#0D6EFD';
+$navTextColor = $navColors['text'] ?? '#FFFFFF';
+$navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $navTextColor);
+?>
+<nav class="navbar navbar-expand-lg navbar-themed mb-4 noprint" style="<?= htmlspecialchars($navStyle, ENT_QUOTES) ?>">
   <div class="container">
     <?php
-    $branding = $branding ?? get_branding();
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $coursesUrl = url_for('kurse');
     $auditLogUrl = url_for('admin/audit-log');
@@ -33,7 +39,7 @@
       <?php if (!empty($brandLogo)): ?>
         <?php $brandLogoUrl = preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo); ?>
         <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES) ?>"
-             alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? '') ?>"
+             alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? '')) ?>"
              class="navbar-brand-logo">
       <?php endif; ?>
       <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?></span>
@@ -53,8 +59,8 @@
           }
         ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-          <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $coursesActive ? ' fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
-          <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $auditActive ? ' fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
+          <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $coursesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
+          <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $auditActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
           <?php if (current_user_has_role('admin')): ?>
             <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $userAdminActive ? ' fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
             <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $companyActive ? ' fw-semibold text-decoration-underline' : '' ?>">Firmen</a>
@@ -85,7 +91,7 @@
           ?>
           <div class="d-flex align-items-center gap-2">
             <div class="dropdown">
-              <button class="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2"
+              <button class="btn btn-outline-navbar dropdown-toggle d-flex align-items-center gap-2"
                       type="button"
                       id="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>"
                       data-bs-toggle="dropdown"
@@ -115,10 +121,10 @@
         <?php endif; ?>
 
         <div class="btn-group" role="group">
-          <button type="button" class="btn btn-outline-secondary" id="themeCycleButton" aria-label="Theme umschalten">
+          <button type="button" class="btn btn-outline-navbar" id="themeCycleButton" aria-label="Theme umschalten">
             <i class="fas fa-circle-half-stroke" data-theme-icon></i>
           </button>
-          <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Theme auswählen">
+          <button type="button" class="btn btn-outline-navbar dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Theme auswählen">
             <span class="visually-hidden">Theme auswählen</span>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">

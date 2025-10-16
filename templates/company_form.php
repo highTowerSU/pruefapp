@@ -15,7 +15,7 @@
   </div>
 <?php endif; ?>
 
-<form method="post" class="card shadow-sm border-0">
+<form method="post" class="card shadow-sm border-0" enctype="multipart/form-data">
   <div class="card-body">
     <div class="row g-4">
       <div class="col-lg-6">
@@ -91,21 +91,50 @@
         <div class="mb-3">
           <label class="form-label" for="header_logo_path">Header-Logo</label>
           <input type="text" class="form-control" id="header_logo_path" name="header_logo_path" value="<?= htmlspecialchars($company['header_logo_path']) ?>">
-          <div class="form-text">Pfad relativ zum Projekt oder vollständige URL.</div>
+          <div class="form-text">Pfad relativ zum Projekt oder vollständige URL. Bei einem Upload wird der Pfad automatisch gesetzt.</div>
         </div>
       </div>
       <div class="col-lg-6">
         <div class="mb-3">
-          <label class="form-label" for="header_logo_alt">Header-Logo Alternativtext</label>
-          <input type="text" class="form-control" id="header_logo_alt" name="header_logo_alt" value="<?= htmlspecialchars($company['header_logo_alt']) ?>">
+          <label class="form-label" for="header_logo_file">Header-Logo hochladen</label>
+          <input type="file" class="form-control" id="header_logo_file" name="header_logo_file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp">
+          <div class="form-text">Optional. Unterstützt PNG, JPG, SVG, GIF oder WebP bis 2&nbsp;MB.</div>
         </div>
       </div>
     </div>
 
-    <div class="mb-4">
-      <label class="form-label" for="footer_logos">Fußzeilen-Logos</label>
-      <textarea class="form-control" id="footer_logos" name="footer_logos" rows="4"><?= htmlspecialchars($company['footer_logos_text'] ?? '') ?></textarea>
-      <div class="form-text">Ein Logo pro Zeile im Format <code>pfad | Alternativtext</code>. Der Alternativtext ist optional.</div>
+    <?php if (!empty($company['header_logo_url'])): ?>
+      <div class="mb-4">
+        <span class="form-text d-block mb-2">Aktuelles Header-Logo:</span>
+        <img src="<?= htmlspecialchars($company['header_logo_url'], ENT_QUOTES) ?>"
+             alt="<?= htmlspecialchars($company['header_logo_alt'] ?? $company['name']) ?>"
+             class="img-fluid" style="max-height: 64px; width: auto;">
+      </div>
+    <?php endif; ?>
+
+    <div class="mb-3">
+      <label class="form-label" for="header_logo_alt">Header-Logo Alternativtext</label>
+      <input type="text" class="form-control" id="header_logo_alt" name="header_logo_alt" value="<?= htmlspecialchars($company['header_logo_alt']) ?>">
+      <div class="form-text">Wird standardmäßig mit dem Firmennamen vorbelegt.</div>
+    </div>
+
+    <hr>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="mb-3">
+          <label class="form-label" for="nav_background_color">Navigations-Hintergrundfarbe</label>
+          <input type="color" class="form-control form-control-color" id="nav_background_color" name="nav_background_color" value="<?= htmlspecialchars($company['nav_background_color'] ?: '#0D6EFD') ?>" title="Farbwert im Hex-Format">
+          <div class="form-text">Hex-Wert, z.&nbsp;B. <code>#000080</code>.</div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="mb-3">
+          <label class="form-label" for="nav_text_color">Navigations-Textfarbe</label>
+          <input type="color" class="form-control form-control-color" id="nav_text_color" name="nav_text_color" value="<?= htmlspecialchars($company['nav_text_color'] ?: '#FFFFFF') ?>" title="Farbwert im Hex-Format">
+          <div class="form-text">Hex-Wert, z.&nbsp;B. <code>#FFFFFF</code>.</div>
+        </div>
+      </div>
     </div>
 
     <hr>

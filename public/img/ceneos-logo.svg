@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" role="img" aria-labelledby="title desc">
+  <title id="title">CENEOS GmbH</title>
+  <desc id="desc">Stilisiertes CENEOS Logo</desc>
+  <defs>
+    <linearGradient id="ceneos-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fed136" />
+      <stop offset="100%" stop-color="#f0a300" />
+    </linearGradient>
+  </defs>
+  <rect width="160" height="48" rx="12" fill="url(#ceneos-gradient)" />
+  <path fill="#000000" d="M28 12h16l-16 24h16v6H22v-6l16-24H22v-6h6z" opacity="0.7" />
+  <text x="72" y="31" font-family="'Montserrat', 'Segoe UI', sans-serif" font-size="18" fill="#000000" font-weight="700">CENEOS</text>
+</svg>
