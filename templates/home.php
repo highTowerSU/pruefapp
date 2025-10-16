@@ -6,7 +6,7 @@
         Hier verwaltest du Moodle-Kurse, importierst Teilnehmerlisten und erzeugst Einladungslinks.
         Starte direkt in die Kursverwaltung, um neue Kurse anzulegen oder bestehende zu pflegen.
       </p>
-      <a class="btn btn-primary" href="kurse">Zur Kursverwaltung</a>
+      <a class="btn btn-primary" href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>">Zur Kursverwaltung</a>
     </div>
   </div>
   <div class="col-lg-5">
@@ -16,15 +16,15 @@
         <ul class="list-unstyled mb-0">
           <li class="mb-2">
             <i class="fa-solid fa-list-check me-2 text-primary"></i>
-            <a href="kurse">Kurse anzeigen &amp; bearbeiten</a>
+            <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>">Kurse anzeigen &amp; bearbeiten</a>
           </li>
           <li class="mb-2">
             <i class="fa-solid fa-user-plus me-2 text-primary"></i>
-            <a href="import">Teilnehmer importieren</a>
+            <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>">Teilnehmer importieren</a>
           </li>
           <li class="mb-0">
             <i class="fa-solid fa-link me-2 text-primary"></i>
-            <a href="link_erzeugen">Einladungslink generieren</a>
+            <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>">Einladungslink generieren</a>
           </li>
         </ul>
       </div>
