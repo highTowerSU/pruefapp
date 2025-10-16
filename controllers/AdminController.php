@@ -79,8 +79,25 @@ class AdminController
 
     public static function auditLog(array $params, bool $isHx): array
     {
-        $limit = 200;
-        $beans = R::findAll('auditlog', ' ORDER BY id DESC LIMIT ' . (int) $limit);
+        $perPage = 50;
+        $requestedPage = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+        $page = $requestedPage > 0 ? $requestedPage : 1;
+
+        $totalEntries = (int) R::count('auditlog');
+        $totalPages = $totalEntries > 0 ? (int) ceil($totalEntries / $perPage) : 1;
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+
+        $offset = ($page - 1) * $perPage;
+        if ($offset < 0) {
+            $offset = 0;
+        }
+
+        $beans = R::findAll(
+            'auditlog',
+            sprintf(' ORDER BY id DESC LIMIT %d OFFSET %d', $perPage, $offset)
+        );
 
         $entries = array_map(static function ($bean) {
             $details = [];
@@ -114,8 +131,25 @@ class AdminController
             ];
         }, array_values($beans));
 
+        $lastItem = $totalEntries === 0 ? 0 : min($offset + $perPage, $totalEntries);
+        $firstItem = $totalEntries === 0 ? 0 : ($offset + 1);
+
+        $pagination = [
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_entries' => $totalEntries,
+            'total_pages' => $totalPages,
+            'has_previous' => $page > 1,
+            'has_next' => $page < $totalPages,
+            'previous_page' => $page > 1 ? $page - 1 : null,
+            'next_page' => $page < $totalPages ? $page + 1 : null,
+            'first_item' => $firstItem,
+            'last_item' => $lastItem,
+        ];
+
         $content = render_template('audit_log.php', [
             'entries' => $entries,
+            'pagination' => $pagination,
         ]);
 
         $body = render_template('layout.php', [
