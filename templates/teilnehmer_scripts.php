@@ -57,7 +57,9 @@ const table = new Tabulator('#teilnehmer-tabelle', {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     }).then(r => r.json()).then(res => {
-      if (res.id) cell.getRow().update({ id: res.id });
+      if (res && typeof res === "object") {
+        cell.getRow().update(res);
+      }
     });
   }
 });
