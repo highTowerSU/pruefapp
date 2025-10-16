@@ -29,6 +29,50 @@
                 }
             };
 
+            const themeOrder = ['light', 'dark', 'auto'];
+            const themeLabels = {
+                light: 'Hell',
+                dark: 'Dunkel',
+                auto: 'Automatisch'
+            };
+            const themeIcons = {
+                light: 'fa-sun',
+                dark: 'fa-moon',
+                auto: 'fa-circle-half-stroke'
+            };
+
+            const updateThemeUI = (theme) => {
+                document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
+                    const value = button.getAttribute('data-bs-theme-value');
+                    const isActive = value === theme;
+                    button.classList.toggle('active', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                const cycleButton = document.getElementById('themeCycleButton');
+                if (!cycleButton) {
+                    return;
+                }
+
+                const iconElement = cycleButton.querySelector('[data-theme-icon]');
+                const iconClass = themeIcons[theme] ?? themeIcons.auto;
+                if (iconElement) {
+                    iconElement.className = `fas ${iconClass}`;
+                }
+
+                const label = themeLabels[theme] ?? theme;
+                const description = `Theme umschalten (aktuell: ${label})`;
+                cycleButton.dataset.currentTheme = theme;
+                cycleButton.setAttribute('aria-label', description);
+                cycleButton.setAttribute('title', description);
+            };
+
+            const applyTheme = (theme) => {
+                setStoredTheme(theme);
+                setTheme(theme);
+                updateThemeUI(theme);
+            };
+
             setTheme(getPreferredTheme());
 
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -38,32 +82,25 @@
             });
 
             window.addEventListener('DOMContentLoaded', () => {
-                const storedTheme = getStoredTheme() || 'auto';
-                const activeButton = document.querySelector(`[data-bs-theme-value="${storedTheme}"]`);
-                if (activeButton) {
-                    activeButton.classList.add('active');
-                    activeButton.setAttribute('aria-pressed', 'true');
-                }
+                const initialTheme = getStoredTheme() || 'auto';
+                updateThemeUI(initialTheme);
 
                 document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
-                    if (button !== activeButton) {
-                        button.setAttribute('aria-pressed', 'false');
-                    }
-
                     button.addEventListener('click', () => {
                         const theme = button.getAttribute('data-bs-theme-value');
-                        setStoredTheme(theme);
-                        setTheme(theme);
-
-                        document.querySelectorAll('[data-bs-theme-value].active').forEach(active => {
-                            active.classList.remove('active');
-                            active.setAttribute('aria-pressed', 'false');
-                        });
-
-                        button.classList.add('active');
-                        button.setAttribute('aria-pressed', 'true');
+                        applyTheme(theme);
                     });
                 });
+
+                const cycleButton = document.getElementById('themeCycleButton');
+                if (cycleButton) {
+                    cycleButton.addEventListener('click', () => {
+                        const storedTheme = getStoredTheme() || cycleButton.dataset.currentTheme || 'auto';
+                        const currentIndex = themeOrder.indexOf(storedTheme);
+                        const nextTheme = themeOrder[(currentIndex + 1) % themeOrder.length] || themeOrder[0];
+                        applyTheme(nextTheme);
+                    });
+                }
             });
         })();
     </script>

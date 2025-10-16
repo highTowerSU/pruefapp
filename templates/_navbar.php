@@ -2,23 +2,25 @@
   <div class="container">
     <a class="navbar-brand" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">Moodle-Zugang</a>
     <div class="d-flex align-items-center ms-auto gap-3">
-      <div class="dropdown">
-        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="themeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-          <i class="fas fa-circle-half-stroke me-2"></i>
-          Theme
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
-          <li><button type="button" class="dropdown-item" data-bs-theme-value="light">Hell</button></li>
-          <li><button type="button" class="dropdown-item" data-bs-theme-value="dark">Dunkel</button></li>
-          <li><button type="button" class="dropdown-item" data-bs-theme-value="auto">Automatisch</button></li>
-        </ul>
-      </div>
       <?php if (isset($_SESSION['user'])): ?>
         <span class="navbar-text me-3">
           Eingeloggt als <strong><?= htmlspecialchars($_SESSION['user']->preferred_username ?? 'Nutzer') ?></strong>
         </span>
         <a href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>" class="btn btn-logout">Logout</a>
       <?php endif; ?>
+      <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary" id="themeCycleButton" aria-label="Theme umschalten">
+          <i class="fas fa-circle-half-stroke" data-theme-icon></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Theme auswählen">
+          <span class="visually-hidden">Theme auswählen</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><button type="button" class="dropdown-item" data-bs-theme-value="light"><i class="fas fa-sun me-2"></i>Hell</button></li>
+          <li><button type="button" class="dropdown-item" data-bs-theme-value="dark"><i class="fas fa-moon me-2"></i>Dunkel</button></li>
+          <li><button type="button" class="dropdown-item" data-bs-theme-value="auto"><i class="fas fa-circle-half-stroke me-2"></i>Automatisch</button></li>
+        </ul>
+      </div>
     </div>
   </div>
 </nav>
