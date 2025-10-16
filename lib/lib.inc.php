@@ -556,15 +556,96 @@ if (isset($_SESSION['auth_user_id'])) {
     current_user();
 }
 
-function generate_username($firstname, $lastname) {
-    $base = strtolower(substr($firstname, 0, 1) . $lastname);
-    $username = $base;
-    $i = 1;
-    while (R::findOne('teilnehmer', ' benutzername = ? ', [$username])) {
-        $username = $base . $i;
-        $i++;
+function transliterate_to_ascii(string $value): string
+{
+    if ($value === '') {
+        return '';
     }
+
+    $value = strtr($value, [
+        'Ä' => 'Ae',
+        'ä' => 'ae',
+        'Ö' => 'Oe',
+        'ö' => 'oe',
+        'Ü' => 'Ue',
+        'ü' => 'ue',
+        'ß' => 'ss',
+    ]);
+
+    if (class_exists('Transliterator')) {
+        $transliterator = \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC; Any-Latin; Latin-ASCII');
+        if ($transliterator !== null) {
+            $result = $transliterator->transliterate($value);
+            if ($result !== false) {
+                $value = $result;
+            }
+        }
+    } elseif (function_exists('iconv')) {
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if ($converted !== false) {
+            $value = $converted;
+        }
+    }
+
+    return $value;
+}
+
+function sanitize_username(string $username): string
+{
+    $username = trim($username);
+    if ($username === '') {
+        return '';
+    }
+
+    $username = transliterate_to_ascii($username);
+    $username = strtolower($username);
+    $username = preg_replace('/[^a-z0-9_.-]+/', '', $username) ?? '';
+
     return $username;
+}
+
+function ensure_unique_username(string $base, ?int $excludeId = null): string
+{
+    $base = trim($base);
+    if ($base === '') {
+        return '';
+    }
+
+    $username = $base;
+    $suffix = 1;
+
+    while (true) {
+        $params = [$username];
+        $condition = ' benutzername = ? ';
+        if ($excludeId !== null && $excludeId > 0) {
+            $condition .= ' AND id != ? ';
+            $params[] = $excludeId;
+        }
+
+        if (R::findOne('teilnehmer', $condition, $params) === null) {
+            return $username;
+        }
+
+        $username = $base . $suffix;
+        $suffix++;
+    }
+}
+
+function generate_username($firstname, $lastname) {
+    $first = sanitize_username((string) $firstname);
+    $last = sanitize_username((string) $lastname);
+
+    $base = '';
+    if ($first !== '') {
+        $base .= substr($first, 0, 1);
+    }
+    $base .= $last;
+
+    if ($base === '') {
+        $base = 'teilnehmer';
+    }
+
+    return ensure_unique_username($base);
 }
 
 function generate_password($length = 10) {
@@ -572,8 +653,51 @@ function generate_password($length = 10) {
     return substr(str_shuffle(str_repeat($chars, $length)), 0, $length);
 }
 
+function normalize_email_address(string $email): string
+{
+    $email = trim($email);
+    if ($email === '') {
+        return '';
+    }
+
+    $parts = explode('@', $email, 2);
+    if (count($parts) !== 2) {
+        return '';
+    }
+
+    [$local, $domain] = $parts;
+    $local = transliterate_to_ascii($local);
+    $local = strtolower($local);
+    $local = preg_replace("~[^a-z0-9!#\$%&'*+/=?^_`{|}.~-]+~", '', $local) ?? '';
+    $local = trim($local, '.');
+
+    $domain = transliterate_to_ascii($domain);
+    $domain = strtolower($domain);
+    $domain = preg_replace('~[^a-z0-9.-]+~', '', $domain) ?? '';
+    $domain = trim($domain, '.-');
+
+    if ($domain !== '' && function_exists('idn_to_ascii')) {
+        $variant = defined('INTL_IDNA_VARIANT_UTS46') ? INTL_IDNA_VARIANT_UTS46 : 0;
+        $converted = @idn_to_ascii($domain, 0, $variant);
+        if ($converted !== false) {
+            $domain = strtolower($converted);
+        }
+    }
+
+    if ($local === '' || $domain === '') {
+        return '';
+    }
+
+    return $local . '@' . $domain;
+}
+
 function generate_email($username) {
-    return $username . '@lernen.koenigsbl.au';
+    $localPart = sanitize_username($username);
+    if ($localPart === '') {
+        return '';
+    }
+
+    return $localPart . '@lernen.koenigsbl.au';
 }
 
 function render_template($file, $vars = []) {

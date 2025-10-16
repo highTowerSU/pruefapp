@@ -12,8 +12,8 @@ class Model_Teilnehmer extends SimpleModel
         $bean->nachname = trim((string) ($bean->nachname ?? ''));
         $bean->geburtsdatum = normalize_birthdate((string) ($bean->geburtsdatum ?? ''));
         $bean->geburtsort = trim((string) ($bean->geburtsort ?? ''));
-        $bean->benutzername = trim((string) ($bean->benutzername ?? ''));
-        $bean->email = trim((string) ($bean->email ?? ''));
+        $bean->benutzername = sanitize_username((string) ($bean->benutzername ?? ''));
+        $bean->email = normalize_email_address((string) ($bean->email ?? ''));
         $bean->passwort = (string) ($bean->passwort ?? '');
 
         if ($bean->vorname === '') {
@@ -43,6 +43,11 @@ class Model_Teilnehmer extends SimpleModel
             throw new \InvalidArgumentException('Es konnte kein Benutzername erzeugt werden.');
         }
 
+        $bean->benutzername = ensure_unique_username(
+            $bean->benutzername,
+            isset($bean->id) ? (int) $bean->id : null
+        );
+
         if ($bean->passwort === '') {
             $bean->passwort = generate_password();
         }
@@ -50,6 +55,8 @@ class Model_Teilnehmer extends SimpleModel
         if ($bean->email === '' && $bean->benutzername !== '') {
             $bean->email = generate_email($bean->benutzername);
         }
+
+        $bean->email = normalize_email_address((string) $bean->email);
 
         if ($bean->email === '') {
             throw new \InvalidArgumentException('Bitte gib eine E-Mail-Adresse an.');
