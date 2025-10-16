@@ -96,6 +96,76 @@
     <script src="<?= htmlspecialchars(url_for('node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/htmx.org/dist/htmx.min.js'), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/js/tabulator.min.js'), ENT_QUOTES) ?>"></script>
+    <script>
+        (() => {
+            'use strict';
+
+            const resetButton = (button) => {
+                if (!button) {
+                    return;
+                }
+
+                if (button.dataset.confirmTimeoutId) {
+                    clearTimeout(Number(button.dataset.confirmTimeoutId));
+                    delete button.dataset.confirmTimeoutId;
+                }
+
+                delete button.dataset.doubleConfirmState;
+
+                const defaultLabel = button.querySelector('[data-label-default]');
+                const confirmLabel = button.querySelector('[data-label-confirm]');
+
+                if (defaultLabel) {
+                    defaultLabel.classList.remove('d-none');
+                }
+
+                if (confirmLabel) {
+                    confirmLabel.classList.add('d-none');
+                }
+            };
+
+            document.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-double-confirm]');
+
+                if (!button) {
+                    document.querySelectorAll('button[data-double-confirm][data-double-confirm-state="awaiting"]').forEach(resetButton);
+                    return;
+                }
+
+                if (button.dataset.doubleConfirmState === 'awaiting') {
+                    resetButton(button);
+                    button.dispatchEvent(new CustomEvent('confirmed', { bubbles: true }));
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                document.querySelectorAll('button[data-double-confirm][data-double-confirm-state="awaiting"]').forEach(otherButton => {
+                    if (otherButton !== button) {
+                        resetButton(otherButton);
+                    }
+                });
+
+                button.dataset.doubleConfirmState = 'awaiting';
+
+                const defaultLabel = button.querySelector('[data-label-default]');
+                const confirmLabel = button.querySelector('[data-label-confirm]');
+
+                if (defaultLabel) {
+                    defaultLabel.classList.add('d-none');
+                }
+
+                if (confirmLabel) {
+                    confirmLabel.classList.remove('d-none');
+                }
+
+                button.dataset.confirmTimeoutId = String(setTimeout(() => {
+                    resetButton(button);
+                }, 3000));
+            });
+        })();
+    </script>
 
 <?php if (!empty($scripts)) echo $scripts; ?>
 </body>
