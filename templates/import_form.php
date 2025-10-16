@@ -22,7 +22,7 @@
 
     <button type="button" id="btn-add" class="btn btn-secondary mb-3">+ Zeile hinzufügen</button><br>
     <button class="btn btn-primary">Importieren</button>
-    <a href="index.php" class="btn btn-link">Zurück</a>
+    <a href="/kurse" class="btn btn-link">Zurück</a>
 </form>
 
 <script>

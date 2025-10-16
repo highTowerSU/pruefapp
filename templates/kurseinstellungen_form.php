@@ -14,5 +14,5 @@
     </div>
 
     <button class="btn btn-primary">Speichern</button>
-    <a href="index.php" class="btn btn-link">Zurück</a>
+    <a href="/kurse" class="btn btn-link">Zurück</a>
 </form>

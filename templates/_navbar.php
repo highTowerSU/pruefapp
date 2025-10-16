@@ -1,6 +1,6 @@
 <nav class="navbar navbar-expand-lg navbar-navy mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand" href="index.php">Moodle-Zugang</a>
+    <a class="navbar-brand" href="/">Moodle-Zugang</a>
     <div class="d-flex ms-auto">
       <?php if (isset($_SESSION['user'])): ?>
         <span class="navbar-text me-3">
