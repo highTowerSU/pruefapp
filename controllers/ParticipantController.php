@@ -161,6 +161,7 @@ class ParticipantController
         }
         $service = new MoodleImportService();
         $status = $service->getStatus();
+        $commandPreview = null;
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!$service->canImport()) {
@@ -204,11 +205,16 @@ class ParticipantController
             return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
         }
 
+        if ($service->canImport() && count($teilnehmer) > 0) {
+            $commandPreview = $service->getCommandPreview();
+        }
+
         $content = render_template('moodle_import.php', [
             'kurs' => $kurs,
             'teilnehmer' => $teilnehmer,
             'status' => $status,
             'canImport' => $service->canImport(),
+            'commandPreview' => $commandPreview,
         ]);
 
         $body = render_template('layout.php', [
