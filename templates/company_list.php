@@ -35,7 +35,7 @@
               <td>
                 <div class="fw-semibold"><?= htmlspecialchars($company['name']) ?></div>
                 <div class="small text-body-secondary">
-                  <?= htmlspecialchars($company['primary_client'] ?: $company['project_owner']) ?>
+                  <?= htmlspecialchars($company['primary_client'] ?: branding_project_owner()) ?>
                 </div>
               </td>
               <td>

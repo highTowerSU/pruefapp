@@ -2,6 +2,19 @@
 
 use RedBeanPHP\R as R;
 
+const BRANDING_FIXED_PROJECT_OWNER = 'CENEOS GmbH';
+const BRANDING_DEFAULT_GROUP_REFERENCE = 'Firmengruppe Koenigsbl.au';
+
+function branding_project_owner(): string
+{
+    return BRANDING_FIXED_PROJECT_OWNER;
+}
+
+function branding_default_group_reference(): string
+{
+    return BRANDING_DEFAULT_GROUP_REFERENCE;
+}
+
 function get_branding(): array
 {
     static $branding = null;
@@ -84,8 +97,9 @@ function ensure_branding_seeded(array $defaults): void
         $company->home_intro = $data['home_intro'] ?? '';
         $company->home_details = $data['home_details'] ?? '';
         $company->primary_client = $data['primary_client'] ?? '';
-        $company->project_owner = $data['project_owner'] ?? '';
-        $company->group_reference = $data['group_reference'] ?? '';
+        $company->project_owner = branding_project_owner();
+        $groupReference = trim((string) ($data['group_reference'] ?? ''));
+        $company->group_reference = $groupReference !== '' ? $groupReference : branding_default_group_reference();
         $company->header_logo_path = $data['header_logo']['path'] ?? '';
         $company->header_logo_alt = $data['header_logo']['alt'] ?? ($company->name ?? '');
         $navColors = $data['nav_colors'] ?? [];
@@ -150,8 +164,8 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
         'home_intro' => (string)($company->home_intro ?? ''),
         'home_details' => (string)($company->home_details ?? ''),
         'primary_client' => (string)($company->primary_client ?? ''),
-        'project_owner' => (string)($company->project_owner ?? ''),
-        'group_reference' => (string)($company->group_reference ?? ''),
+        'project_owner' => branding_project_owner(),
+        'group_reference' => (string)($company->group_reference ?? '') ?: branding_default_group_reference(),
         'header_logo' => [
             'path' => $headerLogoPath,
             'alt' => $headerLogoAlt,
@@ -208,6 +222,9 @@ function map_static_branding(string $key, array $data): array
         $branding['header_logo']['alt'] = $branding['company_name'];
     }
 
+    $branding['project_owner'] = branding_project_owner();
+    $branding['group_reference'] = trim((string)($branding['group_reference'] ?? '')) ?: branding_default_group_reference();
+
     return $branding;
 }
 
@@ -220,10 +237,9 @@ function default_branding_definitions(): array
             'nav_brand' => 'Kursverwaltung',
             'home_headline' => 'Willkommen in der Kursverwaltung der BSW Consult GmbH',
             'home_intro' => 'Hier bündelst du das Kursmanagement der BSW Consult GmbH – von digitalen Schulungen bis zu Präsenzangeboten.',
-            'home_details' => 'Das Tool wurde als Softwareprojekt der CENEOS GmbH entwickelt und lässt sich flexibel innerhalb des Koenigsbl.au Unternehmensverbunds einsetzen.',
+            'home_details' => 'Das Tool wurde als Softwareprojekt der CENEOS GmbH realisiert. Entwickelt für Firmengruppe Koenigsbl.au.',
             'primary_client' => 'BSW Consult GmbH',
-            'project_owner' => 'CENEOS GmbH',
-            'group_reference' => 'Koenigsbl.au Unternehmensverbund',
+            'group_reference' => BRANDING_DEFAULT_GROUP_REFERENCE,
             'header_logo' => [
                 'path' => 'public/img/bsw-consult-logo.svg',
                 'alt' => 'BSW Consult GmbH',
@@ -235,11 +251,11 @@ function default_branding_definitions(): array
             'legal' => [
                 'impressum' => [
                     'label' => 'Impressum',
-                    'url' => 'https://www.bse-consult.de/impressum/',
+                    'url' => 'https://www.bsw-consult.de/impressum/',
                 ],
                 'privacy' => [
                     'label' => 'Datenschutz',
-                    'url' => 'https://www.bse-consult.de/datenschutz/',
+                    'url' => 'https://www.bsw-consult.de/datenschutz/',
                 ],
             ],
         ],
@@ -249,10 +265,9 @@ function default_branding_definitions(): array
             'nav_brand' => 'Kursverwaltung',
             'home_headline' => 'Willkommen in der Kursverwaltung der CENEOS GmbH',
             'home_intro' => 'Koordiniere interne und externe Schulungen zentral über die Plattform der CENEOS GmbH.',
-            'home_details' => 'Als Teil des Koenigsbl.au Unternehmensverbunds kann die Lösung flexibel für weitere Gesellschaften angepasst werden.',
+            'home_details' => 'Als Teil der Firmengruppe Koenigsbl.au kann die Lösung flexibel für weitere Gesellschaften angepasst werden. Entwickelt für Firmengruppe Koenigsbl.au.',
             'primary_client' => 'CENEOS GmbH',
-            'project_owner' => 'CENEOS GmbH',
-            'group_reference' => 'Koenigsbl.au Unternehmensverbund',
+            'group_reference' => BRANDING_DEFAULT_GROUP_REFERENCE,
             'header_logo' => [
                 'path' => 'public/img/ceneos-logo.svg',
                 'alt' => 'CENEOS GmbH',
@@ -269,11 +284,10 @@ function default_branding_definitions(): array
             'app_title' => 'Kursverwaltung',
             'nav_brand' => 'Kursverwaltung',
             'home_headline' => 'Willkommen in der Kursverwaltung von Koenigsbl.au',
-            'home_intro' => 'Steuere Schulungen, Projekt-Trainings und Mandantenkurse zentral für die Unternehmen des Koenigsbl.au Verbunds.',
-            'home_details' => 'Realisiert als Softwareprojekt der CENEOS GmbH lässt sich das Modul für alle Gesellschaften des Koenigsbl.au Unternehmensverbunds anpassen – beispielsweise auch für die BSW Consult GmbH.',
+            'home_intro' => 'Steuere Schulungen, Projekt-Trainings und Mandantenkurse zentral für die Unternehmen der Firmengruppe Koenigsbl.au.',
+            'home_details' => 'Realisiert als Softwareprojekt der CENEOS GmbH lässt sich das Modul für alle Gesellschaften der Firmengruppe Koenigsbl.au anpassen – beispielsweise auch für die BSW Consult GmbH. Entwickelt für Firmengruppe Koenigsbl.au.',
             'primary_client' => 'Koenigsbl.au',
-            'project_owner' => 'CENEOS GmbH',
-            'group_reference' => 'Koenigsbl.au Unternehmensverbund',
+            'group_reference' => BRANDING_DEFAULT_GROUP_REFERENCE,
             'header_logo' => [
                 'path' => 'public/img/koenigsblau-gruppe-logo.svg',
                 'alt' => 'Koenigsbl.au',

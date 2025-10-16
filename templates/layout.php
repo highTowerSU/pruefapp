@@ -139,35 +139,26 @@
 <footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
   <div class="container">
     <?php
-      $projectOwner = trim((string)($branding['project_owner'] ?? ''));
+      $projectOwner = branding_project_owner();
       $primaryClient = trim((string)($branding['primary_client'] ?? ''));
-      $groupReference = trim((string)($branding['group_reference'] ?? ''));
+      $defaultGroup = branding_default_group_reference();
+      $groupReference = trim((string)($branding['group_reference'] ?? '')) ?: $defaultGroup;
     ?>
-    <?php if ($projectOwner !== '' || $primaryClient !== '' || $groupReference !== ''): ?>
-      <div class="row align-items-center gy-3">
-        <div class="col-lg">
-          <?php if ($projectOwner !== ''): ?>
-            <div class="text-uppercase fw-semibold small text-secondary mb-1">
-              Softwareprojekt der <?= htmlspecialchars($projectOwner) ?>
-            </div>
-          <?php endif; ?>
-          <?php if ($primaryClient !== ''): ?>
-            <p class="mb-0 text-body-secondary small">
-              Entwickelt für <?= htmlspecialchars($primaryClient) ?>
-              <?php if ($groupReference !== '' && strcasecmp($groupReference, $primaryClient) !== 0): ?>
-                – einsetzbar innerhalb der <?= htmlspecialchars($groupReference) ?>.
-              <?php else: ?>
-                .
-              <?php endif; ?>
-            </p>
-          <?php elseif ($groupReference !== ''): ?>
-            <p class="mb-0 text-body-secondary small">
-              Einsetzbar innerhalb der <?= htmlspecialchars($groupReference) ?>.
-            </p>
-          <?php endif; ?>
+    <div class="row align-items-center gy-3">
+      <div class="col-lg">
+        <div class="text-uppercase fw-semibold small text-secondary mb-1">
+          Softwareprojekt der <?= htmlspecialchars($projectOwner) ?>
         </div>
+        <p class="mb-0 text-body-secondary small">
+          Entwickelt für Firmengruppe Koenigsbl.au<?php if ($primaryClient !== '' && strcasecmp($primaryClient, 'Firmengruppe Koenigsbl.au') !== 0): ?> – Primärer Kunde: <?= htmlspecialchars($primaryClient) ?><?php endif; ?>.
+        </p>
+        <?php if (strcasecmp($groupReference, $defaultGroup) !== 0): ?>
+          <p class="mb-0 text-body-secondary small">
+            Firmengruppe: <?= htmlspecialchars($groupReference) ?>.
+          </p>
+        <?php endif; ?>
       </div>
-    <?php endif; ?>
+    </div>
     <?php $legal = $branding['legal'] ?? []; ?>
     <?php if (!empty($legal['impressum']['url']) || !empty($legal['privacy']['url'])): ?>
       <div class="mt-3 small">
