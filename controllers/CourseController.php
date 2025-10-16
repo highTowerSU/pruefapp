@@ -40,33 +40,73 @@ class CourseController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $action = $_POST['action'] ?? '';
 
-            if ($action === 'toggle') {
-                $kurs->uebermittlung_aktiv = $kurs->uebermittlung_aktiv ? 0 : 1;
-                $_SESSION['meldung'] = $kurs->uebermittlung_aktiv
-                    ? 'Übermittlungslink aktiviert.'
-                    : 'Übermittlungslink deaktiviert.';
-            } elseif ($action === 'regenerate') {
-                $kurs->token = bin2hex(random_bytes(8));
-                $kurs->uebermittlung_aktiv = 1;
-                $_SESSION['meldung'] = 'Neuer Link generiert.';
-            }
+            if ($action === 'create') {
+                $bezeichnung = trim($_POST['name'] ?? '');
 
-            R::store($kurs);
+                $link = R::dispense('uebermittlungslink');
+                $link->token = bin2hex(random_bytes(8));
+                $link->bezeichnung = $bezeichnung;
+                $link->aktiv = 1;
+                $link->kurs = $kurs;
+                R::store($link);
+
+                $_SESSION['meldung'] = 'Neuer Übermittlungslink wurde erstellt.';
+            } else {
+                $linkId = isset($_POST['link_id']) ? (int) $_POST['link_id'] : 0;
+                $link = $linkId > 0 ? R::load('uebermittlungslink', $linkId) : null;
+
+                if (!$link || (int) $link->kurs_id !== (int) $kurs->id) {
+                    $_SESSION['fehlermeldung'] = 'Der ausgewählte Übermittlungslink wurde nicht gefunden.';
+                    return [303, ['Location' => url_for('kurse/' . $kurs->id . '/link')], ''];
+                }
+
+                if ($action === 'toggle') {
+                    $link->aktiv = $link->aktiv ? 0 : 1;
+                    $_SESSION['meldung'] = $link->aktiv
+                        ? 'Übermittlungslink wurde aktiviert.'
+                        : 'Übermittlungslink wurde deaktiviert.';
+                    R::store($link);
+                } elseif ($action === 'regenerate') {
+                    $link->token = bin2hex(random_bytes(8));
+                    $link->aktiv = 1;
+                    R::store($link);
+                    $_SESSION['meldung'] = 'Der Link wurde neu erzeugt und aktiviert.';
+                } elseif ($action === 'rename') {
+                    $bezeichnung = trim($_POST['name'] ?? '');
+                    $link->bezeichnung = $bezeichnung;
+                    R::store($link);
+                    $_SESSION['meldung'] = 'Bezeichnung gespeichert.';
+                }
+            }
 
             return [303, ['Location' => url_for('kurse/' . $kurs->id . '/link')], ''];
         }
 
-        if (!$kurs->token) {
-            $kurs->token = bin2hex(random_bytes(8));
-            $kurs->uebermittlung_aktiv = 1;
-            R::store($kurs);
-        }
+        $links = R::findAll('uebermittlungslink', ' kurs_id = ? ORDER BY id ', [$kurs->id]);
 
-        $link = absolute_url_for('uebermitteln/' . $kurs->token);
+        if (count($links) === 0) {
+            if ($kurs->token) {
+                $link = R::dispense('uebermittlungslink');
+                $link->token = $kurs->token;
+                $link->bezeichnung = '';
+                $link->aktiv = $kurs->uebermittlung_aktiv ? 1 : 0;
+                $link->kurs = $kurs;
+                R::store($link);
+            } else {
+                $link = R::dispense('uebermittlungslink');
+                $link->token = bin2hex(random_bytes(8));
+                $link->bezeichnung = '';
+                $link->aktiv = 1;
+                $link->kurs = $kurs;
+                R::store($link);
+            }
+
+            $links = R::findAll('uebermittlungslink', ' kurs_id = ? ORDER BY id ', [$kurs->id]);
+        }
 
         $content = render_template('link_erzeugen.php', [
             'kurs' => $kurs,
-            'link' => $link,
+            'links' => array_values($links),
         ]);
 
         $body = render_template('layout.php', [

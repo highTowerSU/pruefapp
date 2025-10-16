@@ -7,17 +7,21 @@ class SubmissionController
     public static function form(array $params, bool $isHx): array
     {
         $token = $params['token'] ?? '';
-        $kurs = R::findOne('kurs', ' token = ? ', [$token]);
+        $link = R::findOne('uebermittlungslink', ' token = ? ', [$token]);
 
-        if (!$kurs) {
+        if (!$link) {
             return [404, [], '<h1>Ungültiger Link</h1>'];
         }
 
-        if (!$kurs->uebermittlung_aktiv) {
+        $kurs = $link->kurs;
+        $showThankYou = isset($_GET['danke']);
+
+        if (!$link->aktiv && !$showThankYou) {
             return [403, [], '<h1>Dieser Übermittlungslink ist derzeit deaktiviert.</h1>'];
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $hatEintraege = false;
             foreach ($_POST['person'] ?? [] as $eintrag) {
                 $vorname = trim($eintrag['vorname'] ?? '');
                 $nachname = trim($eintrag['nachname'] ?? '');
@@ -26,6 +30,8 @@ class SubmissionController
                 if ($vorname === '' || $nachname === '' || $geburtsdatum === '') {
                     continue;
                 }
+
+                $hatEintraege = true;
 
                 $teilnehmer = R::dispense('teilnehmer');
                 $teilnehmer->vorname = $vorname;
@@ -45,10 +51,15 @@ class SubmissionController
                 R::store($teilnehmer);
             }
 
-            return [303, ['Location' => url_for('uebermitteln/' . $kurs->token . '?danke=1')], ''];
+            if ($hatEintraege) {
+                $link->aktiv = 0;
+                R::store($link);
+            }
+
+            return [303, ['Location' => url_for('uebermitteln/' . $link->token . '?danke=1')], ''];
         }
 
-        $content = isset($_GET['danke'])
+        $content = $showThankYou
             ? '<div class="alert alert-success">Vielen Dank. Die Daten wurden übermittelt.</div>'
             : render_template('uebermitteln_form.php', ['kurs' => $kurs]);
 
