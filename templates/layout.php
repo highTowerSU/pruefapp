@@ -164,6 +164,21 @@
                     resetButton(button);
                 }, 3000));
             });
+
+            document.body.addEventListener('htmx:beforeSwap', (event) => {
+                const detail = event.detail;
+
+                if (!detail || !detail.xhr) {
+                    return;
+                }
+
+                const status = detail.xhr.status;
+
+                if (status >= 400 && status < 600) {
+                    detail.shouldSwap = true;
+                    detail.isError = false;
+                }
+            });
         })();
     </script>
 
