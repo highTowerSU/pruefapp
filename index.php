@@ -5,6 +5,7 @@ require_once __DIR__ . '/controllers/CourseController.php';
 require_once __DIR__ . '/controllers/ParticipantController.php';
 require_once __DIR__ . '/controllers/SubmissionController.php';
 require_once __DIR__ . '/controllers/AdminController.php';
+require_once __DIR__ . '/controllers/CompanyController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
@@ -26,6 +27,13 @@ $routes = [
     ['GET', '/kurse/{id}/link', fn($params, $isHx) => CourseController::linkSettings($params, $isHx)],
     ['POST', '/kurse/{id}/link', fn($params, $isHx) => CourseController::linkSettings($params, $isHx)],
     ['GET', '/admin/audit-log', fn($params, $isHx) => AdminController::auditLog($params, $isHx)],
+    ['GET', '/firmen', fn($params, $isHx) => CompanyController::index($params, $isHx)],
+    ['GET', '/firmen/neu', fn($params, $isHx) => CompanyController::create($params, $isHx)],
+    ['POST', '/firmen/neu', fn($params, $isHx) => CompanyController::store($params, $isHx)],
+    ['GET', '/firmen/{id}/bearbeiten', fn($params, $isHx) => CompanyController::edit($params, $isHx)],
+    ['POST', '/firmen/{id}/bearbeiten', fn($params, $isHx) => CompanyController::update($params, $isHx)],
+    ['POST', '/firmen/{id}/standard', fn($params, $isHx) => CompanyController::makeDefault($params, $isHx)],
+    ['POST', '/firmen/{id}/loeschen', fn($params, $isHx) => CompanyController::delete($params, $isHx)],
     ['GET', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
     ['POST', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
 ];

@@ -112,3 +112,23 @@
     height: 32px;
   }
 }
+
+.navbar-brand-logo {
+  height: 32px;
+  width: auto;
+}
+
+.page-header-logo {
+  max-height: 64px;
+  width: auto;
+}
+
+@media (max-width: 576px) {
+  .navbar-brand-logo {
+    height: 26px;
+  }
+
+  .page-header-logo {
+    max-height: 48px;
+  }
+}

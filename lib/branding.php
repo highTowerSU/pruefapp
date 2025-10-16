@@ -1,5 +1,7 @@
 <?php
 
+use RedBeanPHP\R as R;
+
 function get_branding(): array
 {
     static $branding = null;
@@ -8,11 +10,168 @@ function get_branding(): array
         return $branding;
     }
 
-    $brandKey = getenv('APP_BRAND') ?: ($_ENV['APP_BRAND'] ?? 'bse');
+    $brandKey = getenv('APP_BRAND') ?: ($_ENV['APP_BRAND'] ?? '');
     $brandKey = strtolower(trim($brandKey));
 
-    $brands = [
+    $defaults = default_branding_definitions();
+
+    ensure_branding_seeded($defaults);
+
+    $brandBean = null;
+
+    if ($brandKey !== '') {
+        $brandBean = R::findOne('company', ' LOWER(slug) = ? ', [$brandKey]);
+    }
+
+    if ($brandBean === null) {
+        $brandBean = R::findOne('company', ' is_default = 1 ');
+    }
+
+    if ($brandBean === null) {
+        $brandBean = R::findOne('company');
+    }
+
+    if ($brandBean !== null) {
+        $branding = map_company_branding($brandBean);
+
+        return $branding;
+    }
+
+    // Fallback auf statische Definition, falls keine Datenbankeinträge vorhanden sind.
+    $fallbackKey = $brandKey !== '' && isset($defaults[$brandKey]) ? $brandKey : 'koenigsblau';
+    $fallback = $defaults[$fallbackKey] ?? reset($defaults);
+
+    return map_static_branding($fallbackKey, $fallback);
+}
+
+function ensure_branding_seeded(array $defaults): void
+{
+    static $seeded = false;
+
+    if ($seeded) {
+        return;
+    }
+
+    if (!R::testConnection()) {
+        $seeded = true;
+
+        return;
+    }
+
+    if (R::count('company') > 0) {
+        $seeded = true;
+
+        return;
+    }
+
+    foreach ($defaults as $key => $data) {
+        $company = R::dispense('company');
+        $company->slug = $key;
+        $company->name = $data['company_name'] ?? ucfirst($key);
+        $company->app_title = $data['app_title'] ?? 'Kursverwaltung';
+        $company->nav_brand = $data['nav_brand'] ?? 'Kursverwaltung';
+        $company->home_headline = $data['home_headline'] ?? '';
+        $company->home_intro = $data['home_intro'] ?? '';
+        $company->home_details = $data['home_details'] ?? '';
+        $company->primary_client = $data['primary_client'] ?? '';
+        $company->project_owner = $data['project_owner'] ?? '';
+        $company->group_reference = $data['group_reference'] ?? '';
+        $company->header_logo_path = $data['header_logo']['path'] ?? '';
+        $company->header_logo_alt = $data['header_logo']['alt'] ?? '';
+        $company->footer_logos_json = json_encode($data['logos'] ?? [], JSON_UNESCAPED_UNICODE);
+        $legal = $data['legal'] ?? [];
+        $company->legal_impressum_label = $legal['impressum']['label'] ?? '';
+        $company->legal_impressum_url = $legal['impressum']['url'] ?? '';
+        $company->legal_privacy_label = $legal['privacy']['label'] ?? '';
+        $company->legal_privacy_url = $legal['privacy']['url'] ?? '';
+        $company->is_default = !empty($data['is_default']) ? 1 : 0;
+        $company->created_at = date('c');
+        $company->updated_at = date('c');
+        R::store($company);
+    }
+
+    // Falls keine Standardfirma markiert wurde, die erste als Standard setzen.
+    $defaultCount = R::count('company', ' is_default = 1 ');
+    if ($defaultCount === 0) {
+        $first = R::findOne('company');
+        if ($first !== null) {
+            $first->is_default = 1;
+            R::store($first);
+        }
+    }
+
+    $seeded = true;
+}
+
+function map_company_branding(\RedBeanPHP\OODBBean $company): array
+{
+    $logos = [];
+    $rawLogos = (string)($company->footer_logos_json ?? '');
+    if ($rawLogos !== '') {
+        $decoded = json_decode($rawLogos, true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $logo) {
+                if (!is_array($logo)) {
+                    continue;
+                }
+
+                $path = trim((string)($logo['path'] ?? ''));
+                if ($path === '') {
+                    continue;
+                }
+
+                $logos[] = [
+                    'path' => $path,
+                    'alt' => (string)($logo['alt'] ?? ''),
+                ];
+            }
+        }
+    }
+
+    return [
+        'key' => strtolower((string)($company->slug ?? '')) ?: 'company_' . (int)$company->id,
+        'company_name' => (string)($company->name ?? ''),
+        'app_title' => (string)($company->app_title ?? 'Kursverwaltung'),
+        'nav_brand' => (string)($company->nav_brand ?? 'Kursverwaltung'),
+        'home_headline' => (string)($company->home_headline ?? ''),
+        'home_intro' => (string)($company->home_intro ?? ''),
+        'home_details' => (string)($company->home_details ?? ''),
+        'primary_client' => (string)($company->primary_client ?? ''),
+        'project_owner' => (string)($company->project_owner ?? ''),
+        'group_reference' => (string)($company->group_reference ?? ''),
+        'header_logo' => [
+            'path' => (string)($company->header_logo_path ?? ''),
+            'alt' => (string)($company->header_logo_alt ?? ''),
+        ],
+        'legal' => [
+            'impressum' => [
+                'label' => (string)($company->legal_impressum_label ?? ''),
+                'url' => (string)($company->legal_impressum_url ?? ''),
+            ],
+            'privacy' => [
+                'label' => (string)($company->legal_privacy_label ?? ''),
+                'url' => (string)($company->legal_privacy_url ?? ''),
+            ],
+        ],
+        'logos' => $logos,
+    ];
+}
+
+function map_static_branding(string $key, array $data): array
+{
+    $branding = $data;
+    $branding['key'] = $key;
+    $branding['company_name'] = $data['company_name'] ?? ($data['primary_client'] ?? ucfirst($key));
+    $branding['header_logo'] = $data['header_logo'] ?? ['path' => '', 'alt' => ''];
+
+    return $branding;
+}
+
+function default_branding_definitions(): array
+{
+    return [
         'bse' => [
+            'company_name' => 'BSE Consult GmbH',
             'app_title' => 'Kursverwaltung',
             'nav_brand' => 'Kursverwaltung',
             'home_headline' => 'Willkommen in der Kursverwaltung der BSE Consult GmbH',
@@ -21,6 +180,10 @@ function get_branding(): array
             'primary_client' => 'BSE Consult GmbH',
             'project_owner' => 'Zeniris GmbH',
             'group_reference' => 'Firmengruppe Königsblau',
+            'header_logo' => [
+                'path' => 'public/img/bse-consult-logo.svg',
+                'alt' => 'BSE Consult GmbH',
+            ],
             'legal' => [
                 'impressum' => [
                     'label' => 'Impressum',
@@ -47,6 +210,7 @@ function get_branding(): array
             ],
         ],
         'koenigsblau' => [
+            'company_name' => 'Firmengruppe Königsblau',
             'app_title' => 'Kursverwaltung',
             'nav_brand' => 'Kursverwaltung',
             'home_headline' => 'Willkommen in der Kursverwaltung der Firmengruppe Königsblau',
@@ -55,6 +219,10 @@ function get_branding(): array
             'primary_client' => 'Firmengruppe Königsblau',
             'project_owner' => 'Zeniris GmbH',
             'group_reference' => 'Firmengruppe Königsblau',
+            'header_logo' => [
+                'path' => 'public/img/koenigsblau-gruppe-logo.svg',
+                'alt' => 'Firmengruppe Königsblau',
+            ],
             'legal' => [
                 'impressum' => [
                     'label' => 'Impressum',
@@ -75,17 +243,9 @@ function get_branding(): array
                     'alt' => 'Firmengruppe Königsblau',
                 ],
             ],
+            'is_default' => true,
         ],
     ];
-
-    if (!array_key_exists($brandKey, $brands)) {
-        $brandKey = 'bse';
-    }
-
-    $branding = $brands[$brandKey];
-    $branding['key'] = $brandKey;
-
-    return $branding;
 }
 
 /**
