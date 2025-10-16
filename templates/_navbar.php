@@ -38,18 +38,51 @@
           <?php
             $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
             $roleLabel = !empty($authUser->role) ? role_label((string) $authUser->role) : null;
+            $userMenuId = 'userMenuDropdown';
+            $userManagementUrl = $branding['user_management_url'] ?? null;
+            if (empty($userManagementUrl)) {
+                $userManagementUrl = getenv('APP_USER_MANAGEMENT_URL') ?: ($_ENV['APP_USER_MANAGEMENT_URL'] ?? null);
+            }
+            if (is_string($userManagementUrl)) {
+                $userManagementUrl = trim($userManagementUrl);
+                if ($userManagementUrl === '') {
+                    $userManagementUrl = null;
+                } elseif (!preg_match('#^[a-z]+://#i', $userManagementUrl) && !str_starts_with($userManagementUrl, '//')) {
+                    $userManagementUrl = url_for($userManagementUrl);
+                }
+            } else {
+                $userManagementUrl = null;
+            }
           ?>
-          <span class="navbar-text me-3 d-flex align-items-center gap-2">
-            <span>
-              Eingeloggt als <strong><?= htmlspecialchars($displayName) ?></strong>
-            </span>
+          <div class="d-flex align-items-center gap-2">
+            <div class="dropdown">
+              <button class="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2"
+                      type="button"
+                      id="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false"
+                      aria-haspopup="true">
+                <i class="fa-solid fa-user" aria-hidden="true"></i>
+                <span><?= htmlspecialchars($displayName) ?></span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>">
+                <?php if ($userManagementUrl !== null && current_user_has_role('admin')): ?>
+                  <li>
+                    <a class="dropdown-item" href="<?= htmlspecialchars($userManagementUrl, ENT_QUOTES) ?>">Nutzerverwaltung</a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                <?php endif; ?>
+                <li>
+                  <a class="dropdown-item" href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>">Logout</a>
+                </li>
+              </ul>
+            </div>
             <?php if ($roleLabel !== null): ?>
               <span class="badge text-bg-secondary" title="Rolle: <?= htmlspecialchars($roleLabel) ?>">
                 <?= htmlspecialchars($roleLabel) ?>
               </span>
             <?php endif; ?>
-          </span>
-          <a href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>" class="btn btn-logout">Logout</a>
+          </div>
         <?php endif; ?>
 
         <div class="btn-group" role="group">
