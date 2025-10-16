@@ -10,6 +10,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Generierung von Benutzernamen, Passwörtern und E-Mail-Adressen
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
 - Mandantenfähiges Branding inklusive Firmenverwaltung und Logo-/Impressumssteuerung
+- Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung
 
 ## Voraussetzungen
 
@@ -37,6 +38,12 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Business-Logik findet sich in den Controllern im Verzeichnis `controllers/` sowie in den zugehörigen Templates unter `templates/`.
 - Weitere Hilfsfunktionen liegen im Verzeichnis `lib/`.
 - Frontend-Assets (Bootstrap, HTMX, Font Awesome, Tabulator) werden via npm verwaltet und liegen unter `public/`.
+
+## Konfiguration
+
+- `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Admin-Oberfläche eines Realms. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet.
+- `APP_KEYCLOAK_SERVER_URL` – Basis-URL der Keycloak-Instanz (Standard: `https://login.koenigsbl.au`).
+- `APP_KEYCLOAK_REALM` – Name des Keycloak-Realms (Standard: `koenigsbl.au`).
 
 ## Tests
 

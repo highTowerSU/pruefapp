@@ -5,6 +5,7 @@
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $coursesUrl = url_for('kurse');
     $auditLogUrl = url_for('admin/audit-log');
+    $userAdminUrl = url_for('admin/nutzer');
 
     $coursesPrefix = rtrim($coursesUrl, '/');
     if ($coursesPrefix === '') {
@@ -18,6 +19,13 @@
         $auditActive = $currentPath === '/' || $currentPath === '';
     } else {
         $auditActive = $currentPath === $auditLogUrl || strpos($currentPath, $auditPrefix . '/') === 0;
+    }
+
+    $userAdminPrefix = rtrim($userAdminUrl, '/');
+    if ($userAdminPrefix === '') {
+        $userAdminActive = $currentPath === '/' || $currentPath === '';
+    } else {
+        $userAdminActive = $currentPath === $userAdminUrl || strpos($currentPath, $userAdminPrefix . '/') === 0;
     }
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
@@ -48,6 +56,7 @@
           <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $coursesActive ? ' fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $auditActive ? ' fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
           <?php if (current_user_has_role('admin')): ?>
+            <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $userAdminActive ? ' fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
             <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $companyActive ? ' fw-semibold text-decoration-underline' : '' ?>">Firmen</a>
           <?php endif; ?>
         </div>
