@@ -25,37 +25,33 @@
     </a>
 
     <div class="d-flex align-items-center ms-auto gap-4 flex-wrap justify-content-end">
-      <?php if (isset($_SESSION['user'])): ?>
+      <?php $authUser = current_user(); ?>
+      <?php if ($authUser !== null): ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $coursesActive ? ' fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $auditActive ? ' fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
         </div>
-
-    <div class="d-flex align-items-center ms-auto gap-3">
-      <?php $authUser = current_user(); ?>
-      <?php if ($authUser !== null): ?>
-        <?php
-          $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
-        ?>
-        <span class="navbar-text me-3 d-flex align-items-center gap-2">
-          <span>
-            Eingeloggt als <strong><?= htmlspecialchars($displayName) ?></strong>
-          </span>
-          <?php if (!empty($authUser->role)): ?>
-            <span class="badge text-bg-secondary" title="Rolle: <?= htmlspecialchars(role_label((string) $authUser->role)) ?>">
-              <?= htmlspecialchars(role_label((string) $authUser->role)) ?>
-            </span>
-          <?php endif; ?>
-        </span>
-        <a href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>" class="btn btn-logout">Logout</a>
       <?php endif; ?>
-      <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-        <?php if (isset($_SESSION['user'])): ?>
-          <span class="navbar-text">
-            Eingeloggt als <strong><?= htmlspecialchars($_SESSION['user']->preferred_username ?? 'Nutzer') ?></strong>
+
+      <div class="d-flex align-items-center ms-auto gap-3">
+        <?php if ($authUser !== null): ?>
+          <?php
+            $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
+            $roleLabel = !empty($authUser->role) ? role_label((string) $authUser->role) : null;
+          ?>
+          <span class="navbar-text me-3 d-flex align-items-center gap-2">
+            <span>
+              Eingeloggt als <strong><?= htmlspecialchars($displayName) ?></strong>
+            </span>
+            <?php if ($roleLabel !== null): ?>
+              <span class="badge text-bg-secondary" title="Rolle: <?= htmlspecialchars($roleLabel) ?>">
+                <?= htmlspecialchars($roleLabel) ?>
+              </span>
+            <?php endif; ?>
           </span>
           <a href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>" class="btn btn-logout">Logout</a>
         <?php endif; ?>
+
         <div class="btn-group" role="group">
           <button type="button" class="btn btn-outline-secondary" id="themeCycleButton" aria-label="Theme umschalten">
             <i class="fas fa-circle-half-stroke" data-theme-icon></i>
