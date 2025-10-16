@@ -43,7 +43,7 @@
                     <td class="text-nowrap">
                         <?= htmlspecialchars($entry['aktion']) ?>
                     </td>
-                    <td>
+                    <td class="text-break">
                         <?php
                         $renderDetail = static function ($value) use (&$renderDetail) {
                             if (is_array($value)) {
@@ -52,16 +52,16 @@
                                     return;
                                 }
 
-                                echo '<dl class="mb-0">';
+                                echo '<ul class="list-unstyled mb-0">';
                                 foreach ($value as $key => $item) {
-                                    echo '<div class="row">';
-                                    echo '<dt class="col-sm-4 col-lg-3">' . htmlspecialchars((string) $key) . '</dt>';
-                                    echo '<dd class="col-sm-8 col-lg-9">';
+                                    echo '<li class="mb-2">';
+                                    echo '<div class="small fw-semibold text-body-secondary">' . htmlspecialchars((string) $key) . '</div>';
+                                    echo '<div class="ms-3">';
                                     $renderDetail($item);
-                                    echo '</dd>';
                                     echo '</div>';
+                                    echo '</li>';
                                 }
-                                echo '</dl>';
+                                echo '</ul>';
                                 return;
                             }
 
@@ -75,7 +75,7 @@
                                 return;
                             }
 
-                            echo htmlspecialchars((string) $value);
+                            echo '<span class="text-break">' . htmlspecialchars((string) $value) . '</span>';
                         };
 
                         $details = $entry['details'];
