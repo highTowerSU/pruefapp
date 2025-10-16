@@ -50,6 +50,21 @@ class ParticipantController
                 $mapping = self::sanitizeMapping($_POST['mapping'] ?? [], $header);
                 $result = self::importRows($kurs, $rows, $mapping);
 
+                $mappedColumns = [];
+                foreach ($mapping as $field => $column) {
+                    if ($column !== '') {
+                        $mappedColumns[$field] = $column;
+                    }
+                }
+
+                audit_log('teilnehmer_import', [
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                    'anzahl_importiert' => (int) $result['imported'],
+                    'anzahl_fehlgeschlagen' => (int) $result['failed'],
+                    'zugeordnete_spalten' => $mappedColumns,
+                ]);
+
                 if ($result['imported'] > 0) {
                     $_SESSION['meldung'] = $result['imported'] === 1
                         ? '1 Teilnehmer wurde importiert.'
@@ -205,7 +220,13 @@ class ParticipantController
             if ($id > 0) {
                 $teilnehmer = R::load('teilnehmer', $id);
                 if ($teilnehmer->id && (int) $teilnehmer->kurs_id === (int) $kurs->id) {
+                    $participantData = self::participantToArray($teilnehmer);
                     R::trash($teilnehmer);
+                    audit_log('teilnehmer_geloescht', [
+                        'kurs_id' => (int) $kurs->id,
+                        'kurs_name' => (string) $kurs->name,
+                        'teilnehmer' => $participantData,
+                    ]);
                 }
             }
 
@@ -235,6 +256,8 @@ class ParticipantController
                 $teilnehmer->benutzername = '';
             }
 
+            $beforeState = $isNew ? [] : self::participantToArray($teilnehmer);
+
             $teilnehmer->vorname = trim((string) ($data['vorname'] ?? ''));
             $teilnehmer->nachname = trim((string) ($data['nachname'] ?? ''));
             $teilnehmer->geburtsdatum = trim((string) ($data['geburtsdatum'] ?? ''));
@@ -262,6 +285,40 @@ class ParticipantController
                 R::store($teilnehmer);
             } catch (\InvalidArgumentException $exception) {
                 return self::jsonResponse(422, ['error' => $exception->getMessage()]);
+            }
+
+            $afterState = self::participantToArray($teilnehmer);
+
+            if ($isNew) {
+                audit_log('teilnehmer_angelegt', [
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                    'teilnehmer' => $afterState,
+                ]);
+            } else {
+                $changes = [];
+                foreach ($afterState as $field => $value) {
+                    if ($field === 'id') {
+                        continue;
+                    }
+
+                    $beforeValue = $beforeState[$field] ?? null;
+                    if ($beforeValue !== $value) {
+                        $changes[$field] = [
+                            'alt' => $beforeValue,
+                            'neu' => $value,
+                        ];
+                    }
+                }
+
+                if ($changes !== []) {
+                    audit_log('teilnehmer_aktualisiert', [
+                        'kurs_id' => (int) $kurs->id,
+                        'kurs_name' => (string) $kurs->name,
+                        'teilnehmer_id' => $afterState['id'],
+                        'aenderungen' => $changes,
+                    ]);
+                }
             }
 
             return self::jsonResponse(200, self::participantToArray($teilnehmer));
