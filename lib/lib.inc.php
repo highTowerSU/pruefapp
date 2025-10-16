@@ -385,14 +385,14 @@ if ($dbPath === null) {
 R::setup('sqlite:' . $dbPath);
 R::freeze(false);
 try {
-  R::createRevisionSupport(R::dispense("nutzer"));
-  R::createRevisionSupport(R::dispense("kurs"));
-  R::createRevisionSupport(R::dispense("teilnehmer"));
-  R::createRevisionSupport(R::dispense("uebermittlungslink"));
-  R::createRevisionSupport(R::dispense("auditlog"));
-} catch(Exception $e) {
-
-
+    R::createRevisionSupport(R::dispense('nutzer'));
+    R::createRevisionSupport(R::dispense('kurs'));
+    R::createRevisionSupport(R::dispense('teilnehmer'));
+    R::createRevisionSupport(R::dispense('uebermittlungslink'));
+    R::createRevisionSupport(R::dispense('auditlog'));
+} catch (Exception $e) {
+    error_log('Failed to enable RedBean revision support: ' . $e->getMessage());
+}
 if (isset($_SESSION['auth_user_id'])) {
     current_user();
 }
