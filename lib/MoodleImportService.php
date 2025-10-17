@@ -41,8 +41,8 @@ class MoodleImportService
             // Providing both the character and the matching delimiter name keeps backwards
             // compatibility with Moodle's CLI while ensuring the generated CSV is parsed
             // with the intended separator.
-            'delimiter' => ',',
-            'delimitername' => 'comma',
+//            'delimiter' => ',',
+            'delimiter_name' => 'comma',
             'encoding' => 'UTF-8',
             'ignoreerrors' => true,
             'updatemode' => '0',
