@@ -101,13 +101,18 @@ class ParticipantController
                 return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
             }
 
-            $parsed = self::parseUploadedCsv($_FILES['csv'] ?? null);
+            $selectedEncoding = self::sanitizeEncoding((string) ($_POST['encoding'] ?? ''));
+
+            $parsed = self::parseUploadedCsv($_FILES['csv'] ?? null, $selectedEncoding);
 
             if ($parsed === null) {
+                $_SESSION['import_selected_encoding'] = $selectedEncoding;
                 $_SESSION['fehlermeldung'] = 'CSV-Datei konnte nicht gelesen werden.';
 
                 return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/import')], ''];
             }
+
+            unset($_SESSION['import_selected_encoding']);
 
             $fieldLabels = self::fieldLabels();
             $initialMapping = [];
@@ -137,7 +142,14 @@ class ParticipantController
             return [200, [], $body];
         }
 
-        $content = render_template('import_form.php', ['kurs' => $kurs]);
+        $availableEncodings = self::availableEncodings();
+        $selectedEncoding = $_SESSION['import_selected_encoding'] ?? 'utf-8';
+
+        $content = render_template('import_form.php', [
+            'kurs' => $kurs,
+            'availableEncodings' => $availableEncodings,
+            'selectedEncoding' => $selectedEncoding,
+        ]);
         $body = render_template('layout.php', [
             'title' => 'Import – ' . $kurs->name,
             'content' => $content,
@@ -466,7 +478,7 @@ class ParticipantController
         return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
     }
 
-    private static function parseUploadedCsv(?array $file): ?array
+    private static function parseUploadedCsv(?array $file, string $encoding): ?array
     {
         if ($file === null || !is_array($file)) {
             return null;
@@ -489,7 +501,8 @@ class ParticipantController
             return null;
         }
 
-        $header = self::normalizeHeader($rawHeader);
+        $convertedHeader = self::convertRowEncoding($rawHeader, $encoding);
+        $header = self::normalizeHeader($convertedHeader);
         $rows = [];
 
         while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
@@ -497,7 +510,8 @@ class ParticipantController
                 continue;
             }
 
-            $assoc = self::combineRow($header, $data);
+            $convertedRow = self::convertRowEncoding($data, $encoding);
+            $assoc = self::combineRow($header, $convertedRow);
             if ($assoc === null) {
                 continue;
             }
@@ -596,6 +610,53 @@ class ParticipantController
         }
 
         return $row;
+    }
+
+    private static function convertRowEncoding(array $values, string $encoding): array
+    {
+        $converted = [];
+        foreach ($values as $value) {
+            if (!is_string($value)) {
+                $converted[] = $value;
+                continue;
+            }
+
+            $convertedValue = mb_convert_encoding($value, 'UTF-8', $encoding);
+            if ($convertedValue === false) {
+                $convertedValue = $value;
+            }
+
+            if (strpos($convertedValue, "\xEF\xBB\xBF") === 0) {
+                $convertedValue = substr($convertedValue, 3);
+            }
+
+            $converted[] = $convertedValue;
+        }
+
+        return $converted;
+    }
+
+    private static function availableEncodings(): array
+    {
+        return [
+            'utf-8' => 'UTF-8 (Standard)',
+            'iso-8859-1' => 'ISO-8859-1 (Westeuropa)',
+            'windows-1252' => 'Windows-1252 (Westeuropa)',
+        ];
+    }
+
+    private static function sanitizeEncoding(string $encoding): string
+    {
+        $encoding = strtolower(trim($encoding));
+        if ($encoding === '') {
+            return 'utf-8';
+        }
+
+        if (!array_key_exists($encoding, self::availableEncodings())) {
+            return 'utf-8';
+        }
+
+        return $encoding;
     }
 
     private static function encodeRowsPayload(array $rows): string
