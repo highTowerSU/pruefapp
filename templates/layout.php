@@ -117,7 +117,7 @@
 <?php include "templates/_navbar.php"; ?>
 <main class="flex-grow-1">
 <div class="container py-4">
-    <header class="page-header mb-4">
+    <header class="page-header mb-4 noprint">
       <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
       <?php if (!empty($branding['company_name'])): ?>
         <p class="mb-0 text-body-secondary">für <?= htmlspecialchars($branding['company_name']) ?></p>
