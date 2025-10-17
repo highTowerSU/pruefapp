@@ -59,9 +59,6 @@
               </div>
               <div>
                 <div class="fw-semibold"><?= htmlspecialchars($defaultCompany['name']) ?></div>
-                <div class="small text-body-secondary">
-                  <?= htmlspecialchars($defaultCompany['primary_client'] ?: branding_project_owner()) ?>
-                </div>
               </div>
             </div>
             <?php if (!empty($defaultCompany['header_logo_url'])): ?>
@@ -129,9 +126,6 @@
                   <?php if (!empty($company['is_default'])): ?>
                     <span class="badge text-bg-primary">Standard</span>
                   <?php endif; ?>
-                </div>
-                <div class="small text-body-secondary mt-1">
-                  <?= htmlspecialchars($company['primary_client'] ?: branding_project_owner()) ?>
                 </div>
               </td>
               <td>
