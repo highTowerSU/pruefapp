@@ -600,12 +600,23 @@ class ParticipantController
 
     private static function encodeRowsPayload(array $rows): string
     {
-        return base64_encode(json_encode($rows, JSON_UNESCAPED_UNICODE));
+        return self::encodePayload($rows);
     }
 
     private static function encodeHeaderPayload(array $header): string
     {
-        return base64_encode(json_encode($header, JSON_UNESCAPED_UNICODE));
+        return self::encodePayload($header);
+    }
+
+    private static function encodePayload($data): string
+    {
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        if (!is_string($json)) {
+            return '';
+        }
+
+        return base64_encode($json);
     }
 
     private static function decodeRowsPayload(string $payload): ?array
