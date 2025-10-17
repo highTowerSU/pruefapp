@@ -85,17 +85,43 @@ class MoodleImportService
             return '';
         }
 
-        $modernPath = $this->moodleRoot . '/admin/tool/uploaduser/cli/uploaduser.php';
-        if (is_file($modernPath)) {
-            return $modernPath;
+        $candidates = $this->getCandidateScriptPaths();
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
         }
 
-        $legacyPath = $this->moodleRoot . '/admin/cli/uploaduser.php';
-        if (is_file($legacyPath)) {
-            return $legacyPath;
+        return $candidates[0] ?? '';
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getCandidateScriptPaths(): array
+    {
+        if ($this->moodleRoot === '') {
+            return [];
         }
 
-        return $modernPath;
+        $roots = [$this->moodleRoot];
+        $publicRoot = $this->moodleRoot . DIRECTORY_SEPARATOR . 'public';
+
+        if (is_dir($publicRoot)) {
+            $roots[] = $publicRoot;
+        }
+
+        $candidates = [];
+
+        foreach ($roots as $root) {
+            $normalizedRoot = rtrim($root, DIRECTORY_SEPARATOR);
+
+            $candidates[] = $normalizedRoot . '/admin/tool/uploaduser/cli/uploaduser.php';
+            $candidates[] = $normalizedRoot . '/admin/cli/uploaduser.php';
+        }
+
+        return array_values(array_unique($candidates));
     }
 
     public function isConfigured(): bool
