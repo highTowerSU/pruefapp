@@ -70,9 +70,9 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $coursesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $auditActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
           <?php if (current_user_has_role('admin')): ?>
-            <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $userAdminActive ? ' fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
-            <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $companyActive ? ' fw-semibold text-decoration-underline' : '' ?>">Firmen</a>
-            <a href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>" class="nav-link px-0 link-light<?= $settingsActive ? ' fw-semibold text-decoration-underline' : '' ?>">Konfiguration</a>
+            <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $userAdminActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
+            <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $companyActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Firmen</a>
+            <a href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $settingsActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Konfiguration</a>
           <?php endif; ?>
         </div>
       <?php endif; ?>
