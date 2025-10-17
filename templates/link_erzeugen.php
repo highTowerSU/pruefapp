@@ -75,6 +75,12 @@
                                     <input type="hidden" name="link_id" value="<?= (int) $link->id ?>">
                                     <button class="btn btn-warning btn-sm">Link zurücksetzen</button>
                                 </form>
+                                <form method="post"
+                                      onsubmit="return confirm('Möchten Sie diesen Übermittlungslink wirklich löschen?');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="link_id" value="<?= (int) $link->id ?>">
+                                    <button class="btn btn-outline-danger btn-sm">Löschen</button>
+                                </form>
                             </div>
                         </td>
                     </tr>

@@ -156,6 +156,20 @@ class CourseController
                         'token_alt' => audit_log_mask_token($previousToken),
                         'token_neu' => audit_log_mask_token((string) $link->token),
                     ]);
+                } elseif ($action === 'delete') {
+                    $previousToken = (string) $link->token;
+                    $previousName = (string) $link->bezeichnung;
+
+                    R::trash($link);
+                    $_SESSION['meldung'] = 'Übermittlungslink wurde gelöscht.';
+
+                    audit_log('uebermittlungslink_geloescht', [
+                        'kurs_id' => (int) $kurs->id,
+                        'kurs_name' => (string) $kurs->name,
+                        'link_id' => (int) $linkId,
+                        'bezeichnung' => $previousName,
+                        'token_vorschau' => audit_log_mask_token($previousToken),
+                    ]);
                 } elseif ($action === 'rename') {
                     $bezeichnung = trim($_POST['name'] ?? '');
                     $previousName = (string) $link->bezeichnung;
@@ -180,22 +194,17 @@ class CourseController
 
         $links = R::findAll('uebermittlungslink', ' kurs_id = ? ORDER BY id ', [$kurs->id]);
 
-        if (count($links) === 0) {
-            if ($kurs->token) {
-                $link = R::dispense('uebermittlungslink');
-                $link->token = $kurs->token;
-                $link->bezeichnung = '';
-                $link->aktiv = $kurs->uebermittlung_aktiv ? 1 : 0;
-                $link->kurs = $kurs;
-                R::store($link);
-            } else {
-                $link = R::dispense('uebermittlungslink');
-                $link->token = bin2hex(random_bytes(8));
-                $link->bezeichnung = '';
-                $link->aktiv = 1;
-                $link->kurs = $kurs;
-                R::store($link);
-            }
+        if (count($links) === 0 && $kurs->token) {
+            $link = R::dispense('uebermittlungslink');
+            $link->token = $kurs->token;
+            $link->bezeichnung = '';
+            $link->aktiv = $kurs->uebermittlung_aktiv ? 1 : 0;
+            $link->kurs = $kurs;
+            R::store($link);
+
+            $kurs->token = null;
+            $kurs->uebermittlung_aktiv = 0;
+            R::store($kurs);
 
             $links = R::findAll('uebermittlungslink', ' kurs_id = ? ORDER BY id ', [$kurs->id]);
         }
