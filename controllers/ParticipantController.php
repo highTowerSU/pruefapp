@@ -482,7 +482,8 @@ class ParticipantController
             return null;
         }
 
-        $rawHeader = fgetcsv($handle);
+        $delimiter = self::detectCsvDelimiter($handle);
+        $rawHeader = fgetcsv($handle, 0, $delimiter);
         if ($rawHeader === false) {
             fclose($handle);
             return null;
@@ -491,7 +492,7 @@ class ParticipantController
         $header = self::normalizeHeader($rawHeader);
         $rows = [];
 
-        while (($data = fgetcsv($handle)) !== false) {
+        while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
             if ($data === [null] || $data === false) {
                 continue;
             }
@@ -533,6 +534,51 @@ class ParticipantController
         }
 
         return $header;
+    }
+
+    private static function detectCsvDelimiter($handle): string
+    {
+        if (!is_resource($handle)) {
+            return ',';
+        }
+
+        $delimiters = [',', ';', "\t"];
+        $counts = array_fill_keys($delimiters, 0);
+
+        $initialPosition = ftell($handle);
+        if ($initialPosition === false) {
+            $initialPosition = 0;
+        }
+
+        for ($i = 0; $i < 5 && !feof($handle); $i++) {
+            $line = fgets($handle);
+            if ($line === false) {
+                break;
+            }
+
+            foreach ($delimiters as $delimiter) {
+                $counts[$delimiter] += substr_count($line, $delimiter);
+            }
+        }
+
+        if ($initialPosition >= 0) {
+            fseek($handle, $initialPosition);
+        }
+
+        $bestDelimiter = ',';
+        $maxCount = $counts[$bestDelimiter] ?? 0;
+        foreach ($counts as $delimiter => $count) {
+            if ($count > $maxCount) {
+                $maxCount = $count;
+                $bestDelimiter = $delimiter;
+            }
+        }
+
+        if ($maxCount === 0) {
+            return ',';
+        }
+
+        return $bestDelimiter;
     }
 
     private static function combineRow(array $header, array $data): ?array
