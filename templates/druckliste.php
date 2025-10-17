@@ -28,6 +28,9 @@
                             <table class="table table-bordered table-sm">
                                 <tr><th>Vorname</th><td><?= htmlspecialchars($n->vorname) ?></td></tr>
                                 <tr><th>Nachname</th><td><?= htmlspecialchars($n->nachname) ?></td></tr>
+                                <?php if (trim((string) ($n->firma ?? '')) !== ''): ?>
+                                <tr><th>Firma</th><td><?= htmlspecialchars($n->firma) ?></td></tr>
+                                <?php endif; ?>
                                 <tr><th>Geburtsdatum</th><td><?= htmlspecialchars(format_birthdate_for_display((string) $n->geburtsdatum)) ?></td></tr>
                                 <tr><th>Geburtsort</th><td><?= htmlspecialchars($n->geburtsort) ?></td></tr>
                                 <tr><th>Benutzername</th><td><?= htmlspecialchars($n->benutzername) ?></td></tr>

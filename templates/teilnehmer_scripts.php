@@ -47,6 +47,7 @@
   const columns = [
     { title: "Vorname", field: "vorname", editor: canManage ? "input" : false },
     { title: "Nachname", field: "nachname", editor: canManage ? "input" : false },
+    { title: "Firma", field: "firma", editor: canManage ? "input" : false },
     { title: "Geburtsdatum", field: "geburtsdatum", editor: canManage ? "input" : false },
     { title: "Geburtsort", field: "geburtsort", editor: canManage ? "input" : false },
     { title: "Benutzername", field: "benutzername" },

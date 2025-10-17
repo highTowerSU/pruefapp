@@ -383,6 +383,12 @@ class ParticipantController
             $teilnehmer->geburtsdatum = normalize_birthdate((string) ($data['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = trim((string) ($data['geburtsort'] ?? ''));
 
+            if (array_key_exists('firma', $data)) {
+                $teilnehmer->firma = trim((string) $data['firma']);
+            } elseif (!isset($teilnehmer->firma)) {
+                $teilnehmer->firma = '';
+            }
+
             if (array_key_exists('email', $data)) {
                 $teilnehmer->email = trim((string) $data['email']);
             } elseif (!isset($teilnehmer->email)) {
@@ -613,6 +619,7 @@ class ParticipantController
         return [
             'vorname' => 'Vorname',
             'nachname' => 'Nachname',
+            'firma' => 'Firma',
             'geburtsdatum' => 'Geburtsdatum',
             'geburtsort' => 'Geburtsort',
             'benutzername' => 'Benutzername',
@@ -664,6 +671,7 @@ class ParticipantController
         return [
             'vorname' => ['vorname', 'first name', 'firstname', 'given name'],
             'nachname' => ['nachname', 'last name', 'lastname', 'surname', 'family name'],
+            'firma' => ['firma', 'unternehmen', 'company', 'organisation', 'organization', 'betrieb', 'employer'],
             'geburtsdatum' => ['geburtsdatum', 'birthdate', 'date of birth', 'geburtstag', 'profile field birthdate'],
             'geburtsort' => ['geburtsort', 'birthplace', 'place of birth', 'profile field birthplace'],
             'benutzername' => ['benutzername', 'username', 'user name', 'login'],
@@ -743,10 +751,15 @@ class ParticipantController
                 $teilnehmer->geburtsort = $values['geburtsort'];
             }
 
+            if (isset($values['firma'])) {
+                $teilnehmer->firma = $values['firma'];
+            }
+
             $teilnehmer->vorname = $values['vorname'] ?? '';
             $teilnehmer->nachname = $values['nachname'] ?? '';
             $teilnehmer->geburtsdatum = normalize_birthdate((string) ($values['geburtsdatum'] ?? ''));
             $teilnehmer->geburtsort = $values['geburtsort'] ?? '';
+            $teilnehmer->firma = $values['firma'] ?? '';
 
             $username = sanitize_username($values['benutzername'] ?? '');
             if ($username === '' && $teilnehmer->vorname !== '' && $teilnehmer->nachname !== '') {
@@ -793,6 +806,7 @@ class ParticipantController
             'id' => (int) $teilnehmer->id,
             'vorname' => (string) $teilnehmer->vorname,
             'nachname' => (string) $teilnehmer->nachname,
+            'firma' => (string) ($teilnehmer->firma ?? ''),
             'geburtsdatum' => format_birthdate_for_display((string) $teilnehmer->geburtsdatum),
             'geburtsort' => (string) $teilnehmer->geburtsort,
             'benutzername' => (string) $teilnehmer->benutzername,

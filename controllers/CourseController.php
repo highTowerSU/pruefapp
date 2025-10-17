@@ -20,11 +20,13 @@ class CourseController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $previousEmail = (bool) ($kurs->feld_email_aktiv ?? false);
             $previousGeburtsort = (bool) ($kurs->feld_geburtsort_aktiv ?? false);
+            $previousFirma = (bool) ($kurs->feld_firma_aktiv ?? false);
             $previousShortname = trim((string) ($kurs->moodle_course_shortname ?? ''));
             $previousFullname = trim((string) ($kurs->moodle_course_fullname ?? ''));
 
             $kurs->feld_email_aktiv = isset($_POST['feld_email_aktiv']) ? 1 : 0;
             $kurs->feld_geburtsort_aktiv = isset($_POST['feld_geburtsort_aktiv']) ? 1 : 0;
+            $kurs->feld_firma_aktiv = isset($_POST['feld_firma_aktiv']) ? 1 : 0;
 
             $newShortname = trim((string) ($_POST['moodle_course_shortname'] ?? ''));
             $newFullname = trim((string) ($_POST['moodle_course_fullname'] ?? ''));
@@ -43,6 +45,11 @@ class CourseController
             if ($previousGeburtsort !== (bool) $kurs->feld_geburtsort_aktiv) {
                 $changes['feld_geburtsort_aktiv_alt'] = $previousGeburtsort;
                 $changes['feld_geburtsort_aktiv_neu'] = (bool) $kurs->feld_geburtsort_aktiv;
+            }
+
+            if ($previousFirma !== (bool) $kurs->feld_firma_aktiv) {
+                $changes['feld_firma_aktiv_alt'] = $previousFirma;
+                $changes['feld_firma_aktiv_neu'] = (bool) $kurs->feld_firma_aktiv;
             }
 
             if ($previousShortname !== $newShortname) {

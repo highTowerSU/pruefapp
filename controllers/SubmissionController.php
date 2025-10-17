@@ -36,6 +36,7 @@ class SubmissionController
                 $teilnehmer->nachname = $nachname;
                 $teilnehmer->geburtsdatum = normalize_birthdate($geburtsdatum);
                 $teilnehmer->geburtsort = $kurs->feld_geburtsort_aktiv ? trim($eintrag['geburtsort'] ?? '') : '';
+                $teilnehmer->firma = $kurs->feld_firma_aktiv ? trim($eintrag['firma'] ?? '') : '';
                 $teilnehmer->email = $kurs->feld_email_aktiv ? trim($eintrag['email'] ?? '') : '';
                 $teilnehmer->benutzername = generate_username($teilnehmer->vorname, $teilnehmer->nachname);
                 $teilnehmer->passwort = generate_password();

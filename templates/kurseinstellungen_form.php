@@ -7,6 +7,12 @@
         <label class="form-check-label" for="feld_email">E-Mail-Adresse abfragen</label>
     </div>
 
+    <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" id="feld_firma" name="feld_firma_aktiv"
+               <?= !empty($kurs->feld_firma_aktiv) ? 'checked' : '' ?>>
+        <label class="form-check-label" for="feld_firma">Firma abfragen</label>
+    </div>
+
     <div class="form-check mb-3">
         <input type="checkbox" class="form-check-input" id="feld_geburtsort" name="feld_geburtsort_aktiv"
                <?= $kurs->feld_geburtsort_aktiv ? 'checked' : '' ?>>

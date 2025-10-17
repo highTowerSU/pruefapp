@@ -9,6 +9,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Anmeldung per OpenID Connect (Keycloak)
 - Verwaltung von Kursen inklusive Einstellungen und Verknüpfungen
 - Import, Export und Druck von Teilnehmerlisten
+- Optionale Erfassung der zugehörigen Firma für Teilnehmer*innen
 - Generierung von Benutzernamen, Passwörtern und E-Mail-Adressen
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
 

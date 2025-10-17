@@ -3,6 +3,9 @@
         <div class="row g-2 mb-2 person-eintrag">
             <div class="col"><input type="text" name="person[0][vorname]" class="form-control" placeholder="Vorname" required></div>
             <div class="col"><input type="text" name="person[0][nachname]" class="form-control" placeholder="Nachname" required></div>
+            <?php if ($kurs->feld_firma_aktiv): ?>
+                <div class="col"><input type="text" name="person[0][firma]" class="form-control" placeholder="Firma"></div>
+            <?php endif; ?>
             <div class="col"><input type="date" name="person[0][geburtsdatum]" class="form-control" required></div>
             <?php if ($kurs->feld_geburtsort_aktiv): ?>
                 <div class="col"><input type="text" name="person[0][geburtsort]" class="form-control" placeholder="Geburtsort"></div>
@@ -21,12 +24,20 @@
 <script>
   const feld_geburtsort_aktiv = <?= $kurs->feld_geburtsort_aktiv ? 'true' : 'false' ?>;
   const feld_email_aktiv = <?= $kurs->feld_email_aktiv ? 'true' : 'false' ?>;
-let counter = 1;
-document.getElementById('btn-add').addEventListener('click', () => {
+  const feld_firma_aktiv = <?= !empty($kurs->feld_firma_aktiv) ? 'true' : 'false' ?>;
+  let counter = 1;
+  document.getElementById('btn-add').addEventListener('click', () => {
     let html = `
     <div class="row g-2 mb-2 person-eintrag">
         <div class="col"><input type="text" name="person[${counter}][vorname]" class="form-control" placeholder="Vorname" required></div>
         <div class="col"><input type="text" name="person[${counter}][nachname]" class="form-control" placeholder="Nachname" required></div>
+    `;
+
+    if (feld_firma_aktiv) {
+        html += `<div class="col"><input type="text" name="person[${counter}][firma]" class="form-control" placeholder="Firma"></div>`;
+    }
+
+    html += `
         <div class="col"><input type="date" name="person[${counter}][geburtsdatum]" class="form-control" required></div>`;
 
     if (feld_geburtsort_aktiv) {
