@@ -16,8 +16,29 @@ class CompanyController
             return self::mapCompany($company);
         }, array_values(R::findAll('company', ' ORDER BY name ')));
 
+        $stats = [
+            'total' => count($companies),
+            'withLogo' => array_reduce(
+                $companies,
+                static function (int $carry, array $company): int {
+                    return $carry + (!empty($company['header_logo_path']) ? 1 : 0);
+                },
+                0
+            ),
+        ];
+
+        $defaultCompany = null;
+        foreach ($companies as $company) {
+            if (!empty($company['is_default'])) {
+                $defaultCompany = $company;
+                break;
+            }
+        }
+
         $content = render_template('company_list.php', [
             'companies' => $companies,
+            'stats' => $stats,
+            'defaultCompany' => $defaultCompany,
         ]);
 
         $body = render_template('layout.php', [
