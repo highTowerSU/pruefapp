@@ -487,18 +487,45 @@ function keycloak_user_admin_url(?string $userId): ?string
     return $base . '/' . rawurlencode($userId);
 }
 
-function initialisiere_oidc(bool $force = false): void {
+function render_oidc_error_response(?\Throwable $throwable = null): void
+{
+    if ($throwable !== null) {
+        error_log('OIDC authentication failed: ' . $throwable->getMessage());
+    }
 
+    $supportContact = env_value('APP_SUPPORT_CONTACT') ?? env_value('APP_SUPPORT_EMAIL');
+
+    $content = render_template('auth_error.php', [
+        'retryUrl' => url_for(),
+        'supportContact' => $supportContact,
+    ]);
+
+    $body = render_template('layout.php', [
+        'title' => 'Anmeldung nicht möglich',
+        'content' => $content,
+    ]);
+
+    http_response_code(503);
+    echo $body;
+    exit;
+}
+
+function initialisiere_oidc(bool $force = false): void
+{
     if ($force || !isset($_SESSION['user'])) {
-        $oidc = new \Jumbojett\OpenIDConnectClient(
-            'https://login.koenigsbl.au/realms/koenigsbl.au',
-            'moodle-user-gen',
-            'ThDCoZOf8xzFoGkpzA9AUSzNmDQftNGa'
-        );
-        $oidc->setRedirectURL(absolute_url_for('callback.php'));
-        $oidc->authenticate();
+        try {
+            $oidc = new \Jumbojett\OpenIDConnectClient(
+                'https://login.koenigsbl.au/realms/koenigsbl.au',
+                'moodle-user-gen',
+                'ThDCoZOf8xzFoGkpzA9AUSzNmDQftNGa'
+            );
+            $oidc->setRedirectURL(absolute_url_for('callback.php'));
+            $oidc->authenticate();
 
-        $userInfo = $oidc->requestUserInfo();
+            $userInfo = $oidc->requestUserInfo();
+        } catch (\Throwable $throwable) {
+            render_oidc_error_response($throwable);
+        }
 
         try {
             $user = sync_authenticated_user($userInfo);
