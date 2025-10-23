@@ -14,17 +14,15 @@ class ParticipantController
         }
 
         $canManageParticipants = current_user_can_manage_participants();
+        $teilnehmer = self::participantsForCourse($kurs->id);
 
         $content = render_template('teilnehmer_table.php', [
             'kurs' => $kurs,
+            'teilnehmer' => $teilnehmer,
             'canManageParticipants' => $canManageParticipants,
         ]);
 
-        $scripts = render_template('teilnehmer_scripts.php', [
-            'kursId' => $kurs->id,
-            'apiUrl' => url_for('kurse/' . $kurs->id . '/teilnehmer/api'),
-            'canManageParticipants' => $canManageParticipants,
-        ]);
+        $scripts = render_template('teilnehmer_scripts.php');
 
         $body = render_template('layout.php', [
             'title' => 'Teilnehmer – ' . $kurs->name,
@@ -33,6 +31,223 @@ class ParticipantController
         ]);
 
         return [200, [], $body];
+    }
+
+    public static function newRow(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return [404, [], ''];
+        }
+
+        if (!$isHx) {
+            return [400, [], ''];
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return [403, [], ''];
+        }
+
+        $values = self::participantFormDefaults();
+        $html = self::renderParticipantEditRow($kurs, $values, true, [], null, true);
+
+        return [200, [], $html];
+    }
+
+    public static function row(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return [404, [], ''];
+        }
+
+        $teilnehmer = self::findParticipantInCourse($kurs, $params);
+        if ($teilnehmer === null) {
+            return [404, [], ''];
+        }
+
+        $canManageParticipants = current_user_can_manage_participants();
+        $html = self::renderParticipantRow($kurs, $teilnehmer, $canManageParticipants);
+
+        return [200, [], $html];
+    }
+
+    public static function edit(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return [404, [], ''];
+        }
+
+        if (!$isHx) {
+            return [400, [], ''];
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return [403, [], ''];
+        }
+
+        $teilnehmer = self::findParticipantInCourse($kurs, $params);
+        if ($teilnehmer === null) {
+            return [404, [], ''];
+        }
+
+        $values = self::participantFormDefaults($teilnehmer);
+        $html = self::renderParticipantEditRow($kurs, $values, true, [], $teilnehmer, false);
+
+        return [200, [], $html];
+    }
+
+    public static function store(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return [404, [], ''];
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return [403, [], ''];
+        }
+
+        if (!$isHx) {
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
+        }
+
+        $form = self::processParticipantForm($kurs, $_POST);
+        if ($form['errors'] !== []) {
+            $html = self::renderParticipantEditRow($kurs, $form['values'], true, $form['errors'], null, true);
+
+            return [422, [], $html];
+        }
+
+        $teilnehmer = R::dispense('teilnehmer');
+        $teilnehmer->kurs = $kurs;
+        $teilnehmer->benutzername = '';
+        $teilnehmer->passwort = '';
+
+        self::applyParticipantForm($teilnehmer, $form['normalized']);
+
+        try {
+            R::store($teilnehmer);
+        } catch (\InvalidArgumentException $exception) {
+            $form['errors']['general'] = $exception->getMessage();
+            $html = self::renderParticipantEditRow($kurs, $form['values'], true, $form['errors'], null, true);
+
+            return [422, [], $html];
+        }
+
+        $afterState = self::participantToArray($teilnehmer);
+        audit_log('teilnehmer_angelegt', [
+            'kurs_id' => (int) $kurs->id,
+            'kurs_name' => (string) $kurs->name,
+            'teilnehmer' => $afterState,
+        ]);
+
+        $html = self::renderParticipantRow($kurs, $teilnehmer, true);
+
+        return [200, [], $html];
+    }
+
+    public static function update(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return [404, [], ''];
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return [403, [], ''];
+        }
+
+        $teilnehmer = self::findParticipantInCourse($kurs, $params);
+        if ($teilnehmer === null) {
+            return [404, [], ''];
+        }
+
+        if (!$isHx) {
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
+        }
+
+        $beforeState = self::participantToArray($teilnehmer);
+
+        $form = self::processParticipantForm($kurs, $_POST);
+        if ($form['errors'] !== []) {
+            $html = self::renderParticipantEditRow($kurs, $form['values'], true, $form['errors'], $teilnehmer, false);
+
+            return [422, [], $html];
+        }
+
+        self::applyParticipantForm($teilnehmer, $form['normalized']);
+
+        try {
+            R::store($teilnehmer);
+        } catch (\InvalidArgumentException $exception) {
+            $form['errors']['general'] = $exception->getMessage();
+            $html = self::renderParticipantEditRow($kurs, $form['values'], true, $form['errors'], $teilnehmer, false);
+
+            return [422, [], $html];
+        }
+
+        $afterState = self::participantToArray($teilnehmer);
+        $changes = [];
+        foreach ($afterState as $field => $value) {
+            if ($field === 'id') {
+                continue;
+            }
+
+            $beforeValue = $beforeState[$field] ?? null;
+            if ($beforeValue !== $value) {
+                $changes[$field] = [
+                    'alt' => $beforeValue,
+                    'neu' => $value,
+                ];
+            }
+        }
+
+        if ($changes !== []) {
+            audit_log('teilnehmer_aktualisiert', [
+                'kurs_id' => (int) $kurs->id,
+                'kurs_name' => (string) $kurs->name,
+                'teilnehmer_id' => $afterState['id'],
+                'aenderungen' => $changes,
+            ]);
+        }
+
+        $html = self::renderParticipantRow($kurs, $teilnehmer, true);
+
+        return [200, [], $html];
+    }
+
+    public static function delete(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return [404, [], ''];
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return [403, [], ''];
+        }
+
+        $teilnehmer = self::findParticipantInCourse($kurs, $params);
+        if ($teilnehmer === null) {
+            return [404, [], ''];
+        }
+
+        $participantData = self::participantToArray($teilnehmer);
+        R::trash($teilnehmer);
+
+        audit_log('teilnehmer_geloescht', [
+            'kurs_id' => (int) $kurs->id,
+            'kurs_name' => (string) $kurs->name,
+            'teilnehmer' => $participantData,
+        ]);
+
+        if ($isHx) {
+            return [200, [], ''];
+        }
+
+        return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer')], ''];
     }
 
     public static function import(array $params, bool $isHx): array
@@ -476,6 +691,142 @@ class ParticipantController
     private static function participantsForCourse(int $kursId): array
     {
         return R::findAll('teilnehmer', 'kurs_id = ? ORDER BY nachname, vorname', [$kursId]);
+    }
+
+    private static function findParticipantInCourse(\RedBeanPHP\OODBBean $kurs, array $params): ?\RedBeanPHP\OODBBean
+    {
+        $participantId = isset($params['participantId']) ? (int) $params['participantId'] : 0;
+        if ($participantId <= 0) {
+            return null;
+        }
+
+        $teilnehmer = R::load('teilnehmer', $participantId);
+        if (!$teilnehmer->id || (int) $teilnehmer->kurs_id !== (int) $kurs->id) {
+            return null;
+        }
+
+        return $teilnehmer;
+    }
+
+    private static function participantFormDefaults(?\RedBeanPHP\OODBBean $teilnehmer = null): array
+    {
+        if ($teilnehmer === null) {
+            return [
+                'vorname' => '',
+                'nachname' => '',
+                'firma' => '',
+                'geburtsdatum' => '',
+                'geburtsort' => '',
+                'email' => '',
+            ];
+        }
+
+        return [
+            'vorname' => (string) ($teilnehmer->vorname ?? ''),
+            'nachname' => (string) ($teilnehmer->nachname ?? ''),
+            'firma' => (string) ($teilnehmer->firma ?? ''),
+            'geburtsdatum' => (string) ($teilnehmer->geburtsdatum ?? ''),
+            'geburtsort' => (string) ($teilnehmer->geburtsort ?? ''),
+            'email' => (string) ($teilnehmer->email ?? ''),
+        ];
+    }
+
+    private static function processParticipantForm(\RedBeanPHP\OODBBean $kurs, array $source): array
+    {
+        $values = [
+            'vorname' => trim((string) ($source['vorname'] ?? '')),
+            'nachname' => trim((string) ($source['nachname'] ?? '')),
+            'firma' => trim((string) ($source['firma'] ?? '')),
+            'geburtsdatum' => trim((string) ($source['geburtsdatum'] ?? '')),
+            'geburtsort' => trim((string) ($source['geburtsort'] ?? '')),
+            'email' => trim((string) ($source['email'] ?? '')),
+        ];
+
+        $normalized = [
+            'vorname' => $values['vorname'],
+            'nachname' => $values['nachname'],
+            'firma' => $values['firma'],
+            'geburtsdatum' => normalize_birthdate($values['geburtsdatum']),
+            'geburtsort' => $values['geburtsort'],
+            'email' => normalize_email_address($values['email']),
+        ];
+
+        $errors = [];
+
+        if ($values['vorname'] === '') {
+            $errors['vorname'] = 'Bitte gib einen Vornamen an.';
+        }
+
+        if ($values['nachname'] === '') {
+            $errors['nachname'] = 'Bitte gib einen Nachnamen an.';
+        }
+
+        if ($normalized['geburtsdatum'] === '') {
+            $errors['geburtsdatum'] = 'Bitte gib ein Geburtsdatum an.';
+        } elseif (create_strict_date('Y-m-d', $normalized['geburtsdatum']) === null) {
+            $errors['geburtsdatum'] = 'Bitte gib ein gültiges Geburtsdatum an.';
+        }
+
+        $requiresBirthplace = ((int) ($kurs->feld_geburtsort_aktiv ?? 0)) === 1;
+        if ($requiresBirthplace && $values['geburtsort'] === '') {
+            $errors['geburtsort'] = 'Bitte gib einen Geburtsort an.';
+        }
+
+        if ($values['email'] !== '' && $normalized['email'] === '') {
+            $errors['email'] = 'Bitte gib eine gültige E-Mail-Adresse an.';
+        }
+
+        if (!isset($errors['geburtsdatum'])) {
+            $values['geburtsdatum'] = $normalized['geburtsdatum'];
+        }
+
+        if (!isset($errors['email'])) {
+            $values['email'] = $normalized['email'];
+        }
+
+        return [
+            'values' => $values,
+            'normalized' => $normalized,
+            'errors' => $errors,
+        ];
+    }
+
+    private static function applyParticipantForm(\RedBeanPHP\OODBBean $teilnehmer, array $normalized): void
+    {
+        $teilnehmer->vorname = $normalized['vorname'] ?? '';
+        $teilnehmer->nachname = $normalized['nachname'] ?? '';
+        $teilnehmer->firma = $normalized['firma'] ?? '';
+        $teilnehmer->geburtsdatum = $normalized['geburtsdatum'] ?? '';
+        $teilnehmer->geburtsort = $normalized['geburtsort'] ?? '';
+        $teilnehmer->email = $normalized['email'] ?? '';
+    }
+
+    private static function renderParticipantRow(\RedBeanPHP\OODBBean $kurs, \RedBeanPHP\OODBBean $teilnehmer, bool $canManage): string
+    {
+        return render_template('teilnehmer_table_row.php', [
+            'kurs' => $kurs,
+            'teilnehmer' => $teilnehmer,
+            'canManageParticipants' => $canManage,
+        ]);
+    }
+
+    private static function renderParticipantEditRow(
+        \RedBeanPHP\OODBBean $kurs,
+        array $values,
+        bool $canManage,
+        array $errors,
+        ?\RedBeanPHP\OODBBean $teilnehmer,
+        bool $isNew
+    ): string
+    {
+        return render_template('teilnehmer_table_edit_row.php', [
+            'kurs' => $kurs,
+            'values' => $values,
+            'errors' => $errors,
+            'teilnehmer' => $teilnehmer,
+            'isNew' => $isNew,
+            'canManageParticipants' => $canManage,
+        ]);
     }
 
     private static function parseUploadedCsv(?array $file, string $encoding): ?array
