@@ -55,12 +55,31 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 
 ## Konfiguration
 
+### Keycloak
+
 - `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Admin-Oberfläche eines Realms. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet; für die Standard-Konfiguration der Königsblau-Instanz wird automatisch `https://keycloak.koenigsbl.au` verwendet. Die URL kann alternativ im Backend unter „Konfiguration“ hinterlegt werden.
 - `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Account-Oberfläche für Nutzer*innen. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet; für die Standard-Konfiguration der Königsblau-Instanz wird automatisch `https://keycloak.koenigsbl.au` verwendet. Die URL kann alternativ im Backend unter „Konfiguration“ hinterlegt werden.
 - `APP_KEYCLOAK_SERVER_URL` – Basis-URL der Keycloak-Instanz (Standard: `https://login.koenigsbl.au`).
 - `APP_KEYCLOAK_REALM` – Name des Keycloak-Realms (Standard: `koenigsbl.au`).
-- Der Pfad zur Moodle-Installation sowie die Direktlinks zur Keycloak-Account- und Admin-Oberfläche können im Backend unter „Konfiguration“ gesetzt werden. Alternativ greifen die Umgebungsvariablen `MOODLE_PATH`, `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL` bzw. `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL`.
-- Für den Zugriff auf den Moodle-Webservice können optional `MOODLE_WEBSERVICE_URL` und `MOODLE_WEBSERVICE_TOKEN` gesetzt werden. Beide Werte lassen sich ebenfalls in der Anwendung konfigurieren.
+
+### Moodle-Verknüpfung
+
+Im Backend können unter „Konfiguration“ alle Moodle-Einstellungen gepflegt werden. Alternativ greifen die Umgebungsvariablen `MOODLE_PATH`, `MOODLE_WEBSERVICE_URL` und `MOODLE_WEBSERVICE_TOKEN`.
+
+- **Pfad zur Moodle-Installation (`MOODLE_PATH`)** – Lokaler Serverpfad, damit CLI-Skripte wie `admin/tool/uploaduser/cli/uploaduser.php` gefunden werden.
+- **Webservice-URL (`MOODLE_WEBSERVICE_URL`)** – Basis-URL der Zielinstanz (z. B. `https://moodle.example.org`). Die Anwendung ergänzt automatisch den REST-Endpunkt `/webservice/rest/server.php`.
+- **Webservice-Token (`MOODLE_WEBSERVICE_TOKEN`)** – Zugriffsschlüssel eines berechtigten Webservice-Nutzers.
+
+> 💡 Eine Schritt-für-Schritt-Anleitung zur Einrichtung von Webservices in Moodle findest du in der deutschsprachigen Moodle-Dokumentation: [Webservices nutzen](https://docs.moodle.org/501/de/Webservices_nutzen).
+
+Nachdem die Moodle-URL hinterlegt wurde, führen folgende Schritte zu einem kompatiblen Webservice-Setup:
+
+1. **Eigene Rolle für den Webservice definieren:** Unter `Website-Administration → Nutzer*innen → Berechtigungen → Rollen verwalten` eine neue Rolle anlegen (z. B. „Webservice Synchronisation“) und mindestens die Capabilities `webservice/rest:use` sowie die für Kurs- und Teilnehmerabfragen nötigen Rechte (`moodle/course:view`, `moodle/user:viewalldetails`, `moodle/role:assign`) vergeben.
+2. **Webservice aktivieren:** Unter `Website-Administration → Plugins → Webservices → Externe Dienste` einen neuen externen Dienst anlegen oder einen vorhandenen aktivieren. Stelle sicher, dass die Funktionen `core_course_get_courses` und `core_enrol_get_enrolled_users` zugeordnet sind.
+3. **Dienstnutzer anlegen:** Einen technischen Nutzer erstellen oder auswählen und ihm die zuvor definierte Rolle über die Systemebene zuweisen. Der Login dieses Kontos wird ausschließlich für API-Aufrufe genutzt.
+4. **Token generieren:** Unter `Website-Administration → Plugins → Webservices → Tokens verwalten` ein neues Token für den Dienstnutzer erzeugen und in der Anwendung hinterlegen.
+
+Optional können zusätzlich Links zu relevanten Moodle-Seiten (z. B. Kurs- oder Teilnehmerverwaltung) im Konfigurationsformular hinterlegt werden, sobald die Instanz-URL bekannt ist. So gelangen Administrator*innen direkt aus der Anwendung zu den passenden Bereichen der Moodle-Administration.
 
 ## Synchronisation
 
