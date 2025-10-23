@@ -54,7 +54,7 @@
                 <span>Login mit Königsbräu</span>
               </button>
               <p class="text-center small text-body-secondary mb-0">
-                Du wirst automatisch zum Login weitergeleitet …
+                Klicke auf den Button, um zum Login weitergeleitet zu werden.
               </p>
             </form>
           </div>

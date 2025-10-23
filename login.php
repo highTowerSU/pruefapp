@@ -40,38 +40,10 @@ $content = render_template('login.php', [
     'flashMessage' => $flashMessage,
 ]);
 
-$autoRedirectScript = <<<HTML
-<script>
-    (() => {
-        const form = document.getElementById('loginForm');
-        if (!form) {
-            return;
-        }
-
-        form.addEventListener('submit', () => {
-            form.dataset.submitted = 'true';
-        });
-
-        const prefersReducedMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const delay = prefersReducedMotion ? 1500 : 1000;
-
-        setTimeout(() => {
-            if (form.dataset.submitted === 'true') {
-                return;
-            }
-
-            form.dataset.submitted = 'true';
-            form.submit();
-        }, delay);
-    })();
-</script>
-HTML;
-
 $body = render_template('layout.php', [
     'title' => 'Anmeldung',
     'content' => $content,
     'branding' => $branding,
-    'scripts' => $autoRedirectScript,
 ]);
 
 echo $body;
