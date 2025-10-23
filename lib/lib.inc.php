@@ -484,6 +484,18 @@ function role_label(string $role): string
 function keycloak_admin_console_base_url(): ?string
 {
     $configured = env_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL');
+    if ($configured === null) {
+        $configured = get_app_config('keycloak_admin_console_base_url');
+        if (is_string($configured)) {
+            $configured = trim($configured);
+            if ($configured === '') {
+                $configured = null;
+            }
+        } else {
+            $configured = null;
+        }
+    }
+
     if ($configured !== null) {
         return rtrim($configured, '/');
     }
