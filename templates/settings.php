@@ -28,6 +28,7 @@ $storedKeycloakAdminUrl = $storedKeycloakAdminUrl ?? '';
 $effectiveKeycloakAdminUrl = $effectiveKeycloakAdminUrl ?? null;
 $keycloakAdminEnvOverride = $keycloakAdminEnvOverride ?? null;
 $moodleStatus = $moodleStatus ?? [];
+$versionDisplay = app_version_display_data();
 ?>
 
 <?php if (!empty($errors['general'])): ?>
@@ -193,6 +194,22 @@ $moodleStatus = $moodleStatus ?? [];
           <code><?= htmlspecialchars((string) $effectiveKeycloakAdminUrl, ENT_QUOTES) ?></code>
         <?php else: ?>
           –
+        <?php endif; ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Anwendungsversion</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <span class="badge text-bg-secondary">Version <?= htmlspecialchars($versionDisplay['version']) ?></span>
+        <?php if (!empty($versionDisplay['commit'])): ?>
+          <span class="ms-2 text-body-secondary">Commit <span class="font-monospace">#<?= htmlspecialchars($versionDisplay['commit']) ?></span></span>
+        <?php endif; ?>
+        <?php if (!empty($versionDisplay['build_date_human']) && !empty($versionDisplay['build_date_iso'])): ?>
+          <span class="ms-2 text-body-secondary">
+            erstellt am
+            <time datetime="<?= htmlspecialchars($versionDisplay['build_date_iso'], ENT_QUOTES) ?>">
+              <?= htmlspecialchars($versionDisplay['build_date_human']) ?>
+            </time>
+          </span>
         <?php endif; ?>
       </dd>
     </dl>
