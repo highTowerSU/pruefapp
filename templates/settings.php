@@ -4,13 +4,22 @@
 /** @var string $storedMoodlePath */
 /** @var string $effectiveMoodlePath */
 /** @var string|null $envOverride */
+/** @var string $storedKeycloakAccountUrl */
+/** @var string|null $effectiveKeycloakAccountUrl */
+/** @var string|null $keycloakAccountEnvOverride */
 /** @var array<string, mixed> $moodleStatus */
 
-$values = $values ?? ['moodle_path' => ''];
+$values = $values ?? [
+    'moodle_path' => '',
+    'keycloak_account_console_base_url' => '',
+];
 $errors = $errors ?? [];
 $storedMoodlePath = $storedMoodlePath ?? '';
 $effectiveMoodlePath = $effectiveMoodlePath ?? '';
 $envOverride = $envOverride ?? null;
+$storedKeycloakAccountUrl = $storedKeycloakAccountUrl ?? '';
+$effectiveKeycloakAccountUrl = $effectiveKeycloakAccountUrl ?? null;
+$keycloakAccountEnvOverride = $keycloakAccountEnvOverride ?? null;
 $moodleStatus = $moodleStatus ?? [];
 ?>
 
@@ -49,6 +58,33 @@ $moodleStatus = $moodleStatus ?? [];
     <?php if (!empty($envOverride)): ?>
       <div class="alert alert-warning" role="alert">
         Die Umgebungsvariable <code>MOODLE_PATH</code> ist gesetzt und überschreibt den hier gespeicherten Wert.
+      </div>
+    <?php endif; ?>
+
+    <div class="mb-3">
+      <label for="keycloak_account_console_base_url" class="form-label">Keycloak-Konto-URL</label>
+      <input
+        type="url"
+        id="keycloak_account_console_base_url"
+        name="keycloak_account_console_base_url"
+        class="form-control<?= isset($errors['keycloak_account_console_base_url']) ? ' is-invalid' : '' ?>"
+        value="<?= htmlspecialchars($values['keycloak_account_console_base_url'] ?? '', ENT_QUOTES) ?>"
+        placeholder="https://keycloak.example.org/realms/meinrealm/account"
+        autocomplete="off"
+      >
+      <div class="form-text">
+        Optionaler Direktlink zur Keycloak-Account-Oberfläche. Lasse das Feld leer, um die URL automatisch aus Server und Realm abzuleiten.
+      </div>
+      <?php if (isset($errors['keycloak_account_console_base_url'])): ?>
+        <div class="invalid-feedback">
+          <?= htmlspecialchars($errors['keycloak_account_console_base_url'], ENT_QUOTES) ?>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <?php if (!empty($keycloakAccountEnvOverride)): ?>
+      <div class="alert alert-warning" role="alert">
+        Die Umgebungsvariable <code>APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL</code> ist gesetzt und überschreibt den hier gespeicherten Wert.
       </div>
     <?php endif; ?>
   </div>
@@ -96,6 +132,20 @@ $moodleStatus = $moodleStatus ?? [];
       <dt class="col-sm-5 col-lg-4">PHP-Binary gefunden</dt>
       <dd class="col-sm-7 col-lg-8">
         <?= !empty($moodleStatus['php_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Keycloak-Konto-URL (gespeichert)</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= $storedKeycloakAccountUrl !== '' ? '<code>' . htmlspecialchars($storedKeycloakAccountUrl, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Keycloak-Konto-URL (aktiv)</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?php if (!empty($effectiveKeycloakAccountUrl)): ?>
+          <code><?= htmlspecialchars((string) $effectiveKeycloakAccountUrl, ENT_QUOTES) ?></code>
+        <?php else: ?>
+          –
+        <?php endif; ?>
       </dd>
     </dl>
   </div>
