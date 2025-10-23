@@ -31,15 +31,15 @@
 </section>
 
 <section class="mb-5">
-  <h2 class="h4">Teilnehmerliste vorbereiten</h2>
+  <h2 class="h4">Teilnehmerlinks und CSV-Import</h2>
   <p>
-    Erstelle oder überarbeite die CSV-Liste der Teilnehmenden. Die Datei muss alle Felder enthalten, die Moodle für den Import
-    benötigt. Nutze bei Bedarf die bereitgestellte Beispieldatei als Vorlage.
+    Lege für jeden Kurs einen oder mehrere Upload-Links an. Ordne die Links den Firmen zu und schicke ihnen den jeweiligen Link.
+    Die Firmen können darüber die Teilnehmenden importieren oder die fertigen CSV-Dateien zurücksenden.
   </p>
-  <div class="alert alert-info">
-    <strong>Hinweis:</strong> Geburtsdatum, Geburtsort und Passwort sind Pflichtfelder. Für sichere Passwörter empfiehlt sich
-    die Generierung über VaultWarden oder ein vergleichbares Tool.
-  </div>
+  <p>
+    Für den Upload wird weiterhin eine CSV-Datei benötigt. Sie muss alle Pflichtfelder enthalten, die Moodle erwartet – unter
+    anderem Geburtsdatum, Geburtsort und Passwort. Nutze bei Bedarf die bereitgestellte Beispieldatei als Vorlage.
+  </p>
   <p>
     Beispieldatei herunterladen:
     <a href="<?= htmlspecialchars(url_for('zugangsdaten_beispiel.csv'), ENT_QUOTES) ?>" download>
@@ -93,27 +93,20 @@
   <ul class="ps-3">
     <li>Nutzerliste in Moodle gegenprüfen: Sind alle Teilnehmenden vorhanden?</li>
     <li>Namensschilder und Zugangsdatenzettel bereit legen.</li>
-    <li>Notwendige Tests (inkl. Test&nbsp;3 für Nachprüfungen) sowie Antwortbögen ausdrucken.</li>
-    <li>Anwesenheitsliste und Zeitplan bereithalten.</li>
+    <li>Anwesenheitsliste, Zeitplan sowie eventuelle Tests oder Feedbackbögen ausdrucken.</li>
     <li>Laptops, Hotspot, Mehrfachsteckdosen und weiteres technisches Equipment packen.</li>
-    <li>Beamer, Stativ, Kabelroller sowie Unterlagen für praktische Übungen einpacken.</li>
-    <li>Interventionsberichte und sonstige Vorlagen vorbereiten.</li>
+    <li>Beamer, Stativ, Kabel und Materialien für Kursaktivitäten vorbereiten.</li>
   </ul>
 </section>
 
 <section class="mb-5">
   <h2 class="h4">Packliste (Kurzfassung)</h2>
   <ul class="ps-3">
-    <li>Interventionsberichte</li>
-    <li>Vorlagen praktische Übungen</li>
-    <li>Namensschilder</li>
-    <li>Anwesenheitsliste</li>
-    <li>Zeitpläne</li>
-    <li>Test 3 für manuelle Nachprüfungen</li>
-    <li>Antwortbögen</li>
-    <li>Zugangsdatenzettel</li>
+    <li>Namensschilder und Zugangsdatenzettel</li>
+    <li>Anwesenheitsliste und Zeitpläne</li>
+    <li>Materialien für Übungen und Feedback</li>
     <li>Laptops, Hotspot, Mehrfachsteckdosen u. Ä.</li>
-    <li>Laptop, Beamer, Ständer, Kabelroller</li>
+    <li>Laptop, Beamer, Ständer, Kabel und Adapter</li>
   </ul>
 </section>
 
