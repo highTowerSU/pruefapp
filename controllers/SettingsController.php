@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../lib/MoodleImportService.php';
+require_once __DIR__ . '/../lib/MoodleCourseService.php';
 
 class SettingsController
 {
@@ -15,10 +16,14 @@ class SettingsController
         $storedMoodlePath = trim((string) (get_app_config('moodle_path') ?? ''));
         $storedKeycloakAccountUrl = trim((string) (get_app_config('keycloak_account_console_base_url') ?? ''));
         $storedKeycloakAdminUrl = trim((string) (get_app_config('keycloak_admin_console_base_url') ?? ''));
+        $storedMoodleWebserviceUrl = trim((string) (get_app_config('moodle_webservice_url') ?? ''));
+        $storedMoodleWebserviceToken = trim((string) (get_app_config('moodle_webservice_token') ?? ''));
 
         $envOverride = env_value('MOODLE_PATH');
         $keycloakAccountEnvOverride = env_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL');
         $keycloakAdminEnvOverride = env_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL');
+        $webserviceUrlEnvOverride = env_value('MOODLE_WEBSERVICE_URL');
+        $webserviceTokenEnvOverride = env_value('MOODLE_WEBSERVICE_TOKEN');
 
         $effectiveMoodlePath = moodle_root_path();
         $effectiveKeycloakAccountUrl = keycloak_account_console_base_url();
@@ -28,6 +33,8 @@ class SettingsController
             'moodle_path' => $storedMoodlePath,
             'keycloak_account_console_base_url' => $storedKeycloakAccountUrl,
             'keycloak_admin_console_base_url' => $storedKeycloakAdminUrl,
+            'moodle_webservice_url' => $storedMoodleWebserviceUrl,
+            'moodle_webservice_token' => '',
         ];
         $errors = [];
 
@@ -35,6 +42,9 @@ class SettingsController
             $values['moodle_path'] = trim((string) ($_POST['moodle_path'] ?? ''));
             $values['keycloak_account_console_base_url'] = trim((string) ($_POST['keycloak_account_console_base_url'] ?? ''));
             $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
+            $values['moodle_webservice_url'] = trim((string) ($_POST['moodle_webservice_url'] ?? ''));
+            $submittedToken = trim((string) ($_POST['moodle_webservice_token'] ?? ''));
+            $shouldClearToken = isset($_POST['moodle_webservice_token_clear']);
 
             if ($values['moodle_path'] !== '' && !is_dir($values['moodle_path'])) {
                 $errors['moodle_path'] = 'Das angegebene Verzeichnis wurde nicht gefunden.';
@@ -50,6 +60,12 @@ class SettingsController
                 && filter_var($values['keycloak_admin_console_base_url'], FILTER_VALIDATE_URL) === false
             ) {
                 $errors['keycloak_admin_console_base_url'] = 'Bitte eine gültige URL angeben oder das Feld leer lassen.';
+            }
+
+            if ($values['moodle_webservice_url'] !== ''
+                && filter_var($values['moodle_webservice_url'], FILTER_VALIDATE_URL) === false
+            ) {
+                $errors['moodle_webservice_url'] = 'Bitte gib eine gültige URL an oder lasse das Feld leer.';
             }
 
             if ($errors === []) {
@@ -90,6 +106,33 @@ class SettingsController
                             'neu' => $values['keycloak_admin_console_base_url'],
                         ]);
                     }
+
+                    if ($values['moodle_webservice_url'] !== $storedMoodleWebserviceUrl) {
+                        set_app_config(
+                            'moodle_webservice_url',
+                            $values['moodle_webservice_url'] === '' ? null : $values['moodle_webservice_url']
+                        );
+                        audit_log('konfiguration_moodle_webservice_url_geaendert', [
+                            'feld' => 'moodle_webservice_url',
+                            'alt' => $storedMoodleWebserviceUrl,
+                            'neu' => $values['moodle_webservice_url'],
+                        ]);
+                    }
+
+                    if ($shouldClearToken && $storedMoodleWebserviceToken !== '') {
+                        set_app_config('moodle_webservice_token', null);
+                        audit_log('konfiguration_moodle_webservice_token_geloescht', [
+                            'feld' => 'moodle_webservice_token',
+                            'alt' => audit_log_mask_token($storedMoodleWebserviceToken),
+                        ]);
+                    } elseif ($submittedToken !== '') {
+                        set_app_config('moodle_webservice_token', $submittedToken);
+                        audit_log('konfiguration_moodle_webservice_token_gesetzt', [
+                            'feld' => 'moodle_webservice_token',
+                            'alt' => audit_log_mask_token($storedMoodleWebserviceToken),
+                            'neu' => audit_log_mask_token($submittedToken),
+                        ]);
+                    }
                     $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
 
                     return [303, ['Location' => url_for('admin/konfiguration')], ''];
@@ -106,6 +149,12 @@ class SettingsController
 
         $statusService = new MoodleImportService($statusPath);
         $moodleStatus = $statusService->getStatus();
+        $courseService = new MoodleCourseService($statusPath);
+        $webserviceStatus = $courseService->getWebserviceStatus();
+
+        $storedMoodleWebserviceTokenMasked = $storedMoodleWebserviceToken !== ''
+            ? audit_log_mask_token($storedMoodleWebserviceToken)
+            : '';
 
         $content = render_template('settings.php', [
             'values' => $values,
@@ -120,6 +169,11 @@ class SettingsController
             'effectiveKeycloakAdminUrl' => $effectiveKeycloakAdminUrl,
             'keycloakAdminEnvOverride' => $keycloakAdminEnvOverride,
             'moodleStatus' => $moodleStatus,
+            'webserviceStatus' => $webserviceStatus,
+            'storedMoodleWebserviceUrl' => $storedMoodleWebserviceUrl,
+            'storedMoodleWebserviceTokenMasked' => $storedMoodleWebserviceTokenMasked,
+            'webserviceUrlEnvOverride' => $webserviceUrlEnvOverride,
+            'webserviceTokenEnvOverride' => $webserviceTokenEnvOverride,
         ]);
 
         if ($isHx) {

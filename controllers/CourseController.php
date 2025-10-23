@@ -229,11 +229,13 @@ class CourseController
         }
 
         $kurse = self::allCourses();
+        $moodleOptions = self::moodleCourseOptions();
         $content = render_template('kurs_liste.php', [
             'kurse' => $kurse,
             'message' => null,
             'error' => null,
-            'moodleCourseOptions' => self::moodleCourseOptions(),
+            'moodleCourseOptions' => $moodleOptions['options'],
+            'moodleCourseError' => $moodleOptions['error'],
         ]);
 
         $body = render_template('layout.php', [
@@ -513,36 +515,86 @@ class CourseController
 
     private static function moodleCourseOptions(): array
     {
+        $options = [];
+        $error = null;
+
+        $appendOption = static function (array $candidate) use (&$options): void {
+            $shortname = trim((string) ($candidate['shortname'] ?? ''));
+            $fullname = trim((string) ($candidate['fullname'] ?? ''));
+            $identifier = strtolower($shortname !== '' ? $shortname : $fullname);
+
+            if ($identifier === '') {
+                $identifier = isset($candidate['id']) ? 'id:' . (int) $candidate['id'] : spl_object_id((object) $candidate);
+            }
+
+            if (isset($options[$identifier])) {
+                return;
+            }
+
+            $displayParts = array_filter([
+                $shortname !== '' ? $shortname : null,
+                $fullname !== '' ? $fullname : null,
+            ]);
+
+            if ($displayParts === []) {
+                $displayParts[] = trim((string) ($candidate['name'] ?? ''));
+            }
+
+            $candidate['display'] = implode(' · ', array_filter($displayParts));
+            if ($candidate['display'] === '') {
+                $candidate['display'] = $shortname !== '' ? $shortname : ($fullname !== '' ? $fullname : 'Kurs');
+            }
+
+            $options[$identifier] = $candidate;
+        };
+
+        try {
+            $service = new MoodleCourseService();
+            if ($service->isWebserviceConfigured()) {
+                foreach ($service->fetchCourses() as $course) {
+                    $id = isset($course['id']) ? (int) $course['id'] : 0;
+                    if ($id === 1) { // Moodle-Frontpage auslassen
+                        continue;
+                    }
+
+                    $appendOption([
+                        'id' => $id,
+                        'name' => (string) ($course['fullname'] ?? ''),
+                        'shortname' => (string) ($course['shortname'] ?? ''),
+                        'fullname' => (string) ($course['fullname'] ?? ''),
+                        'origin' => 'remote',
+                    ]);
+                }
+            }
+        } catch (\Throwable $exception) {
+            $error = $exception->getMessage();
+        }
+
         $rows = R::getAll(
             'SELECT id, name, moodle_course_shortname, moodle_course_fullname'
             . ' FROM kurs WHERE TRIM(COALESCE(moodle_course_shortname, "")) <> "" ORDER BY name'
         );
 
-        return array_map(
-            static function (array $row): array {
-                $shortname = (string) ($row['moodle_course_shortname'] ?? '');
-                $fullname = (string) ($row['moodle_course_fullname'] ?? '');
-                $name = (string) ($row['name'] ?? '');
+        foreach ($rows as $row) {
+            $appendOption([
+                'id' => (int) ($row['id'] ?? 0),
+                'name' => (string) ($row['name'] ?? ''),
+                'shortname' => (string) ($row['moodle_course_shortname'] ?? ''),
+                'fullname' => (string) ($row['moodle_course_fullname'] ?? ''),
+                'origin' => 'local',
+            ]);
+        }
 
-                $displayParts = array_filter([
-                    $shortname !== '' ? $shortname : null,
-                    $fullname !== '' ? $fullname : null,
-                ]);
+        $list = array_values($options);
 
-                $display = $displayParts !== []
-                    ? implode(' · ', $displayParts)
-                    : ($shortname !== '' ? $shortname : ($fullname !== '' ? $fullname : $name));
+        usort($list, static function (array $left, array $right): int {
+            return strcasecmp((string) ($left['display'] ?? ''), (string) ($right['display'] ?? ''));
+        });
 
-                return [
-                    'id' => (int) ($row['id'] ?? 0),
-                    'name' => $name,
-                    'shortname' => $shortname,
-                    'fullname' => $fullname,
-                    'display' => $display,
-                ];
-            },
-            $rows
-        );
+        return [
+            'options' => $list,
+            'error' => $error,
+        ];
     }
 
     private static function tableResponse(?string $message = null, ?string $error = null, int $status = 200): array

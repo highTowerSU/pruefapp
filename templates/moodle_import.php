@@ -4,7 +4,78 @@
 /** @var array $status */
 /** @var bool $canImport */
 /** @var string|null $commandPreview */
+/** @var array<string, mixed> $webserviceStatus */
+/** @var bool $canFetchFromMoodle */
+/** @var int|null $moodleCourseId */
+/** @var string|null $moodleLookupError */
 ?>
+
+<?php
+$webserviceStatus = $webserviceStatus ?? [];
+$canFetchFromMoodle = $canFetchFromMoodle ?? false;
+$moodleCourseId = $moodleCourseId ?? null;
+$moodleLookupError = $moodleLookupError ?? null;
+?>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h4 class="card-title">Teilnehmer aus Moodle abrufen</h4>
+        <p class="card-text">
+            Über den Moodle-Webservice können bestehende Teilnehmerlisten abgerufen und mit den lokalen Daten abgeglichen werden.
+        </p>
+
+        <?php if (empty($webserviceStatus['configured'])): ?>
+            <div class="alert alert-warning" role="alert">
+                Der Moodle-Webservice ist nicht vollständig konfiguriert. Bitte hinterlege eine Basis-URL und ein gültiges Token in den Einstellungen.
+            </div>
+        <?php else: ?>
+            <dl class="row small text-muted mb-3">
+                <dt class="col-sm-4">Basis-URL</dt>
+                <dd class="col-sm-8">
+                    <?php $baseUrl = (string) ($webserviceStatus['base_url'] ?? ''); ?>
+                    <?= $baseUrl !== '' ? '<code>' . htmlspecialchars($baseUrl, ENT_QUOTES) . '</code>' : '–' ?>
+                </dd>
+                <dt class="col-sm-4">Token vorhanden</dt>
+                <dd class="col-sm-8">
+                    <?= !empty($webserviceStatus['token_configured']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+                </dd>
+                <dt class="col-sm-4">Verknüpfter Moodle-Kurs</dt>
+                <dd class="col-sm-8">
+                    <?php if ($moodleCourseId !== null): ?>
+                        <code><?= (int) $moodleCourseId ?></code>
+                    <?php elseif (!empty($kurs->moodle_course_shortname ?? '')): ?>
+                        Shortname <code><?= htmlspecialchars($kurs->moodle_course_shortname, ENT_QUOTES) ?></code>
+                    <?php else: ?>
+                        –
+                    <?php endif; ?>
+                </dd>
+            </dl>
+
+            <?php if (!empty($moodleLookupError)): ?>
+                <div class="alert alert-warning" role="alert">
+                    <?= htmlspecialchars($moodleLookupError, ENT_QUOTES) ?>
+                </div>
+            <?php elseif (!$canFetchFromMoodle): ?>
+                <div class="alert alert-info" role="alert">
+                    Bitte trage in den Kurseinstellungen den Moodle-Shortname ein, um den Kurs zu verknüpfen.
+                </div>
+            <?php endif; ?>
+
+            <div class="d-flex flex-wrap gap-2">
+                <form method="post" action="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer/moodle/abrufen'), ENT_QUOTES) ?>">
+                    <button type="submit" class="btn btn-outline-primary"<?= !$canFetchFromMoodle ? ' disabled' : '' ?>>
+                        <i class="fa-solid fa-cloud-arrow-down"></i> Aus Moodle importieren
+                    </button>
+                </form>
+                <form method="post" action="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer/moodle/synchronisieren'), ENT_QUOTES) ?>">
+                    <button type="submit" class="btn btn-outline-success"<?= !$canFetchFromMoodle ? ' disabled' : '' ?>>
+                        <i class="fa-solid fa-arrows-rotate"></i> Mit Moodle synchronisieren
+                    </button>
+                </form>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
 
 <div class="card mb-4">
     <div class="card-body">
@@ -62,6 +133,7 @@
         </dl>
 
         <form method="post" class="d-flex flex-wrap gap-2">
+            <input type="hidden" name="action" value="cli_import">
             <button type="submit" class="btn btn-primary"<?= (!$canImport || count($teilnehmer) === 0) ? ' disabled' : '' ?>>
                 <i class="fa-solid fa-cloud-arrow-up"></i> Import starten
             </button>

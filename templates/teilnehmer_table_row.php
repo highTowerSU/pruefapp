@@ -11,6 +11,8 @@
   <td><?= htmlspecialchars((string) $teilnehmer->geburtsort, ENT_QUOTES) ?></td>
   <td><?= htmlspecialchars((string) $teilnehmer->benutzername, ENT_QUOTES) ?></td>
   <td><?= htmlspecialchars((string) ($teilnehmer->email ?? ''), ENT_QUOTES) ?></td>
+  <td><?= $teilnehmer->moodle_user_id ? (int) $teilnehmer->moodle_user_id : '–' ?></td>
+  <td><?= htmlspecialchars(format_datetime_for_display($teilnehmer->moodle_last_sync_at ?? ''), ENT_QUOTES) ?></td>
   <?php if ($canManageParticipants): ?>
     <td class="text-end">
       <div class="btn-group btn-group-sm" role="group">

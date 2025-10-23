@@ -45,7 +45,7 @@ class MoodleImportService
             'delimiter_name' => 'comma',
             'encoding' => 'UTF-8',
             'ignoreerrors' => true,
-            'updatemode' => '0',
+            'updatemode' => '2',
             'noemail' => true,
             'skipemail' => true,
         ];
@@ -239,7 +239,7 @@ class MoodleImportService
         }
 
         try {
-            $header = ['username', 'password', 'firstname', 'lastname', 'email', 'profile_field_birthdate', 'profile_field_birthplace'];
+            $header = ['username', 'password', 'firstname', 'lastname', 'email', 'idnumber', 'profile_field_birthdate', 'profile_field_birthplace'];
             $shouldAddCourse = $courseShortname !== null && $courseShortname !== '';
             $shouldAddRole = $shouldAddCourse && $roleShortname !== null && $roleShortname !== '';
 
@@ -276,6 +276,13 @@ class MoodleImportService
                     $email = generate_email($username);
                 }
 
+                $idnumber = '';
+                if (isset($row->moodle_user_id) && (int) $row->moodle_user_id > 0) {
+                    $idnumber = (string) (int) $row->moodle_user_id;
+                } elseif (isset($row->moodle_idnumber)) {
+                    $idnumber = trim((string) $row->moodle_idnumber);
+                }
+
                 $needsSave = false;
                 if ($username !== $originalUsername && $username !== '') {
                     $row->benutzername = $username;
@@ -296,6 +303,7 @@ class MoodleImportService
                     $firstname,
                     $lastname,
                     $email,
+                    $idnumber,
                     $birthdate,
                     $birthplace,
                 ];

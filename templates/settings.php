@@ -11,11 +11,18 @@
 /** @var string|null $effectiveKeycloakAdminUrl */
 /** @var string|null $keycloakAdminEnvOverride */
 /** @var array<string, mixed> $moodleStatus */
+/** @var array<string, mixed> $webserviceStatus */
+/** @var string $storedMoodleWebserviceUrl */
+/** @var string $storedMoodleWebserviceTokenMasked */
+/** @var string|null $webserviceUrlEnvOverride */
+/** @var string|null $webserviceTokenEnvOverride */
 
 $values = $values ?? [
     'moodle_path' => '',
     'keycloak_account_console_base_url' => '',
     'keycloak_admin_console_base_url' => '',
+    'moodle_webservice_url' => '',
+    'moodle_webservice_token' => '',
 ];
 $errors = $errors ?? [];
 $storedMoodlePath = $storedMoodlePath ?? '';
@@ -28,6 +35,11 @@ $storedKeycloakAdminUrl = $storedKeycloakAdminUrl ?? '';
 $effectiveKeycloakAdminUrl = $effectiveKeycloakAdminUrl ?? null;
 $keycloakAdminEnvOverride = $keycloakAdminEnvOverride ?? null;
 $moodleStatus = $moodleStatus ?? [];
+$webserviceStatus = $webserviceStatus ?? [];
+$storedMoodleWebserviceUrl = $storedMoodleWebserviceUrl ?? '';
+$storedMoodleWebserviceTokenMasked = $storedMoodleWebserviceTokenMasked ?? '';
+$webserviceUrlEnvOverride = $webserviceUrlEnvOverride ?? null;
+$webserviceTokenEnvOverride = $webserviceTokenEnvOverride ?? null;
 $versionDisplay = app_version_display_data();
 ?>
 
@@ -66,6 +78,65 @@ $versionDisplay = app_version_display_data();
     <?php if (!empty($envOverride)): ?>
       <div class="alert alert-warning" role="alert">
         Die Umgebungsvariable <code>MOODLE_PATH</code> ist gesetzt und überschreibt den hier gespeicherten Wert.
+      </div>
+    <?php endif; ?>
+
+    <div class="mb-3">
+      <label for="moodle_webservice_url" class="form-label">Moodle-Webservice-URL</label>
+      <input
+        type="url"
+        id="moodle_webservice_url"
+        name="moodle_webservice_url"
+        class="form-control<?= isset($errors['moodle_webservice_url']) ? ' is-invalid' : '' ?>"
+        value="<?= htmlspecialchars($values['moodle_webservice_url'] ?? '', ENT_QUOTES) ?>"
+        placeholder="https://moodle.example.org"
+        autocomplete="off"
+      >
+      <div class="form-text">
+        Basis-URL der Moodle-Instanz für Webservice-Aufrufe. Die REST-Schnittstelle <code>/webservice/rest/server.php</code> wird automatisch ergänzt.
+      </div>
+      <?php if (isset($errors['moodle_webservice_url'])): ?>
+        <div class="invalid-feedback">
+          <?= htmlspecialchars($errors['moodle_webservice_url'], ENT_QUOTES) ?>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <?php if (!empty($webserviceUrlEnvOverride)): ?>
+      <div class="alert alert-warning" role="alert">
+        Die Umgebungsvariable <code>MOODLE_WEBSERVICE_URL</code> ist gesetzt und überschreibt den hier gespeicherten Wert.
+      </div>
+    <?php endif; ?>
+
+    <div class="mb-3">
+      <label for="moodle_webservice_token" class="form-label">Moodle-Webservice-Token</label>
+      <input
+        type="text"
+        id="moodle_webservice_token"
+        name="moodle_webservice_token"
+        class="form-control"
+        value=""
+        placeholder="Token eingeben"
+        autocomplete="off"
+      >
+      <div class="form-text">
+        <?= $storedMoodleWebserviceTokenMasked !== ''
+          ? 'Aktuell hinterlegtes Token: <code>' . htmlspecialchars($storedMoodleWebserviceTokenMasked, ENT_QUOTES) . '</code>. Neues Token eintragen, um es zu ersetzen.'
+          : 'Trage hier ein gültiges Token eines REST-Webservice-Nutzers ein.'
+        ?>
+      </div>
+    </div>
+
+    <div class="form-check mb-3">
+      <input class="form-check-input" type="checkbox" value="1" id="moodle_webservice_token_clear" name="moodle_webservice_token_clear">
+      <label class="form-check-label" for="moodle_webservice_token_clear">
+        Hinterlegtes Token löschen
+      </label>
+    </div>
+
+    <?php if (!empty($webserviceTokenEnvOverride)): ?>
+      <div class="alert alert-warning" role="alert">
+        Die Umgebungsvariable <code>MOODLE_WEBSERVICE_TOKEN</code> ist gesetzt und überschreibt den hier gespeicherten Wert.
       </div>
     <?php endif; ?>
 
@@ -167,6 +238,22 @@ $versionDisplay = app_version_display_data();
       <dt class="col-sm-5 col-lg-4">PHP-Binary gefunden</dt>
       <dd class="col-sm-7 col-lg-8">
         <?= !empty($moodleStatus['php_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Webservice-URL (gespeichert)</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= $storedMoodleWebserviceUrl !== '' ? '<code>' . htmlspecialchars($storedMoodleWebserviceUrl, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Webservice-URL (aktiv)</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?php $activeWebserviceUrl = (string) ($webserviceStatus['base_url'] ?? ''); ?>
+        <?= $activeWebserviceUrl !== '' ? '<code>' . htmlspecialchars($activeWebserviceUrl, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Webservice-Token gesetzt</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= !empty($webserviceStatus['token_configured']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
       </dd>
 
       <dt class="col-sm-5 col-lg-4">Keycloak-Konto-URL (gespeichert)</dt>

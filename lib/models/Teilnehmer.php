@@ -61,5 +61,34 @@ class Model_Teilnehmer extends SimpleModel
         if ($bean->email === '') {
             throw new \InvalidArgumentException('Bitte gib eine E-Mail-Adresse an.');
         }
+
+        if (isset($bean->moodle_user_id)) {
+            $moodleUserId = (int) $bean->moodle_user_id;
+            $bean->moodle_user_id = $moodleUserId > 0 ? $moodleUserId : null;
+        }
+
+        if (isset($bean->moodle_username)) {
+            $moodleUsername = sanitize_username((string) $bean->moodle_username);
+            $bean->moodle_username = $moodleUsername !== '' ? $moodleUsername : null;
+        }
+
+        if (isset($bean->moodle_idnumber)) {
+            $idnumber = trim((string) $bean->moodle_idnumber);
+            $bean->moodle_idnumber = $idnumber !== '' ? $idnumber : null;
+        }
+
+        if (isset($bean->moodle_last_sync_at)) {
+            $syncValue = trim((string) $bean->moodle_last_sync_at);
+            if ($syncValue === '') {
+                $bean->moodle_last_sync_at = null;
+            } else {
+                try {
+                    $timestamp = new \DateTimeImmutable($syncValue);
+                    $bean->moodle_last_sync_at = $timestamp->format(DATE_ATOM);
+                } catch (\Throwable) {
+                    $bean->moodle_last_sync_at = null;
+                }
+            }
+        }
     }
 }

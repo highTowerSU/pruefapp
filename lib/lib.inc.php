@@ -139,6 +139,38 @@ function moodle_root_path(): string
     return rtrim($configured, DIRECTORY_SEPARATOR);
 }
 
+function moodle_webservice_base_url(): string
+{
+    $envUrl = env_value('MOODLE_WEBSERVICE_URL');
+    if ($envUrl !== null && $envUrl !== '') {
+        return rtrim($envUrl, '/');
+    }
+
+    $configured = get_app_config('moodle_webservice_url', '');
+    if (!is_string($configured)) {
+        return '';
+    }
+
+    $configured = trim($configured);
+
+    return $configured === '' ? '' : rtrim($configured, '/');
+}
+
+function moodle_webservice_token(): string
+{
+    $envToken = env_value('MOODLE_WEBSERVICE_TOKEN');
+    if ($envToken !== null && $envToken !== '') {
+        return $envToken;
+    }
+
+    $configured = get_app_config('moodle_webservice_token', '');
+    if (!is_string($configured)) {
+        return '';
+    }
+
+    return trim($configured);
+}
+
 function initialize_database(): void
 {
     static $initialized = false;
@@ -981,4 +1013,22 @@ function format_birthdate_for_display(string $value): string
     }
 
     return $value;
+}
+
+function format_datetime_for_display(?string $value, string $format = 'd.m.Y H:i'): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return '';
+    }
+
+    try {
+        $date = new \DateTimeImmutable($value);
+    } catch (\Throwable $throwable) {
+        error_log('Failed to parse datetime for display: ' . $throwable->getMessage());
+
+        return $value;
+    }
+
+    return $date->format($format);
 }
