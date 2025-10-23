@@ -46,9 +46,25 @@
                             </form>
                         </td>
                         <td>
-                            <code class="d-block text-wrap" style="word-break: break-all;">
-                                <?= htmlspecialchars($linkUrl) ?>
-                            </code>
+                            <div class="copy-link-container" data-link-url="<?= htmlspecialchars($linkUrl, ENT_QUOTES) ?>">
+                                <div class="input-group input-group-sm flex-nowrap">
+                                    <input type="text"
+                                           class="form-control form-control-sm"
+                                           value="<?= htmlspecialchars($linkUrl) ?>"
+                                           readonly
+                                           data-copy-link-input
+                                           title="Link kopieren"
+                                           style="cursor: pointer;">
+                                    <button class="btn btn-outline-secondary"
+                                            type="button"
+                                            data-open-link
+                                            title="In neuem Tab öffnen">
+                                        <span class="visually-hidden">In neuem Tab öffnen</span>
+                                        <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text small text-success d-none" data-copy-feedback>Link kopiert.</div>
+                            </div>
                         </td>
                         <td>
                             <?php if ($link->aktiv): ?>
@@ -92,3 +108,102 @@
         <a href="<?= htmlspecialchars(url_for('kurse'), ENT_QUOTES) ?>" class="btn btn-link">Zurück zur Kursübersicht</a>
     </div>
 </div>
+
+<script>
+    (() => {
+        'use strict';
+
+        const feedbackTimeouts = new WeakMap();
+        const feedbackDuration = 2500;
+
+        const showFeedback = (container, message, isError = false) => {
+            const feedback = container.querySelector('[data-copy-feedback]');
+            if (!feedback) {
+                return;
+            }
+
+            feedback.textContent = message;
+            feedback.classList.remove('text-success', 'text-danger');
+            feedback.classList.add(isError ? 'text-danger' : 'text-success');
+            feedback.classList.remove('d-none');
+
+            if (feedbackTimeouts.has(container)) {
+                clearTimeout(feedbackTimeouts.get(container));
+                feedbackTimeouts.delete(container);
+            }
+
+            const timeoutId = window.setTimeout(() => {
+                feedback.classList.add('d-none');
+                feedbackTimeouts.delete(container);
+            }, feedbackDuration);
+
+            feedbackTimeouts.set(container, timeoutId);
+        };
+
+        const fallbackCopy = (text, container) => {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'absolute';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                showFeedback(container, successful ? 'Link kopiert.' : 'Kopieren nicht möglich.', !successful);
+            } catch (error) {
+                showFeedback(container, 'Kopieren nicht möglich.', true);
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        };
+
+        const copyLink = (container) => {
+            const url = container.dataset.linkUrl;
+            if (!url) {
+                return;
+            }
+
+            const input = container.querySelector('[data-copy-link-input]');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                navigator.clipboard.writeText(url)
+                    .then(() => showFeedback(container, 'Link kopiert.'))
+                    .catch(() => fallbackCopy(url, container));
+            } else {
+                fallbackCopy(url, container);
+            }
+        };
+
+        document.addEventListener('click', (event) => {
+            const copyInput = event.target.closest('[data-copy-link-input]');
+            if (copyInput) {
+                event.preventDefault();
+                const container = copyInput.closest('[data-link-container]');
+                if (container) {
+                    copyLink(container);
+                }
+                return;
+            }
+
+            const openButton = event.target.closest('[data-open-link]');
+            if (openButton) {
+                event.preventDefault();
+                const container = openButton.closest('[data-link-container]');
+                const url = container ? container.dataset.linkUrl : null;
+
+                if (url) {
+                    const newWindow = window.open(url, '_blank');
+                    if (newWindow) {
+                        newWindow.opener = null;
+                    }
+                }
+            }
+        });
+    })();
+</script>
