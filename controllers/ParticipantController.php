@@ -13,7 +13,7 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
-        $canManageParticipants = current_user_has_role('admin');
+        $canManageParticipants = current_user_can_manage_participants();
 
         $content = render_template('teilnehmer_table.php', [
             'kurs' => $kurs,
@@ -42,7 +42,7 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_participants()) {
             return forbidden_response();
         }
 
@@ -265,7 +265,7 @@ class ParticipantController
             return self::notFoundResponse();
         }
 
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_participants()) {
             return forbidden_response();
         }
 
@@ -343,7 +343,7 @@ class ParticipantController
             return self::jsonResponse(200, array_values($payload));
         }
 
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_participants()) {
             return self::jsonResponse(403, ['error' => 'Aktion nicht erlaubt']);
         }
 

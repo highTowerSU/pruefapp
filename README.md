@@ -18,6 +18,12 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung
 - Schnellzugriff auf die persönliche Keycloak-Account-Seite über das Benutzermenü
 
+## Rollen und Berechtigungen
+
+- **Administrator/in** – Vollzugriff auf alle Einstellungen, inklusive Nutzer- und Firmenverwaltung.
+- **Editor/in** – Kann Kurse und Teilnehmerdaten anlegen und bearbeiten, hat jedoch keinen Zugriff auf Nutzer-, Firmen- oder Systemeinstellungen.
+- **Betrachter/in** – Darf Kurse und Teilnehmer*innen einsehen, aber keine Änderungen vornehmen.
+
 
 ## Voraussetzungen
 

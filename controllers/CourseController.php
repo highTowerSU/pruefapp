@@ -8,7 +8,7 @@ class CourseController
 {
     public static function showSettings(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_courses()) {
             return forbidden_response();
         }
 
@@ -85,7 +85,7 @@ class CourseController
 
     public static function linkSettings(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_courses()) {
             return forbidden_response();
         }
 
@@ -251,7 +251,7 @@ class CourseController
 
     public static function create(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_courses()) {
             return forbidden_response();
         }
 
@@ -378,7 +378,7 @@ class CourseController
 
     public static function delete(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_can_manage_courses()) {
             return forbidden_response();
         }
 

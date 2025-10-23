@@ -1,4 +1,4 @@
-<?php $canManageCourses = current_user_has_role('admin'); ?>
+<?php $canManageCourses = current_user_can_manage_courses(); ?>
 <div class="d-flex flex-wrap gap-2">
   <?php if ($canManageCourses): ?>
     <a href="<?= htmlspecialchars(url_for('kurse/' . (int) $kurs->id . '/teilnehmer/import'), ENT_QUOTES) ?>" class="btn btn-sm btn-success">
