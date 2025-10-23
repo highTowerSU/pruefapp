@@ -46,7 +46,9 @@
                             </form>
                         </td>
                         <td>
-                            <div class="copy-link-container" data-link-url="<?= htmlspecialchars($linkUrl, ENT_QUOTES) ?>">
+                            <div class="copy-link-container"
+                                 data-link-container
+                                 data-link-url="<?= htmlspecialchars($linkUrl, ENT_QUOTES) ?>">
                                 <div class="input-group input-group-sm flex-nowrap">
                                     <input type="text"
                                            class="form-control form-control-sm"
