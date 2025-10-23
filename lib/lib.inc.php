@@ -207,6 +207,8 @@ function env_value(string $name): ?string
     return $value === '' ? null : $value;
 }
 
+require_once __DIR__ . '/version.php';
+
 function base_path(): string
 {
     static $basePath = null;

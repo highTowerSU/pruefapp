@@ -1,4 +1,7 @@
-<?php $branding = $branding ?? get_branding(); ?>
+<?php
+$branding = $branding ?? get_branding();
+$versionDisplay = app_version_display_data();
+?>
 <div class="row align-items-stretch g-4">
   <div class="col-lg-7">
     <div class="p-4 bg-body-tertiary border rounded-3 shadow-sm h-100">
@@ -34,3 +37,18 @@
     </div>
   </div>
 </div>
+<?php if (!empty($versionDisplay['version'])): ?>
+  <div class="mt-4 text-body-secondary small">
+    Version <?= htmlspecialchars($versionDisplay['version']) ?>
+    <?php if (!empty($versionDisplay['commit'])): ?>
+      <span class="text-body-tertiary mx-1">·</span>
+      <span class="font-monospace">#<?= htmlspecialchars($versionDisplay['commit']) ?></span>
+    <?php endif; ?>
+    <?php if (!empty($versionDisplay['build_date_human']) && !empty($versionDisplay['build_date_iso'])): ?>
+      <span class="text-body-tertiary mx-1">·</span>
+      <time datetime="<?= htmlspecialchars($versionDisplay['build_date_iso'], ENT_QUOTES) ?>">
+        <?= htmlspecialchars($versionDisplay['build_date_human']) ?>
+      </time>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
