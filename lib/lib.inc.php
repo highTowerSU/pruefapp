@@ -469,6 +469,18 @@ function keycloak_admin_console_base_url(): ?string
 function keycloak_account_console_base_url(): ?string
 {
     $configured = env_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL');
+    if ($configured === null) {
+        $configured = get_app_config('keycloak_account_console_base_url');
+        if (is_string($configured)) {
+            $configured = trim($configured);
+            if ($configured === '') {
+                $configured = null;
+            }
+        } else {
+            $configured = null;
+        }
+    }
+
     if ($configured !== null) {
         return rtrim($configured, '/');
     }
@@ -477,6 +489,10 @@ function keycloak_account_console_base_url(): ?string
     $realm = env_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
 
     $serverUrl = rtrim($serverUrl, '/');
+    if ($serverUrl === 'https://login.koenigsbl.au') {
+        $serverUrl = 'https://keycloak.koenigsbl.au';
+    }
+
     if ($serverUrl === '') {
         return null;
     }

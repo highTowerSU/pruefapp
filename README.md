@@ -55,10 +55,10 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 ## Konfiguration
 
 - `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Admin-Oberfläche eines Realms. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet; für die Standard-Konfiguration der Königsblau-Instanz wird automatisch `https://keycloak.koenigsbl.au` verwendet.
-- `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Account-Oberfläche für Nutzer*innen. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet.
+- `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Account-Oberfläche für Nutzer*innen. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet; für die Standard-Konfiguration der Königsblau-Instanz wird automatisch `https://keycloak.koenigsbl.au` verwendet. Die URL kann alternativ im Backend unter „Konfiguration“ hinterlegt werden.
 - `APP_KEYCLOAK_SERVER_URL` – Basis-URL der Keycloak-Instanz (Standard: `https://login.koenigsbl.au`).
 - `APP_KEYCLOAK_REALM` – Name des Keycloak-Realms (Standard: `koenigsbl.au`).
-- Der Pfad zur Moodle-Installation kann im Backend unter „Konfiguration“ gesetzt werden. Alternativ greift die Umgebungsvariable `MOODLE_PATH`.
+- Der Pfad zur Moodle-Installation sowie der Direktlink zur Keycloak-Account-Oberfläche können im Backend unter „Konfiguration“ gesetzt werden. Alternativ greifen die Umgebungsvariablen `MOODLE_PATH` bzw. `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL`.
 
 ## Tests
 
