@@ -30,6 +30,15 @@
                 <?php endif; ?>
               </div>
             <?php endif; ?>
+            <?php if (!empty($kurs->auftraggeber ?? [])): ?>
+              <div class="small text-muted">
+                Auftraggeber:
+                <?php foreach ($kurs->auftraggeber as $index => $firma): ?>
+                  <?php if ($index > 0): ?> · <?php endif; ?>
+                  <?= htmlspecialchars($firma, ENT_QUOTES) ?>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
           </td>
           <td class="text-nowrap">
             <?php include __DIR__ . '/kurs_buttons.php'; ?>
