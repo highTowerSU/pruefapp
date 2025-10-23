@@ -416,10 +416,21 @@ function current_user_has_role(string ...$roles): bool
     return false;
 }
 
+function current_user_can_manage_courses(): bool
+{
+    return current_user_has_role('admin', 'editor');
+}
+
+function current_user_can_manage_participants(): bool
+{
+    return current_user_has_role('admin', 'editor');
+}
+
 function available_user_roles(): array
 {
     return [
         'admin' => 'Administrator/in',
+        'editor' => 'Editor/in',
         'user' => 'Betrachter/in',
     ];
 }

@@ -1,5 +1,5 @@
 <?php $moodleCourseOptions = $moodleCourseOptions ?? []; ?>
-<?php if (current_user_has_role('admin')): ?>
+<?php if (current_user_can_manage_courses()): ?>
   <form method="post"
         class="mb-4"
         hx-post="kurse"
@@ -93,7 +93,7 @@
   </div>
 <?php endif; ?>
 
-<?php if (current_user_has_role('admin')): ?>
+<?php if (current_user_can_manage_courses()): ?>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       'use strict';

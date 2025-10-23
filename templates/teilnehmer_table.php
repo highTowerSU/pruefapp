@@ -1,4 +1,4 @@
-<?php $canManageParticipants = $canManageParticipants ?? current_user_has_role('admin'); ?>
+<?php $canManageParticipants = $canManageParticipants ?? current_user_can_manage_participants(); ?>
 
 <div class="d-flex flex-wrap gap-2 mb-3">
   <?php if ($canManageParticipants): ?>
