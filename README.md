@@ -12,6 +12,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - Optionale Erfassung der zugehörigen Firma für Teilnehmer*innen
 - Generierung von Benutzernamen, Passwörtern und E-Mail-Adressen
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
+- Zentrale Hilfe- und Ablaufseite mit allen Schritten zur Kursvorbereitung
 
 - Mandantenfähiges Branding inklusive Firmenverwaltung, Logo-Upload und Impressumssteuerung
 - Individuelle Navigationsfarben pro Firma

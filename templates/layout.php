@@ -136,6 +136,7 @@
 </div>
 </main>
 
+<?php $versionDisplay = app_version_display_data(); ?>
 <footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
   <div class="container">
     <div class="row align-items-center gy-3">
@@ -144,6 +145,23 @@
           Softwareprojekt der CENEOS GmbH
         </div>
       </div>
+      <?php if (!empty($versionDisplay['version'])): ?>
+        <div class="col-lg-auto ms-lg-auto text-lg-end">
+          <span class="small text-body-secondary">
+            Version <?= htmlspecialchars($versionDisplay['version']) ?>
+            <?php if (!empty($versionDisplay['commit'])): ?>
+              <span class="text-body-tertiary mx-1">·</span>
+              <span class="font-monospace">#<?= htmlspecialchars($versionDisplay['commit']) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($versionDisplay['build_date_human']) && !empty($versionDisplay['build_date_iso'])): ?>
+              <span class="text-body-tertiary mx-1">·</span>
+              <time datetime="<?= htmlspecialchars($versionDisplay['build_date_iso'], ENT_QUOTES) ?>">
+                <?= htmlspecialchars($versionDisplay['build_date_human']) ?>
+              </time>
+            <?php endif; ?>
+          </span>
+        </div>
+      <?php endif; ?>
     </div>
     <?php $legal = $branding['legal'] ?? []; ?>
     <?php if (!empty($legal['impressum']['url']) || !empty($legal['privacy']['url'])): ?>

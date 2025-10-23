@@ -239,6 +239,8 @@ function env_value(string $name): ?string
     return $value === '' ? null : $value;
 }
 
+require_once __DIR__ . '/version.php';
+
 function base_path(): string
 {
     static $basePath = null;
@@ -295,6 +297,61 @@ function normalize_request_path(?string $path): string
     }
 
     return $path;
+}
+
+function sanitize_redirect_target(?string $target): ?string
+{
+    if ($target === null) {
+        return null;
+    }
+
+    $target = trim($target);
+    if ($target === '') {
+        return null;
+    }
+
+    if (preg_match('#^[a-z][a-z0-9+.-]*://#i', $target) === 1) {
+        return null;
+    }
+
+    if (str_starts_with($target, '//')) {
+        return null;
+    }
+
+    $path = parse_url($target, PHP_URL_PATH);
+    $query = parse_url($target, PHP_URL_QUERY);
+
+    $path = normalize_request_path($path);
+    if ($path === '') {
+        $path = '/';
+    }
+
+    $result = $path;
+    if ($query !== null && $query !== '') {
+        $result .= '?' . $query;
+    }
+
+    return $result;
+}
+
+function redirect_url_for_target(?string $target): string
+{
+    if ($target === null || $target === '' || $target === '/') {
+        return url_for('kurse');
+    }
+
+    [$path, $query] = array_pad(explode('?', $target, 2), 2, '');
+    if ($path === '') {
+        $path = '/';
+    }
+
+    $url = url_for($path);
+
+    if ($query !== '') {
+        $url .= (str_contains($url, '?') ? '&' : '?') . $query;
+    }
+
+    return $url;
 }
 
 function url_for(string $path = ''): string
@@ -653,7 +710,18 @@ function initialisiere_oidc(bool $force = false): void
             exit;
         }
 
-        header('Location: ' . url_for('kurse'));
+        $redirectTarget = $_SESSION['login_redirect_to'] ?? null;
+        if (is_string($redirectTarget)) {
+            $redirectTarget = sanitize_redirect_target($redirectTarget);
+        } else {
+            $redirectTarget = null;
+        }
+
+        unset($_SESSION['login_redirect_to']);
+
+        $redirectUrl = redirect_url_for_target($redirectTarget);
+
+        header('Location: ' . $redirectUrl);
         exit;
     }
 
@@ -689,6 +757,18 @@ foreach ($freiePfade as $pattern) {
 if ($aktuelleSeite === 'callback.php') {
     initialisiere_oidc(force: true);
 } elseif (!in_array($aktuelleSeite, $freieSeiten) && !$istFreieRoute) {
+    if (!isset($_SESSION['user'])) {
+        $requestedTarget = sanitize_redirect_target($_SERVER['REQUEST_URI'] ?? null);
+        $loginUrl = url_for('login.php');
+
+        if ($requestedTarget !== null && $requestedTarget !== '/') {
+            $loginUrl .= (str_contains($loginUrl, '?') ? '&' : '?') . 'redirect=' . rawurlencode($requestedTarget);
+        }
+
+        header('Location: ' . $loginUrl);
+        exit;
+    }
+
     initialisiere_oidc();
 }
 
