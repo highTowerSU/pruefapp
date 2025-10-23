@@ -1,4 +1,5 @@
 <?php $moodleCourseOptions = $moodleCourseOptions ?? []; ?>
+<?php $moodleCourseError = $moodleCourseError ?? null; ?>
 <?php if (current_user_can_manage_courses()): ?>
   <form method="post"
         class="mb-4"
@@ -37,6 +38,12 @@
             verwendet, damit die Nutzer automatisch im richtigen Kurs landen.
           </p>
 
+          <?php if (!empty($moodleCourseError)): ?>
+            <div class="alert alert-warning" role="alert">
+              Moodle-Kursliste konnte nicht geladen werden: <?= htmlspecialchars($moodleCourseError, ENT_QUOTES) ?>
+            </div>
+          <?php endif; ?>
+
           <?php if (!empty($moodleCourseOptions)): ?>
             <div class="mb-3">
               <label for="moodle-course-suggestions" class="form-label">Vorhandenen Moodle-Kurs auswählen</label>
@@ -46,8 +53,13 @@
                   <option value="<?= htmlspecialchars($option['shortname'], ENT_QUOTES) ?>"
                           data-shortname="<?= htmlspecialchars($option['shortname'], ENT_QUOTES) ?>"
                           data-fullname="<?= htmlspecialchars($option['fullname'], ENT_QUOTES) ?>"
-                          data-name="<?= htmlspecialchars($option['name'], ENT_QUOTES) ?>">
+                          data-name="<?= htmlspecialchars($option['name'] ?? $option['fullname'] ?? $option['shortname'], ENT_QUOTES) ?>"
+                          data-origin="<?= htmlspecialchars($option['origin'] ?? 'local', ENT_QUOTES) ?>"
+                          <?php if (!empty($option['id'])): ?>data-course-id="<?= (int) $option['id'] ?>"<?php endif; ?>>
                     <?= htmlspecialchars($option['display'], ENT_QUOTES) ?>
+                    <?php if (!empty($option['origin']) && $option['origin'] === 'remote'): ?>
+                      (Moodle)
+                    <?php endif; ?>
                   </option>
                 <?php endforeach; ?>
               </select>

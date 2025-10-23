@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../lib/MoodleImportService.php';
+require_once __DIR__ . '/../lib/MoodleCourseService.php';
 
 use \RedBeanPHP\R as R;
 
@@ -386,19 +387,40 @@ class ParticipantController
         if ($courseRole === '') {
             $courseRole = 'student';
         }
-        $service = new MoodleImportService();
-        $status = $service->getStatus();
+        $importService = new MoodleImportService();
+        $status = $importService->getStatus();
+        $courseService = new MoodleCourseService();
+        $webserviceStatus = $courseService->getWebserviceStatus();
         $commandPreview = null;
+        $moodleCourseId = (int) ($kurs->moodle_course_id ?? 0);
+        $moodleLookupError = null;
+
+        if ($courseService->isWebserviceConfigured() && $courseShortname !== '') {
+            try {
+                $resolvedId = self::resolveMoodleCourseId($kurs, $courseService, false);
+                if ($resolvedId !== null) {
+                    $moodleCourseId = $resolvedId;
+                }
+            } catch (\Throwable $exception) {
+                $moodleLookupError = $exception->getMessage();
+            }
+        }
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-            if (!$service->canImport()) {
+            $action = $_POST['action'] ?? 'cli_import';
+
+            if ($action !== 'cli_import') {
+                return [400, [], ''];
+            }
+
+            if (!$importService->canImport()) {
                 $_SESSION['fehlermeldung'] = 'Der Moodle-Import ist nicht korrekt konfiguriert. Bitte überprüfe den Pfad zum Moodle-Upload-Skript.';
             } elseif (count($teilnehmer) === 0) {
                 $_SESSION['meldung'] = 'Es sind keine Teilnehmer für den Moodle-Import vorhanden.';
                 unset($_SESSION['fehlermeldung']);
             } else {
                 try {
-                    $result = $service->importParticipants(
+                    $result = $importService->importParticipants(
                         $teilnehmer,
                         $courseShortname !== '' ? $courseShortname : null,
                         $courseShortname !== '' ? $courseRole : null
@@ -432,16 +454,20 @@ class ParticipantController
             return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
         }
 
-        if ($service->canImport() && count($teilnehmer) > 0) {
-            $commandPreview = $service->getCommandPreview();
+        if ($importService->canImport() && count($teilnehmer) > 0) {
+            $commandPreview = $importService->getCommandPreview();
         }
 
         $content = render_template('moodle_import.php', [
             'kurs' => $kurs,
             'teilnehmer' => $teilnehmer,
             'status' => $status,
-            'canImport' => $service->canImport(),
+            'canImport' => $importService->canImport(),
             'commandPreview' => $commandPreview,
+            'webserviceStatus' => $webserviceStatus,
+            'canFetchFromMoodle' => $courseService->isWebserviceConfigured() && $courseShortname !== '',
+            'moodleCourseId' => $moodleCourseId > 0 ? $moodleCourseId : null,
+            'moodleLookupError' => $moodleLookupError,
         ]);
 
         $body = render_template('layout.php', [
@@ -450,6 +476,186 @@ class ParticipantController
         ]);
 
         return [200, [], $body];
+    }
+
+    public static function moodleFetch(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return self::notFoundResponse();
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return forbidden_response();
+        }
+
+        $service = new MoodleCourseService();
+        if (!$service->isWebserviceConfigured()) {
+            $_SESSION['fehlermeldung'] = 'Der Moodle-Webservice ist nicht konfiguriert. Bitte hinterlege eine Basis-URL und ein Token in den Einstellungen.';
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        try {
+            $courseId = self::resolveMoodleCourseId($kurs, $service);
+        } catch (\Throwable $exception) {
+            $_SESSION['fehlermeldung'] = 'Moodle-Kurs konnte nicht ermittelt werden: ' . $exception->getMessage();
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        if ($courseId === null) {
+            $_SESSION['fehlermeldung'] = 'Für diesen Kurs ist kein Moodle-Shortname hinterlegt. Bitte trage den Shortname in den Kurseinstellungen ein.';
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        try {
+            $stats = self::synchronizeParticipantsFromMoodle($kurs, $service, $courseId, true);
+            $_SESSION['meldung'] = 'Teilnehmer aus Moodle übernommen. ' . self::buildMoodleSyncSummary($stats);
+            unset($_SESSION['fehlermeldung']);
+
+            audit_log('moodle_teilnehmer_von_moodle_abgerufen', [
+                'kurs_id' => (int) $kurs->id,
+                'kurs_name' => (string) $kurs->name,
+                'moodle_course_id' => $courseId,
+                'moodle_course_shortname' => $kurs->moodle_course_shortname ?? '',
+                'statistik' => $stats,
+            ]);
+        } catch (\Throwable $exception) {
+            $_SESSION['fehlermeldung'] = 'Teilnehmer konnten nicht aus Moodle geladen werden: ' . $exception->getMessage();
+
+            audit_log('moodle_teilnehmer_von_moodle_abruf_fehlgeschlagen', [
+                'kurs_id' => (int) $kurs->id,
+                'kurs_name' => (string) $kurs->name,
+                'moodle_course_id' => $courseId,
+                'fehlermeldung' => $exception->getMessage(),
+            ]);
+        }
+
+        return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+    }
+
+    public static function moodleSync(array $params, bool $isHx): array
+    {
+        $kurs = self::findCourse($params);
+        if ($kurs === null) {
+            return self::notFoundResponse();
+        }
+
+        if (!current_user_can_manage_participants()) {
+            return forbidden_response();
+        }
+
+        $teilnehmer = self::participantsForCourse($kurs->id);
+        if (count($teilnehmer) === 0) {
+            $_SESSION['meldung'] = 'Es sind keine Teilnehmer hinterlegt. Es gibt nichts zu synchronisieren.';
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        $courseShortname = trim((string) ($kurs->moodle_course_shortname ?? ''));
+        $courseRole = trim((string) ($kurs->moodle_course_role ?? 'student'));
+        if ($courseRole === '') {
+            $courseRole = 'student';
+        }
+
+        $importService = new MoodleImportService();
+        if (!$importService->canImport()) {
+            $_SESSION['fehlermeldung'] = 'Der Moodle-Import ist nicht korrekt konfiguriert. Bitte überprüfe den Pfad zum Upload-Skript in den Einstellungen.';
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        $courseService = new MoodleCourseService();
+        if (!$courseService->isWebserviceConfigured()) {
+            $_SESSION['fehlermeldung'] = 'Der Moodle-Webservice ist nicht konfiguriert. Bitte hinterlege eine Basis-URL und ein Token in den Einstellungen.';
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        try {
+            $result = $importService->importParticipants(
+                $teilnehmer,
+                $courseShortname !== '' ? $courseShortname : null,
+                $courseShortname !== '' ? $courseRole : null
+            );
+        } catch (\Throwable $exception) {
+            $_SESSION['fehlermeldung'] = 'Moodle-Synchronisation fehlgeschlagen: ' . $exception->getMessage();
+
+            audit_log('moodle_teilnehmer_sync_fehlgeschlagen', [
+                'kurs_id' => (int) $kurs->id,
+                'kurs_name' => (string) $kurs->name,
+                'fehlermeldung' => $exception->getMessage(),
+            ]);
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        if ((int) ($result['exit_code'] ?? 1) !== 0) {
+            $message = 'Moodle-Synchronisation fehlgeschlagen. Rückgabecode: ' . $result['exit_code'] . '.';
+            if (!empty($result['output'])) {
+                $message .= ' Ausgabe: ' . implode(' ', array_map('trim', $result['output']));
+            }
+            $_SESSION['fehlermeldung'] = $message;
+
+            audit_log('moodle_teilnehmer_sync_fehlgeschlagen', [
+                'kurs_id' => (int) $kurs->id,
+                'kurs_name' => (string) $kurs->name,
+                'exit_code' => $result['exit_code'],
+                'ausgabe' => array_map('trim', $result['output'] ?? []),
+            ]);
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        $count = count($teilnehmer);
+        $baseMessage = $count === 1
+            ? '1 Teilnehmer wurde an Moodle übergeben.'
+            : sprintf('%d Teilnehmer wurden an Moodle übergeben.', $count);
+        if ($courseShortname !== '') {
+            $baseMessage .= ' Zielkurs: ' . $courseShortname . '.';
+        }
+        if (!empty($result['output'])) {
+            $baseMessage .= ' ' . implode(' ', array_map('trim', $result['output']));
+        }
+
+        $courseId = null;
+        $syncStats = null;
+        try {
+            $courseId = self::resolveMoodleCourseId($kurs, $courseService);
+            if ($courseId !== null) {
+                $syncStats = self::synchronizeParticipantsFromMoodle($kurs, $courseService, $courseId, true);
+                $baseMessage .= ' Synchronisierung: ' . self::buildMoodleSyncSummary($syncStats);
+            }
+        } catch (\Throwable $exception) {
+            $_SESSION['fehlermeldung'] = 'Teilnehmer wurden nach Moodle übertragen, aber der Abgleich der Rückmeldungen ist fehlgeschlagen: ' . $exception->getMessage();
+
+            audit_log('moodle_teilnehmer_sync_warnung', [
+                'kurs_id' => (int) $kurs->id,
+                'kurs_name' => (string) $kurs->name,
+                'moodle_course_id' => $courseId,
+                'warnung' => $exception->getMessage(),
+            ]);
+
+            $_SESSION['meldung'] = $baseMessage;
+
+            return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
+        }
+
+        $_SESSION['meldung'] = $baseMessage;
+        unset($_SESSION['fehlermeldung']);
+
+        audit_log('moodle_teilnehmer_sync_erfolgreich', [
+            'kurs_id' => (int) $kurs->id,
+            'kurs_name' => (string) $kurs->name,
+            'moodle_course_id' => $courseId,
+            'moodle_course_shortname' => $kurs->moodle_course_shortname ?? '',
+            'statistik' => $syncStats,
+            'anzahl_teilnehmer' => $count,
+        ]);
+
+        return [303, ['Location' => url_for('kurse/' . $kurs->id . '/teilnehmer/moodle')], ''];
     }
 
     public static function print(array $params, bool $isHx): array
@@ -878,6 +1084,331 @@ class ParticipantController
         ];
     }
 
+    private static function resolveMoodleCourseId(\RedBeanPHP\OODBBean $kurs, MoodleCourseService $service, bool $persist = true): ?int
+    {
+        $existingId = (int) ($kurs->moodle_course_id ?? 0);
+        if ($existingId > 0) {
+            return $existingId;
+        }
+
+        $shortname = trim((string) ($kurs->moodle_course_shortname ?? ''));
+        if ($shortname === '') {
+            return null;
+        }
+
+        $course = $service->findCourseByShortname($shortname);
+        if ($course === null || empty($course['id'])) {
+            return null;
+        }
+
+        $resolvedId = (int) $course['id'];
+
+        if ($persist && $resolvedId > 0) {
+            $previousId = (int) ($kurs->moodle_course_id ?? 0);
+            if ($previousId !== $resolvedId) {
+                $kurs->moodle_course_id = $resolvedId;
+                R::store($kurs);
+
+                audit_log('kurs_moodle_id_automatisch_gesetzt', [
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                    'shortname' => $shortname,
+                    'kurs_id_alt' => $previousId > 0 ? $previousId : null,
+                    'kurs_id_neu' => $resolvedId,
+                ]);
+            }
+        }
+
+        return $resolvedId > 0 ? $resolvedId : null;
+    }
+
+    private static function synchronizeParticipantsFromMoodle(
+        \RedBeanPHP\OODBBean $kurs,
+        MoodleCourseService $service,
+        int $courseId,
+        bool $createMissing
+    ): array {
+        if ($courseId <= 0) {
+            return [
+                'created' => 0,
+                'updated' => 0,
+                'unchanged' => 0,
+                'skipped' => 0,
+                'matched' => ['id' => 0, 'username' => 0, 'email' => 0],
+            ];
+        }
+
+        $remoteUsers = $service->fetchEnrolments($courseId);
+        $stats = [
+            'created' => 0,
+            'updated' => 0,
+            'unchanged' => 0,
+            'skipped' => 0,
+            'matched' => ['id' => 0, 'username' => 0, 'email' => 0],
+        ];
+
+        foreach ($remoteUsers as $user) {
+            $moodleId = isset($user['id']) ? (int) $user['id'] : 0;
+            if ($moodleId <= 0) {
+                $stats['skipped']++;
+                continue;
+            }
+
+            $participant = self::findParticipantByMoodleId((int) $kurs->id, $moodleId);
+            $matchedBy = 'id';
+
+            if ($participant === null) {
+                $username = sanitize_username((string) ($user['username'] ?? ''));
+                if ($username !== '') {
+                    $participant = self::findParticipantByUsername((int) $kurs->id, $username);
+                    if ($participant !== null) {
+                        $matchedBy = 'username';
+                        $stats['matched']['username']++;
+                    }
+                }
+            } else {
+                $stats['matched']['id']++;
+            }
+
+            if ($participant === null) {
+                $email = normalize_email_address((string) ($user['email'] ?? ''));
+                if ($email !== '') {
+                    $participant = self::findParticipantByEmail((int) $kurs->id, $email);
+                    if ($participant !== null) {
+                        $matchedBy = 'email';
+                        $stats['matched']['email']++;
+                    }
+                }
+            }
+
+            $isNew = false;
+            if ($participant === null) {
+                if (!$createMissing) {
+                    $stats['skipped']++;
+                    continue;
+                }
+
+                $participant = R::dispense('teilnehmer');
+                $participant->kurs = $kurs;
+                $participant->passwort = generate_password();
+                $participant->benutzername = '';
+                $participant->firma = '';
+                $isNew = true;
+            }
+
+            $before = self::participantStateForSync($participant);
+
+            self::applyMoodleUserData($participant, $user, $matchedBy);
+
+            R::store($participant);
+
+            $after = self::participantStateForSync($participant);
+            $changes = self::detectParticipantChanges($before, $after);
+
+            if ($isNew) {
+                $stats['created']++;
+                audit_log('teilnehmer_von_moodle_importiert', [
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                    'teilnehmer' => $after,
+                    'moodle_user' => self::sanitizeMoodleUserForLog($user),
+                ]);
+            } elseif ($changes !== []) {
+                $stats['updated']++;
+                audit_log('teilnehmer_von_moodle_aktualisiert', [
+                    'kurs_id' => (int) $kurs->id,
+                    'kurs_name' => (string) $kurs->name,
+                    'teilnehmer_id' => (int) $participant->id,
+                    'aenderungen' => $changes,
+                ]);
+            } else {
+                $stats['unchanged']++;
+            }
+        }
+
+        return $stats;
+    }
+
+    private static function findParticipantByMoodleId(int $kursId, int $moodleId): ?\RedBeanPHP\OODBBean
+    {
+        if ($kursId <= 0 || $moodleId <= 0) {
+            return null;
+        }
+
+        $teilnehmer = R::findOne('teilnehmer', ' kurs_id = ? AND moodle_user_id = ? ', [$kursId, $moodleId]);
+
+        return $teilnehmer instanceof \RedBeanPHP\OODBBean ? $teilnehmer : null;
+    }
+
+    private static function findParticipantByUsername(int $kursId, string $username): ?\RedBeanPHP\OODBBean
+    {
+        $username = sanitize_username($username);
+        if ($kursId <= 0 || $username === '') {
+            return null;
+        }
+
+        $teilnehmer = R::findOne('teilnehmer', ' kurs_id = ? AND benutzername = ? ', [$kursId, $username]);
+
+        return $teilnehmer instanceof \RedBeanPHP\OODBBean ? $teilnehmer : null;
+    }
+
+    private static function findParticipantByEmail(int $kursId, string $email): ?\RedBeanPHP\OODBBean
+    {
+        $email = normalize_email_address($email);
+        if ($kursId <= 0 || $email === '') {
+            return null;
+        }
+
+        $teilnehmer = R::findOne('teilnehmer', ' kurs_id = ? AND email = ? ', [$kursId, $email]);
+
+        return $teilnehmer instanceof \RedBeanPHP\OODBBean ? $teilnehmer : null;
+    }
+
+    private static function applyMoodleUserData(\RedBeanPHP\OODBBean $teilnehmer, array $user, string $matchedBy): void
+    {
+        $firstname = trim((string) ($user['firstname'] ?? ''));
+        $lastname = trim((string) ($user['lastname'] ?? ''));
+        $email = normalize_email_address((string) ($user['email'] ?? ''));
+        $username = sanitize_username((string) ($user['username'] ?? ''));
+        $idnumber = trim((string) ($user['idnumber'] ?? ''));
+        $customFields = isset($user['customfields']) && is_array($user['customfields']) ? $user['customfields'] : [];
+        $birthdate = isset($customFields['birthdate']) ? normalize_birthdate((string) $customFields['birthdate']) : '';
+        $birthplace = isset($customFields['birthplace']) ? trim((string) $customFields['birthplace']) : '';
+        $moodleId = isset($user['id']) ? (int) $user['id'] : null;
+
+        if ($firstname !== '') {
+            $teilnehmer->vorname = $firstname;
+        }
+
+        if ($lastname !== '') {
+            $teilnehmer->nachname = $lastname;
+        }
+
+        if ($birthdate !== '') {
+            $teilnehmer->geburtsdatum = $birthdate;
+        }
+
+        if ($birthplace !== '') {
+            $teilnehmer->geburtsort = $birthplace;
+        }
+
+        if ($email !== '') {
+            $teilnehmer->email = $email;
+        }
+
+        if ($username !== '') {
+            $teilnehmer->moodle_username = $username;
+            $shouldUpdateUsername = trim((string) ($teilnehmer->benutzername ?? '')) === '' || $matchedBy === 'username';
+            if ($shouldUpdateUsername) {
+                $teilnehmer->benutzername = $username;
+            }
+        }
+
+        if ($idnumber !== '') {
+            $teilnehmer->moodle_idnumber = $idnumber;
+        }
+
+        if ($moodleId !== null && $moodleId > 0) {
+            $teilnehmer->moodle_user_id = $moodleId;
+        }
+
+        $teilnehmer->moodle_last_sync_at = date(DATE_ATOM);
+    }
+
+    private static function participantStateForSync(\RedBeanPHP\OODBBean $teilnehmer): array
+    {
+        return [
+            'id' => (int) $teilnehmer->id,
+            'vorname' => (string) ($teilnehmer->vorname ?? ''),
+            'nachname' => (string) ($teilnehmer->nachname ?? ''),
+            'firma' => (string) ($teilnehmer->firma ?? ''),
+            'geburtsdatum' => (string) ($teilnehmer->geburtsdatum ?? ''),
+            'geburtsort' => (string) ($teilnehmer->geburtsort ?? ''),
+            'benutzername' => (string) ($teilnehmer->benutzername ?? ''),
+            'email' => (string) ($teilnehmer->email ?? ''),
+            'moodle_user_id' => isset($teilnehmer->moodle_user_id) ? (int) $teilnehmer->moodle_user_id : null,
+            'moodle_username' => (string) ($teilnehmer->moodle_username ?? ''),
+            'moodle_idnumber' => (string) ($teilnehmer->moodle_idnumber ?? ''),
+            'moodle_last_sync_at' => (string) ($teilnehmer->moodle_last_sync_at ?? ''),
+        ];
+    }
+
+    private static function detectParticipantChanges(array $before, array $after): array
+    {
+        $changes = [];
+        foreach ($after as $field => $value) {
+            if ($field === 'id') {
+                continue;
+            }
+
+            if ($field === 'moodle_last_sync_at') {
+                continue;
+            }
+
+            $previous = $before[$field] ?? null;
+            if ($previous !== $value) {
+                $changes[$field] = [
+                    'alt' => $previous,
+                    'neu' => $value,
+                ];
+            }
+        }
+
+        return $changes;
+    }
+
+    private static function sanitizeMoodleUserForLog(array $user): array
+    {
+        $customFields = [];
+        if (isset($user['customfields']) && is_array($user['customfields'])) {
+            foreach ($user['customfields'] as $key => $value) {
+                $customFields[(string) $key] = (string) $value;
+            }
+        }
+
+        return [
+            'id' => isset($user['id']) ? (int) $user['id'] : null,
+            'username' => (string) ($user['username'] ?? ''),
+            'email' => (string) ($user['email'] ?? ''),
+            'idnumber' => (string) ($user['idnumber'] ?? ''),
+            'customfields' => array_intersect_key($customFields, ['birthdate' => true, 'birthplace' => true]),
+        ];
+    }
+
+    private static function buildMoodleSyncSummary(array $stats): string
+    {
+        $parts = [];
+        $labels = [
+            'created' => 'neu',
+            'updated' => 'aktualisiert',
+            'unchanged' => 'unverändert',
+            'skipped' => 'übersprungen',
+        ];
+
+        foreach ($labels as $key => $label) {
+            $value = (int) ($stats[$key] ?? 0);
+            if ($value > 0) {
+                $parts[] = sprintf('%d %s', $value, $label);
+            }
+        }
+
+        if (!empty($stats['matched']) && is_array($stats['matched'])) {
+            $matchParts = [];
+            $matchLabels = ['id' => 'ID', 'username' => 'Benutzername', 'email' => 'E-Mail'];
+            foreach ($matchLabels as $field => $label) {
+                $count = (int) ($stats['matched'][$field] ?? 0);
+                if ($count > 0) {
+                    $matchParts[] = sprintf('%s: %d', $label, $count);
+                }
+            }
+            if ($matchParts !== []) {
+                $parts[] = 'Abgleich (' . implode(', ', $matchParts) . ')';
+            }
+        }
+
+        return $parts === [] ? 'Keine Änderungen' : implode(', ', $parts);
+    }
+
     private static function normalizeHeader(array $rawHeader): array
     {
         $header = [];
@@ -1280,6 +1811,9 @@ class ParticipantController
             'geburtsort' => (string) $teilnehmer->geburtsort,
             'benutzername' => (string) $teilnehmer->benutzername,
             'email' => (string) ($teilnehmer->email ?? ''),
+            'moodle_user_id' => isset($teilnehmer->moodle_user_id) ? (int) $teilnehmer->moodle_user_id : null,
+            'moodle_username' => (string) ($teilnehmer->moodle_username ?? ''),
+            'moodle_last_sync_at' => format_datetime_for_display($teilnehmer->moodle_last_sync_at ?? ''),
         ];
     }
 

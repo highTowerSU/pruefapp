@@ -55,6 +55,8 @@
         <th scope="col">Geburtsort</th>
         <th scope="col">Benutzername</th>
         <th scope="col">E-Mail</th>
+        <th scope="col">Moodle-ID</th>
+        <th scope="col">Letzte Synchronisation</th>
         <?php if ($canManageParticipants): ?>
           <th scope="col" class="text-end">Aktion</th>
         <?php endif; ?>
@@ -71,7 +73,7 @@
         <?php endforeach; ?>
       <?php else: ?>
         <tr data-empty-row="true">
-          <td colspan="<?= $canManageParticipants ? '8' : '7' ?>" class="text-center text-muted py-4">
+          <td colspan="<?= $canManageParticipants ? '10' : '9' ?>" class="text-center text-muted py-4">
             Keine Teilnehmer vorhanden.
           </td>
         </tr>

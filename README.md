@@ -59,6 +59,21 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 - `APP_KEYCLOAK_SERVER_URL` – Basis-URL der Keycloak-Instanz (Standard: `https://login.koenigsbl.au`).
 - `APP_KEYCLOAK_REALM` – Name des Keycloak-Realms (Standard: `koenigsbl.au`).
 - Der Pfad zur Moodle-Installation sowie die Direktlinks zur Keycloak-Account- und Admin-Oberfläche können im Backend unter „Konfiguration“ gesetzt werden. Alternativ greifen die Umgebungsvariablen `MOODLE_PATH`, `APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL` bzw. `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL`.
+- Für den Zugriff auf den Moodle-Webservice können optional `MOODLE_WEBSERVICE_URL` und `MOODLE_WEBSERVICE_TOKEN` gesetzt werden. Beide Werte lassen sich ebenfalls in der Anwendung konfigurieren.
+
+## Synchronisation
+
+Die Teilnehmerverwaltung bietet zwei Wege, Daten mit Moodle abzugleichen:
+
+1. **Import via CLI-Skript** – wie bisher werden Teilnehmer*innen als CSV-Datei über `admin/tool/uploaduser/cli/uploaduser.php` in Moodle importiert. Dabei werden bestehende Einträge aktualisiert und neue Nutzer*innen angelegt.
+2. **Webservice-Synchronisation** – über den Moodle-Webservice lassen sich Kurslisten abrufen und lokale Daten damit abgleichen. Voraussetzung ist ein Webservice-Nutzer mit Zugriff auf die Funktionen `core_course_get_courses` und `core_enrol_get_enrolled_users` sowie ein gültiges Token.
+
+Nach der Konfiguration erscheinen in der Teilnehmerübersicht zusätzliche Aktionen:
+
+- **Aus Moodle importieren** aktualisiert lokale Datensätze anhand der aktuellen Einschreibungen. Nutzer*innen werden über die Moodle-ID, den Benutzernamen oder – falls notwendig – über die E-Mail-Adresse zugeordnet. Fehlende Teilnehmer*innen werden automatisch angelegt.
+- **Mit Moodle synchronisieren** kombiniert den bestehenden CSV-Import mit einem anschließenden Webservice-Abgleich. So werden neue Nutzer*innen angelegt, Änderungen übernommen und die hinterlegte Moodle-ID aktualisiert.
+
+Alle Aktionen werden im Audit-Log protokolliert. Fehler- und Erfolgsmeldungen erscheinen nach der Ausführung direkt in der Oberfläche.
 
 ## Tests
 
