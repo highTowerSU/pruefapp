@@ -14,22 +14,27 @@ class SettingsController
 
         $storedMoodlePath = trim((string) (get_app_config('moodle_path') ?? ''));
         $storedKeycloakAccountUrl = trim((string) (get_app_config('keycloak_account_console_base_url') ?? ''));
+        $storedKeycloakAdminUrl = trim((string) (get_app_config('keycloak_admin_console_base_url') ?? ''));
 
         $envOverride = env_value('MOODLE_PATH');
         $keycloakAccountEnvOverride = env_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL');
+        $keycloakAdminEnvOverride = env_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL');
 
         $effectiveMoodlePath = moodle_root_path();
         $effectiveKeycloakAccountUrl = keycloak_account_console_base_url();
+        $effectiveKeycloakAdminUrl = keycloak_admin_console_base_url();
 
         $values = [
             'moodle_path' => $storedMoodlePath,
             'keycloak_account_console_base_url' => $storedKeycloakAccountUrl,
+            'keycloak_admin_console_base_url' => $storedKeycloakAdminUrl,
         ];
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $values['moodle_path'] = trim((string) ($_POST['moodle_path'] ?? ''));
             $values['keycloak_account_console_base_url'] = trim((string) ($_POST['keycloak_account_console_base_url'] ?? ''));
+            $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
 
             if ($values['moodle_path'] !== '' && !is_dir($values['moodle_path'])) {
                 $errors['moodle_path'] = 'Das angegebene Verzeichnis wurde nicht gefunden.';
@@ -39,6 +44,12 @@ class SettingsController
                 && filter_var($values['keycloak_account_console_base_url'], FILTER_VALIDATE_URL) === false
             ) {
                 $errors['keycloak_account_console_base_url'] = 'Bitte eine gültige URL angeben oder das Feld leer lassen.';
+            }
+
+            if ($values['keycloak_admin_console_base_url'] !== ''
+                && filter_var($values['keycloak_admin_console_base_url'], FILTER_VALIDATE_URL) === false
+            ) {
+                $errors['keycloak_admin_console_base_url'] = 'Bitte eine gültige URL angeben oder das Feld leer lassen.';
             }
 
             if ($errors === []) {
@@ -63,6 +74,20 @@ class SettingsController
                             'feld' => 'keycloak_account_console_base_url',
                             'alt' => $storedKeycloakAccountUrl,
                             'neu' => $values['keycloak_account_console_base_url'],
+                        ]);
+                    }
+
+                    if ($values['keycloak_admin_console_base_url'] !== $storedKeycloakAdminUrl) {
+                        set_app_config(
+                            'keycloak_admin_console_base_url',
+                            $values['keycloak_admin_console_base_url'] === ''
+                                ? null
+                                : $values['keycloak_admin_console_base_url']
+                        );
+                        audit_log('konfiguration_keycloak_admin_url_geaendert', [
+                            'feld' => 'keycloak_admin_console_base_url',
+                            'alt' => $storedKeycloakAdminUrl,
+                            'neu' => $values['keycloak_admin_console_base_url'],
                         ]);
                     }
                     $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
@@ -91,6 +116,9 @@ class SettingsController
             'storedKeycloakAccountUrl' => $storedKeycloakAccountUrl,
             'effectiveKeycloakAccountUrl' => $effectiveKeycloakAccountUrl,
             'keycloakAccountEnvOverride' => $keycloakAccountEnvOverride,
+            'storedKeycloakAdminUrl' => $storedKeycloakAdminUrl,
+            'effectiveKeycloakAdminUrl' => $effectiveKeycloakAdminUrl,
+            'keycloakAdminEnvOverride' => $keycloakAdminEnvOverride,
             'moodleStatus' => $moodleStatus,
         ]);
 
