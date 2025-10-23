@@ -38,7 +38,7 @@
                      alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? 'Logo')) ?>">
               <?php endif; ?>
               <h2 class="h4 mb-1">Anmelden</h2>
-              <p class="text-body-secondary mb-0">Melde dich mit deinem Königsbräu-Konto an, um fortzufahren.</p>
+              <p class="text-body-secondary mb-0">Melde dich mit deinem Login.Koenigsbl.au-Konto an, um fortzufahren.</p>
             </div>
 
             <?php if (!empty($flashMessage)): ?>
@@ -51,7 +51,7 @@
               <input type="hidden" name="redirect" value="<?= htmlspecialchars((string)($redirectTarget ?? '/'), ENT_QUOTES) ?>">
               <button type="submit" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center gap-2">
                 <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
-                <span>Login mit Königsbräu</span>
+                <span>Login.Koenigsbl.au</span>
               </button>
               <p class="text-center small text-body-secondary mb-0">
                 Klicke auf den Button, um zum Login weitergeleitet zu werden.
