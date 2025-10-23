@@ -450,10 +450,15 @@ function keycloak_admin_console_base_url(): ?string
         return rtrim($configured, '/');
     }
 
-    $serverUrl = env_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
     $realm = env_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
 
+    $serverUrl = env_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
     $serverUrl = rtrim($serverUrl, '/');
+
+    if ($serverUrl === 'https://login.koenigsbl.au') {
+        $serverUrl = 'https://keycloak.koenigsbl.au';
+    }
+
     if ($serverUrl === '') {
         return null;
     }
