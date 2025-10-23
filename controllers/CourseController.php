@@ -424,7 +424,71 @@ class CourseController
 
     private static function allCourses(): array
     {
-        return R::find('kurs', ' ORDER BY name ');
+        $courses = R::find('kurs', ' ORDER BY name ');
+
+        if ($courses === []) {
+            return [];
+        }
+
+        $courseIds = array_map(
+            static function (\RedBeanPHP\OODBBean $course): int {
+                return (int) $course->id;
+            },
+            array_values($courses)
+        );
+
+        $companiesByCourse = self::companiesForCourses($courseIds);
+
+        foreach ($courses as $course) {
+            $courseId = (int) $course->id;
+            $course->auftraggeber = $companiesByCourse[$courseId] ?? [];
+        }
+
+        return $courses;
+    }
+
+    /**
+     * @param array<int> $courseIds
+     * @return array<int, array<int, string>>
+     */
+    private static function companiesForCourses(array $courseIds): array
+    {
+        if ($courseIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
+        $rows = R::getAll(
+            'SELECT DISTINCT kurs_id, TRIM(firma) AS firma'
+            . ' FROM teilnehmer'
+            . ' WHERE kurs_id IN (' . $placeholders . ')'
+            . '   AND TRIM(COALESCE(firma, "")) <> ""'
+            . ' ORDER BY kurs_id, TRIM(firma)',
+            $courseIds
+        );
+
+        $result = [];
+        foreach ($rows as $row) {
+            $courseId = (int) ($row['kurs_id'] ?? 0);
+            $company = trim((string) ($row['firma'] ?? ''));
+
+            if ($courseId === 0 || $company === '') {
+                continue;
+            }
+
+            if (!array_key_exists($courseId, $result)) {
+                $result[$courseId] = [];
+            }
+
+            $result[$courseId][] = $company;
+        }
+
+        foreach ($result as &$companies) {
+            $companies = array_values($companies);
+        }
+        unset($companies);
+
+        return $result;
     }
 
     private static function moodleCourseOptions(): array
