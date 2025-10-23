@@ -31,11 +31,10 @@
               </div>
             <?php endif; ?>
             <?php if (!empty($kurs->auftraggeber ?? [])): ?>
-              <div class="small text-muted">
-                Auftraggeber:
-                <?php foreach ($kurs->auftraggeber as $index => $firma): ?>
-                  <?php if ($index > 0): ?> · <?php endif; ?>
-                  <?= htmlspecialchars($firma, ENT_QUOTES) ?>
+              <div class="small text-muted d-flex flex-wrap align-items-center gap-1">
+                <span class="me-1">Auftraggeber:</span>
+                <?php foreach ($kurs->auftraggeber as $firma): ?>
+                  <span class="badge text-bg-primary"><?= htmlspecialchars($firma, ENT_QUOTES) ?></span>
                 <?php endforeach; ?>
               </div>
             <?php endif; ?>
