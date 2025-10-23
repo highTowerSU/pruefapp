@@ -227,6 +227,44 @@ function base_path(): string
     return $basePath;
 }
 
+function normalize_request_path(?string $path): string
+{
+    if ($path === null || $path === '') {
+        $path = '/';
+    }
+
+    if ($path[0] !== '/') {
+        $path = '/' . ltrim($path, '/');
+    }
+
+    $base = base_path();
+    if ($base !== '') {
+        if ($path === $base) {
+            $path = '/';
+        } elseif (strpos($path, $base . '/') === 0) {
+            $path = substr($path, strlen($base));
+            if ($path === '') {
+                $path = '/';
+            }
+        }
+    }
+
+    if (strpos($path, '/index.php') === 0) {
+        $suffix = substr($path, strlen('/index.php'));
+        if ($suffix === '' || $suffix === false) {
+            $path = '/';
+        } else {
+            $path = $suffix[0] === '/' ? $suffix : '/' . ltrim($suffix, '/');
+        }
+    }
+
+    if ($path === '') {
+        $path = '/';
+    }
+
+    return $path;
+}
+
 function url_for(string $path = ''): string
 {
     $base = base_path();
@@ -589,7 +627,7 @@ function initialisiere_oidc(bool $force = false): void
 // Seiten ohne Login-Anforderung
 $freieSeiten = ['callback.php', 'login.php', 'logout.php'];
 $aktuelleSeite = basename($_SERVER['PHP_SELF']);
-$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/';
+$requestPath = normalize_request_path(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
 
 $freiePfade = [
     '#^/uebermitteln(/|$)#',
