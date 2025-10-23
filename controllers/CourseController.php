@@ -458,7 +458,7 @@ class CourseController
         }
 
         $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
-        $rows = R::getAll(
+        $participantRows = R::getAll(
             'SELECT DISTINCT kurs_id, TRIM(firma) AS firma'
             . ' FROM teilnehmer'
             . ' WHERE kurs_id IN (' . $placeholders . ')'
@@ -467,20 +467,40 @@ class CourseController
             $courseIds
         );
 
-        $result = [];
-        foreach ($rows as $row) {
-            $courseId = (int) ($row['kurs_id'] ?? 0);
-            $company = trim((string) ($row['firma'] ?? ''));
+        $linkRows = R::getAll(
+            'SELECT kurs_id, TRIM(bezeichnung) AS bezeichnung'
+            . ' FROM uebermittlungslink'
+            . ' WHERE kurs_id IN (' . $placeholders . ')'
+            . '   AND TRIM(COALESCE(bezeichnung, "")) <> ""'
+            . ' ORDER BY kurs_id, TRIM(bezeichnung)',
+            $courseIds
+        );
 
+        $result = [];
+        $addCompany = static function (int $courseId, string $company) use (&$result): void {
             if ($courseId === 0 || $company === '') {
-                continue;
+                return;
             }
 
             if (!array_key_exists($courseId, $result)) {
                 $result[$courseId] = [];
             }
 
-            $result[$courseId][] = $company;
+            if (!in_array($company, $result[$courseId], true)) {
+                $result[$courseId][] = $company;
+            }
+        };
+
+        foreach ($participantRows as $row) {
+            $courseId = (int) ($row['kurs_id'] ?? 0);
+            $company = trim((string) ($row['firma'] ?? ''));
+            $addCompany($courseId, $company);
+        }
+
+        foreach ($linkRows as $row) {
+            $courseId = (int) ($row['kurs_id'] ?? 0);
+            $company = trim((string) ($row['bezeichnung'] ?? ''));
+            $addCompany($courseId, $company);
         }
 
         foreach ($result as &$companies) {
