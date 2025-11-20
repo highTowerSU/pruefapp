@@ -78,6 +78,11 @@ Nachdem die Moodle-URL hinterlegt wurde, führen folgende Schritte zu einem komp
 2. **Webservice aktivieren:** Unter `Website-Administration → Plugins → Webservices → Externe Dienste` einen neuen externen Dienst anlegen oder einen vorhandenen aktivieren. Stelle sicher, dass die Funktionen `core_course_get_courses` und `core_enrol_get_enrolled_users` zugeordnet sind.
 3. **Dienstnutzer anlegen:** Einen technischen Nutzer erstellen oder auswählen und ihm die zuvor definierte Rolle über die Systemebene zuweisen. Der Login dieses Kontos wird ausschließlich für API-Aufrufe genutzt.
 4. **Token generieren:** Unter `Website-Administration → Plugins → Webservices → Tokens verwalten` ein neues Token für den Dienstnutzer erzeugen und in der Anwendung hinterlegen.
+5. **Berechtigungen**
+- core_course_get_courses
+- core_enrol_get_enrolled_users
+- core_webservice_get_site_info
+
 
 Optional können zusätzlich Links zu relevanten Moodle-Seiten (z. B. Kurs- oder Teilnehmerverwaltung) im Konfigurationsformular hinterlegt werden, sobald die Instanz-URL bekannt ist. So gelangen Administrator*innen direkt aus der Anwendung zu den passenden Bereichen der Moodle-Administration.
 
