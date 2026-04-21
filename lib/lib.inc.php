@@ -2,10 +2,11 @@
 
 use \RedBeanPHP\R as R;
 
-session_start();
-
 $baseDir = dirname(__DIR__);
 $appConfigCache = [];
+
+configure_session();
+session_start();
 
 $autoloadCandidates = [
     $baseDir . '/vendor/autoload.php',
@@ -181,10 +182,16 @@ function initialize_database(): void
 
     global $baseDir;
 
+    $storageNamespace = app_storage_namespace();
+    $legacyNamespace = 'moodle_user_gen';
+
     $dbCandidates = [
-        $baseDir . '/../../data/moodle_user_gen/db.sqlite',
-        $baseDir . '/data/moodle_user_gen/db.sqlite',
-        dirname($baseDir) . '/data/moodle_user_gen/db.sqlite',
+        $baseDir . '/../../data/' . $storageNamespace . '/db.sqlite',
+        $baseDir . '/data/' . $storageNamespace . '/db.sqlite',
+        dirname($baseDir) . '/data/' . $storageNamespace . '/db.sqlite',
+        $baseDir . '/../../data/' . $legacyNamespace . '/db.sqlite',
+        $baseDir . '/data/' . $legacyNamespace . '/db.sqlite',
+        dirname($baseDir) . '/data/' . $legacyNamespace . '/db.sqlite',
         $baseDir . '/db.sqlite',
     ];
 
@@ -237,6 +244,43 @@ function env_value(string $name): ?string
     $value = trim((string) $value);
 
     return $value === '' ? null : $value;
+}
+
+function app_storage_namespace(): string
+{
+    $configured = env_value('APP_STORAGE_NAMESPACE') ?? env_value('APP_INSTANCE_ID');
+
+    if ($configured !== null) {
+        $sanitized = preg_replace('/[^a-z0-9._-]+/i', '_', strtolower($configured));
+        $sanitized = trim((string) $sanitized, '._-');
+        if ($sanitized !== '') {
+            return $sanitized;
+        }
+    }
+
+    return 'pruefapp';
+}
+
+function app_session_cookie_name(): string
+{
+    $configured = env_value('APP_SESSION_NAME');
+    if ($configured !== null && preg_match('/^[A-Za-z][A-Za-z0-9_-]*$/', $configured) === 1) {
+        return $configured;
+    }
+
+    $namespace = app_storage_namespace();
+    $hash = substr(sha1($namespace), 0, 8);
+
+    return 'pruefapp_' . $hash;
+}
+
+function configure_session(): void
+{
+    if (session_status() !== PHP_SESSION_NONE) {
+        return;
+    }
+
+    session_name(app_session_cookie_name());
 }
 
 require_once __DIR__ . '/version.php';
