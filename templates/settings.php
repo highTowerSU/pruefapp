@@ -241,6 +241,9 @@ $versionDisplay = app_version_display_data();
       <dt class="col-sm-5 col-lg-4">Legacy-Kopierskript gefunden</dt>
       <dd class="col-sm-7 col-lg-8">
         <?= !empty($courseStatus['legacy_script_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+        <?php if (empty($courseStatus['legacy_script_exists']) && !empty($courseStatus['import_script_exists'])): ?>
+          <div class="form-text mb-0">Optional bei neueren Moodle-Versionen: Das Import-Kopierskript ist vorhanden.</div>
+        <?php endif; ?>
       </dd>
 
       <dt class="col-sm-5 col-lg-4">Import-Kopierskript</dt>

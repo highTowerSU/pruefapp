@@ -47,17 +47,24 @@ class SettingsController
                 $importStatus = $statusService->getStatus();
                 $courseStatus = $courseService->getStatus();
 
+                $hasLegacyCopyScript = !empty($courseStatus['legacy_script_exists']);
+                $hasImportCopyScript = !empty($courseStatus['import_script_exists']);
+                $hasCopyScript = $hasLegacyCopyScript || $hasImportCopyScript;
+
                 $checks = [
                     'Upload-Skript' => !empty($importStatus['script_exists']),
-                    'Legacy-Kopierskript' => !empty($courseStatus['legacy_script_exists']),
-                    'Import-Kopierskript' => !empty($courseStatus['import_script_exists']),
+                    'Kopierskript (Legacy oder Import)' => $hasCopyScript,
                     'PHP-Binary' => !empty($importStatus['php_exists']) || !empty($courseStatus['php_exists']),
                 ];
 
                 $failedChecks = array_keys(array_filter($checks, static fn (bool $ok): bool => !$ok));
 
                 if ($failedChecks === []) {
-                    $_SESSION['meldung'] = 'Skriptprüfung erfolgreich: Alle geprüften Moodle-Skripte wurden gefunden.';
+                    $_SESSION['meldung'] = 'Skriptprüfung erfolgreich: Alle erforderlichen Moodle-Skripte wurden gefunden.';
+
+                    if (!$hasLegacyCopyScript && $hasImportCopyScript) {
+                        $_SESSION['meldung'] .= ' Hinweis: Das Legacy-Kopierskript fehlt, ist mit vorhandenem Import-Kopierskript aber optional.';
+                    }
                 } else {
                     $_SESSION['fehlermeldung'] = 'Skriptprüfung: Fehlend oder nicht gefunden – ' . implode(', ', $failedChecks) . '.';
                 }
