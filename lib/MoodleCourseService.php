@@ -148,6 +148,38 @@ class MoodleCourseService
         ];
     }
 
+    public function probeWebserviceConnection(): array
+    {
+        if (!$this->isWebserviceConfigured()) {
+            return [
+                'ok' => false,
+                'error' => 'Moodle-Webservice ist nicht vollständig konfiguriert (URL/Token).',
+            ];
+        }
+
+        try {
+            $response = $this->performRestCall('core_webservice_get_site_info');
+        } catch (\Throwable $exception) {
+            return [
+                'ok' => false,
+                'error' => $exception->getMessage(),
+            ];
+        }
+
+        if (!is_array($response)) {
+            return [
+                'ok' => false,
+                'error' => 'Moodle-Webservice lieferte ein unerwartetes Antwortformat.',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'user' => trim((string) ($response['fullname'] ?? $response['username'] ?? '')),
+            'site' => trim((string) ($response['sitename'] ?? $response['siteurl'] ?? '')),
+        ];
+    }
+
     public function duplicateCourse(string $sourceShortname, string $newFullname, string $newShortname, array $options = []): array
     {
         if (!$this->canDuplicate()) {

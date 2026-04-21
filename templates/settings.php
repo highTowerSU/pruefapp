@@ -11,6 +11,7 @@
 /** @var string|null $effectiveKeycloakAdminUrl */
 /** @var string|null $keycloakAdminEnvOverride */
 /** @var array<string, mixed> $moodleStatus */
+/** @var array<string, mixed> $courseStatus */
 /** @var array<string, mixed> $webserviceStatus */
 /** @var string $storedMoodleWebserviceUrl */
 /** @var string $storedMoodleWebserviceTokenMasked */
@@ -35,6 +36,7 @@ $storedKeycloakAdminUrl = $storedKeycloakAdminUrl ?? '';
 $effectiveKeycloakAdminUrl = $effectiveKeycloakAdminUrl ?? null;
 $keycloakAdminEnvOverride = $keycloakAdminEnvOverride ?? null;
 $moodleStatus = $moodleStatus ?? [];
+$courseStatus = $courseStatus ?? [];
 $webserviceStatus = $webserviceStatus ?? [];
 $storedMoodleWebserviceUrl = $storedMoodleWebserviceUrl ?? '';
 $storedMoodleWebserviceTokenMasked = $storedMoodleWebserviceTokenMasked ?? '';
@@ -50,6 +52,7 @@ $versionDisplay = app_version_display_data();
 <?php endif; ?>
 
 <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
+  <input type="hidden" name="settings_action" value="save">
   <div class="card-header">
     <h2 class="h5 mb-0">Allgemeine Einstellungen</h2>
   </div>
@@ -229,6 +232,28 @@ $versionDisplay = app_version_display_data();
         <?= !empty($moodleStatus['script_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
       </dd>
 
+      <dt class="col-sm-5 col-lg-4">Legacy-Kopierskript</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?php $legacyPath = (string) ($courseStatus['legacy_script_path'] ?? ''); ?>
+        <?= $legacyPath !== '' ? '<code>' . htmlspecialchars($legacyPath, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Legacy-Kopierskript gefunden</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= !empty($courseStatus['legacy_script_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Import-Kopierskript</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?php $importPath = (string) ($courseStatus['import_script_path'] ?? ''); ?>
+        <?= $importPath !== '' ? '<code>' . htmlspecialchars($importPath, ENT_QUOTES) . '</code>' : '–' ?>
+      </dd>
+
+      <dt class="col-sm-5 col-lg-4">Import-Kopierskript gefunden</dt>
+      <dd class="col-sm-7 col-lg-8">
+        <?= !empty($courseStatus['import_script_exists']) ? '<span class="text-success">Ja</span>' : '<span class="text-danger">Nein</span>' ?>
+      </dd>
+
       <dt class="col-sm-5 col-lg-4">PHP-Binary</dt>
       <dd class="col-sm-7 col-lg-8">
         <?php $phpBinary = (string) ($moodleStatus['php_binary'] ?? ''); ?>
@@ -300,5 +325,45 @@ $versionDisplay = app_version_display_data();
         <?php endif; ?>
       </dd>
     </dl>
+
+    <div class="d-flex flex-wrap gap-2 mt-4">
+      <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>">
+        <input type="hidden" name="settings_action" value="check_scripts">
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="fa-solid fa-list-check me-1" aria-hidden="true"></i>
+          Skripte prüfen
+        </button>
+      </form>
+
+      <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>">
+        <input type="hidden" name="settings_action" value="check_webservice">
+        <button type="submit" class="btn btn-outline-secondary">
+          <i class="fa-solid fa-plug-circle-check me-1" aria-hidden="true"></i>
+          Webservice prüfen
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="card shadow-sm">
+  <div class="card-header">
+    <h2 class="h5 mb-0">Fehlersuche: Moodle-Token &amp; Rechte</h2>
+  </div>
+  <div class="card-body">
+    <p class="mb-3">
+      Bei <code>Access Control Exception</code> während der Kurskopie prüfe bitte zuerst den Moodle-Webservice-Nutzer,
+      den externen Dienst und den Kontext (System/Kategorie/Kurs).
+    </p>
+
+    <ul class="mb-3">
+      <li>Externer Dienst enthält <code>core_course_get_courses</code>, <code>core_course_create_courses</code> und (falls verfügbar) <code>core_course_copy_courses</code>.</li>
+      <li>Token gehört zum richtigen technischen Nutzer und ist noch gültig.</li>
+      <li>Der Nutzer hat die erforderlichen Rechte auch im Zielkontext (Kategorie/Kurs).</li>
+      <li>Webservice und REST-Protokoll sind in Moodle aktiviert.</li>
+    </ul>
+
+    <p class="mb-2">Schnelltest für Token und Dienstfunktion:</p>
+    <pre class="bg-body-tertiary border rounded p-3 mb-0"><code>curl -sS "https://MOODLE_HOST/webservice/rest/server.php?wstoken=TOKEN&amp;wsfunction=core_webservice_get_site_info&amp;moodlewsrestformat=json"</code></pre>
   </div>
 </section>

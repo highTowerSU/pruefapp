@@ -107,6 +107,33 @@ Für das Anlegen neuer Kurse aus einer Vorlage unterstützt die Anwendung zwei M
 
 Damit der Moodle-5.1-Modus funktioniert, müssen sowohl `MOODLE_PATH` als auch Webservice-URL und Webservice-Token gesetzt sein.
 
+### Troubleshooting: `Access Control Exception` bei Kurskopie
+
+Wenn die Kurskopie mit einer Meldung wie `Moodle-Webservice meldet einen Fehler: Access Control Exception` abbricht, liegt meist eine fehlende Berechtigung im externen Dienst oder ein falscher Kontext (System/Kategorie/Kurs) vor.
+
+Empfohlene Prüfschritte:
+
+1. **Token und externer Dienst prüfen**
+   - Geh zu `Website-Administration → Plugins → Webservices → Externe Dienste`.
+   - Verifiziere, dass der verwendete Dienst aktiv ist und dem Token-Nutzer zugeordnet wurde.
+   - Stelle sicher, dass mindestens folgende Funktionen im Dienst enthalten sind:
+     - `core_webservice_get_site_info`
+     - `core_course_get_courses`
+     - `core_course_create_courses`
+     - `core_course_copy_courses` (falls die Moodle-Version/Funktion verfügbar ist)
+2. **Rolle und Capability-Kontext prüfen**
+   - Prüfe unter `Nutzer*innen → Berechtigungen → Rechte prüfen`, ob der technische Webservice-Nutzer die benötigten Capabilities im richtigen Kontext besitzt (System oder Zielkategorie/Kurs).
+   - Für die Kursanlage/Kopie reicht eine Systemrolle oft nicht aus, wenn die Zielkategorie gesonderte Overrides hat.
+3. **Konfiguration in dieser Anwendung prüfen**
+   - Unter **Konfiguration → Status der Moodle-Integration** prüfen, ob Webservice-URL, Token und Moodle-Pfad korrekt erkannt werden.
+   - Zusätzlich können dort per Button **„Skripte prüfen“** und **„Webservice prüfen“** direkte Laufzeitchecks ausgeführt werden.
+4. **Webservice außerhalb der Anwendung testen**
+   - Schnelltest für das Token:
+     ```bash
+     curl -sS "https://MOODLE_HOST/webservice/rest/server.php?wstoken=TOKEN&wsfunction=core_webservice_get_site_info&moodlewsrestformat=json"
+     ```
+   - Gibt Moodle hierbei bereits einen Fehler zurück, liegt das Problem in Moodle-Rechten/Dienstkonfiguration und nicht im CSV-Importskript.
+
 ## Tests
 
 Aktuell sind keine automatisierten Tests definiert. Bitte testen Sie Änderungen manuell über die Weboberfläche.

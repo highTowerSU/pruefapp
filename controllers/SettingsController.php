@@ -39,6 +39,56 @@ class SettingsController
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $settingsAction = trim((string) ($_POST['settings_action'] ?? 'save'));
+
+            if ($settingsAction === 'check_scripts') {
+                $statusService = new MoodleImportService();
+                $courseService = new MoodleCourseService();
+                $importStatus = $statusService->getStatus();
+                $courseStatus = $courseService->getStatus();
+
+                $checks = [
+                    'Upload-Skript' => !empty($importStatus['script_exists']),
+                    'Legacy-Kopierskript' => !empty($courseStatus['legacy_script_exists']),
+                    'Import-Kopierskript' => !empty($courseStatus['import_script_exists']),
+                    'PHP-Binary' => !empty($importStatus['php_exists']) || !empty($courseStatus['php_exists']),
+                ];
+
+                $failedChecks = array_keys(array_filter($checks, static fn (bool $ok): bool => !$ok));
+
+                if ($failedChecks === []) {
+                    $_SESSION['meldung'] = 'Skriptprüfung erfolgreich: Alle geprüften Moodle-Skripte wurden gefunden.';
+                } else {
+                    $_SESSION['fehlermeldung'] = 'Skriptprüfung: Fehlend oder nicht gefunden – ' . implode(', ', $failedChecks) . '.';
+                }
+
+                return [303, ['Location' => url_for('admin/konfiguration')], ''];
+            }
+
+            if ($settingsAction === 'check_webservice') {
+                $courseService = new MoodleCourseService();
+                $probe = $courseService->probeWebserviceConnection();
+
+                if (!empty($probe['ok'])) {
+                    $userLabel = trim((string) ($probe['user'] ?? ''));
+                    $siteLabel = trim((string) ($probe['site'] ?? ''));
+                    $parts = [];
+                    if ($siteLabel !== '') {
+                        $parts[] = 'Seite: ' . $siteLabel;
+                    }
+                    if ($userLabel !== '') {
+                        $parts[] = 'Nutzer: ' . $userLabel;
+                    }
+                    $suffix = $parts !== [] ? ' (' . implode(', ', $parts) . ')' : '';
+                    $_SESSION['meldung'] = 'Webservice-Prüfung erfolgreich' . $suffix . '.';
+                } else {
+                    $error = trim((string) ($probe['error'] ?? 'Unbekannter Fehler'));
+                    $_SESSION['fehlermeldung'] = 'Webservice-Prüfung fehlgeschlagen: ' . $error;
+                }
+
+                return [303, ['Location' => url_for('admin/konfiguration')], ''];
+            }
+
             $values['moodle_path'] = trim((string) ($_POST['moodle_path'] ?? ''));
             $values['keycloak_account_console_base_url'] = trim((string) ($_POST['keycloak_account_console_base_url'] ?? ''));
             $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
@@ -150,6 +200,7 @@ class SettingsController
         $statusService = new MoodleImportService($statusPath);
         $moodleStatus = $statusService->getStatus();
         $courseService = new MoodleCourseService($statusPath);
+        $courseStatus = $courseService->getStatus();
         $webserviceStatus = $courseService->getWebserviceStatus();
 
         $storedMoodleWebserviceTokenMasked = $storedMoodleWebserviceToken !== ''
@@ -169,6 +220,7 @@ class SettingsController
             'effectiveKeycloakAdminUrl' => $effectiveKeycloakAdminUrl,
             'keycloakAdminEnvOverride' => $keycloakAdminEnvOverride,
             'moodleStatus' => $moodleStatus,
+            'courseStatus' => $courseStatus,
             'webserviceStatus' => $webserviceStatus,
             'storedMoodleWebserviceUrl' => $storedMoodleWebserviceUrl,
             'storedMoodleWebserviceTokenMasked' => $storedMoodleWebserviceTokenMasked,
