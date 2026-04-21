@@ -66,7 +66,7 @@ Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse u
 
 Im Backend können unter „Konfiguration“ alle Moodle-Einstellungen gepflegt werden. Alternativ greifen die Umgebungsvariablen `MOODLE_PATH`, `MOODLE_WEBSERVICE_URL` und `MOODLE_WEBSERVICE_TOKEN`.
 
-- **Pfad zur Moodle-Installation (`MOODLE_PATH`)** – Lokaler Serverpfad, damit CLI-Skripte wie `admin/tool/uploaduser/cli/uploaduser.php` gefunden werden.
+- **Pfad zur Moodle-Installation (`MOODLE_PATH`)** – Lokaler Serverpfad, damit CLI-Skripte wie `admin/tool/uploaduser/cli/uploaduser.php` sowie für die Kurskopie `course/management/cli/duplicate_course.php` (ältere Moodle-Versionen) bzw. `admin/cli/import.php` (Moodle 5.1+) gefunden werden.
 - **Webservice-URL (`MOODLE_WEBSERVICE_URL`)** – Basis-URL der Zielinstanz (z. B. `https://moodle.example.org`). Die Anwendung ergänzt automatisch den REST-Endpunkt `/webservice/rest/server.php`.
 - **Webservice-Token (`MOODLE_WEBSERVICE_TOKEN`)** – Zugriffsschlüssel eines berechtigten Webservice-Nutzers.
 
@@ -75,7 +75,7 @@ Im Backend können unter „Konfiguration“ alle Moodle-Einstellungen gepflegt 
 Nachdem die Moodle-URL hinterlegt wurde, führen folgende Schritte zu einem kompatiblen Webservice-Setup:
 
 1. **Eigene Rolle für den Webservice definieren:** Unter `Website-Administration → Nutzer*innen → Berechtigungen → Rollen verwalten` eine neue Rolle anlegen (z. B. „Webservice Synchronisation“) und mindestens die Capabilities `webservice/rest:use` sowie die für Kurs- und Teilnehmerabfragen nötigen Rechte (`moodle/course:view`, `moodle/user:viewalldetails`, `moodle/role:assign`) vergeben.
-2. **Webservice aktivieren:** Unter `Website-Administration → Plugins → Webservices → Externe Dienste` einen neuen externen Dienst anlegen oder einen vorhandenen aktivieren. Stelle sicher, dass die Funktionen `core_course_get_courses`, `core_enrol_get_enrolled_users` und `core_webservice_get_site_info` zugeordnet sind.
+2. **Webservice aktivieren:** Unter `Website-Administration → Plugins → Webservices → Externe Dienste` einen neuen externen Dienst anlegen oder einen vorhandenen aktivieren. Stelle sicher, dass die Funktionen `core_course_get_courses`, `core_course_create_courses`, `core_enrol_get_enrolled_users` und `core_webservice_get_site_info` zugeordnet sind.
 3. **Dienstnutzer anlegen:** Einen technischen Nutzer erstellen oder auswählen und ihm die zuvor definierte Rolle über die Systemebene zuweisen. Der Login dieses Kontos wird ausschließlich für API-Aufrufe genutzt.
 4. **Token generieren:** Unter `Website-Administration → Plugins → Webservices → Tokens verwalten` ein neues Token für den Dienstnutzer erzeugen und in der Anwendung hinterlegen.
 
@@ -95,6 +95,17 @@ Nach der Konfiguration erscheinen in der Teilnehmerübersicht zusätzliche Aktio
 - **Mit Moodle synchronisieren** kombiniert den bestehenden CSV-Import mit einem anschließenden Webservice-Abgleich. So werden neue Nutzer*innen angelegt, Änderungen übernommen und die hinterlegte Moodle-ID aktualisiert.
 
 Alle Aktionen werden im Audit-Log protokolliert. Fehler- und Erfolgsmeldungen erscheinen nach der Ausführung direkt in der Oberfläche.
+
+## Hinweise zur Moodle-Kurskopie (Moodle 5.1)
+
+Für das Anlegen neuer Kurse aus einer Vorlage unterstützt die Anwendung zwei Moodle-Varianten:
+
+1. **Legacy-Modus** über `course/management/cli/duplicate_course.php` (direkte Duplizierung).
+2. **Moodle-5.1-Modus** über `admin/cli/import.php`:
+   - Der Zielkurs wird bei Bedarf zuerst per Webservice (`core_course_create_courses`) angelegt.
+   - Anschließend wird der Kursinhalt per CLI-Import aus dem Quellkurs übernommen.
+
+Damit der Moodle-5.1-Modus funktioniert, müssen sowohl `MOODLE_PATH` als auch Webservice-URL und Webservice-Token gesetzt sein.
 
 ## Tests
 
