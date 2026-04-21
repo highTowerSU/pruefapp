@@ -183,7 +183,7 @@ function initialize_database(): void
     global $baseDir;
 
     $storageNamespace = app_storage_namespace();
-    $legacyNamespace = 'moodle_user_gen';
+    $legacyNamespace = 'pruefapp';
 
     $dbCandidates = [
         $baseDir . '/../../data/' . $storageNamespace . '/db.sqlite',
