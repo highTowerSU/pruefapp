@@ -78,8 +78,8 @@ function ensure_branding_seeded(array $defaults): void
         $slug = $data['slug'] ?? $key;
         $company->slug = $slug;
         $company->name = $data['company_name'] ?? ucfirst($key);
-        $company->app_title = $data['app_title'] ?? 'Kursverwaltung';
-        $company->nav_brand = $data['nav_brand'] ?? 'Kursverwaltung';
+        $company->app_title = $data['app_title'] ?? 'Prüf-Doku';
+        $company->nav_brand = $data['nav_brand'] ?? 'Prüf-Doku';
         $company->home_headline = $data['home_headline'] ?? '';
         $company->home_intro = $data['home_intro'] ?? '';
         $company->home_details = $data['home_details'] ?? '';
@@ -141,8 +141,8 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
     return [
         'key' => strtolower((string)($company->slug ?? '')) ?: 'company_' . (int)$company->id,
         'company_name' => $companyName,
-        'app_title' => (string)($company->app_title ?? 'Kursverwaltung'),
-        'nav_brand' => (string)($company->nav_brand ?? 'Kursverwaltung'),
+        'app_title' => (string)($company->app_title ?? 'Prüf-Doku'),
+        'nav_brand' => (string)($company->nav_brand ?? 'Prüf-Doku'),
         'home_headline' => (string)($company->home_headline ?? ''),
         'home_intro' => (string)($company->home_intro ?? ''),
         'home_details' => (string)($company->home_details ?? ''),
@@ -213,11 +213,11 @@ function default_branding_definitions(): array
     return [
         'bsw' => [
             'company_name' => 'BSW Consult GmbH',
-            'app_title' => 'Kursverwaltung',
-            'nav_brand' => 'Kursverwaltung',
-            'home_headline' => 'Willkommen in der Kursverwaltung der BSW Consult GmbH',
-            'home_intro' => 'Hier bündelst du das Kursmanagement der BSW Consult GmbH – von digitalen Schulungen bis zu Präsenzangeboten.',
-            'home_details' => 'Das Tool wurde als Softwareprojekt der CENEOS GmbH realisiert. Entwickelt für Firmengruppe Koenigsbl.au.',
+            'app_title' => 'Prüf-Doku',
+            'nav_brand' => 'Prüf-Doku',
+            'home_headline' => 'Willkommen in der Prüf-Doku der BSW Consult GmbH',
+            'home_intro' => 'Dokumentiere Elektroprüfungen nach DGUV Vorschrift 3 zentral und nachvollziehbar.',
+            'home_details' => 'Das Tool wurde als Softwareprojekt der CENEOS GmbH realisiert und ist für weitere Prüfkategorien wie Leitern erweiterbar.',
             'header_logo' => [
                 'path' => 'public/img/bsw-consult-logo.svg',
                 'alt' => 'BSW Consult GmbH',
@@ -239,11 +239,11 @@ function default_branding_definitions(): array
         ],
         'ceneos' => [
             'company_name' => 'CENEOS GmbH',
-            'app_title' => 'Kursverwaltung',
-            'nav_brand' => 'Kursverwaltung',
-            'home_headline' => 'Willkommen in der Kursverwaltung der CENEOS GmbH',
-            'home_intro' => 'Koordiniere interne und externe Schulungen zentral über die Plattform der CENEOS GmbH.',
-            'home_details' => 'Als Teil der Firmengruppe Koenigsbl.au kann die Lösung flexibel für weitere Gesellschaften angepasst werden. Entwickelt für Firmengruppe Koenigsbl.au.',
+            'app_title' => 'Prüf-Doku',
+            'nav_brand' => 'Prüf-Doku',
+            'home_headline' => 'Willkommen in der Prüf-Doku der CENEOS GmbH',
+            'home_intro' => 'Erfasse Elektroprüfungen nach DGUV Vorschrift 3 in einer zentralen Plattform.',
+            'home_details' => 'Als Teil der Firmengruppe Koenigsbl.au bleibt die Lösung mandantenfähig und kann später um Leitern- und weitere Prüfarten ergänzt werden.',
             'header_logo' => [
                 'path' => 'public/img/ceneos-logo.svg',
                 'alt' => 'CENEOS GmbH',
@@ -257,11 +257,11 @@ function default_branding_definitions(): array
         ],
         'koenigsblau' => [
             'company_name' => 'Koenigsbl.au',
-            'app_title' => 'Kursverwaltung',
-            'nav_brand' => 'Kursverwaltung',
-            'home_headline' => 'Willkommen in der Kursverwaltung von Koenigsbl.au',
-            'home_intro' => 'Steuere Schulungen, Projekt-Trainings und Mandantenkurse zentral für die Unternehmen der Firmengruppe Koenigsbl.au.',
-            'home_details' => 'Realisiert als Softwareprojekt der CENEOS GmbH lässt sich das Modul für alle Gesellschaften der Firmengruppe Koenigsbl.au anpassen – beispielsweise auch für die BSW Consult GmbH. Entwickelt für Firmengruppe Koenigsbl.au.',
+            'app_title' => 'Prüf-Doku',
+            'nav_brand' => 'Prüf-Doku',
+            'home_headline' => 'Willkommen in der Prüf-Doku von Koenigsbl.au',
+            'home_intro' => 'Verwalte Elektroprüfungen nach DGUV Vorschrift 3 zentral mit bestehendem Login.Koenigsbl.au-Zugang.',
+            'home_details' => 'Realisiert als Softwareprojekt der CENEOS GmbH und vorbereitet für zusätzliche Prüfdokumentationen wie Leitern, Tritte oder weitere Arbeitsmittel.',
             'header_logo' => [
                 'path' => 'public/img/koenigsblau-gruppe-logo.svg',
                 'alt' => 'Koenigsbl.au',

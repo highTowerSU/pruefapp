@@ -1,23 +1,29 @@
-# Moodle User Generator
+# Prüf-Doku App
 
 Softwareprojekt der CENEOS GmbH – entwickelt für die Firmengruppe Koenigsbl.au.
 
-Dieses Projekt stellt eine kleine Verwaltungsoberfläche bereit, mit der Kurse und Teilnehmer*innen für Moodle vorbereitet werden können. Die Anwendung basiert auf PHP, nutzt RedBeanPHP als ORM und bindet ein Keycloak/OpenID-Connect-Login ein.
+Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Prüfungen bereit. Der aktuelle Schwerpunkt liegt auf Elektroprüfungen nach DGUV Vorschrift 3. Die Anwendung basiert auf PHP, nutzt RedBeanPHP als ORM und bindet weiterhin ein Keycloak/OpenID-Connect-Login ein (u. a. `login.koenigsbl.au`).
 
 ## Features
 
 - Anmeldung per OpenID Connect (Keycloak)
-- Verwaltung von Kursen inklusive Einstellungen und Verknüpfungen
-- Import, Export und Druck von Teilnehmerlisten
-- Optionale Erfassung der zugehörigen Firma für Teilnehmer*innen
-- Generierung von Benutzernamen, Passwörtern und E-Mail-Adressen
+- Verwaltung von Prüfaufträgen inklusive Einstellungen und Verknüpfungen
+- Import, Export und Druck von Listen (z. B. Prüfobjekte/Teilnehmende)
+- Optionale Erfassung der zugehörigen Firma für Datensätze
+- Wiederverwendbare Datenflüsse für strukturierte Dokumentationsprozesse
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
-- Zentrale Hilfe- und Ablaufseite mit allen Schritten zur Kursvorbereitung
+- Zentrale Hilfe- und Ablaufseite für den Prüfprozess
 
 - Mandantenfähiges Branding inklusive Firmenverwaltung, Logo-Upload und Impressumssteuerung
 - Individuelle Navigationsfarben pro Firma
 - Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung
 - Schnellzugriff auf die persönliche Keycloak-Account-Seite über das Benutzermenü
+
+## Fachliche Ausrichtung
+
+- **Jetzt:** Dokumentation von Elektroprüfungen nach DGUV Vorschrift 3.
+- **Als Nächstes:** Erweiterung um weitere Prüfkategorien (z. B. Leitern/Tritte).
+- **Bestehend:** Die Authentifizierung über Keycloak und `login.koenigsbl.au` bleibt unverändert nutzbar.
 
 ## Rollen und Berechtigungen
 

@@ -58,7 +58,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
              alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? '')) ?>"
              class="navbar-brand-logo img-fluid" style="max-height:1.5em">
       <?php endif; ?>
-      <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Kursverwaltung') ?></span>
+      <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Prüf-Doku') ?></span>
     </a>
 
     <div class="d-flex align-items-center ms-auto gap-4 flex-wrap justify-content-end">
@@ -75,7 +75,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           }
         ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-          <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $coursesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Kurse</a>
+          <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $coursesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Prüfaufträge</a>
           <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $auditActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
           <?php if (current_user_has_role('admin')): ?>
