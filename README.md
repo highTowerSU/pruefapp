@@ -72,9 +72,19 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 Wenn mehrere PHP-Apps unter derselben Domain bzw. auf demselben Server laufen, kann die Prüf-Doku-App mit eigenen Session-Cookies und einem eigenen SQLite-Speicherbereich konfiguriert werden:
 
+- Für **pruefapp** ist bereits ein Standard hinterlegt: Ohne zusätzliche Variablen nutzt die App automatisch den Namespace `pruefapp` und leitet daraus einen stabilen Session-Cookie-Namen ab.
 - `APP_STORAGE_NAMESPACE` – Namespace für den SQLite-Ablagepfad (Standard: `pruefapp`). Die DB wird bevorzugt in `data/<namespace>/db.sqlite` gesucht/angelegt.
 - `APP_INSTANCE_ID` – Fallback für den Namespace, falls `APP_STORAGE_NAMESPACE` nicht gesetzt ist.
 - `APP_SESSION_NAME` – expliziter PHP-Session-Cookie-Name. Ohne Wert wird automatisch ein stabiler Name auf Basis des Namespace erzeugt.
+
+Beispiel (nur nötig, wenn du vom Standard `pruefapp` abweichen willst):
+
+```bash
+APP_STORAGE_NAMESPACE=pruefapp-prod
+# alternativ:
+# APP_INSTANCE_ID=pruefapp-prod
+# APP_SESSION_NAME=pruefapp_prod_session
+```
 
 ### Moodle-Verknüpfung
 

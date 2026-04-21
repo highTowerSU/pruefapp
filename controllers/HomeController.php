@@ -4,7 +4,7 @@ class HomeController
 {
     public static function index(array $params, bool $isHx): array
     {
-        // Bei HTMX-Anfragen direkt auf die Kursverwaltung umleiten
+        // Bei HTMX-Anfragen direkt auf die Prüfauftragsübersicht umleiten
         if ($isHx) {
             return [200, ['HX-Redirect' => url_for('kurse')], ''];
         }
