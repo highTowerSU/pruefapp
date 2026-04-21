@@ -503,7 +503,7 @@ class MoodleCourseService
         }
 
         if (is_array($decoded) && isset($decoded['exception'])) {
-            $message = (string) ($decoded['message'] ?? $decoded['exception']);
+            $message = $this->buildWebserviceErrorMessage($decoded);
 
             throw new \RuntimeException('Moodle-Webservice meldet einen Fehler: ' . $message);
         }
@@ -523,5 +523,27 @@ class MoodleCourseService
         }
 
         return $base . '/webservice/rest/server.php';
+    }
+
+    private function buildWebserviceErrorMessage(array $response): string
+    {
+        $exception = strtolower(trim((string) ($response['exception'] ?? '')));
+        $errorCode = strtolower(trim((string) ($response['errorcode'] ?? '')));
+        $message = trim((string) ($response['message'] ?? ''));
+
+        if ($message === '') {
+            $message = (string) ($response['exception'] ?? 'Unbekannter Moodle-Webservice-Fehler');
+        }
+
+        $isAccessControlError = $exception === 'require_capability_exception'
+            || str_contains($exception, 'access')
+            || str_contains($errorCode, 'access')
+            || stripos($message, 'access control exception') !== false;
+
+        if ($isAccessControlError) {
+            return $message . ' Bitte prüfe im Moodle-Token die notwendigen Rechte (z. B. core_course_get_courses, core_course_create_courses, core_course_copy_courses) und den Kontext (Kategorie/Kurs).';
+        }
+
+        return $message;
     }
 }
