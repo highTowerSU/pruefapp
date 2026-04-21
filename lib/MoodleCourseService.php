@@ -73,6 +73,15 @@ class MoodleCourseService
         return $this->moodleRoot . '/course/management/cli/duplicate_course.php';
     }
 
+    public function getImportScriptPath(): string
+    {
+        if ($this->moodleRoot === '') {
+            return '';
+        }
+
+        return $this->moodleRoot . '/admin/cli/import.php';
+    }
+
     public function getWebserviceBaseUrl(): string
     {
         return $this->webserviceBaseUrl;
@@ -95,25 +104,36 @@ class MoodleCourseService
 
     public function scriptExists(): bool
     {
-        $script = $this->getDuplicateScriptPath();
-
-        return $script !== '' && is_file($script);
+        return $this->legacyScriptExists() || $this->importScriptExists();
     }
 
     public function canDuplicate(): bool
     {
-        return $this->isConfigured() && $this->scriptExists();
+        if (!$this->isConfigured()) {
+            return false;
+        }
+
+        if ($this->legacyScriptExists()) {
+            return true;
+        }
+
+        return $this->importScriptExists() && $this->isWebserviceConfigured();
     }
 
     public function getStatus(): array
     {
-        $script = $this->getDuplicateScriptPath();
+        $legacyScript = $this->getDuplicateScriptPath();
+        $importScript = $this->getImportScriptPath();
 
         return [
             'configured' => $this->isConfigured(),
             'moodle_root' => $this->moodleRoot,
-            'script_path' => $script,
+            'script_path' => $this->legacyScriptExists() ? $legacyScript : $importScript,
             'script_exists' => $this->scriptExists(),
+            'legacy_script_path' => $legacyScript,
+            'legacy_script_exists' => $this->legacyScriptExists(),
+            'import_script_path' => $importScript,
+            'import_script_exists' => $this->importScriptExists(),
             'php_binary' => $this->phpBinary,
             'php_exists' => $this->phpBinary !== '' && is_file($this->phpBinary),
         ];
@@ -131,7 +151,7 @@ class MoodleCourseService
     public function duplicateCourse(string $sourceShortname, string $newFullname, string $newShortname, array $options = []): array
     {
         if (!$this->canDuplicate()) {
-            throw new \RuntimeException('Moodle-Kurskopie ist nicht konfiguriert oder das Skript wurde nicht gefunden.');
+            throw new \RuntimeException('Moodle-Kurskopie ist nicht konfiguriert. Benötigt wird entweder course/management/cli/duplicate_course.php oder admin/cli/import.php (mit Webservice-Zugang).');
         }
 
         $sourceShortname = trim($sourceShortname);
@@ -150,22 +170,11 @@ class MoodleCourseService
             $newFullname = $newShortname;
         }
 
-        $command = $this->buildCommand([
-            'courseshortname' => $sourceShortname,
-            'fullname' => $newFullname,
-            'shortname' => $newShortname,
-        ] + $options);
+        if ($this->legacyScriptExists()) {
+            return $this->duplicateWithLegacyScript($sourceShortname, $newFullname, $newShortname, $options);
+        }
 
-        $output = [];
-        $exitCode = 1;
-        exec($command . ' 2>&1', $output, $exitCode);
-
-        return [
-            'exit_code' => $exitCode,
-            'output' => $output,
-            'command' => $command,
-            'course_id' => $this->parseCourseIdFromOutput($output),
-        ];
+        return $this->duplicateWithImportScript($sourceShortname, $newFullname, $newShortname, $options);
     }
 
     public function fetchCourses(): array
@@ -196,6 +205,8 @@ class MoodleCourseService
                 'shortname' => (string) ($course['shortname'] ?? ''),
                 'fullname' => (string) ($course['fullname'] ?? ''),
                 'idnumber' => (string) ($course['idnumber'] ?? ''),
+                'categoryid' => isset($course['categoryid']) ? (int) $course['categoryid'] : 0,
+                'visible' => isset($course['visible']) ? (int) $course['visible'] : 1,
             ];
         }
 
@@ -290,14 +301,12 @@ class MoodleCourseService
         return $this->cachedEnrolments[$courseId];
     }
 
-    private function buildCommand(array $options): string
+    private function buildScriptCommand(string $scriptPath, array $options): string
     {
         $parts = [
             escapeshellarg($this->phpBinary),
-            escapeshellarg($this->getDuplicateScriptPath()),
+            escapeshellarg($scriptPath),
         ];
-
-        $options = $this->defaultOptions + $options;
 
         foreach ($options as $option => $value) {
             if ($value === null || $value === false) {
@@ -315,6 +324,118 @@ class MoodleCourseService
         }
 
         return implode(' ', $parts);
+    }
+
+    private function legacyScriptExists(): bool
+    {
+        $script = $this->getDuplicateScriptPath();
+
+        return $script !== '' && is_file($script);
+    }
+
+    private function importScriptExists(): bool
+    {
+        $script = $this->getImportScriptPath();
+
+        return $script !== '' && is_file($script);
+    }
+
+    private function duplicateWithLegacyScript(string $sourceShortname, string $newFullname, string $newShortname, array $options): array
+    {
+        $command = $this->buildScriptCommand(
+            $this->getDuplicateScriptPath(),
+            $this->defaultOptions + [
+                'courseshortname' => $sourceShortname,
+                'fullname' => $newFullname,
+                'shortname' => $newShortname,
+            ] + $options
+        );
+
+        $output = [];
+        $exitCode = 1;
+        exec($command . ' 2>&1', $output, $exitCode);
+
+        return [
+            'exit_code' => $exitCode,
+            'output' => $output,
+            'command' => $command,
+            'course_id' => $this->parseCourseIdFromOutput($output),
+        ];
+    }
+
+    private function duplicateWithImportScript(string $sourceShortname, string $newFullname, string $newShortname, array $options): array
+    {
+        $sourceCourse = $this->findCourseByShortname($sourceShortname);
+        if ($sourceCourse === null || empty($sourceCourse['id'])) {
+            throw new \RuntimeException('Quellkurs mit dem angegebenen Shortname wurde in Moodle nicht gefunden.');
+        }
+
+        $targetCourse = $this->findCourseByShortname($newShortname);
+        if ($targetCourse === null || empty($targetCourse['id'])) {
+            $targetCourse = $this->createCourseViaWebservice($newFullname, $newShortname, [
+                'categoryid' => (int) ($sourceCourse['categoryid'] ?? 0),
+                'visible' => isset($options['visible']) ? (int) $options['visible'] : (int) ($sourceCourse['visible'] ?? 1),
+            ]);
+        }
+
+        $targetCourseId = (int) ($targetCourse['id'] ?? 0);
+        if ($targetCourseId <= 0) {
+            throw new \RuntimeException('Zielkurs konnte nicht ermittelt oder angelegt werden.');
+        }
+
+        $command = $this->buildScriptCommand(
+            $this->getImportScriptPath(),
+            [
+                'srccourseid' => (int) $sourceCourse['id'],
+                'dstcourseid' => $targetCourseId,
+            ]
+        );
+
+        $output = [];
+        $exitCode = 1;
+        exec($command . ' 2>&1', $output, $exitCode);
+
+        return [
+            'exit_code' => $exitCode,
+            'output' => $output,
+            'command' => $command,
+            'course_id' => $targetCourseId,
+        ];
+    }
+
+    private function createCourseViaWebservice(string $fullname, string $shortname, array $options = []): array
+    {
+        $categoryId = (int) ($options['categoryid'] ?? 0);
+        if ($categoryId <= 0) {
+            $categoryId = 1;
+        }
+
+        $visible = isset($options['visible']) ? (int) $options['visible'] : 1;
+
+        $response = $this->performRestCall('core_course_create_courses', [
+            'courses' => [[
+                'fullname' => $fullname,
+                'shortname' => $shortname,
+                'categoryid' => $categoryId,
+                'visible' => $visible,
+            ]],
+        ]);
+
+        if (!is_array($response) || !isset($response[0]) || !is_array($response[0])) {
+            throw new \RuntimeException('Moodle hat beim Anlegen des Zielkurses keine verwertbare Antwort geliefert.');
+        }
+
+        $created = $response[0];
+        $this->cachedCourses = null;
+
+        return [
+            'id' => isset($created['id']) ? (int) $created['id'] : 0,
+            'shortname' => (string) ($created['shortname'] ?? $shortname),
+            'fullname' => (string) ($created['fullname'] ?? $fullname),
+            'idnumber' => (string) ($created['idnumber'] ?? ''),
+            'categoryid' => isset($created['categoryid']) ? (int) $created['categoryid'] : $categoryId,
+            'visible' => isset($created['visible']) ? (int) $created['visible'] : $visible,
+        ];
     }
 
     private function parseCourseIdFromOutput(array $output): ?int

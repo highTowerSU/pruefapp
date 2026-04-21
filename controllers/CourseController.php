@@ -296,7 +296,7 @@ class CourseController
             $moodleCourseService = new MoodleCourseService();
 
             if (!$moodleCourseService->canDuplicate()) {
-                $error = 'Der Moodle-Kurskopie-Assistent ist nicht korrekt konfiguriert. Bitte prüfe den Pfad zum Skript course/management/cli/duplicate_course.php.';
+                $error = 'Der Moodle-Kurskopie-Assistent ist nicht korrekt konfiguriert. Bitte prüfe den Moodle-Pfad (duplicate_course.php oder admin/cli/import.php) sowie ggf. die Webservice-Konfiguration.';
                 if ($isHx) {
                     return self::tableResponse(null, $error, 422);
                 }
