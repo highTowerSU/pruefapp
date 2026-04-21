@@ -5,7 +5,7 @@ $versionDisplay = app_version_display_data();
 <div class="row align-items-stretch g-4">
   <div class="col-lg-7">
     <div class="p-4 bg-body-tertiary border rounded-3 shadow-sm h-100">
-      <h2 class="h4 mb-3"><?= htmlspecialchars($branding['home_headline'] ?? 'Willkommen in der Kursverwaltung') ?></h2>
+      <h2 class="h4 mb-3"><?= htmlspecialchars($branding['home_headline'] ?? 'Willkommen in der Prüfauftragsverwaltung') ?></h2>
       <p class="mb-3 text-body-secondary">
         <?= htmlspecialchars($branding['home_intro'] ?? 'Hier dokumentierst du Prüfungen, verwaltest Prüfumfänge und hältst Nachweise revisionssicher fest.') ?>
       </p>

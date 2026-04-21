@@ -284,8 +284,8 @@ class CompanyController
         $data = [];
         $data['name'] = trim((string) ($input['name'] ?? ''));
         $data['slug'] = strtolower(trim((string) ($input['slug'] ?? '')));
-        $data['app_title'] = trim((string) ($input['app_title'] ?? '')) ?: 'Kursverwaltung';
-        $data['nav_brand'] = trim((string) ($input['nav_brand'] ?? '')) ?: 'Kursverwaltung';
+        $data['app_title'] = trim((string) ($input['app_title'] ?? '')) ?: 'Prüfauftragsverwaltung';
+        $data['nav_brand'] = trim((string) ($input['nav_brand'] ?? '')) ?: 'Prüfauftragsverwaltung';
         $data['home_headline'] = trim((string) ($input['home_headline'] ?? ''));
         $data['home_intro'] = trim((string) ($input['home_intro'] ?? ''));
         $data['home_details'] = trim((string) ($input['home_details'] ?? ''));
@@ -579,4 +579,3 @@ class CompanyController
         return dirname(__DIR__);
     }
 }
-

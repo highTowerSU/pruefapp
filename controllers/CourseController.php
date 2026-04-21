@@ -239,7 +239,7 @@ class CourseController
         ]);
 
         $body = render_template('layout.php', [
-            'title' => 'Kursverwaltung',
+            'title' => 'Prüfauftragsverwaltung',
             'content' => $content,
         ]);
 

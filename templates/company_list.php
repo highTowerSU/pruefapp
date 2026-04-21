@@ -12,7 +12,7 @@
           <div>
             <h2 class="h5 mb-2">Firmenverwaltung</h2>
             <p class="text-body-secondary mb-0">
-              Hinterlege Markenprofile samt Logos, um die Kursverwaltung optisch an eure Organisation anzupassen.
+              Hinterlege Markenprofile samt Logos, um die Prüfauftragsverwaltung optisch an eure Organisation anzupassen.
             </p>
           </div>
           <a class="btn btn-primary" href="<?= htmlspecialchars(url_for('firmen/neu'), ENT_QUOTES) ?>">
