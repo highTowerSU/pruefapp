@@ -562,6 +562,7 @@ class MoodleCourseService
         $exception = strtolower(trim((string) ($response['exception'] ?? '')));
         $errorCode = strtolower(trim((string) ($response['errorcode'] ?? '')));
         $message = trim((string) ($response['message'] ?? ''));
+        $debugInfo = trim((string) ($response['debuginfo'] ?? ''));
 
         if ($message === '') {
             $message = (string) ($response['exception'] ?? 'Unbekannter Moodle-Webservice-Fehler');
@@ -573,7 +574,23 @@ class MoodleCourseService
             || stripos($message, 'access control exception') !== false;
 
         if ($isAccessControlError) {
-            return $message . ' Bitte prüfe im Moodle-Token die notwendigen Rechte (z. B. core_course_get_courses, core_course_create_courses, core_course_copy_courses) und den Kontext (Kategorie/Kurs).';
+            $details = [];
+            if ($errorCode !== '') {
+                $details[] = 'errorcode=' . $errorCode;
+            }
+            if ($exception !== '') {
+                $details[] = 'exception=' . $exception;
+            }
+            if ($debugInfo !== '') {
+                $details[] = 'debuginfo=' . $debugInfo;
+            }
+
+            $detailsText = $details !== [] ? ' Details: ' . implode(' | ', $details) . '.' : '';
+
+            return $message
+                . $detailsText
+                . ' Bitte prüfe im Moodle-Token die notwendigen Rechte (z. B. core_course_get_courses, core_course_create_courses, core_course_copy_courses) und den Kontext (Kategorie/Kurs).'
+                . ' 5-W-Check: Wer nutzt das Token? Welche Funktionen sind dem externen Dienst zugeordnet? Wo (System/Kategorie/Kurs) sind Rechte vergeben? Wann wurde das Token zuletzt erneuert? Warum verweist der Kurs auf eine andere Kategorie als erwartet?';
         }
 
         return $message;
