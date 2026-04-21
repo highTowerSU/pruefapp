@@ -8,10 +8,10 @@
             <div>
               <div class="text-uppercase small fw-semibold mb-2">Willkommen</div>
               <h1 class="h4 fw-semibold mb-3">
-                <?= htmlspecialchars($branding['app_title'] ?? 'Kursverwaltung') ?>
+                <?= htmlspecialchars($branding['app_title'] ?? 'Prüf-Doku') ?>
               </h1>
               <p class="mb-0 text-body-secondary">
-                <?= htmlspecialchars($branding['home_intro'] ?? 'Verwalte Schulungen, Teilnehmerlisten und Einladungen an einem Ort.') ?>
+                <?= htmlspecialchars($branding['home_intro'] ?? 'Dokumentiere Prüfungen und verwalte Prüfdaten zentral an einem Ort.') ?>
               </p>
             </div>
             <?php $legal = $branding['legal'] ?? []; ?>
