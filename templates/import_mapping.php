@@ -11,7 +11,7 @@
 
 <h4>Spalten zuordnen</h4>
 <p class="text-muted">
-    Wir haben <?= count($headers) ?> Spalten in der CSV-Datei gefunden. Ordnen Sie die gewünschten Spalten den Moodle-Feldern zu.
+    Wir haben <?= count($headers) ?> Spalten in der CSV-Datei gefunden. Ordnen Sie die gewünschten Spalten den Import-Feldern zu.
     Nicht benötigte Spalten können ignoriert werden.
 </p>
 

@@ -214,6 +214,7 @@ function initialize_database(): void
 
     R::setup('sqlite:' . $dbPath);
     R::freeze(false);
+    ensure_structure_schema();
 
     if (method_exists(R::class, 'createRevisionSupport')) {
         try {
@@ -228,6 +229,29 @@ function initialize_database(): void
     }
 
     $initialized = true;
+}
+
+
+function ensure_structure_schema(): void
+{
+    $statements = [
+        'CREATE TABLE IF NOT EXISTS customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, parent_customer_id INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS site (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS building (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS floor (id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS room (id INTEGER PRIMARY KEY AUTOINCREMENT, floor_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
+        'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
+        'CREATE INDEX IF NOT EXISTS idx_building_site ON building (site_id)',
+        'CREATE INDEX IF NOT EXISTS idx_floor_building ON floor (building_id)',
+        'CREATE INDEX IF NOT EXISTS idx_room_floor ON room (floor_id)',
+        'CREATE INDEX IF NOT EXISTS idx_device_room ON device (room_id)',
+    ];
+
+    foreach ($statements as $statement) {
+        R::exec($statement);
+    }
 }
 
 function env_value(string $name): ?string

@@ -90,24 +90,6 @@ $generalError = $errors['general'] ?? '';
       <div class="invalid-feedback d-block"><?= htmlspecialchars($errors['email'], ENT_QUOTES) ?></div>
     <?php endif; ?>
   </td>
-  <td class="align-top">
-    <div class="form-control-plaintext py-0">
-      <?php if ($teilnehmer && isset($teilnehmer->moodle_user_id) && (int) $teilnehmer->moodle_user_id > 0): ?>
-        <?= (int) $teilnehmer->moodle_user_id ?>
-      <?php else: ?>
-        –
-      <?php endif; ?>
-    </div>
-  </td>
-  <td class="align-top">
-    <div class="form-control-plaintext py-0">
-      <?php if ($teilnehmer && isset($teilnehmer->moodle_last_sync_at) && $teilnehmer->moodle_last_sync_at !== ''): ?>
-        <?= htmlspecialchars(format_datetime_for_display($teilnehmer->moodle_last_sync_at), ENT_QUOTES) ?>
-      <?php else: ?>
-        –
-      <?php endif; ?>
-    </div>
-  </td>
   <?php if ($canManageParticipants): ?>
     <td class="align-top text-end">
       <div class="btn-group btn-group-sm" role="group">

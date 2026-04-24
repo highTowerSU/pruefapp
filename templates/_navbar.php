@@ -14,6 +14,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $userAdminUrl = url_for('admin/nutzer');
     $settingsUrl = url_for('admin/konfiguration');
     $helpUrl = url_for('hilfe');
+    $structureUrl = url_for('struktur');
 
     $coursesPrefix = rtrim($coursesUrl, '/');
     if ($coursesPrefix === '') {
@@ -49,6 +50,13 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         $helpActive = $currentPath === $helpUrl || strpos($currentPath, $helpPrefix . '/') === 0;
     }
 
+    $structurePrefix = rtrim($structureUrl, '/');
+    if ($structurePrefix === '') {
+        $structureActive = $currentPath === '/' || $currentPath === '';
+    } else {
+        $structureActive = $currentPath === $structureUrl || strpos($currentPath, $structurePrefix . '/') === 0;
+    }
+
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
       <?php $brandLogo = $branding['header_logo']['path'] ?? ''; ?>
@@ -76,6 +84,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($coursesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $coursesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Prüfaufträge</a>
+          <a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $structureActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Struktur</a>
           <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $auditActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Audit-Log</a>
           <?php if (current_user_has_role('admin')): ?>
