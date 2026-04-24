@@ -2,7 +2,7 @@
     <h4>CSV-Datei hochladen</h4>
     <div class="mb-3">
         <input type="file" name="csv" class="form-control">
-        <small class="form-text text-muted">Nach dem Upload können Sie die Spalten den Moodle-Feldern zuordnen.</small>
+        <small class="form-text text-muted">Nach dem Upload können Sie die Spalten den Import-Feldern zuordnen.</small>
     </div>
 
     <div class="mb-3">

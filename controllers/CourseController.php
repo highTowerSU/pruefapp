@@ -1,7 +1,5 @@
 <?php
 
-require_once __DIR__ . '/../lib/MoodleCourseService.php';
-
 use \RedBeanPHP\R as R;
 
 class CourseController
@@ -21,18 +19,9 @@ class CourseController
             $previousEmail = (bool) ($kurs->feld_email_aktiv ?? false);
             $previousGeburtsort = (bool) ($kurs->feld_geburtsort_aktiv ?? false);
             $previousFirma = (bool) ($kurs->feld_firma_aktiv ?? false);
-            $previousShortname = trim((string) ($kurs->moodle_course_shortname ?? ''));
-            $previousFullname = trim((string) ($kurs->moodle_course_fullname ?? ''));
-
             $kurs->feld_email_aktiv = isset($_POST['feld_email_aktiv']) ? 1 : 0;
             $kurs->feld_geburtsort_aktiv = isset($_POST['feld_geburtsort_aktiv']) ? 1 : 0;
             $kurs->feld_firma_aktiv = isset($_POST['feld_firma_aktiv']) ? 1 : 0;
-
-            $newShortname = trim((string) ($_POST['moodle_course_shortname'] ?? ''));
-            $newFullname = trim((string) ($_POST['moodle_course_fullname'] ?? ''));
-
-            $kurs->moodle_course_shortname = $newShortname !== '' ? $newShortname : null;
-            $kurs->moodle_course_fullname = $newFullname !== '' ? $newFullname : null;
 
             R::store($kurs);
 
@@ -50,16 +39,6 @@ class CourseController
             if ($previousFirma !== (bool) $kurs->feld_firma_aktiv) {
                 $changes['feld_firma_aktiv_alt'] = $previousFirma;
                 $changes['feld_firma_aktiv_neu'] = (bool) $kurs->feld_firma_aktiv;
-            }
-
-            if ($previousShortname !== $newShortname) {
-                $changes['moodle_course_shortname_alt'] = $previousShortname;
-                $changes['moodle_course_shortname_neu'] = $newShortname;
-            }
-
-            if ($previousFullname !== $newFullname) {
-                $changes['moodle_course_fullname_alt'] = $previousFullname;
-                $changes['moodle_course_fullname_neu'] = $newFullname;
             }
 
             if ($changes !== []) {
@@ -229,13 +208,10 @@ class CourseController
         }
 
         $kurse = self::allCourses();
-        $moodleOptions = self::moodleCourseOptions();
         $content = render_template('kurs_liste.php', [
             'kurse' => $kurse,
             'message' => null,
             'error' => null,
-            'moodleCourseOptions' => $moodleOptions['options'],
-            'moodleCourseError' => $moodleOptions['error'],
         ]);
 
         $body = render_template('layout.php', [
@@ -269,99 +245,8 @@ class CourseController
             return [303, ['Location' => url_for('kurse')], ''];
         }
 
-        $moodleCopyRequested = isset($_POST['moodle_copy']) && $_POST['moodle_copy'] !== '';
-        $moodleTemplateShortname = trim((string) ($_POST['moodle_template_shortname'] ?? ''));
-        $moodleTargetShortname = trim((string) ($_POST['moodle_new_shortname'] ?? ''));
-        $moodleTargetFullname = trim((string) ($_POST['moodle_new_fullname'] ?? ''));
-        $moodleVisible = isset($_POST['moodle_visible']) ? 1 : 0;
-
-        if ($moodleCopyRequested && $moodleTargetFullname === '') {
-            $moodleTargetFullname = $kursname;
-        }
-
-        $moodleCopyMessage = '';
-        $moodleCourseId = null;
-
-        if ($moodleCopyRequested) {
-            if ($moodleTemplateShortname === '' || $moodleTargetShortname === '') {
-                $error = 'Bitte gib sowohl den Quellkurs als auch den neuen Moodle-Shortname an.';
-                if ($isHx) {
-                    return self::tableResponse(null, $error, 422);
-                }
-
-                $_SESSION['fehlermeldung'] = $error;
-                return [303, ['Location' => url_for('kurse')], ''];
-            }
-
-            $moodleCourseService = new MoodleCourseService();
-
-            if (!$moodleCourseService->canDuplicate()) {
-                $error = 'Der Moodle-Kurskopie-Assistent ist nicht korrekt konfiguriert. Bitte prüfe den Moodle-Pfad (duplicate_course.php oder admin/cli/import.php) sowie ggf. die Webservice-Konfiguration.';
-                if ($isHx) {
-                    return self::tableResponse(null, $error, 422);
-                }
-
-                $_SESSION['fehlermeldung'] = $error;
-                return [303, ['Location' => url_for('kurse')], ''];
-            }
-
-            try {
-                $result = $moodleCourseService->duplicateCourse(
-                    $moodleTemplateShortname,
-                    $moodleTargetFullname,
-                    $moodleTargetShortname,
-                    ['visible' => $moodleVisible ? 1 : 0]
-                );
-            } catch (\Throwable $exception) {
-                $error = 'Moodle-Kurs konnte nicht kopiert werden: ' . $exception->getMessage();
-                if ($isHx) {
-                    return self::tableResponse(null, $error, 422);
-                }
-
-                $_SESSION['fehlermeldung'] = $error;
-                return [303, ['Location' => url_for('kurse')], ''];
-            }
-
-            if ((int) $result['exit_code'] !== 0) {
-                $output = !empty($result['output']) ? ' Ausgabe: ' . implode(' ', array_map('trim', $result['output'])) : '';
-                $error = 'Moodle-Kurskopie fehlgeschlagen. Rückgabecode: ' . $result['exit_code'] . '.' . $output;
-                if ($isHx) {
-                    return self::tableResponse(null, $error, 422);
-                }
-
-                $_SESSION['fehlermeldung'] = $error;
-                return [303, ['Location' => url_for('kurse')], ''];
-            }
-
-            $moodleCourseId = $result['course_id'] ?? null;
-            $moodleCopyMessage = sprintf(
-                ' Moodle-Kurs "%s" wurde aus "%s" kopiert.',
-                $moodleTargetShortname,
-                $moodleTemplateShortname
-            );
-
-            if (!empty($result['output'])) {
-                $trimmed = trim(implode(' ', array_map('trim', $result['output'])));
-                if ($trimmed !== '') {
-                    $moodleCopyMessage .= ' ' . $trimmed;
-                }
-            }
-        }
-
         $kurs = R::dispense('kurs');
         $kurs->name = $kursname;
-        if ($moodleTargetShortname !== '') {
-            $kurs->moodle_course_shortname = $moodleTargetShortname;
-        }
-        if ($moodleCopyRequested && $moodleTemplateShortname !== '') {
-            $kurs->moodle_template_shortname = $moodleTemplateShortname;
-        }
-        if ($moodleTargetFullname !== '') {
-            $kurs->moodle_course_fullname = $moodleTargetFullname;
-        }
-        if ($moodleCourseId !== null) {
-            $kurs->moodle_course_id = (int) $moodleCourseId;
-        }
         R::store($kurs);
 
         audit_log('kurs_angelegt', [
@@ -369,7 +254,7 @@ class CourseController
             'kurs_name' => $kursname,
         ]);
 
-        $successMessage = sprintf('Kurs "%s" wurde angelegt.', $kursname) . $moodleCopyMessage;
+        $successMessage = sprintf('Kurs "%s" wurde angelegt.', $kursname);
         if ($isHx) {
             return self::tableResponse($successMessage);
         }
@@ -511,90 +396,6 @@ class CourseController
         unset($companies);
 
         return $result;
-    }
-
-    private static function moodleCourseOptions(): array
-    {
-        $options = [];
-        $error = null;
-
-        $appendOption = static function (array $candidate) use (&$options): void {
-            $shortname = trim((string) ($candidate['shortname'] ?? ''));
-            $fullname = trim((string) ($candidate['fullname'] ?? ''));
-            $identifier = strtolower($shortname !== '' ? $shortname : $fullname);
-
-            if ($identifier === '') {
-                $identifier = isset($candidate['id']) ? 'id:' . (int) $candidate['id'] : spl_object_id((object) $candidate);
-            }
-
-            if (isset($options[$identifier])) {
-                return;
-            }
-
-            $displayParts = array_filter([
-                $shortname !== '' ? $shortname : null,
-                $fullname !== '' ? $fullname : null,
-            ]);
-
-            if ($displayParts === []) {
-                $displayParts[] = trim((string) ($candidate['name'] ?? ''));
-            }
-
-            $candidate['display'] = implode(' · ', array_filter($displayParts));
-            if ($candidate['display'] === '') {
-                $candidate['display'] = $shortname !== '' ? $shortname : ($fullname !== '' ? $fullname : 'Kurs');
-            }
-
-            $options[$identifier] = $candidate;
-        };
-
-        try {
-            $service = new MoodleCourseService();
-            if ($service->isWebserviceConfigured()) {
-                foreach ($service->fetchCourses() as $course) {
-                    $id = isset($course['id']) ? (int) $course['id'] : 0;
-                    if ($id === 1) { // Moodle-Frontpage auslassen
-                        continue;
-                    }
-
-                    $appendOption([
-                        'id' => $id,
-                        'name' => (string) ($course['fullname'] ?? ''),
-                        'shortname' => (string) ($course['shortname'] ?? ''),
-                        'fullname' => (string) ($course['fullname'] ?? ''),
-                        'origin' => 'remote',
-                    ]);
-                }
-            }
-        } catch (\Throwable $exception) {
-            $error = $exception->getMessage();
-        }
-
-        $rows = R::getAll(
-            'SELECT id, name, moodle_course_shortname, moodle_course_fullname'
-            . ' FROM kurs WHERE TRIM(COALESCE(moodle_course_shortname, "")) <> "" ORDER BY name'
-        );
-
-        foreach ($rows as $row) {
-            $appendOption([
-                'id' => (int) ($row['id'] ?? 0),
-                'name' => (string) ($row['name'] ?? ''),
-                'shortname' => (string) ($row['moodle_course_shortname'] ?? ''),
-                'fullname' => (string) ($row['moodle_course_fullname'] ?? ''),
-                'origin' => 'local',
-            ]);
-        }
-
-        $list = array_values($options);
-
-        usort($list, static function (array $left, array $right): int {
-            return strcasecmp((string) ($left['display'] ?? ''), (string) ($right['display'] ?? ''));
-        });
-
-        return [
-            'options' => $list,
-            'error' => $error,
-        ];
     }
 
     private static function tableResponse(?string $message = null, ?string $error = null, int $status = 200): array
