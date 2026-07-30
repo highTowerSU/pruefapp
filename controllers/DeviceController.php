@@ -26,7 +26,8 @@ class DeviceController
             ];
             $roomLabels[(int) $room->id] = implode(' · ', array_filter($tokens));
         }
-        $perPage = in_array((int) ($_GET['per_page'] ?? 50), [25, 50, 100, 200], true) ? (int) $_GET['per_page'] : 50;
+        $requestedPerPage = (int) ($_GET['per_page'] ?? 50);
+        $perPage = in_array($requestedPerPage, [25, 50, 100, 200], true) ? $requestedPerPage : 50;
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $query = trim((string) ($_GET['q'] ?? ''));
         $year = trim((string) ($_GET['year'] ?? ''));
