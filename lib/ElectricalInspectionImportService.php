@@ -258,10 +258,11 @@ final class ElectricalInspectionImportService
         $roomBean = $this->ensureImportedRoom($record, $room);
         if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         $preferredName = trim((string) ($record['device_type'] ?? $record['device_model'] ?? ''));
+        if ($this->isProtectionClass($preferredName)) $preferredName = '';
         $currentName = trim((string) ($device->name ?? ''));
         $legacyModelName = trim((string) ($record['device_model'] ?? ''));
         if ($preferredName !== '' && ($currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
-        if (trim((string) ($device->name ?? '')) === '') $device->name = 'Gerät ' . ($external ?: $slot);
+        if (trim((string) ($device->name ?? '')) === '' || $this->isProtectionClass((string) $device->name)) $device->name = 'Gerät ' . ($external ?: $slot);
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
             if (!empty($record[$source])) $device->$target = $this->importValue((string) $record[$source]);
         }
@@ -391,6 +392,11 @@ final class ElectricalInspectionImportService
     private function importValue(string $value): string
     {
         return strtolower(trim($value)) === 'n.e.' ? 'nicht erkennbar' : trim($value);
+    }
+
+    private function isProtectionClass(string $value): bool
+    {
+        return in_array(mb_strtolower(trim($value)), ['klasse i', 'klasse ii', 'kabel'], true);
     }
 
     private function indexReports(string $root, bool $recursive = true): void
