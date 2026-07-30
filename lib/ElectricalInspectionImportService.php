@@ -27,15 +27,17 @@ final class ElectricalInspectionImportService
      */
     public function importDirectory(string $directory): array
     {
-        $directory = realpath($directory) ?: '';
-        if ($directory === '' || !is_dir($directory)) {
-            throw new InvalidArgumentException('Importverzeichnis wurde nicht gefunden.');
+        $source = realpath($directory) ?: '';
+        if ($source === '' || (!is_dir($source) && !is_file($source))) {
+            throw new InvalidArgumentException('Importverzeichnis oder Importdatei wurde nicht gefunden.');
         }
-
-        $this->indexReports($directory);
+        $root = is_dir($source) ? $source : dirname($source);
+        $this->indexReports($root);
         $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
-        foreach ($iterator as $file) {
+        $files = is_file($source)
+            ? [new SplFileInfo($source)]
+            : new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
             if (!$file->isFile()) continue;
             $extension = strtolower($file->getExtension());
             if (!in_array($extension, ['json', 'jsonl', 'csv'], true)) continue;
@@ -43,8 +45,8 @@ final class ElectricalInspectionImportService
             $stats['files']++;
             try {
                 $result = $extension === 'json'
-                    ? $this->importJsonFile($file->getPathname(), $directory, $extension === 'jsonl')
-                    : $this->importCsvFile($file->getPathname(), $directory);
+                    ? $this->importJsonFile($file->getPathname(), $root, $extension === 'jsonl')
+                    : $this->importCsvFile($file->getPathname(), $root);
                 foreach ($result as $key => $value) $stats[$key] += $value;
             } catch (Throwable $exception) {
                 $stats['errors'][] = $file->getPathname() . ': ' . $exception->getMessage();
