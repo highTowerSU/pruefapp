@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use RedBeanPHP\R as R;
 use Ceneos\PhpBase\Tenant\TenantRepository;
 
 class TenantController
@@ -99,14 +98,11 @@ class TenantController
             return [404, [], '<h1>404 – Mandant nicht gefunden</h1>'];
         }
 
-        R::begin();
         try {
             $company->is_default = 1;
             $company->updated_at = date('c');
             $repository->applySelections($company, true, false);
-            R::commit();
         } catch (\Throwable $throwable) {
-            R::rollback();
             $_SESSION['fehlermeldung'] = 'Standardmandant konnte nicht gesetzt werden: ' . $throwable->getMessage();
 
             return [303, ['Location' => url_for('mandanten')], ''];
@@ -144,7 +140,7 @@ class TenantController
 
         $details = self::mapCompany($company);
 
-        R::trash($company);
+        $repository->delete($company);
 
         audit_log('firma_geloescht', [
             'firma_id' => $details['id'],
@@ -163,7 +159,8 @@ class TenantController
         }
 
         $isNew = $company === null;
-        $company = $company ?? R::dispense('company');
+        $repository = new TenantRepository();
+        $company = $company ?? $repository->dispense();
         $errors = [];
 
         $data = null;
@@ -209,13 +206,9 @@ class TenantController
                     $company->is_default = $isDefault ? 1 : (int) $company->is_default;
                     $company->is_login_brand = $isLoginBrand ? 1 : (int) ($company->is_login_brand ?? 0);
 
-                    R::begin();
                     try {
-                        (new TenantRepository())->applySelections($company, $isDefault, $isLoginBrand);
-
-                        R::commit();
+                        $repository->applySelections($company, $isDefault, $isLoginBrand);
                     } catch (\Throwable $throwable) {
-                        R::rollback();
                         $errors[] = 'Speichern fehlgeschlagen: ' . $throwable->getMessage();
                     }
 
@@ -319,7 +312,7 @@ class TenantController
         } elseif (!preg_match('/^[a-z0-9\-]+$/', $data['slug'])) {
             $errors[] = 'Der Kurznamen darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten.';
         } else {
-            $existing = R::findOne('company', ' LOWER(slug) = ? AND id != ? ', [$data['slug'], (int) $company->id]);
+            $existing = (new TenantRepository())->findBySlug($data['slug'], (int) $company->id);
             if ($existing !== null) {
                 $errors[] = 'Es existiert bereits ein Mandant mit diesem Kurznamen.';
             }

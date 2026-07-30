@@ -6,6 +6,7 @@ use RedBeanPHP\R as R;
 use Ceneos\PhpBase\Audit\AuditTrailRepository;
 use Ceneos\PhpBase\Audit\RevisionHistory;
 use Ceneos\PhpBase\Database\RevisionSupport;
+use Ceneos\PhpBase\Tenant\TenantRepository;
 
 class AdminController
 {
@@ -84,7 +85,12 @@ class AdminController
     {
         $requestedPage = isset($_GET['page']) ? (int) $_GET['page'] : 1;
         $events = (new AuditTrailRepository())->paginateEvents($requestedPage, 50);
-        $revisions = (new RevisionHistory())->latest(RevisionSupport::enabledTables(), 100);
+        $revisions = array_merge(
+            (new RevisionHistory())->latest(RevisionSupport::enabledTables(), 100),
+            (new TenantRepository())->latestRevisions(100)
+        );
+        usort($revisions, static fn(array $a, array $b): int => strcmp($b['timestamp'], $a['timestamp']));
+        $revisions = array_slice($revisions, 0, 100);
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],

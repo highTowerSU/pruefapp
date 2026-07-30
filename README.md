@@ -101,6 +101,9 @@ Wenn mehrere PHP-Apps unter derselben Domain bzw. auf demselben Server laufen, k
 
 Diese Werte werden als weitere Einträge im zurückgegebenen PHP-Array gepflegt.
 
+`APP_TENANT_DATABASE_PATH` verweist in beiden Apps auf dieselbe
+Mandanten-Datenbank, empfohlen ist `/var/www/data/ceneos/tenants.sqlite`.
+
 ### Mandanten & Branding
 
 Unter **Mandanten & Branding** werden Logo, Seitentitel, Navigationsfarben und

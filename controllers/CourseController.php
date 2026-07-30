@@ -1,6 +1,7 @@
 <?php
 
 use \RedBeanPHP\R as R;
+use Ceneos\PhpBase\Tenant\TenantRepository;
 
 class CourseController
 {
@@ -79,7 +80,7 @@ class CourseController
             if ($action === 'create') {
                 $bezeichnung = trim($_POST['name'] ?? '');
                 $companyId = (int) ($_POST['company_id'] ?? 0);
-                $company = $companyId > 0 ? R::load('company', $companyId) : null;
+                $company = (new TenantRepository())->find($companyId);
 
                 if ($company === null || !$company->id) {
                     $_SESSION['fehlermeldung'] = 'Bitte wähle eine Firma für das Link-Branding aus.';
@@ -162,7 +163,7 @@ class CourseController
                 } elseif ($action === 'rename') {
                     $bezeichnung = trim($_POST['name'] ?? '');
                     $companyId = (int) ($_POST['company_id'] ?? 0);
-                    $company = $companyId > 0 ? R::load('company', $companyId) : null;
+                    $company = (new TenantRepository())->find($companyId);
                     if ($company === null || !$company->id) {
                         $_SESSION['fehlermeldung'] = 'Bitte wähle eine Firma für das Link-Branding aus.';
                         return [303, ['Location' => url_for('kurse/' . $kurs->id . '/link')], ''];

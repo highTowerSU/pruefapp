@@ -248,7 +248,6 @@ function initialize_database(): void
 
     RevisionSupport::enableFor(
         [
-            'company',
             'nutzer',
             'kurs',
             'teilnehmer',

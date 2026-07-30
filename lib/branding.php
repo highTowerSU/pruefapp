@@ -31,7 +31,7 @@ function get_branding(): array
     $brandBean = null;
 
     if ($brandKey !== '') {
-        $brandBean = R::findOne(TenantRepository::TABLE, ' LOWER(slug) = ? ', [$brandKey]);
+        $brandBean = (new TenantRepository())->findBySlug($brandKey);
     }
 
     if ($brandBean === null) {
@@ -39,7 +39,7 @@ function get_branding(): array
     }
 
     if ($brandBean === null) {
-        $brandBean = R::findOne(TenantRepository::TABLE);
+        $brandBean = (new TenantRepository())->first();
     }
 
     if ($brandBean !== null) {
@@ -99,54 +99,7 @@ function ensure_branding_seeded(array $defaults): void
         return;
     }
 
-    if (!R::testConnection()) {
-        $seeded = true;
-
-        return;
-    }
-
-    if (R::count('company') > 0) {
-        $seeded = true;
-
-        return;
-    }
-
-    foreach ($defaults as $key => $data) {
-        $company = R::dispense('company');
-        $slug = $data['slug'] ?? $key;
-        $company->slug = $slug;
-        $company->name = $data['company_name'] ?? ucfirst($key);
-        $company->app_title = $data['app_title'] ?? 'Prüf-Doku';
-        $company->nav_brand = $data['nav_brand'] ?? 'Prüf-Doku';
-        $company->home_headline = $data['home_headline'] ?? '';
-        $company->home_intro = $data['home_intro'] ?? '';
-        $company->home_details = $data['home_details'] ?? '';
-        $company->header_logo_path = $data['header_logo']['path'] ?? '';
-        $company->header_logo_alt = $data['header_logo']['alt'] ?? ($company->name ?? '');
-        $navColors = $data['nav_colors'] ?? [];
-        $company->nav_background_color = $navColors['background'] ?? '';
-        $company->nav_text_color = $navColors['text'] ?? '';
-        $legal = $data['legal'] ?? [];
-        $company->legal_impressum_label = $legal['impressum']['label'] ?? '';
-        $company->legal_impressum_url = $legal['impressum']['url'] ?? '';
-        $company->legal_privacy_label = $legal['privacy']['label'] ?? '';
-        $company->legal_privacy_url = $legal['privacy']['url'] ?? '';
-        $company->is_default = !empty($data['is_default']) ? 1 : 0;
-        $company->is_login_brand = !empty($data['is_default']) ? 1 : 0;
-        $company->created_at = date('c');
-        $company->updated_at = date('c');
-        R::store($company);
-    }
-
-    // Falls keine Standardfirma markiert wurde, die erste als Standard setzen.
-    $defaultCount = R::count('company', ' is_default = 1 ');
-    if ($defaultCount === 0) {
-        $first = R::findOne('company');
-        if ($first !== null) {
-            $first->is_default = 1;
-            R::store($first);
-        }
-    }
+    (new TenantRepository())->seed($defaults);
 
     $seeded = true;
 }
@@ -155,7 +108,7 @@ function ensure_company_branding_schema(): void
 {
     static $ready = false;
 
-    if ($ready || !R::testConnection() || !R::getWriter()->tableExists(TenantRepository::TABLE)) {
+    if ($ready) {
         return;
     }
 
