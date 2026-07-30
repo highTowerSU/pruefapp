@@ -26,7 +26,12 @@ class DeviceController
             ];
             $roomLabels[(int) $room->id] = implode(' · ', array_filter($tokens));
         }
-        $devices = array_values(R::findAll('device', ' ORDER BY name '));
+        $perPage = 50;
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $total = (int) R::count('device');
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $devices = array_values(R::findAll('device', ' ORDER BY name LIMIT ? OFFSET ? ', [$perPage, ($page - 1) * $perPage]));
         $inspections = [];
         foreach ($devices as $device) {
             $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
@@ -40,6 +45,9 @@ class DeviceController
                 'roomLabels' => $roomLabels,
                 'canManage' => current_user_can_manage_courses(),
                 'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
             ]),
         ])];
     }

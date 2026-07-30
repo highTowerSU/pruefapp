@@ -18,6 +18,7 @@ $form = static function ($device = null) use ($rooms, $roomLabels): void {
 <?php }; ?>
 
 <?php if ($canManage): ?><div class="card mb-4"><div class="card-header"><strong>Neues Gerät</strong></div><div class="card-body"><?php $form(); ?></div></div><?php endif; ?>
+<p class="small text-body-secondary"><?= (int) $total ?> Geräte · Seite <?= (int) $page ?> von <?= (int) $pages ?></p>
 <div class="vstack gap-3">
 <?php foreach ($devices as $device): $deviceInspections = $inspections[(int) $device->id] ?? []; ?>
   <?php $roomLabel = $roomLabels[(int) $device->room_id] ?? ''; $roomLabel = $roomLabel !== '' ? $roomLabel : (trim((string) ($device->room_snapshot ?? '')) !== '' ? 'historischer Raum ' . (string) $device->room_snapshot : 'ohne Raum'); ?>
@@ -29,3 +30,4 @@ $form = static function ($device = null) use ($rooms, $roomLabels): void {
   </details>
 <?php endforeach; ?>
 </div>
+<?php if ($pages > 1): ?><nav aria-label="Geräteseiten" class="mt-4"><ul class="pagination justify-content-center flex-wrap"><li class="page-item<?= $page <= 1 ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?page=' . max(1, $page - 1)), ENT_QUOTES) ?>">Zurück</a></li><?php for ($number = 1; $number <= $pages; $number++): ?><?php if ($number === 1 || $number === $pages || abs($number - $page) <= 2): ?><li class="page-item<?= $number === $page ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?page=' . $number), ENT_QUOTES) ?>"><?= $number ?></a></li><?php elseif ($number === 2 || $number === $pages - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?><?php endfor; ?><li class="page-item<?= $page >= $pages ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?page=' . min($pages, $page + 1)), ENT_QUOTES) ?>">Weiter</a></li></ul></nav><?php endif; ?>
