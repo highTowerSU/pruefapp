@@ -165,9 +165,9 @@ alte Nummer und Speicherplatz bleiben am Gerät erhalten; jede Prüfung wird
 separat mit Datum, Messwerten, Rohdaten und optionalem PDF-Bericht gespeichert.
 Für den alten Bestand kann einmalig eine transportable JSONL-Datei erzeugt werden:
 `php bin/build_legacy_import.php /pfad/zu/2023-2024 altbestand-import.jsonl`.
-Auf dem Server wird diese Datei mit demselben Importbefehl eingelesen. Die
-historischen PDF-Dateien müssen für eine Berichtzuordnung zusätzlich im selben
-Importverzeichnis (oder einem Unterverzeichnis) liegen.
+Auf dem Server wird diese Datei mit demselben Importbefehl eingelesen. Ein
+separater PDF-Quellordner kann als zweites Argument angegeben werden, zum
+Beispiel `php bin/import_electro.php /tmp/altbestand-import.jsonl /var/www/berichte`.
 
 ## Tests
 

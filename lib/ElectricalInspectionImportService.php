@@ -25,14 +25,15 @@ final class ElectricalInspectionImportService
     /**
      * @return array{files:int, imported:int, updated:int, devices:int, reports:int, skipped:int, errors:list<string>}
      */
-    public function importDirectory(string $directory): array
+    public function importDirectory(string $directory, ?string $reportsDirectory = null): array
     {
         $source = realpath($directory) ?: '';
         if ($source === '' || (!is_dir($source) && !is_file($source))) {
             throw new InvalidArgumentException('Importverzeichnis oder Importdatei wurde nicht gefunden.');
         }
         $root = is_dir($source) ? $source : dirname($source);
-        $this->indexReports($root, is_dir($source));
+        $reportRoot = $reportsDirectory !== null && is_dir($reportsDirectory) ? realpath($reportsDirectory) : $root;
+        $this->indexReports($reportRoot ?: $root, $reportsDirectory !== null || is_dir($source));
         $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
         $files = is_file($source)
             ? [new SplFileInfo($source)]
