@@ -115,6 +115,8 @@ $form = static function (string $type, $entity = null) use (
         'area' => ['route' => 'struktur/bereiche', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor', 'parent_label' => 'Etage'],
         'room' => ['route' => 'struktur/raeume', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor', 'parent_label' => 'Etage'],
     ][$type];
+    $metadataValue = trim((string) ($entity->metadata_json ?? ''));
+    if ($metadataValue === '{}') $metadataValue = '';
 ?>
 <form method="post" action="<?= htmlspecialchars(url_for($config['route']), ENT_QUOTES) ?>" class="row g-2">
   <input type="hidden" name="id" value="<?= (int) $entity->id ?>">
@@ -151,7 +153,7 @@ $form = static function (string $type, $entity = null) use (
   <?php endif; ?>
   <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Kurze fachliche Beschreibung des Eintrags"><?= htmlspecialchars((string) $entity->description) ?></textarea><div class="form-text">Wird direkt in der Strukturübersicht angezeigt, maximal 240 Zeichen.</div></div>
   <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
-  <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars((string) ($entity->metadata_json ?: '{}')) ?></textarea></div>
+  <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
   <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
 </form>
 <?php };
