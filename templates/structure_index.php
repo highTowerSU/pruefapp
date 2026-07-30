@@ -11,6 +11,21 @@ $sitesById = $byId($sites);
 $buildingsById = $byId($buildings);
 $floorsById = $byId($floors);
 $areasById = $byId($areas);
+$customerScopeByOwner = [];
+foreach ($customers as $customer) {
+    $descendantId = (int) $customer->id;
+    $lineage = [];
+    $currentId = $descendantId;
+    $seen = [];
+    while ($currentId > 0 && !isset($seen[$currentId])) {
+        $seen[$currentId] = true;
+        $lineage[] = $currentId;
+        $currentId = (int) ($customersById[$currentId]->parent_customer_id ?? 0);
+    }
+    foreach ($lineage as $ownerId) {
+        $customerScopeByOwner[$ownerId][] = $descendantId;
+    }
+}
 
 $siteCountByCustomer = [];
 foreach ($sites as $site) {
@@ -44,7 +59,7 @@ $floorDisplayLabel = static function ($floor, $building): string {
 };
 
 $filterContext = static function (string $type, $item) use (
-    $customersById, $sitesById, $buildingsById, $floorsById
+    $customersById, $sitesById, $buildingsById, $floorsById, $customerScopeByOwner
 ): array {
     $customerId = $siteId = $buildingId = $floorId = 0;
     if ($type === 'customer') {
@@ -76,7 +91,7 @@ $filterContext = static function (string $type, $item) use (
         (string) ($floorsById[$floorId]->name ?? ''),
     ];
     return [
-        'customer' => $customerId, 'site' => $siteId,
+        'customer' => implode(' ', $customerScopeByOwner[$customerId] ?? [$customerId]), 'site' => $siteId,
         'building' => $buildingId, 'floor' => $floorId,
         'search' => strtolower(implode(' ', $searchParts)),
     ];
@@ -84,9 +99,9 @@ $filterContext = static function (string $type, $item) use (
 $filterAttributes = static function (string $type, $item) use ($filterContext): string {
     $context = $filterContext($type, $item);
     return sprintf(
-        'data-type="%s" data-customer="%d" data-site="%d" data-building="%d" data-floor="%d" data-search="%s"',
+        'data-type="%s" data-customer="%s" data-site="%d" data-building="%d" data-floor="%d" data-search="%s"',
         htmlspecialchars($type, ENT_QUOTES),
-        $context['customer'], $context['site'], $context['building'], $context['floor'],
+        htmlspecialchars($context['customer'], ENT_QUOTES), $context['site'], $context['building'], $context['floor'],
         htmlspecialchars($context['search'], ENT_QUOTES)
     );
 };
@@ -268,7 +283,7 @@ $section = static function (string $title, string $type, array $items) use ($for
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureSite">Standort</label>
-        <select class="form-select structure-filter-select" id="structureSite" data-search-select data-placeholder="Standort suchen"><option value="">Alle</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>" data-customer="<?= (int) $site->customer_id ?>"><?= htmlspecialchars($optionLabel($site, 'site')) ?></option><?php endforeach; ?></select>
+        <select class="form-select structure-filter-select" id="structureSite" data-search-select data-placeholder="Standort suchen"><option value="">Alle</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>" data-customer="<?= htmlspecialchars(implode(' ', $customerScopeByOwner[(int) $site->customer_id] ?? [(int) $site->customer_id]), ENT_QUOTES) ?>"><?= htmlspecialchars($optionLabel($site, 'site')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureBuilding">Gebäude</label>
@@ -364,6 +379,8 @@ $section = static function (string $title, string $type, array $items) use ($for
   const groups = [...document.querySelectorAll('.structure-filter-group')];
   const resultCount = document.getElementById('structureResultCount');
   const noResults = document.getElementById('structureNoResults');
+  const customerMatches = (value, customer) => !customer
+    || (value || '').split(/\s+/).includes(customer);
   const setValue = (control, value) => {
     if (control.tomselect) {
       control.tomselect.setValue(value, true);
@@ -384,7 +401,7 @@ $section = static function (string $title, string $type, array $items) use ($for
   const matches = item => {
     const search = controls.search.value.trim().toLocaleLowerCase('de');
     return (!search || (item.dataset.search || '').includes(search))
-      && (!controls.customer.value || item.dataset.customer === controls.customer.value)
+      && customerMatches(item.dataset.customer, controls.customer.value)
       && (!controls.site.value || item.dataset.site === controls.site.value)
       && (!controls.building.value || item.dataset.building === controls.building.value)
       && (!controls.floor.value || item.dataset.floor === controls.floor.value);
@@ -394,7 +411,7 @@ $section = static function (string $title, string $type, array $items) use ($for
     const customer = controls.customer.value;
     [...controls.site.options].forEach(option => {
       if (!option.value) return;
-      setOptionHidden(controls.site, option, Boolean(customer && option.dataset.customer !== customer));
+      setOptionHidden(controls.site, option, !customerMatches(option.dataset.customer, customer));
     });
     if (controls.site.selectedOptions[0]?.hidden) setValue(controls.site, '');
 
@@ -402,7 +419,7 @@ $section = static function (string $title, string $type, array $items) use ($for
     [...controls.building.options].forEach(option => {
       if (!option.value) return;
       const siteOption = controls.site.querySelector(`option[value="${option.dataset.site}"]`);
-      const wrongCustomer = customer && siteOption?.dataset.customer !== customer;
+      const wrongCustomer = customer && !customerMatches(siteOption?.dataset.customer, customer);
       setOptionHidden(controls.building, option, Boolean((site && option.dataset.site !== site) || wrongCustomer));
     });
     if (controls.building.selectedOptions[0]?.hidden) setValue(controls.building, '');
@@ -414,7 +431,7 @@ $section = static function (string $title, string $type, array $items) use ($for
       setOptionHidden(controls.floor, option, Boolean(
         (building && option.dataset.building !== building)
         || (site && buildingOption?.dataset.site !== site)
-        || (customer && controls.site.querySelector(`option[value="${buildingOption?.dataset.site}"]`)?.dataset.customer !== customer)
+        || (customer && !customerMatches(controls.site.querySelector(`option[value="${buildingOption?.dataset.site}"]`)?.dataset.customer, customer))
       ));
     });
     if (controls.floor.selectedOptions[0]?.hidden) setValue(controls.floor, '');
