@@ -196,6 +196,7 @@ final class ElectricalInspectionImportService
         $inspection->source_type = $sourceType;
         $inspection->source_file = basename($sourcePath);
         $inspection->external_number = $external;
+        $inspection->legacy_number = $this->yearNumber(trim((string) ($record['legacy_number'] ?? '')), $date);
         $inspection->storage_slot = $slot;
         $inspection->test_date = $date;
         $inspection->next_due_date = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
@@ -221,8 +222,8 @@ final class ElectricalInspectionImportService
         $external = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
         $legacy = trim((string) ($record['legacy_number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
-        $device = $external !== '' ? R::findOne('device', ' external_number = ? ', [$external]) : null;
-        $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
+        $device = $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
+        $device ??= $external !== '' ? R::findOne('device', ' external_number = ? ', [$external]) : null;
         $device ??= $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
         $created = $device === null;
         $device ??= R::dispense('device');

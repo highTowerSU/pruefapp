@@ -310,6 +310,7 @@ function ensure_structure_schema(): void
         'area' => ['description' => 'TEXT NULL'],
         'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''", 'room_snapshot' => "TEXT NOT NULL DEFAULT ''", 'device_model' => 'TEXT NULL', 'manufacturer' => 'TEXT NULL', 'warming_device' => 'INTEGER NOT NULL DEFAULT 0'],
+        'inspection' => ['legacy_number' => "TEXT NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as $table => $definitions) {
         $existing = R::getColumns($table);
