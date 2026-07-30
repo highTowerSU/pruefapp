@@ -29,6 +29,7 @@ final class InspectionController
             try {
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory);
                 $message = ($message ? $message . ' ' : '') . sprintf('%d Prüfungen importiert, %d aktualisiert, %d Geräte neu angelegt.', $stats['imported'], $stats['updated'], $stats['devices']);
+                if (!empty($stats['errors'])) $message .= ' Hinweis: ' . implode(' | ', array_slice($stats['errors'], 0, 3));
             } catch (Throwable $exception) {
                 $message = 'Import nicht möglich: ' . $exception->getMessage();
             }

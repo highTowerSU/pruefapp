@@ -48,7 +48,10 @@ final class ElectricalInspectionImportService
                 $result = in_array($extension, ['json', 'jsonl'], true)
                     ? $this->importJsonFile($file->getPathname(), $root, $extension === 'jsonl')
                     : $this->importCsvFile($file->getPathname(), $root);
-                foreach ($result as $key => $value) $stats[$key] += $value;
+                foreach ($result as $key => $value) {
+                    if ($key === 'reason') { $stats['errors'][] = $file->getPathname() . ': ' . $value; continue; }
+                    if (array_key_exists($key, $stats) && is_int($value)) $stats[$key] += $value;
+                }
             } catch (Throwable $exception) {
                 $stats['errors'][] = $file->getPathname() . ': ' . $exception->getMessage();
             }
@@ -107,11 +110,11 @@ final class ElectricalInspectionImportService
         fwrite($stream, $contents);
         rewind($stream);
         $header = fgetcsv($stream, 0, $delimiter);
-        if (!is_array($header)) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1];
+        if (!is_array($header)) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'CSV enthält keine Kopfzeile.'];
         $header = $this->uniqueHeaders($header);
         $hasBenning = $this->findColumn($header, ['speicher nr', 'speichernr', 'speicherplatz']) !== null;
         $hasLegacy = $this->findColumn($header, ['number', 'nummer', 'prüfungsnr']) !== null;
-        if (!$hasBenning && !$hasLegacy) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1];
+        if (!$hasBenning && !$hasLegacy) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'Kein Speicher-Nr.- oder Prüfnummer-Header erkannt. Die CSV ist vermutlich unvollständig oder beschädigt.'];
 
         $ods = $this->readOds($this->matchingOdsPath($path));
         $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0];
