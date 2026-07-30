@@ -134,7 +134,7 @@ $optionLabel = static function ($bean, string $type) use (
 };
 
 $summaryLabel = static function (string $type, $item): string {
-    return (string) $item->name;
+    return $type === 'room' && trim((string) ($item->number ?? '')) !== '' ? (string) $item->number : (string) $item->name;
 };
 
 $hierarchyBadges = static function (string $type, $item) use (
@@ -159,8 +159,8 @@ $hierarchyBadges = static function (string $type, $item) use (
     }
 
     $definitions = [
-        [$customer, count($customers) > 1, 'fa-users', 'text-bg-primary', 'Kunde'],
-        [$site, ($siteCountByCustomer[(int) ($site->customer_id ?? 0)] ?? 0) > 1, 'fa-location-dot', 'text-bg-info', 'Standort'],
+        [$customer, $type !== 'customer' && count($customers) > 1, 'fa-users', 'text-bg-primary', 'Kunde'],
+        [$site, $type !== 'site' && ($siteCountByCustomer[(int) ($site->customer_id ?? 0)] ?? 0) > 1, 'fa-location-dot', 'text-bg-info', 'Standort'],
         [$building, ($buildingCountBySite[(int) ($building->site_id ?? 0)] ?? 0) > 1, 'fa-building', 'text-bg-secondary', 'Gebäude'],
     ];
     $html = '';
@@ -169,7 +169,7 @@ $hierarchyBadges = static function (string $type, $item) use (
         $code = trim((string) ($bean->code ?? ''));
         if ($code === '') continue;
         $html .= sprintf(
-            '<span class="badge %s me-1" title="%s"><i class="fa-solid %s me-1" aria-hidden="true"></i>%s</span>',
+            '<span class="badge %s me-1" title="%s"><i class="fa-solid %s me-1" aria-hidden="true"></i>%s</span>&nbsp;',
             $class,
             htmlspecialchars($label . ': ' . (string) $bean->name, ENT_QUOTES),
             $icon,
@@ -250,7 +250,7 @@ $section = static function (string $title, string $type, array $items) use ($for
       <?php foreach ($items as $item): ?>
         <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
           <summary>
-            <?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
+            <?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building', 'room'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
             <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
           </summary>
           <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?>
