@@ -26,13 +26,21 @@ class SettingsController
                 if (trim((string) ($_POST['confirmation'] ?? '')) !== 'NUKE ELEKTRO') {
                     $_SESSION['fehlermeldung'] = 'Bitte zur Bestätigung exakt NUKE ELEKTRO eingeben.';
                 } else {
-                    foreach (['inspection', 'device', 'room', 'area', 'floor', 'building', 'site', 'customer'] as $table) {
+                    $scope = (string) ($_POST['scope'] ?? 'devices');
+                    $tables = match ($scope) {
+                        'structure' => ['room', 'area', 'floor', 'building', 'site', 'customer'],
+                        'all' => ['inspection', 'device', 'room', 'area', 'floor', 'building', 'site', 'customer'],
+                        default => ['inspection', 'device'],
+                    };
+                    foreach ($tables as $table) {
                         R::wipe($table);
                     }
-                    $reportRoot = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/reports';
-                    self::removeDirectoryContents($reportRoot);
-                    audit_log('elektro_daten_nuke', ['tabellen' => ['inspection', 'device', 'room', 'area', 'floor', 'building', 'site', 'customer']]);
-                    $_SESSION['meldung'] = 'Elektro-Prüfdaten, Geräte, Struktur und Berichte wurden gelöscht.';
+                    if ($scope !== 'structure') {
+                        $reportRoot = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/reports';
+                        self::removeDirectoryContents($reportRoot);
+                    }
+                    audit_log('elektro_daten_nuke', ['umfang' => $scope, 'tabellen' => $tables]);
+                    $_SESSION['meldung'] = $scope === 'all' ? 'Elektro-Prüfdaten, Geräte, Struktur und Berichte wurden gelöscht.' : ($scope === 'structure' ? 'Elektro-Struktur wurde gelöscht.' : 'Prüfungen, Geräte und Berichte wurden gelöscht.');
                 }
                 return [303, ['Location' => url_for('admin/konfiguration')], ''];
             }
