@@ -76,25 +76,42 @@ $optionLabel = static function ($bean, string $type) use (
     if ($type === 'customer') return $labelWithCode($bean);
     if ($type === 'site') {
         $customer = $customersById[(int) $bean->customer_id] ?? null;
-        return ($customer ? $contextToken($customer) . ' · ' : '') . $labelWithCode($bean);
+        return ($customer ? $contextToken($customer) . ' ' : '') . $labelWithCode($bean);
     }
     if ($type === 'building') {
         $site = $sitesById[(int) $bean->site_id] ?? null;
         $customer = $site ? ($customersById[(int) $site->customer_id] ?? null) : null;
-        return ($customer ? $contextToken($customer) . ' · ' : '')
-            . ($site ? $contextToken($site) . ' · ' : '')
+        return ($customer ? $contextToken($customer) . ' ' : '')
+            . ($site ? $contextToken($site) . ' ' : '')
             . $labelWithCode($bean);
     }
     if ($type === 'floor') {
         $building = $buildingsById[(int) $bean->building_id] ?? null;
         $site = $building ? ($sitesById[(int) $building->site_id] ?? null) : null;
         $customer = $site ? ($customersById[(int) $site->customer_id] ?? null) : null;
-        $buildingLabel = ($customer ? $contextToken($customer) . ' · ' : '')
-            . ($site ? $contextToken($site) . ' · ' : '');
+        $buildingLabel = ($customer ? $contextToken($customer) . ' ' : '')
+            . ($site ? $contextToken($site) . ' ' : '');
         return $buildingLabel . StructureController::floorIdentifier($bean, $building);
     }
     if ($type === 'area') return $labelWithCode($bean);
     return (string) $bean->name;
+};
+
+$summaryLabel = static function (string $type, $item) use (
+    $customersById, $sitesById, $contextToken
+): string {
+    if ($type === 'site') {
+        $customer = $customersById[(int) $item->customer_id] ?? null;
+        return ($customer ? $contextToken($customer) . ' ' : '') . (string) $item->name;
+    }
+    if ($type === 'building') {
+        $site = $sitesById[(int) $item->site_id] ?? null;
+        $customer = $site ? ($customersById[(int) $site->customer_id] ?? null) : null;
+        return ($customer ? $contextToken($customer) . ' ' : '')
+            . ($site ? $contextToken($site) . ' ' : '')
+            . (string) $item->name;
+    }
+    return (string) $item->name;
 };
 
 $form = static function (string $type, $entity = null) use (
@@ -158,7 +175,7 @@ $form = static function (string $type, $entity = null) use (
 </form>
 <?php };
 
-$section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes): void {
+$section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel): void {
 ?>
 <div class="card shadow-sm h-100">
   <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><?= htmlspecialchars($title) ?></h2><span class="badge text-bg-secondary" data-structure-count="<?= $type ?>"><?= count($items) ?></span></div>
@@ -168,7 +185,7 @@ $section = static function (string $title, string $type, array $items) use ($for
       <?php foreach ($items as $item): ?>
         <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
           <summary>
-            <strong><?= htmlspecialchars((string) $item->name) ?></strong><?php if (!empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
+            <strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
             <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
           </summary>
           <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?></div>
