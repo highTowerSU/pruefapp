@@ -181,6 +181,10 @@ final class ElectricalInspectionImportService
         $dedupe = hash('sha256', implode('|', [$sourceType, $external, $slot, $date, (string) ($record['result_status'] ?? '')]));
         $deviceResult = $this->findOrCreateDevice($record);
         $inspection = R::findOne('inspection', ' dedupe_key = ? ', [$dedupe]);
+        if ($inspection === null && $rawExternal !== $external) {
+            $legacyDedupe = hash('sha256', implode('|', [$sourceType, $rawExternal, $slot, $date, (string) ($record['result_status'] ?? '')]));
+            $inspection = R::findOne('inspection', ' dedupe_key = ? ', [$legacyDedupe]);
+        }
         $created = $inspection === null;
         $inspection ??= R::dispense('inspection');
         $inspection->device_id = (int) $deviceResult['device']->id;
