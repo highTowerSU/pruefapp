@@ -225,10 +225,13 @@ final class ElectricalInspectionImportService
         if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         $device->name = trim((string) ($device->name ?? '')) ?: trim((string) ($record['device_model'] ?? $record['device_type'] ?? '')) ?: ('Gerät ' . ($external ?: $slot));
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
-            if (!empty($record[$source]) && empty($device->$target)) $device->$target = (string) $record[$source];
+            if (!empty($record[$source]) && strtolower(trim((string) $record[$source])) !== 'n.e.') $device->$target = (string) $record[$source];
         }
-        if (!empty($record['device_note']) && empty($device->description)) $device->description = mb_substr(trim((string) $record['device_note']), 0, 240);
-        if (!empty($record['comment']) && empty($device->comment)) $device->comment = (string) $record['comment'];
+        $serial = trim((string) ($record['serial_number'] ?? $record['serial'] ?? ''));
+        if ($serial !== '' && strtolower($serial) !== 'n.e.') $device->serial_number = $serial;
+        $description = trim((string) ($record['free_text'] ?? $record['device_note'] ?? $record['device_type'] ?? ''));
+        if ($description !== '') $device->description = mb_substr($description, 0, 240);
+        if (!empty($record['comment'])) $device->comment = (string) $record['comment'];
         if ($room !== '' && (int) ($device->room_id ?? 0) === 0) {
             $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$room, $room]);
             if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
@@ -244,22 +247,29 @@ final class ElectricalInspectionImportService
     {
         if ($room === '') return null;
         $location = trim((string) ($record['location'] ?? ''));
+        $locationKey = strtolower($location);
         $level = trim((string) ($record['level'] ?? ''));
         $source = strtolower((string) ($record['_legacy_source'] ?? ''));
-        $isAk = str_contains($source, 'ak-elektro') || in_array(strtolower($location), ['antoniuskolleg', 'ak'], true);
+        $known = ['antoniuskolleg' => ['AK', 'NKS', 'Antoniuskolleg'], 'ak' => ['AK', 'NKS', 'Antoniuskolleg'], 'berufskolleg' => ['BB', 'BB', 'Berufskolleg'], 'quickputz gmbh & co.kg' => ['QP', 'QP', 'Quickputz GmbH & Co.KG']];
+        if (isset($known[$locationKey])) [$knownCustomer, $knownSiteCode, $knownSiteName] = $known[$locationKey];
+        else [$knownCustomer, $knownSiteCode, $knownSiteName] = ['', '', ''];
+        $isAk = str_contains($source, 'ak-elektro') || $knownCustomer === 'AK';
         $rawCustomer = trim((string) ($record['customer']['company'] ?? ''));
-        if (!$isAk && $rawCustomer === '' && $location === '') return null;
+        if ($knownCustomer !== '') { $rawCustomer = $knownCustomer; $location = $knownSiteName; }
+        if ($location === '' || $locationKey === strtolower($rawCustomer) || str_contains($locationKey, 'ceneos')) return null;
         $isCeneos = str_contains(strtolower($rawCustomer), 'ceneos');
-        $customerName = $isAk ? 'AK' : ($isCeneos ? 'Ceneos GmbH' : ($rawCustomer ?: $location));
-        $customerCode = $this->shortCode($customerName, $isAk ? 'AK' : ($isCeneos ? 'CNO' : ''));
+        $customerName = $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'Ceneos GmbH' : ($rawCustomer ?: $location)));
+        $customerCode = $this->shortCode($customerName, $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'CNO' : '')));
         $customer = R::findOne('customer', ' code = ? OR name = ? ', [$customerCode, $customerName]);
         if ($customer === null) { $customer = R::dispense('customer'); $customer->name = $customerName; $customer->code = $customerCode; $customer->room_code_pattern = 'auto'; $customer->created_at = date(DATE_ATOM); }
         R::store($customer);
         $siteName = $location ?: $customerName;
-        $siteCode = $this->shortCode($siteName, $siteName === 'Antoniuskolleg' ? 'NKS' : '');
+        $siteCode = $this->shortCode($siteName, $knownSiteCode ?: ($siteName === 'Antoniuskolleg' ? 'NKS' : ''));
         $site = R::findOne('site', ' customer_id = ? AND (code = ? OR name = ?)', [(int) $customer->id, $siteCode, $siteName]);
         if ($site === null) { $site = R::dispense('site'); $site->customer_id = (int) $customer->id; $site->name = $siteName; $site->code = $siteCode; $site->created_at = date(DATE_ATOM); R::store($site); }
+        if ($room === '-' || $room === '') return null;
         $buildingCode = $this->buildingCode($room, $level);
+        if ($buildingCode === 'Import') return null;
         $building = R::findOne('building', ' site_id = ? AND code = ? ', [(int) $site->id, $buildingCode]);
         if ($building === null) { $building = R::dispense('building'); $building->site_id = (int) $site->id; $building->name = $buildingCode; $building->code = $buildingCode; $building->created_at = date(DATE_ATOM); R::store($building); }
         $floorCode = $this->floorCode($level, $room);
