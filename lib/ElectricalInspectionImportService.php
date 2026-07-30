@@ -44,7 +44,7 @@ final class ElectricalInspectionImportService
             if (in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
             $stats['files']++;
             try {
-                $result = $extension === 'json'
+                $result = in_array($extension, ['json', 'jsonl'], true)
                     ? $this->importJsonFile($file->getPathname(), $root, $extension === 'jsonl')
                     : $this->importCsvFile($file->getPathname(), $root);
                 foreach ($result as $key => $value) $stats[$key] += $value;
