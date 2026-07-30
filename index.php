@@ -44,6 +44,7 @@ $routes = [
     ['POST', '/struktur/bereiche', fn($params, $isHx) => StructureController::saveArea($params, $isHx)],
     ['POST', '/struktur/raeume', fn($params, $isHx) => StructureController::createRoom($params, $isHx)],
     ['POST', '/struktur/raeume/{id}/loeschen', fn($params, $isHx) => StructureController::deleteRoom($params, $isHx)],
+    ['POST', '/struktur/raeume/{id}/geraete-verschieben', fn($params, $isHx) => StructureController::moveDevices($params, $isHx)],
     ['POST', '/struktur/{type}/{id}/loeschen', fn($params, $isHx) => StructureController::delete($params, $isHx)],
     ['GET', '/geraete', fn($params, $isHx) => DeviceController::index($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],

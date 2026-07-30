@@ -48,6 +48,19 @@ class StructureController
     public static function createRoom(array $params, bool $isHx): array { return self::saveRoom($params, $isHx); }
     public static function deleteRoom(array $params, bool $isHx): array { $params['type'] = 'room'; return self::delete($params, $isHx); }
 
+    public static function moveDevices(array $params, bool $isHx): array
+    {
+        if (!current_user_can_manage_courses()) return forbidden_response();
+        $sourceId = (int) ($params['id'] ?? 0);
+        $targetId = (int) ($_POST['target_room_id'] ?? 0);
+        $source = R::load('room', $sourceId);
+        $target = R::load('room', $targetId);
+        if (!$source->id || !$target->id || $sourceId === $targetId) return self::redirectWithError('Bitte einen anderen Zielraum auswählen.');
+        $count = (int) R::exec('UPDATE device SET room_id = ?, updated_at = ? WHERE room_id = ?', [$targetId, date(DATE_ATOM), $sourceId]);
+        $_SESSION['meldung'] = $count . ' Gerät(e) nach ' . (string) $target->name . ' verschoben.';
+        return [303, ['Location' => url_for('struktur')], ''];
+    }
+
     public static function delete(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_courses()) return forbidden_response();

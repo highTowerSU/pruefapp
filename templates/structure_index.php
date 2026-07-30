@@ -240,7 +240,7 @@ $form = static function (string $type, $entity = null) use (
 </form>
 <?php };
 
-$section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel, $hierarchyBadges): void {
+$section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel, $hierarchyBadges, $rooms): void {
 ?>
 <div class="card shadow-sm h-100">
   <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><?= htmlspecialchars($title) ?></h2><span class="badge text-bg-secondary" data-structure-count="<?= $type ?>"><?= count($items) ?></span></div>
@@ -248,7 +248,7 @@ $section = static function (string $title, string $type, array $items) use ($for
     <?php if ($canManage): ?><details class="border rounded p-2 mb-3"><summary class="fw-semibold">Neu anlegen</summary><div class="pt-3"><?php $form($type); ?></div></details><?php endif; ?>
     <div class="vstack gap-2">
       <?php foreach ($items as $item): ?>
-        <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
+            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
           <summary>
             <?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building', 'room'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
             <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
@@ -353,7 +353,7 @@ $section = static function (string $title, string $type, array $items) use ($for
           <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= $hierarchyBadges('floor', $floor) ?><span><?= htmlspecialchars($floorDisplayLabel($floor, $building)) ?></span></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
           <div class="vstack gap-2">
           <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; ?>
-            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>
+            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?><?php if ($canManage && (int) R::count('device', 'room_id = ?', [(int) $room->id]) > 0): ?><form method="post" action="<?= htmlspecialchars(url_for('struktur/raeume/' . (int) $room->id . '/geraete-verschieben'), ENT_QUOTES) ?>" class="border rounded p-2 mt-3" onsubmit="return confirm('Alle Geräte aus diesem Raum in den ausgewählten Zielraum verschieben?');"><label class="form-label">Geräte verschieben</label><select class="form-select form-select-sm mb-2" name="target_room_id" required data-search-select data-placeholder="Zielraum suchen"><option value="">Zielraum wählen</option><?php foreach ($rooms as $targetRoom): if ((int) $targetRoom->id === (int) $room->id) continue; ?><option value="<?= (int) $targetRoom->id ?>"><?= htmlspecialchars((string) $targetRoom->name) ?></option><?php endforeach; ?></select><button class="btn btn-sm btn-outline-primary">Alle Geräte verschieben</button></form><?php endif; ?></div></details>
           <?php endforeach; ?>
           </div>
           </section>
