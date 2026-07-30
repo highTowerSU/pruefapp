@@ -73,6 +73,8 @@ class DeviceController
         $device->name = $name;
         $device->room_id = $roomId;
         $device->serial_number = trim((string) ($_POST['serial_number'] ?? ''));
+        $device->device_model = trim((string) ($_POST['device_model'] ?? ''));
+        $device->manufacturer = trim((string) ($_POST['manufacturer'] ?? ''));
         $device->inventory_number = trim((string) ($_POST['inventory_number'] ?? ''));
         $description = trim((string) ($_POST['description'] ?? ''));
         if (mb_strlen($description) > 240) {

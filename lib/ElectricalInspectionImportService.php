@@ -223,7 +223,11 @@ final class ElectricalInspectionImportService
         if ($room !== '') $device->room_snapshot = $room;
         $roomBean = $this->ensureImportedRoom($record, $room);
         if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
-        $device->name = trim((string) ($device->name ?? '')) ?: trim((string) ($record['device_model'] ?? $record['device_type'] ?? '')) ?: ('Gerät ' . ($external ?: $slot));
+        $preferredName = trim((string) ($record['device_type'] ?? $record['device_model'] ?? ''));
+        $currentName = trim((string) ($device->name ?? ''));
+        $legacyModelName = trim((string) ($record['device_model'] ?? ''));
+        if ($preferredName !== '' && ($currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
+        if (trim((string) ($device->name ?? '')) === '') $device->name = 'Gerät ' . ($external ?: $slot);
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
             if (!empty($record[$source])) $device->$target = $this->importValue((string) $record[$source]);
         }
