@@ -257,6 +257,7 @@ function initialize_database(): void
             'site',
             'building',
             'floor',
+            'area',
             'room',
             'device',
         ]
@@ -273,6 +274,7 @@ function ensure_structure_schema(): void
         'CREATE TABLE IF NOT EXISTS site (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS building (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS floor (id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS area (id INTEGER PRIMARY KEY AUTOINCREMENT, floor_id INTEGER NOT NULL, name TEXT NOT NULL, code TEXT NOT NULL, comment TEXT NULL, metadata_json TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS room (id INTEGER PRIMARY KEY AUTOINCREMENT, floor_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
@@ -280,12 +282,32 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_building_site ON building (site_id)',
         'CREATE INDEX IF NOT EXISTS idx_floor_building ON floor (building_id)',
         'CREATE INDEX IF NOT EXISTS idx_room_floor ON room (floor_id)',
+        'CREATE INDEX IF NOT EXISTS idx_area_floor ON area (floor_id)',
         'CREATE INDEX IF NOT EXISTS idx_device_room ON device (room_id)',
     ];
 
     foreach ($statements as $statement) {
         R::exec($statement);
     }
+
+    $columns = [
+        'customer' => ['room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'site' => ['comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'building' => ['code' => "TEXT NOT NULL DEFAULT ''", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'device' => ['comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+    ];
+    foreach ($columns as $table => $definitions) {
+        $existing = R::getColumns($table);
+        foreach ($definitions as $column => $definition) {
+            if (!array_key_exists($column, $existing)) {
+                R::exec("ALTER TABLE {$table} ADD COLUMN {$column} {$definition}");
+            }
+        }
+    }
+    R::exec("UPDATE room SET number = name WHERE number = ''");
+    R::exec('CREATE INDEX IF NOT EXISTS idx_room_area ON room (area_id)');
 }
 
 function config_value(string $name): ?string

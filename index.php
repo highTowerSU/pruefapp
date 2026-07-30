@@ -9,6 +9,7 @@ require_once __DIR__ . '/controllers/TenantController.php';
 require_once __DIR__ . '/controllers/SettingsController.php';
 require_once __DIR__ . '/controllers/HelpController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
+require_once __DIR__ . '/controllers/DeviceController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
@@ -39,8 +40,10 @@ $routes = [
     ['POST', '/struktur/standorte', fn($params, $isHx) => StructureController::createSite($params, $isHx)],
     ['POST', '/struktur/gebaeude', fn($params, $isHx) => StructureController::createBuilding($params, $isHx)],
     ['POST', '/struktur/etagen', fn($params, $isHx) => StructureController::createFloor($params, $isHx)],
+    ['POST', '/struktur/bereiche', fn($params, $isHx) => StructureController::saveArea($params, $isHx)],
     ['POST', '/struktur/raeume', fn($params, $isHx) => StructureController::createRoom($params, $isHx)],
-    ['POST', '/struktur/geraete', fn($params, $isHx) => StructureController::createDevice($params, $isHx)],
+    ['GET', '/geraete', fn($params, $isHx) => DeviceController::index($params, $isHx)],
+    ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['GET', '/admin/nutzer', fn($params, $isHx) => AdminController::users($params, $isHx)],
     ['POST', '/admin/nutzer/{id}/rolle', fn($params, $isHx) => AdminController::updateUserRole($params, $isHx)],
     ['GET', '/admin/audit-log', fn($params, $isHx) => AdminController::auditLog($params, $isHx)],

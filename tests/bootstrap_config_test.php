@@ -32,5 +32,18 @@ if (config_value('APP_STORAGE_NAMESPACE') !== 'pruefapp_config_test') {
 if (!RedBeanPHP\R::testConnection()) {
     throw new \RuntimeException('Die konfigurierte SQLite-Datenbank ist nicht verbunden.');
 }
+if (!RedBeanPHP\R::getWriter()->tableExists('area')) {
+    throw new \RuntimeException('Die Bereichstabelle wurde nicht angelegt.');
+}
+foreach ([
+    'building' => 'code',
+    'floor' => 'room_code_pattern',
+    'room' => 'number',
+    'device' => 'metadata_json',
+] as $table => $column) {
+    if (!array_key_exists($column, RedBeanPHP\R::getColumns($table))) {
+        throw new \RuntimeException("Die Strukturspalte {$table}.{$column} fehlt.");
+    }
+}
 
 RedBeanPHP\R::close();

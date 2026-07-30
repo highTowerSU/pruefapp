@@ -132,11 +132,19 @@ Die Anwendung besitzt jetzt ein eigenes Strukturmodul (`/struktur`) mit folgende
 - **Kunden** (optional mit Unterkunden über `parent_customer_id`)
 - **Standorte** (gehören zu einem Kunden)
 - **Gebäude** (gehören zu einem Standort)
-- **Etagen** (gehören zu einem Gebäude)
-- **Räume** (gehören zu einer Etage)
-- **Geräte** (gehören zu einem Raum)
+- **Etagen** (gehören zu einem Gebäude und besitzen Kürzel sowie Sortierung)
+- **Bereiche** (optional innerhalb einer Etage, z. B. E oder F)
+- **Räume** (gehören zu einer Etage und optional zu einem Bereich)
+- **Geräte** (eigene Verwaltung unter `/geraete`, jeweils einem Raum zugeordnet)
 
 Die Tabellen werden beim Start automatisch angelegt (`ensure_structure_schema()` in `lib/lib.inc.php`).
+Alle Strukturebenen sind bearbeitbar und besitzen Kommentar sowie frei
+ergänzbare JSON-Metadaten. Gebäude erhalten ein Kürzel. Raumkennungen werden
+pro Kunde über `auto` oder ein Muster mit `{building}`, `{floor}`, `{area}`
+und `{room}` gebildet; eine Etage kann das Kundenmuster überschreiben.
+Beispiele sind `1.24`, `E10`, `NU07` und `K181`. Untergeschosse mit Kürzel
+`U`, `UG` oder `K` werden in der automatischen Sortierung vor dem Erdgeschoss
+einsortiert.
 
 ## Tests
 

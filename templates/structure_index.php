@@ -1,136 +1,138 @@
 <?php
-/** @var array<int, RedBeanPHP\OODBBean> $customers */
-/** @var array<int, RedBeanPHP\OODBBean> $sites */
-/** @var array<int, RedBeanPHP\OODBBean> $buildings */
-/** @var array<int, RedBeanPHP\OODBBean> $floors */
-/** @var array<int, RedBeanPHP\OODBBean> $rooms */
-/** @var array<int, RedBeanPHP\OODBBean> $devices */
 /** @var bool $canManage */
 
-$customersById = [];
-foreach ($customers as $customer) {
-    $customersById[(int) $customer->id] = $customer;
-}
+$byId = static function (array $beans): array {
+    $result = [];
+    foreach ($beans as $bean) $result[(int) $bean->id] = $bean;
+    return $result;
+};
+$customersById = $byId($customers);
+$sitesById = $byId($sites);
+$buildingsById = $byId($buildings);
+$floorsById = $byId($floors);
+$areasById = $byId($areas);
+
+$optionLabel = static function ($bean, string $type) use ($buildingsById): string {
+    if ($type === 'floor') {
+        $building = $buildingsById[(int) $bean->building_id] ?? null;
+        return ($building ? $building->name . ' · ' : '') . StructureController::floorIdentifier($bean, $building);
+    }
+    return (string) $bean->name;
+};
+
+$form = static function (string $type, $entity = null) use (
+    $customers, $sites, $buildings, $floors, $areas, $optionLabel
+): void {
+    $entity ??= (object) [
+        'id' => 0, 'name' => '', 'comment' => '', 'metadata_json' => '{}',
+        'parent_customer_id' => 0, 'customer_id' => 0, 'site_id' => 0,
+        'building_id' => 0, 'floor_id' => 0, 'area_id' => 0,
+        'code' => '', 'sort_order' => '', 'number' => '',
+        'room_code_pattern' => '',
+    ];
+    $config = [
+        'customer' => ['route' => 'struktur/kunden', 'parent' => 'parent_customer_id', 'parents' => $customers, 'prompt' => 'Kein Unterkunde', 'parent_type' => 'customer'],
+        'site' => ['route' => 'struktur/standorte', 'parent' => 'customer_id', 'parents' => $customers, 'prompt' => 'Kunde wählen', 'parent_type' => 'customer'],
+        'building' => ['route' => 'struktur/gebaeude', 'parent' => 'site_id', 'parents' => $sites, 'prompt' => 'Standort wählen', 'parent_type' => 'site'],
+        'floor' => ['route' => 'struktur/etagen', 'parent' => 'building_id', 'parents' => $buildings, 'prompt' => 'Gebäude wählen', 'parent_type' => 'building'],
+        'area' => ['route' => 'struktur/bereiche', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor'],
+        'room' => ['route' => 'struktur/raeume', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor'],
+    ][$type];
 ?>
+<form method="post" action="<?= htmlspecialchars(url_for($config['route']), ENT_QUOTES) ?>" class="row g-2">
+  <input type="hidden" name="id" value="<?= (int) $entity->id ?>">
+  <div class="col-md-6"><input class="form-control" name="name" required placeholder="Name" value="<?= htmlspecialchars((string) $entity->name) ?>"></div>
+  <div class="col-md-6">
+    <select class="form-select" name="<?= $config['parent'] ?>"<?= $type === 'customer' ? '' : ' required' ?>>
+      <option value="0"><?= $config['prompt'] ?></option>
+      <?php foreach ($config['parents'] as $parent): if ((int) $parent->id === (int) $entity->id && $type === 'customer') continue; ?>
+        <option value="<?= (int) $parent->id ?>"<?= (int) $entity->{$config['parent']} === (int) $parent->id ? ' selected' : '' ?>><?= htmlspecialchars($optionLabel($parent, $config['parent_type'])) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
+  <?php if (in_array($type, ['building', 'floor', 'area'], true)): ?>
+    <div class="col-md-6"><input class="form-control text-uppercase" name="code" required placeholder="<?= $type === 'building' ? 'Kürzel, z. B. AB' : ($type === 'floor' ? 'Kürzel: U, E, 0, 1 …' : 'Bereich: E, F …') ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
+  <?php endif; ?>
+  <?php if ($type === 'floor'): ?>
+    <div class="col-md-6"><input type="number" class="form-control" name="sort_order" placeholder="Sortierung (U automatisch vor E)" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
+  <?php elseif ($type === 'room'): ?>
+    <div class="col-md-6"><input class="form-control" name="number" required placeholder="Raumnummer, z. B. 07, 10 oder 24" value="<?= htmlspecialchars((string) ($entity->number ?: $entity->name)) ?>"></div>
+    <div class="col-md-6"><select class="form-select" name="area_id"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars((string) $area->code . ' · ' . (string) $area->name) ?></option><?php endforeach; ?></select></div>
+  <?php endif; ?>
+  <?php if ($type === 'customer' || $type === 'floor'): ?>
+    <div class="col-12">
+      <input class="form-control font-monospace" name="room_code_pattern" placeholder="<?= $type === 'customer' ? 'Raumkennung: auto oder z. B. {building}{floor}{room}' : 'Optional: Muster des Kunden überschreiben' ?>" value="<?= htmlspecialchars((string) $entity->room_code_pattern) ?>">
+      <div class="form-text"><code>auto</code> erzeugt z. B. <code>1.24</code>, mit Bereich <code>E10</code> und im Untergeschoss <code>NU07</code>. Muster wie <code>{building}{floor}{room}</code> erzeugen auch <code>K181</code>.</div>
+    </div>
+  <?php endif; ?>
+  <div class="col-md-6"><textarea class="form-control" name="comment" placeholder="Kommentar"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
+  <div class="col-md-6"><textarea class="form-control font-monospace" name="metadata_json" placeholder='{"schlüssel":"wert"}'><?= htmlspecialchars((string) ($entity->metadata_json ?: '{}')) ?></textarea></div>
+  <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
+</form>
+<?php };
+
+$section = static function (string $title, string $type, array $items) use ($form, $canManage): void {
+?>
+<div class="card shadow-sm h-100">
+  <div class="card-header"><h2 class="h5 mb-0"><?= htmlspecialchars($title) ?></h2></div>
+  <div class="card-body">
+    <?php if ($canManage): ?><div class="border-bottom pb-3 mb-3"><?php $form($type); ?></div><?php endif; ?>
+    <div class="vstack gap-2">
+      <?php foreach ($items as $item): ?>
+        <details class="border rounded p-2">
+          <summary><strong><?= htmlspecialchars((string) $item->name) ?></strong><?php if (!empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?></summary>
+          <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?></div>
+        </details>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</div>
+<?php }; ?>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <p class="text-body-secondary mb-0">Hierarchie, Kürzel, Kommentare und frei ergänzbare JSON-Metadaten.</p>
+  <a class="btn btn-outline-primary" href="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>">Geräte separat verwalten</a>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-4"><?php $section('Kunden', 'customer', $customers); ?></div>
+  <div class="col-xl-4"><?php $section('Standorte', 'site', $sites); ?></div>
+  <div class="col-xl-4"><?php $section('Gebäude', 'building', $buildings); ?></div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header"><h2 class="h5 mb-0">Etagen nach Gebäude</h2></div>
+  <div class="card-body">
+    <?php if ($canManage): ?><div class="border-bottom pb-3 mb-4"><?php $form('floor'); ?></div><?php endif; ?>
+    <?php foreach ($buildings as $building): ?>
+      <section class="mb-4">
+        <h3 class="h5 border-bottom pb-2"><?= htmlspecialchars((string) $building->name) ?> <span class="text-body-secondary">(<?= htmlspecialchars((string) $building->code) ?>)</span></h3>
+        <div class="row g-3">
+        <?php foreach ($floors as $floor): if ((int) $floor->building_id !== (int) $building->id) continue; ?>
+          <div class="col-md-6 col-xl-4"><details class="border rounded p-2"><summary><strong><?= htmlspecialchars(StructureController::floorIdentifier($floor, $building)) ?></strong> · <?= htmlspecialchars((string) $floor->name) ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
+        <?php endforeach; ?>
+        </div>
+      </section>
+    <?php endforeach; ?>
+  </div>
+</div>
 
 <div class="row g-4">
-  <div class="col-lg-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header"><h2 class="h5 mb-0">Kunden</h2></div>
-      <div class="card-body">
-        <?php if ($canManage): ?>
-          <form method="post" action="<?= htmlspecialchars(url_for('struktur/kunden'), ENT_QUOTES) ?>" class="row g-2 mb-3">
-            <div class="col-12">
-              <input type="text" name="name" class="form-control" placeholder="Kundenname" required>
-            </div>
-            <div class="col-12">
-              <select name="parent_customer_id" class="form-select">
-                <option value="0">Kein Unterkunde</option>
-                <?php foreach ($customers as $customer): ?>
-                  <option value="<?= (int) $customer->id ?>"><?= htmlspecialchars((string) $customer->name, ENT_QUOTES) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-12 text-end"><button type="submit" class="btn btn-primary btn-sm">Speichern</button></div>
-          </form>
-        <?php endif; ?>
-
-        <ul class="list-group list-group-flush">
-          <?php foreach ($customers as $customer): ?>
-            <?php $parentId = (int) ($customer->parent_customer_id ?? 0); ?>
-            <li class="list-group-item d-flex justify-content-between">
-              <span><?= htmlspecialchars((string) $customer->name, ENT_QUOTES) ?></span>
-              <small class="text-body-secondary">
-                <?= $parentId > 0 && isset($customersById[$parentId]) ? 'Unterkunde von ' . htmlspecialchars((string) $customersById[$parentId]->name, ENT_QUOTES) : 'Hauptkunde' ?>
-              </small>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-lg-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-header"><h2 class="h5 mb-0">Standorte</h2></div>
-      <div class="card-body">
-        <?php if ($canManage): ?>
-          <form method="post" action="<?= htmlspecialchars(url_for('struktur/standorte'), ENT_QUOTES) ?>" class="row g-2 mb-3">
-            <div class="col-7"><input type="text" name="name" class="form-control" placeholder="Standortname" required></div>
-            <div class="col-5">
-              <select name="customer_id" class="form-select" required>
-                <option value="">Kunde wählen</option>
-                <?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"><?= htmlspecialchars((string) $customer->name, ENT_QUOTES) ?></option><?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-12 text-end"><button type="submit" class="btn btn-primary btn-sm">Speichern</button></div>
-          </form>
-        <?php endif; ?>
-
-        <ul class="list-group list-group-flush"><?php foreach ($sites as $site): ?><li class="list-group-item"><?= htmlspecialchars((string) $site->name, ENT_QUOTES) ?></li><?php endforeach; ?></ul>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-12">
+  <div class="col-xl-5"><?php $section('Bereiche', 'area', $areas); ?></div>
+  <div class="col-xl-7">
     <div class="card shadow-sm">
-      <div class="card-header"><h2 class="h5 mb-0">Gebäude, Etagen, Räume und Geräte</h2></div>
+      <div class="card-header"><h2 class="h5 mb-0">Räume nach Etage</h2></div>
       <div class="card-body">
-        <?php if ($canManage): ?>
-          <div class="row g-3 mb-4">
-            <div class="col-md-6 col-xl-3">
-              <form method="post" action="<?= htmlspecialchars(url_for('struktur/gebaeude'), ENT_QUOTES) ?>" class="vstack gap-2">
-                <strong>Gebäude</strong>
-                <input type="text" name="name" class="form-control" placeholder="Gebäudename" required>
-                <select name="site_id" class="form-select" required>
-                  <option value="">Standort wählen</option>
-                  <?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>"><?= htmlspecialchars((string) $site->name, ENT_QUOTES) ?></option><?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-outline-primary btn-sm">Hinzufügen</button>
-              </form>
-            </div>
-            <div class="col-md-6 col-xl-3">
-              <form method="post" action="<?= htmlspecialchars(url_for('struktur/etagen'), ENT_QUOTES) ?>" class="vstack gap-2">
-                <strong>Etage</strong>
-                <input type="text" name="name" class="form-control" placeholder="z. B. EG" required>
-                <select name="building_id" class="form-select" required>
-                  <option value="">Gebäude wählen</option>
-                  <?php foreach ($buildings as $building): ?><option value="<?= (int) $building->id ?>"><?= htmlspecialchars((string) $building->name, ENT_QUOTES) ?></option><?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-outline-primary btn-sm">Hinzufügen</button>
-              </form>
-            </div>
-            <div class="col-md-6 col-xl-3">
-              <form method="post" action="<?= htmlspecialchars(url_for('struktur/raeume'), ENT_QUOTES) ?>" class="vstack gap-2">
-                <strong>Raum</strong>
-                <input type="text" name="name" class="form-control" placeholder="z. B. 0.12" required>
-                <select name="floor_id" class="form-select" required>
-                  <option value="">Etage wählen</option>
-                  <?php foreach ($floors as $floor): ?><option value="<?= (int) $floor->id ?>"><?= htmlspecialchars((string) $floor->name, ENT_QUOTES) ?></option><?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-outline-primary btn-sm">Hinzufügen</button>
-              </form>
-            </div>
-            <div class="col-md-6 col-xl-3">
-              <form method="post" action="<?= htmlspecialchars(url_for('struktur/geraete'), ENT_QUOTES) ?>" class="vstack gap-2">
-                <strong>Gerät</strong>
-                <input type="text" name="name" class="form-control" placeholder="Gerätebezeichnung" required>
-                <select name="room_id" class="form-select" required>
-                  <option value="">Raum wählen</option>
-                  <?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"><?= htmlspecialchars((string) $room->name, ENT_QUOTES) ?></option><?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-outline-primary btn-sm">Hinzufügen</button>
-              </form>
-            </div>
+        <?php if ($canManage): ?><div class="border-bottom pb-3 mb-4"><?php $form('room'); ?></div><?php endif; ?>
+        <?php foreach ($floors as $floor): ?>
+          <?php $building = $buildingsById[(int) $floor->building_id] ?? null; ?>
+          <h3 class="h6 mt-4"><?= htmlspecialchars($building ? (string) $building->name : '') ?> · <?= htmlspecialchars(StructureController::floorIdentifier($floor, $building)) ?></h3>
+          <div class="vstack gap-2">
+          <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; ?>
+            <details class="border rounded p-2"><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>
+          <?php endforeach; ?>
           </div>
-        <?php endif; ?>
-
-        <div class="row g-3">
-          <div class="col-md-3"><h3 class="h6">Gebäude (<?= count($buildings) ?>)</h3><ul><?php foreach ($buildings as $building): ?><li><?= htmlspecialchars((string) $building->name, ENT_QUOTES) ?></li><?php endforeach; ?></ul></div>
-          <div class="col-md-3"><h3 class="h6">Etagen (<?= count($floors) ?>)</h3><ul><?php foreach ($floors as $floor): ?><li><?= htmlspecialchars((string) $floor->name, ENT_QUOTES) ?></li><?php endforeach; ?></ul></div>
-          <div class="col-md-3"><h3 class="h6">Räume (<?= count($rooms) ?>)</h3><ul><?php foreach ($rooms as $room): ?><li><?= htmlspecialchars((string) $room->name, ENT_QUOTES) ?></li><?php endforeach; ?></ul></div>
-          <div class="col-md-3"><h3 class="h6">Geräte (<?= count($devices) ?>)</h3><ul><?php foreach ($devices as $device): ?><li><?= htmlspecialchars((string) $device->name, ENT_QUOTES) ?></li><?php endforeach; ?></ul></div>
-        </div>
+        <?php endforeach; ?>
       </div>
     </div>
   </div>
