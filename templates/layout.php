@@ -134,6 +134,10 @@ $primaryRgb = strlen($primaryHex) === 6
             --app-theme-dark: <?= htmlspecialchars($darkColor, ENT_QUOTES) ?>;
             --bs-primary: var(--app-primary);
             --bs-primary-rgb: <?= htmlspecialchars($primaryRgb, ENT_QUOTES) ?>;
+            --bs-primary-contrast: var(--app-primary-text);
+        }
+        .text-bg-primary {
+            color: var(--app-primary-text) !important;
         }
         .brand-panel {
             background: var(--app-brand-bg);
