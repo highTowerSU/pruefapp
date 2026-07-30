@@ -38,12 +38,12 @@ final class ElectricalInspectionImportService
         foreach ($iterator as $file) {
             if (!$file->isFile()) continue;
             $extension = strtolower($file->getExtension());
-            if (!in_array($extension, ['json', 'csv'], true)) continue;
+            if (!in_array($extension, ['json', 'jsonl', 'csv'], true)) continue;
             if (in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
             $stats['files']++;
             try {
                 $result = $extension === 'json'
-                    ? $this->importJsonFile($file->getPathname(), $directory)
+                    ? $this->importJsonFile($file->getPathname(), $directory, $extension === 'jsonl')
                     : $this->importCsvFile($file->getPathname(), $directory);
                 foreach ($result as $key => $value) $stats[$key] += $value;
             } catch (Throwable $exception) {
@@ -55,8 +55,16 @@ final class ElectricalInspectionImportService
     }
 
     /** @return array{imported:int,updated:int,devices:int,reports:int,skipped:int} */
-    private function importJsonFile(string $path, string $root): array
+    private function importJsonFile(string $path, string $root, bool $jsonLines = false): array
     {
+        if ($jsonLines) {
+            $records = [];
+            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) $records[] = $decoded;
+            }
+            return $this->importJsonRecords($records, $path, $root);
+        }
         $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         $records = [];
         if (isset($data['number']) && is_array($data)) {
@@ -67,6 +75,11 @@ final class ElectricalInspectionImportService
             $records = $data;
         }
 
+        return $this->importJsonRecords($records, $path, $root);
+    }
+
+    private function importJsonRecords(array $records, string $path, string $root): array
+    {
         $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0];
         foreach ($records as $record) {
             if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
