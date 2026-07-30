@@ -9,6 +9,12 @@ use RedBeanPHP\R;
 
 R::setup('sqlite::memory:');
 
+$metadataMethod = new ReflectionMethod(StructureController::class, 'metadata');
+$metadataMethod->setAccessible(true);
+if ($metadataMethod->invoke(null, '') !== '{}' || $metadataMethod->invoke(null, '{}') !== '{}') {
+    throw new RuntimeException('Leere Metadaten und ein leeres JSON-Objekt müssen akzeptiert werden.');
+}
+
 $makeHierarchy = static function (string $buildingCode, string $pattern = 'auto'): array {
     $customer = R::dispense('customer');
     $customer->name = 'Testkunde';

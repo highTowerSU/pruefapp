@@ -40,8 +40,8 @@ class DeviceController
             return [303, ['Location' => url_for('geraete')], ''];
         }
         $metadata = trim((string) ($_POST['metadata_json'] ?? ''));
-        $decoded = $metadata === '' ? [] : json_decode($metadata, true);
-        if (!is_array($decoded) || array_is_list($decoded)) {
+        $decoded = $metadata === '' ? new \stdClass() : json_decode($metadata);
+        if (!$decoded instanceof \stdClass) {
             $_SESSION['fehlermeldung'] = 'Metadaten müssen ein JSON-Objekt sein.';
             return [303, ['Location' => url_for('geraete')], ''];
         }

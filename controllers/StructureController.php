@@ -161,8 +161,8 @@ class StructureController
     {
         $json = trim($json);
         if ($json === '') return '{}';
-        $decoded = json_decode($json, true);
-        if (!is_array($decoded) || array_is_list($decoded)) throw new \InvalidArgumentException('Metadaten müssen ein JSON-Objekt sein, z. B. {"kostenstelle":"1000"}.');
+        $decoded = json_decode($json);
+        if (!$decoded instanceof \stdClass) throw new \InvalidArgumentException('Metadaten müssen ein JSON-Objekt sein, z. B. {"kostenstelle":"1000"}.');
         return json_encode($decoded, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
     private static function pattern(string $pattern): string

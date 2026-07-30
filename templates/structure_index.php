@@ -31,18 +31,19 @@ $form = static function (string $type, $entity = null) use (
         'room_code_pattern' => '',
     ];
     $config = [
-        'customer' => ['route' => 'struktur/kunden', 'parent' => 'parent_customer_id', 'parents' => $customers, 'prompt' => 'Kein Unterkunde', 'parent_type' => 'customer'],
-        'site' => ['route' => 'struktur/standorte', 'parent' => 'customer_id', 'parents' => $customers, 'prompt' => 'Kunde wählen', 'parent_type' => 'customer'],
-        'building' => ['route' => 'struktur/gebaeude', 'parent' => 'site_id', 'parents' => $sites, 'prompt' => 'Standort wählen', 'parent_type' => 'site'],
-        'floor' => ['route' => 'struktur/etagen', 'parent' => 'building_id', 'parents' => $buildings, 'prompt' => 'Gebäude wählen', 'parent_type' => 'building'],
-        'area' => ['route' => 'struktur/bereiche', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor'],
-        'room' => ['route' => 'struktur/raeume', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor'],
+        'customer' => ['route' => 'struktur/kunden', 'parent' => 'parent_customer_id', 'parents' => $customers, 'prompt' => 'Kein Unterkunde', 'parent_type' => 'customer', 'parent_label' => 'Übergeordneter Kunde'],
+        'site' => ['route' => 'struktur/standorte', 'parent' => 'customer_id', 'parents' => $customers, 'prompt' => 'Kunde wählen', 'parent_type' => 'customer', 'parent_label' => 'Kunde'],
+        'building' => ['route' => 'struktur/gebaeude', 'parent' => 'site_id', 'parents' => $sites, 'prompt' => 'Standort wählen', 'parent_type' => 'site', 'parent_label' => 'Standort'],
+        'floor' => ['route' => 'struktur/etagen', 'parent' => 'building_id', 'parents' => $buildings, 'prompt' => 'Gebäude wählen', 'parent_type' => 'building', 'parent_label' => 'Gebäude'],
+        'area' => ['route' => 'struktur/bereiche', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor', 'parent_label' => 'Etage'],
+        'room' => ['route' => 'struktur/raeume', 'parent' => 'floor_id', 'parents' => $floors, 'prompt' => 'Etage wählen', 'parent_type' => 'floor', 'parent_label' => 'Etage'],
     ][$type];
 ?>
 <form method="post" action="<?= htmlspecialchars(url_for($config['route']), ENT_QUOTES) ?>" class="row g-2">
   <input type="hidden" name="id" value="<?= (int) $entity->id ?>">
-  <div class="col-md-6"><input class="form-control" name="name" required placeholder="Name" value="<?= htmlspecialchars((string) $entity->name) ?>"></div>
+  <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" name="name" required value="<?= htmlspecialchars((string) $entity->name) ?>"></div>
   <div class="col-md-6">
+    <label class="form-label"><?= htmlspecialchars($config['parent_label']) ?></label>
     <select class="form-select" name="<?= $config['parent'] ?>"<?= $type === 'customer' ? '' : ' required' ?>>
       <option value="0"><?= $config['prompt'] ?></option>
       <?php foreach ($config['parents'] as $parent): if ((int) $parent->id === (int) $entity->id && $type === 'customer') continue; ?>
@@ -51,22 +52,23 @@ $form = static function (string $type, $entity = null) use (
     </select>
   </div>
   <?php if (in_array($type, ['building', 'floor', 'area'], true)): ?>
-    <div class="col-md-6"><input class="form-control text-uppercase" name="code" required placeholder="<?= $type === 'building' ? 'Kürzel, z. B. AB' : ($type === 'floor' ? 'Kürzel: U, E, 0, 1 …' : 'Bereich: E, F …') ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
+    <div class="col-md-6"><label class="form-label"><?= $type === 'building' ? 'Gebäudekürzel' : ($type === 'floor' ? 'Etagenkürzel' : 'Bereichskürzel') ?></label><input class="form-control text-uppercase" name="code" required placeholder="<?= $type === 'building' ? 'z. B. AB' : ($type === 'floor' ? 'U, E, 0, 1 …' : 'E, F …') ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
   <?php endif; ?>
   <?php if ($type === 'floor'): ?>
-    <div class="col-md-6"><input type="number" class="form-control" name="sort_order" placeholder="Sortierung (U automatisch vor E)" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
+    <div class="col-md-6"><label class="form-label">Sortierreihenfolge</label><input type="number" class="form-control" name="sort_order" placeholder="U automatisch vor E" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
   <?php elseif ($type === 'room'): ?>
-    <div class="col-md-6"><input class="form-control" name="number" required placeholder="Raumnummer, z. B. 07, 10 oder 24" value="<?= htmlspecialchars((string) ($entity->number ?: $entity->name)) ?>"></div>
-    <div class="col-md-6"><select class="form-select" name="area_id"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars((string) $area->code . ' · ' . (string) $area->name) ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-6"><label class="form-label">Raumnummer</label><input class="form-control" name="number" required placeholder="z. B. 07, 10 oder 24" value="<?= htmlspecialchars((string) ($entity->number ?: $entity->name)) ?>"></div>
+    <div class="col-md-6"><label class="form-label">Bereich</label><select class="form-select" name="area_id"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars((string) $area->code . ' · ' . (string) $area->name) ?></option><?php endforeach; ?></select></div>
   <?php endif; ?>
   <?php if ($type === 'customer' || $type === 'floor'): ?>
     <div class="col-12">
+      <label class="form-label">Muster für Raumkennungen</label>
       <input class="form-control font-monospace" name="room_code_pattern" placeholder="<?= $type === 'customer' ? 'Raumkennung: auto oder z. B. {building}{floor}{room}' : 'Optional: Muster des Kunden überschreiben' ?>" value="<?= htmlspecialchars((string) $entity->room_code_pattern) ?>">
       <div class="form-text"><code>auto</code> erzeugt z. B. <code>1.24</code>, mit Bereich <code>E10</code> und im Untergeschoss <code>NU07</code>. Muster wie <code>{building}{floor}{room}</code> erzeugen auch <code>K181</code>.</div>
     </div>
   <?php endif; ?>
-  <div class="col-md-6"><textarea class="form-control" name="comment" placeholder="Kommentar"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
-  <div class="col-md-6"><textarea class="form-control font-monospace" name="metadata_json" placeholder='{"schlüssel":"wert"}'><?= htmlspecialchars((string) ($entity->metadata_json ?: '{}')) ?></textarea></div>
+  <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
+  <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars((string) ($entity->metadata_json ?: '{}')) ?></textarea></div>
   <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
 </form>
 <?php };
