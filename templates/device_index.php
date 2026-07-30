@@ -1,6 +1,6 @@
 <?php
 $form = static function ($device = null) use ($rooms, $roomLabels): void {
-    $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'comment' => '', 'metadata_json' => '{}'];
+    $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
 ?>
   <form method="post" action="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>" class="row g-2">
     <input type="hidden" name="id" value="<?= (int) $device->id ?>">
@@ -8,7 +8,8 @@ $form = static function ($device = null) use ($rooms, $roomLabels): void {
     <div class="col-md-4"><label class="form-label">Raum</label><select class="form-select" name="room_id" required><option value="">Raum wählen</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) $device->room_id === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select></div>
     <div class="col-md-2"><label class="form-label">Inventarnummer</label><input class="form-control" name="inventory_number" value="<?= htmlspecialchars((string) $device->inventory_number) ?>"></div>
     <div class="col-md-2"><label class="form-label">Seriennummer</label><input class="form-control" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"></div>
-    <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
+    <div class="col-12"><label class="form-label">Beschreibung</label><textarea class="form-control" name="description" rows="2" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea></div>
+    <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
     <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars((string) ($device->metadata_json ?: '{}')) ?></textarea></div>
     <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
   </form>

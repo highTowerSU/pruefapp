@@ -38,6 +38,7 @@ if (!RedBeanPHP\R::getWriter()->tableExists('area')) {
 foreach ([
     'building' => 'code',
     'floor' => 'room_code_pattern',
+    'area' => 'description',
     'room' => 'number',
     'device' => 'metadata_json',
 ] as $table => $column) {

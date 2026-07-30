@@ -80,6 +80,7 @@ class StructureController
 
         $entity->name = $name;
         $entity->{$definition['parent']} = $parentId > 0 ? $parentId : null;
+        $entity->description = trim((string) ($_POST['description'] ?? ''));
         $entity->comment = trim((string) ($_POST['comment'] ?? ''));
         $entity->metadata_json = $metadata;
         if ($type === 'customer' || $type === 'floor') {

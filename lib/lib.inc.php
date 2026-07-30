@@ -291,12 +291,13 @@ function ensure_structure_schema(): void
     }
 
     $columns = [
-        'customer' => ['room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'site' => ['comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'building' => ['code' => "TEXT NOT NULL DEFAULT ''", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'device' => ['comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'customer' => ['room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'site' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'building' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'area' => ['description' => 'TEXT NULL'],
+        'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
     ];
     foreach ($columns as $table => $definitions) {
         $existing = R::getColumns($table);

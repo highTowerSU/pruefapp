@@ -35,7 +35,7 @@ $filterContext = static function (string $type, $item) use (
     }
     $searchParts = [
         (string) ($item->name ?? ''), (string) ($item->code ?? ''),
-        (string) ($item->number ?? ''), (string) ($item->comment ?? ''),
+        (string) ($item->number ?? ''), (string) ($item->description ?? ''), (string) ($item->comment ?? ''),
         (string) ($customersById[$customerId]->name ?? ''),
         (string) ($sitesById[$siteId]->name ?? ''),
         (string) ($buildingsById[$buildingId]->name ?? ''),
@@ -60,7 +60,13 @@ $filterAttributes = static function (string $type, $item) use ($filterContext): 
 $optionLabel = static function ($bean, string $type) use ($buildingsById): string {
     if ($type === 'floor') {
         $building = $buildingsById[(int) $bean->building_id] ?? null;
-        return ($building ? $building->name . ' · ' : '') . StructureController::floorIdentifier($bean, $building);
+        $buildingLabel = $building
+            ? $building->name . ((string) $building->code !== '' ? ' (' . $building->code . ')' : '') . ' · '
+            : '';
+        return $buildingLabel . StructureController::floorIdentifier($bean, $building);
+    }
+    if (in_array($type, ['building', 'area'], true) && (string) ($bean->code ?? '') !== '') {
+        return (string) $bean->name . ' (' . (string) $bean->code . ')';
     }
     return (string) $bean->name;
 };
@@ -69,7 +75,7 @@ $form = static function (string $type, $entity = null) use (
     $customers, $sites, $buildings, $floors, $areas, $optionLabel
 ): void {
     $entity ??= (object) [
-        'id' => 0, 'name' => '', 'comment' => '', 'metadata_json' => '{}',
+        'id' => 0, 'name' => '', 'description' => '', 'comment' => '', 'metadata_json' => '{}',
         'parent_customer_id' => 0, 'customer_id' => 0, 'site_id' => 0,
         'building_id' => 0, 'floor_id' => 0, 'area_id' => 0,
         'code' => '', 'sort_order' => '', 'number' => '',
@@ -107,7 +113,7 @@ $form = static function (string $type, $entity = null) use (
     <div class="col-md-6"><label class="form-label">Sortierreihenfolge</label><input type="number" class="form-control" name="sort_order" placeholder="U automatisch vor E" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
   <?php elseif ($type === 'room'): ?>
     <div class="col-md-6"><label class="form-label">Raumnummer</label><input class="form-control" name="number" required placeholder="z. B. 07, 10 oder 24" value="<?= htmlspecialchars((string) ($entity->number ?: $entity->name)) ?>"></div>
-    <div class="col-md-6"><label class="form-label">Bereich</label><select class="form-select" name="area_id"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars((string) $area->code . ' · ' . (string) $area->name) ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-6"><label class="form-label">Bereich</label><select class="form-select" name="area_id"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars($optionLabel($area, 'area')) ?></option><?php endforeach; ?></select></div>
   <?php endif; ?>
   <?php if ($type === 'customer' || $type === 'floor'): ?>
     <div class="col-12">
@@ -116,7 +122,8 @@ $form = static function (string $type, $entity = null) use (
       <div class="form-text"><code>auto</code> erzeugt z. B. <code>1.24</code>, mit Bereich <code>E10</code> und im Untergeschoss <code>NU07</code>. Muster wie <code>{building}{floor}{room}</code> erzeugen auch <code>K181</code>.</div>
     </div>
   <?php endif; ?>
-  <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
+  <div class="col-12"><label class="form-label">Beschreibung</label><textarea class="form-control" name="description" rows="2" placeholder="Kurze fachliche Beschreibung des Eintrags"><?= htmlspecialchars((string) $entity->description) ?></textarea></div>
+  <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
   <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars((string) ($entity->metadata_json ?: '{}')) ?></textarea></div>
   <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
 </form>

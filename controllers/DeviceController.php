@@ -49,6 +49,7 @@ class DeviceController
         $device->room_id = $roomId;
         $device->serial_number = trim((string) ($_POST['serial_number'] ?? ''));
         $device->inventory_number = trim((string) ($_POST['inventory_number'] ?? ''));
+        $device->description = trim((string) ($_POST['description'] ?? ''));
         $device->comment = trim((string) ($_POST['comment'] ?? ''));
         $device->metadata_json = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $device->updated_at = date(DATE_ATOM);

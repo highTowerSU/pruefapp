@@ -138,7 +138,7 @@ Die Anwendung besitzt jetzt ein eigenes Strukturmodul (`/struktur`) mit folgende
 - **Geräte** (eigene Verwaltung unter `/geraete`, jeweils einem Raum zugeordnet)
 
 Die Tabellen werden beim Start automatisch angelegt (`ensure_structure_schema()` in `lib/lib.inc.php`).
-Alle Strukturebenen sind bearbeitbar und besitzen Kommentar sowie frei
+Alle Strukturebenen sind bearbeitbar und besitzen Beschreibung, Kommentar sowie frei
 ergänzbare JSON-Metadaten. Gebäude erhalten ein Kürzel. Raumkennungen werden
 pro Kunde über `auto` oder ein Muster mit `{building}`, `{floor}`, `{area}`
 und `{room}` gebildet; eine Etage kann das Kundenmuster überschreiben.
