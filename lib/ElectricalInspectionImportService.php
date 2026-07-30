@@ -174,9 +174,10 @@ final class ElectricalInspectionImportService
     /** @return array{imported:int,updated:int,devices:int,reports:int} */
     private function importRecord(array $record, string $sourceType, string $sourcePath, string $root): array
     {
-        $external = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
+        $rawExternal = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
         $date = $this->normalizeDate((string) ($record['test_date'] ?? $record['date'] ?? ''));
+        $external = $this->yearNumber($rawExternal, $date);
         $dedupe = hash('sha256', implode('|', [$sourceType, $external, $slot, $date, (string) ($record['result_status'] ?? '')]));
         $deviceResult = $this->findOrCreateDevice($record);
         $inspection = R::findOne('inspection', ' dedupe_key = ? ', [$dedupe]);
@@ -198,7 +199,7 @@ final class ElectricalInspectionImportService
         $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->checklist_json = json_encode($record['checklist'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->raw_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $report = $this->copyReport($external);
+        $report = $this->copyReport($rawExternal);
         if ($report !== null) $inspection->report_path = $report;
         $inspection->updated_at = date(DATE_ATOM);
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
@@ -447,5 +448,12 @@ final class ElectricalInspectionImportService
         if ($value === '' || $value === 'null') return 'unbekannt';
         if (in_array($value, ['0', 'false', 'failed', 'nicht bestanden', 'nicht_ok'], true)) return 'nicht bestanden';
         return in_array($value, ['bestanden', 'ok', 'true', '1', 'passed'], true) ? 'bestanden' : $value;
+    }
+
+    private function yearNumber(string $number, string $date): string
+    {
+        if ($number === '' || !preg_match('/^(19|20)\d{2}-\d{2}-\d{2}$/', $date)) return $number;
+        $suffix = '-' . substr($date, 2, 2);
+        return str_ends_with($number, $suffix) ? $number : $number . $suffix;
     }
 }
