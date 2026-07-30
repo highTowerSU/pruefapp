@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use RedBeanPHP\R;
+
 class SettingsController
 {
     public static function general(array $params, bool $isHx): array
@@ -20,6 +22,20 @@ class SettingsController
         $errors = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'nuke_electrical') {
+                if (trim((string) ($_POST['confirmation'] ?? '')) !== 'NUKE ELEKTRO') {
+                    $_SESSION['fehlermeldung'] = 'Bitte zur Bestätigung exakt NUKE ELEKTRO eingeben.';
+                } else {
+                    foreach (['inspection', 'device', 'room', 'area', 'floor', 'building', 'site', 'customer'] as $table) {
+                        R::wipe($table);
+                    }
+                    $reportRoot = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/reports';
+                    self::removeDirectoryContents($reportRoot);
+                    audit_log('elektro_daten_nuke', ['tabellen' => ['inspection', 'device', 'room', 'area', 'floor', 'building', 'site', 'customer']]);
+                    $_SESSION['meldung'] = 'Elektro-Prüfdaten, Geräte, Struktur und Berichte wurden gelöscht.';
+                }
+                return [303, ['Location' => url_for('admin/konfiguration')], ''];
+            }
             $values['keycloak_account_console_base_url'] = trim((string) ($_POST['keycloak_account_console_base_url'] ?? ''));
             $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
 
@@ -70,5 +86,16 @@ class SettingsController
         ]);
 
         return [200, [], $body];
+    }
+
+    private static function removeDirectoryContents(string $directory): void
+    {
+        if (!is_dir($directory)) return;
+        foreach (new DirectoryIterator($directory) as $entry) {
+            if ($entry->isDot()) continue;
+            $path = $entry->getPathname();
+            if ($entry->isDir()) self::removeDirectoryContents($path);
+            else @unlink($path);
+        }
     }
 }

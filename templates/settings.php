@@ -48,3 +48,15 @@
     <p class="mb-0"><strong>Keycloak-Admin:</strong> <?= $effectiveKeycloakAdminUrl ? htmlspecialchars($effectiveKeycloakAdminUrl, ENT_QUOTES) : '–' ?></p>
   </div>
 </div>
+
+<div class="card shadow-sm border-danger mt-4">
+  <div class="card-header text-danger"><h2 class="h5 mb-0">Elektro-Daten zurücksetzen</h2></div>
+  <div class="card-body">
+    <p class="mb-2">Löscht alle Elektro-Prüfungen, Geräte, Strukturdatensätze und importierten PDF-Berichte. Mandanten, Benutzer und Prüfaufträge bleiben erhalten.</p>
+    <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="row g-2" onsubmit="return confirm('Wirklich alle Elektro-Daten löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');">
+      <input type="hidden" name="action" value="nuke_electrical">
+      <div class="col-md-5"><label class="form-label" for="nuke-confirmation">Bestätigung</label><input class="form-control" id="nuke-confirmation" name="confirmation" placeholder="NUKE ELEKTRO" required></div>
+      <div class="col-12"><button type="submit" class="btn btn-danger">Elektro-Daten löschen</button></div>
+    </form>
+  </div>
+</div>
