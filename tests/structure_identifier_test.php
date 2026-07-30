@@ -79,6 +79,34 @@ R::store($floorK);
 $room->number = '81';
 if (StructureController::roomIdentifier($room, $floorK) !== 'K181') throw new RuntimeException('K181 wurde nicht gebildet.');
 
+$parent = R::dispense('customer');
+$parent->name = 'Mutterkunde';
+$parent->room_code_pattern = '{building}{floor}{room}';
+R::store($parent);
+$child = R::dispense('customer');
+$child->name = 'Tochterkunde';
+$child->parent_customer_id = $parent->id;
+$child->room_code_pattern = 'auto';
+R::store($child);
+$inheritedSite = R::dispense('site');
+$inheritedSite->name = 'Standort Tochter';
+$inheritedSite->customer_id = $child->id;
+R::store($inheritedSite);
+$buildingN = R::dispense('building');
+$buildingN->name = 'Haus Malta';
+$buildingN->code = 'N';
+$buildingN->site_id = $inheritedSite->id;
+R::store($buildingN);
+$legacyFloor = R::dispense('floor');
+$legacyFloor->name = 'N1';
+$legacyFloor->code = '';
+$legacyFloor->building_id = $buildingN->id;
+R::store($legacyFloor);
+$room->number = '81';
+if (StructureController::roomIdentifier($room, $legacyFloor) !== 'N181') {
+    throw new RuntimeException('Das Raumkennzeichen des Oberkunden muss auf den Unterkunden vererbt werden.');
+}
+
 $customerCount = R::count('customer');
 $_POST = [
     'name' => 'Neuer Hauptkunde',

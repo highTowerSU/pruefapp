@@ -138,23 +138,44 @@ class StructureController
     public static function roomIdentifier(OODBBean $room, OODBBean $floor, ?OODBBean $area = null): string
     {
         $number = (string) ($room->number ?: $room->name);
-        $floorCode = (string) ($floor->code ?? '');
         $building = R::load('building', (int) $floor->building_id);
+        $buildingCode = (string) ($building->code ?? '');
+        $floorCode = trim((string) ($floor->code ?? ''));
+        if ($floorCode === '') {
+            $floorName = trim((string) ($floor->name ?? ''));
+            if ($buildingCode !== '' && str_starts_with(strtoupper($floorName), strtoupper($buildingCode))) {
+                $floorCode = trim(substr($floorName, strlen($buildingCode)));
+            }
+        }
         $site = R::load('site', (int) $building->site_id);
         $customer = R::load('customer', (int) $site->customer_id);
-        $pattern = trim((string) ($floor->room_code_pattern ?? ''))
-            ?: trim((string) ($customer->room_code_pattern ?? 'auto'));
+        $pattern = trim((string) ($floor->room_code_pattern ?? ''));
+        if ($pattern === '' || $pattern === 'auto') {
+            $pattern = 'auto';
+            $visitedCustomers = [];
+            while ($customer !== null && $customer->id && !isset($visitedCustomers[(int) $customer->id])) {
+                $visitedCustomers[(int) $customer->id] = true;
+                $customerPattern = trim((string) ($customer->room_code_pattern ?? ''));
+                if ($customerPattern !== '' && $customerPattern !== 'auto') {
+                    $pattern = $customerPattern;
+                    break;
+                }
+                $parentId = (int) ($customer->parent_customer_id ?? 0);
+                $customer = $parentId > 0 ? R::load('customer', $parentId) : null;
+                if ($customer === null || !$customer->id) break;
+            }
+        }
 
         if ($pattern === '' || $pattern === 'auto') {
             if ($area !== null && $area->id) return (string) $area->code . $number;
             if (in_array($floorCode, ['U', 'UG', 'K'], true)) {
-                return (string) ($building->code ?? '') . $floorCode . $number;
+                return $buildingCode . $floorCode . $number;
             }
             return preg_match('/^-?\d+$/', $floorCode) ? $floorCode . '.' . $number : $floorCode . $number;
         }
 
         return strtr($pattern, [
-            '{building}' => (string) ($building->code ?? ''),
+            '{building}' => $buildingCode,
             '{floor}' => $floorCode,
             '{area}' => (string) ($area->code ?? ''),
             '{room}' => $number,
