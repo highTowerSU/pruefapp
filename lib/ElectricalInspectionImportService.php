@@ -221,6 +221,8 @@ final class ElectricalInspectionImportService
         $device->storage_slot = $slot;
         $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
         if ($room !== '') $device->room_snapshot = $room;
+        $roomBean = $this->ensureImportedRoom($record, $room);
+        if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         $device->name = trim((string) ($device->name ?? '')) ?: trim((string) ($record['device_model'] ?? $record['device_type'] ?? '')) ?: ('Gerät ' . ($external ?: $slot));
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
             if (!empty($record[$source]) && empty($device->$target)) $device->$target = (string) $record[$source];
@@ -236,6 +238,52 @@ final class ElectricalInspectionImportService
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
         return ['device' => $device, 'created' => $created];
+    }
+
+    private function ensureImportedRoom(array $record, string $room): ?\RedBeanPHP\OODBBean
+    {
+        if ($room === '') return null;
+        $location = trim((string) ($record['location'] ?? ''));
+        $level = trim((string) ($record['level'] ?? ''));
+        $source = strtolower((string) ($record['_legacy_source'] ?? ''));
+        $customerName = str_contains($source, 'ak-elektro') ? 'AK' : (trim((string) ($record['customer']['company'] ?? '')) ?: ($location ?: 'Importkunde'));
+        $customerCode = $this->shortCode($customerName, str_contains($source, 'ak-elektro') ? 'AK' : '');
+        $customer = R::findOne('customer', ' code = ? OR name = ? ', [$customerCode, $customerName]);
+        if ($customer === null) { $customer = R::dispense('customer'); $customer->name = $customerName; $customer->code = $customerCode; $customer->room_code_pattern = 'auto'; $customer->created_at = date(DATE_ATOM); }
+        R::store($customer);
+        $siteName = $location ?: $customerName;
+        $siteCode = $this->shortCode($siteName, $siteName === 'Antoniuskolleg' ? 'NKS' : '');
+        $site = R::findOne('site', ' customer_id = ? AND (code = ? OR name = ?)', [(int) $customer->id, $siteCode, $siteName]);
+        if ($site === null) { $site = R::dispense('site'); $site->customer_id = (int) $customer->id; $site->name = $siteName; $site->code = $siteCode; $site->created_at = date(DATE_ATOM); R::store($site); }
+        $buildingCode = $this->buildingCode($room, $level);
+        $building = R::findOne('building', ' site_id = ? AND code = ? ', [(int) $site->id, $buildingCode]);
+        if ($building === null) { $building = R::dispense('building'); $building->site_id = (int) $site->id; $building->name = $buildingCode; $building->code = $buildingCode; $building->created_at = date(DATE_ATOM); R::store($building); }
+        $floorCode = $this->floorCode($level, $room);
+        $floor = R::findOne('floor', ' building_id = ? AND code = ? ', [(int) $building->id, $floorCode]);
+        if ($floor === null) { $floor = R::dispense('floor'); $floor->building_id = (int) $building->id; $floor->code = $floorCode; $floor->name = $buildingCode . $floorCode; $floor->sort_order = 0; $floor->created_at = date(DATE_ATOM); R::store($floor); }
+        $roomBean = R::findOne('room', ' floor_id = ? AND (number = ? OR name = ?)', [(int) $floor->id, $room, $room]);
+        if ($roomBean === null) { $roomBean = R::dispense('room'); $roomBean->floor_id = (int) $floor->id; $roomBean->number = $room; $roomBean->name = $room; $roomBean->created_at = date(DATE_ATOM); R::store($roomBean); }
+        return $roomBean;
+    }
+
+    private function buildingCode(string $room, string $level): string
+    {
+        if (preg_match('/^([A-Za-z]+)[-_]?(?:U|UG|K|\-?\d)/', $level, $m)) return strtoupper($m[1]);
+        return preg_match('/^([A-Za-z]+)/', $room, $m) ? strtoupper($m[1]) : 'Import';
+    }
+
+    private function floorCode(string $level, string $room): string
+    {
+        if (preg_match('/(?:^|[A-Za-z])(-?\d+|U|UG|K)$/i', $level, $m)) return strtoupper($m[1]);
+        if (preg_match('/^[A-Za-z]+(\d)/', $room, $m)) return $m[1];
+        return '0';
+    }
+
+    private function shortCode(string $name, string $preferred = ''): string
+    {
+        if ($preferred !== '') return $preferred;
+        $parts = preg_split('/[^A-Za-z0-9]+/', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        return strtoupper(implode('', array_map(static fn(string $part): string => $part[0], $parts))) ?: 'IMP';
     }
 
     private function indexReports(string $root, bool $recursive = true): void
