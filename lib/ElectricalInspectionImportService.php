@@ -87,14 +87,14 @@ final class ElectricalInspectionImportService
 
     private function importJsonRecords(array $records, string $path, string $root): array
     {
-        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0];
+        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => []];
         foreach ($records as $record) {
             if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
                 $result['skipped']++;
                 continue;
             }
             $one = $this->importRecord($record, 'json', $path, $root);
-            foreach ($one as $key => $value) $result[$key] += $value;
+            foreach ($one as $key => $value) { if ($key === 'new_devices') $result[$key] = array_merge($result[$key], $value); else $result[$key] += $value; }
         }
 
         return $result;
@@ -118,7 +118,7 @@ final class ElectricalInspectionImportService
         if (!$hasBenning && !$hasLegacy) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'Kein Speicher-Nr.- oder Prüfnummer-Header erkannt. Die CSV ist vermutlich unvollständig oder beschädigt.'];
 
         $ods = $this->readOds($this->matchingOdsPath($path));
-        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0];
+        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => []];
         while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
             if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
             $record = $this->csvRecord($header, $row);
@@ -132,7 +132,7 @@ final class ElectricalInspectionImportService
                 continue;
             }
             $one = $this->importRecord($record, 'csv', $path, $root);
-            foreach ($one as $key => $value) $result[$key] += $value;
+            foreach ($one as $key => $value) { if ($key === 'new_devices') $result[$key] = array_merge($result[$key], $value); else $result[$key] += $value; }
         }
         fclose($stream);
 
