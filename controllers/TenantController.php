@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 use RedBeanPHP\R as R;
+use Ceneos\PhpBase\Tenant\TenantRepository;
 
-class CompanyController
+class TenantController
 {
     public static function index(array $params, bool $isHx): array
     {
@@ -12,9 +13,10 @@ class CompanyController
             return forbidden_response();
         }
 
+        $repository = new TenantRepository();
         $companies = array_map(static function (\RedBeanPHP\OODBBean $company): array {
             return self::mapCompany($company);
-        }, array_values(R::findAll('company', ' ORDER BY name ')));
+        }, $repository->all());
 
         $stats = [
             'total' => count($companies),
@@ -42,7 +44,7 @@ class CompanyController
         ]);
 
         $body = render_template('layout.php', [
-            'title' => 'Firmenverwaltung',
+            'title' => 'Mandanten & Branding',
             'content' => $content,
         ]);
 
@@ -57,10 +59,10 @@ class CompanyController
     public static function edit(array $params, bool $isHx): array
     {
         $id = isset($params['id']) ? (int) $params['id'] : 0;
-        $company = $id > 0 ? R::load('company', $id) : null;
+        $company = (new TenantRepository())->find($id);
 
         if ($company === null || !$company->id) {
-            return [404, [], '<h1>404 – Firma nicht gefunden</h1>'];
+            return [404, [], '<h1>404 – Mandant nicht gefunden</h1>'];
         }
 
         return self::handleForm($company);
@@ -74,10 +76,10 @@ class CompanyController
     public static function update(array $params, bool $isHx): array
     {
         $id = isset($params['id']) ? (int) $params['id'] : 0;
-        $company = $id > 0 ? R::load('company', $id) : null;
+        $company = (new TenantRepository())->find($id);
 
         if ($company === null || !$company->id) {
-            return [404, [], '<h1>404 – Firma nicht gefunden</h1>'];
+            return [404, [], '<h1>404 – Mandant nicht gefunden</h1>'];
         }
 
         return self::handleForm($company, true);
@@ -90,24 +92,24 @@ class CompanyController
         }
 
         $id = isset($params['id']) ? (int) $params['id'] : 0;
-        $company = $id > 0 ? R::load('company', $id) : null;
+        $repository = new TenantRepository();
+        $company = $repository->find($id);
 
         if ($company === null || !$company->id) {
-            return [404, [], '<h1>404 – Firma nicht gefunden</h1>'];
+            return [404, [], '<h1>404 – Mandant nicht gefunden</h1>'];
         }
 
         R::begin();
         try {
             $company->is_default = 1;
             $company->updated_at = date('c');
-            R::store($company);
-            R::exec('UPDATE company SET is_default = 0 WHERE id != ?', [$company->id]);
+            $repository->applySelections($company, true, false);
             R::commit();
         } catch (\Throwable $throwable) {
             R::rollback();
-            $_SESSION['fehlermeldung'] = 'Standardfirma konnte nicht gesetzt werden: ' . $throwable->getMessage();
+            $_SESSION['fehlermeldung'] = 'Standardmandant konnte nicht gesetzt werden: ' . $throwable->getMessage();
 
-            return [303, ['Location' => url_for('firmen')], ''];
+            return [303, ['Location' => url_for('mandanten')], ''];
         }
 
         audit_log('firma_standard_geaendert', [
@@ -115,9 +117,9 @@ class CompanyController
             'slug' => (string) $company->slug,
         ]);
 
-        $_SESSION['meldung'] = 'Die ausgewählte Firma wurde als Standard gespeichert.';
+        $_SESSION['meldung'] = 'Der ausgewählte Mandant wurde als Standard gespeichert.';
 
-        return [303, ['Location' => url_for('firmen')], ''];
+        return [303, ['Location' => url_for('mandanten')], ''];
     }
 
     public static function delete(array $params, bool $isHx): array
@@ -127,16 +129,17 @@ class CompanyController
         }
 
         $id = isset($params['id']) ? (int) $params['id'] : 0;
-        $company = $id > 0 ? R::load('company', $id) : null;
+        $repository = new TenantRepository();
+        $company = $repository->find($id);
 
         if ($company === null || !$company->id) {
-            return [404, [], '<h1>404 – Firma nicht gefunden</h1>'];
+            return [404, [], '<h1>404 – Mandant nicht gefunden</h1>'];
         }
 
-        if ((int) $company->is_default === 1 || (int) ($company->is_login_brand ?? 0) === 1) {
-            $_SESSION['fehlermeldung'] = 'Eine Standard- oder Login-Firma kann nicht gelöscht werden.';
+        if ($repository->isProtected($company)) {
+            $_SESSION['fehlermeldung'] = 'Ein Standard- oder Login-Mandant kann nicht gelöscht werden.';
 
-            return [303, ['Location' => url_for('firmen')], ''];
+            return [303, ['Location' => url_for('mandanten')], ''];
         }
 
         $details = self::mapCompany($company);
@@ -148,9 +151,9 @@ class CompanyController
             'slug' => $details['slug'],
         ]);
 
-        $_SESSION['meldung'] = 'Die Firma wurde gelöscht.';
+        $_SESSION['meldung'] = 'Der Mandant wurde gelöscht.';
 
-        return [303, ['Location' => url_for('firmen')], ''];
+        return [303, ['Location' => url_for('mandanten')], ''];
     }
 
     private static function handleForm(?\RedBeanPHP\OODBBean $company, bool $isPost = false): array
@@ -208,14 +211,7 @@ class CompanyController
 
                     R::begin();
                     try {
-                        R::store($company);
-
-                        if ($isDefault) {
-                            R::exec('UPDATE company SET is_default = 0 WHERE id != ?', [$company->id]);
-                        }
-                        if ($isLoginBrand) {
-                            R::exec('UPDATE company SET is_login_brand = 0 WHERE id != ?', [$company->id]);
-                        }
+                        (new TenantRepository())->applySelections($company, $isDefault, $isLoginBrand);
 
                         R::commit();
                     } catch (\Throwable $throwable) {
@@ -233,11 +229,11 @@ class CompanyController
                             'login_branding' => (bool) $company->is_login_brand,
                         ]);
 
-                        $_SESSION['meldung'] = 'Die Firmendaten wurden gespeichert.';
+                        $_SESSION['meldung'] = 'Die Mandantendaten wurden gespeichert.';
 
                         self::finalizeHeaderLogoUpload($uploadResult, $previousLogoPath);
 
-                        return [303, ['Location' => url_for('firmen')], ''];
+                        return [303, ['Location' => url_for('mandanten')], ''];
                     }
                 }
 
@@ -276,7 +272,7 @@ class CompanyController
             'errors' => $errors,
         ]);
 
-        $title = $isNew ? 'Neue Firma anlegen' : 'Firma bearbeiten – ' . $companyData['name'];
+        $title = $isNew ? 'Neuer Mandant anlegen' : 'Mandant bearbeiten – ' . $companyData['name'];
 
         $body = render_template('layout.php', [
             'title' => $title,
@@ -315,7 +311,7 @@ class CompanyController
         $errors = [];
 
         if ($data['name'] === '') {
-            $errors[] = 'Bitte einen Anzeigenamen für die Firma angeben.';
+            $errors[] = 'Bitte einen Anzeigenamen für den Mandanten angeben.';
         }
 
         if ($data['slug'] === '') {
@@ -325,7 +321,7 @@ class CompanyController
         } else {
             $existing = R::findOne('company', ' LOWER(slug) = ? AND id != ? ', [$data['slug'], (int) $company->id]);
             if ($existing !== null) {
-                $errors[] = 'Es existiert bereits eine Firma mit diesem Kurznamen.';
+                $errors[] = 'Es existiert bereits ein Mandant mit diesem Kurznamen.';
             }
         }
 

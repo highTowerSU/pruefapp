@@ -1,6 +1,7 @@
 <?php
 
 use RedBeanPHP\R as R;
+use Ceneos\PhpBase\Tenant\TenantRepository;
 
 function get_branding(): array
 {
@@ -30,15 +31,15 @@ function get_branding(): array
     $brandBean = null;
 
     if ($brandKey !== '') {
-        $brandBean = R::findOne('company', ' LOWER(slug) = ? ', [$brandKey]);
+        $brandBean = R::findOne(TenantRepository::TABLE, ' LOWER(slug) = ? ', [$brandKey]);
     }
 
     if ($brandBean === null) {
-        $brandBean = R::findOne('company', ' is_default = 1 ');
+        $brandBean = (new TenantRepository())->default();
     }
 
     if ($brandBean === null) {
-        $brandBean = R::findOne('company');
+        $brandBean = R::findOne(TenantRepository::TABLE);
     }
 
     if ($brandBean !== null) {
@@ -60,7 +61,7 @@ function get_login_branding(): array
     ensure_branding_seeded($defaults);
     ensure_company_branding_schema();
 
-    $company = R::findOne('company', ' is_login_brand = 1 ');
+    $company = (new TenantRepository())->login();
 
     return $company !== null ? map_company_branding($company) : get_branding();
 }
@@ -74,9 +75,9 @@ function get_company_branding(int $companyId): ?array
     ensure_branding_seeded(default_branding_definitions());
     ensure_company_branding_schema();
 
-    $company = R::load('company', $companyId);
+    $company = (new TenantRepository())->find($companyId);
 
-    return $company->id ? map_company_branding($company) : null;
+    return $company !== null ? map_company_branding($company) : null;
 }
 
 /**
@@ -87,7 +88,7 @@ function get_branding_companies(): array
     ensure_branding_seeded(default_branding_definitions());
     ensure_company_branding_schema();
 
-    return array_values(R::findAll('company', ' ORDER BY name '));
+    return (new TenantRepository())->all();
 }
 
 function ensure_branding_seeded(array $defaults): void
@@ -154,22 +155,11 @@ function ensure_company_branding_schema(): void
 {
     static $ready = false;
 
-    if ($ready || !R::testConnection() || !R::getWriter()->tableExists('company')) {
+    if ($ready || !R::testConnection() || !R::getWriter()->tableExists(TenantRepository::TABLE)) {
         return;
     }
 
-    $columns = R::getColumns('company');
-    if (!array_key_exists('is_login_brand', $columns)) {
-        R::exec('ALTER TABLE company ADD COLUMN is_login_brand INTEGER NOT NULL DEFAULT 0');
-    }
-
-    if (R::count('company', ' is_login_brand = 1 ') === 0) {
-        $fallback = R::findOne('company', ' is_default = 1 ') ?? R::findOne('company');
-        if ($fallback !== null) {
-            $fallback->is_login_brand = 1;
-            R::store($fallback);
-        }
-    }
+    (new TenantRepository())->ensureSchema();
 
     $ready = true;
 }

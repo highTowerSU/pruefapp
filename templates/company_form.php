@@ -145,21 +145,21 @@
       <div class="col-md-6">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" role="switch" id="is_default" name="is_default" <?= !empty($company['is_default']) ? 'checked' : '' ?>>
-          <label class="form-check-label" for="is_default">Als Standardfirma verwenden</label>
-          <div class="form-text">Branding für interne Seiten ohne eigene Firmenzuordnung.</div>
+          <label class="form-check-label" for="is_default">Als Standardmandant verwenden</label>
+          <div class="form-text">Branding für interne Seiten ohne eigene Mandantenzuordnung.</div>
         </div>
       </div>
       <div class="col-md-6">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" role="switch" id="is_login_brand" name="is_login_brand" <?= !empty($company['is_login_brand']) ? 'checked' : '' ?>>
           <label class="form-check-label" for="is_login_brand">Für die Login-Maske verwenden</label>
-          <div class="form-text">Logo, Farben und Rechtstexte dieser Firma erscheinen beim Login.</div>
+          <div class="form-text">Logo, Farben und Rechtstexte dieses Mandanten erscheinen beim Login.</div>
         </div>
       </div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-      <a class="btn btn-outline-secondary" href="<?= htmlspecialchars(url_for('firmen'), ENT_QUOTES) ?>">Abbrechen</a>
+      <a class="btn btn-outline-secondary" href="<?= htmlspecialchars(url_for('mandanten'), ENT_QUOTES) ?>">Abbrechen</a>
       <button type="submit" class="btn btn-primary">
         <?= $is_new ? 'Anlegen' : 'Speichern' ?>
       </button>

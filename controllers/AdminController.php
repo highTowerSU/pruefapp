@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use RedBeanPHP\R as R;
+use Ceneos\PhpBase\Audit\AuditTrailRepository;
+use Ceneos\PhpBase\Audit\RevisionHistory;
+use Ceneos\PhpBase\Database\RevisionSupport;
 
 class AdminController
 {
@@ -79,81 +82,18 @@ class AdminController
 
     public static function auditLog(array $params, bool $isHx): array
     {
-        $perPage = 50;
         $requestedPage = isset($_GET['page']) ? (int) $_GET['page'] : 1;
-        $page = $requestedPage > 0 ? $requestedPage : 1;
-
-        $totalEntries = (int) R::count('auditlog');
-        $totalPages = $totalEntries > 0 ? (int) ceil($totalEntries / $perPage) : 1;
-        if ($page > $totalPages) {
-            $page = $totalPages;
-        }
-
-        $offset = ($page - 1) * $perPage;
-        if ($offset < 0) {
-            $offset = 0;
-        }
-
-        $beans = R::findAll(
-            'auditlog',
-            sprintf(' ORDER BY id DESC LIMIT %d OFFSET %d', $perPage, $offset)
-        );
-
-        $entries = array_map(static function ($bean) {
-            $details = [];
-            $rawDetails = (string) ($bean->details_json ?? '');
-            if ($rawDetails !== '') {
-                $decoded = json_decode($rawDetails, true);
-                if (is_array($decoded)) {
-                    $details = $decoded;
-                }
-            }
-
-            $rawTimestamp = (string) ($bean->erstellt_am ?? '');
-            $timestamp = null;
-            if ($rawTimestamp !== '') {
-                try {
-                    $timestamp = new \DateTimeImmutable($rawTimestamp);
-                } catch (\Exception) {
-                    $timestamp = null;
-                }
-            }
-
-            return [
-                'id' => (int) $bean->id,
-                'aktion' => (string) ($bean->aktion ?? ''),
-                'nutzername' => (string) ($bean->nutzername ?? ''),
-                'anzeige_name' => (string) ($bean->anzeige_name ?? ''),
-                'ip_adresse' => (string) ($bean->ip_adresse ?? ''),
-                'details' => $details,
-                'zeitpunkt' => $timestamp,
-                'zeitpunkt_roh' => $rawTimestamp,
-            ];
-        }, array_values($beans));
-
-        $lastItem = $totalEntries === 0 ? 0 : min($offset + $perPage, $totalEntries);
-        $firstItem = $totalEntries === 0 ? 0 : ($offset + 1);
-
-        $pagination = [
-            'page' => $page,
-            'per_page' => $perPage,
-            'total_entries' => $totalEntries,
-            'total_pages' => $totalPages,
-            'has_previous' => $page > 1,
-            'has_next' => $page < $totalPages,
-            'previous_page' => $page > 1 ? $page - 1 : null,
-            'next_page' => $page < $totalPages ? $page + 1 : null,
-            'first_item' => $firstItem,
-            'last_item' => $lastItem,
-        ];
+        $events = (new AuditTrailRepository())->paginateEvents($requestedPage, 50);
+        $revisions = (new RevisionHistory())->latest(RevisionSupport::enabledTables(), 100);
 
         $content = render_template('audit_log.php', [
-            'entries' => $entries,
-            'pagination' => $pagination,
+            'entries' => $events['entries'],
+            'pagination' => $events['pagination'],
+            'revisions' => $revisions,
         ]);
 
         $body = render_template('layout.php', [
-            'title' => 'Audit-Log',
+            'title' => 'Audit & Revisionen',
             'content' => $content,
         ]);
 

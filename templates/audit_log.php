@@ -1,6 +1,7 @@
 <?php
 /** @var array<int, array<string, mixed>> $entries */
 /** @var array<string, mixed> $pagination */
+/** @var array<int, array<string, mixed>> $revisions */
 
 $pagination = $pagination ?? [
     'total_entries' => count($entries),
@@ -25,6 +26,12 @@ $nextUrl = $pagination['has_next']
     : '#';
 ?>
 
+<div class="alert alert-info">
+    Das Ereignisprotokoll zeigt fachliche Aktionen. Die Datenrevisionen darunter
+    werden direkt aus den von ReBean erzeugten Revisionstabellen gelesen.
+</div>
+
+<h2 class="h4 mt-4">Ereignisprotokoll</h2>
 <?php if (empty($entries)): ?>
     <p class="text-body-secondary">Es wurden noch keine Aktionen protokolliert.</p>
 <?php else: ?>
@@ -32,7 +39,7 @@ $nextUrl = $pagination['has_next']
         <div class="text-body-secondary small">
             Einträge <?= (int) $pagination['first_item'] ?>–<?= (int) $pagination['last_item'] ?> von <?= (int) $pagination['total_entries'] ?>
         </div>
-        <nav aria-label="Audit-Log-Paginierung">
+        <nav aria-label="Paginierung des Ereignisprotokolls">
             <ul class="pagination pagination-sm mb-0">
                 <li class="page-item<?= $pagination['has_previous'] ? '' : ' disabled' ?>">
                     <a
@@ -144,6 +151,46 @@ $nextUrl = $pagination['has_next']
                     </td>
                     <td class="text-nowrap">
                         <?= $entry['ip_adresse'] !== '' ? htmlspecialchars($entry['ip_adresse']) : '<span class="text-body-secondary">–</span>' ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif; ?>
+
+<h2 class="h4 mt-5">Datenrevisionen (ReBean)</h2>
+<?php if (empty($revisions)): ?>
+    <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>
+<?php else: ?>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+            <tr>
+                <th>Zeitpunkt</th>
+                <th>Tabelle</th>
+                <th>Aktion</th>
+                <th>Datensatz</th>
+                <th>Gespeicherter Stand</th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($revisions as $revision): ?>
+                <tr>
+                    <td class="text-nowrap"><?= htmlspecialchars((string) $revision['timestamp']) ?></td>
+                    <td><code><?= htmlspecialchars((string) $revision['table']) ?></code></td>
+                    <td><span class="badge text-bg-secondary"><?= htmlspecialchars((string) $revision['action']) ?></span></td>
+                    <td>#<?= (int) $revision['original_id'] ?></td>
+                    <td>
+                        <details>
+                            <summary>Details anzeigen</summary>
+                            <pre class="small mb-0 mt-2 text-wrap"><?= htmlspecialchars(
+                                (string) json_encode(
+                                    $revision['snapshot'],
+                                    JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                                )
+                            ) ?></pre>
+                        </details>
                     </td>
                 </tr>
             <?php endforeach; ?>

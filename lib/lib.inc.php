@@ -247,7 +247,20 @@ function initialize_database(): void
     ensure_structure_schema();
 
     RevisionSupport::enableFor(
-        ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'auditlog']
+        [
+            'company',
+            'nutzer',
+            'kurs',
+            'teilnehmer',
+            'uebermittlungslink',
+            'oauthuser',
+            'customer',
+            'site',
+            'building',
+            'floor',
+            'room',
+            'device',
+        ]
     );
 
     $initialized = true;

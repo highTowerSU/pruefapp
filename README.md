@@ -14,8 +14,9 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
 - Zentrale Hilfe- und Ablaufseite für den Prüfprozess
 
-- Mandantenfähiges Branding inklusive Firmenverwaltung, Logo-Upload und Impressumssteuerung
-- Individuelle Navigationsfarben pro Firma
+- Mandantenfähiges Branding inklusive Verwaltung, Logo-Upload und Impressumssteuerung
+- Individuelle Navigationsfarben pro Mandant
+- Gemeinsame Ansicht „Audit & Revisionen“ für fachliche Ereignisse und ReBean-Datenänderungen
 - Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung
 - Schnellzugriff auf die persönliche Keycloak-Account-Seite über das Benutzermenü
 
@@ -27,7 +28,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 ## Rollen und Berechtigungen
 
-- **Administrator/in** – Vollzugriff auf alle Einstellungen, inklusive Nutzer- und Firmenverwaltung.
+- **Administrator/in** – Vollzugriff auf alle Einstellungen, inklusive Nutzerverwaltung sowie Mandanten & Branding.
 - **Editor/in** – Kann Kurse und Teilnehmerdaten anlegen und bearbeiten, hat jedoch keinen Zugriff auf Nutzer-, Firmen- oder Systemeinstellungen.
 - **Betrachter/in** – Darf Kurse und Teilnehmer*innen einsehen, aber keine Änderungen vornehmen.
 
@@ -100,20 +101,20 @@ Wenn mehrere PHP-Apps unter derselben Domain bzw. auf demselben Server laufen, k
 
 Diese Werte werden als weitere Einträge im zurückgegebenen PHP-Array gepflegt.
 
-### Firmenbezogenes Branding
+### Mandanten & Branding
 
-In der **Firmenverwaltung** werden Logo, Seitentitel, Navigationsfarben und
-Rechtstexte je Firma gepflegt. Genau eine Firma kann über
+Unter **Mandanten & Branding** werden Logo, Seitentitel, Navigationsfarben und
+Rechtstexte je Mandant gepflegt. Genau ein Mandant kann über
 **„Für die Login-Maske verwenden“** als Login-Branding ausgewählt werden.
 
-Beim Erstellen eines öffentlichen Übermittlungslinks ist eine Branding-Firma
+Beim Erstellen eines öffentlichen Übermittlungslinks ist ein Branding-Mandant
 Pflicht. Die öffentliche Teilnehmerseite übernimmt anschließend Logo, Farben,
-Texte, Impressum und Datenschutz dieser Firma. Links ohne Firmenzuordnung
+Texte, Impressum und Datenschutz dieses Mandanten. Links ohne Mandantenzuordnung
 gelten als nicht mehr gültig.
 
 Für BSW Consult, CENEOS und Koenigsbl.au sind passende SVG-Logos und
 Ausgangsfarben bereits unter `public/img/` enthalten. Eigene Logos können in
-der Firmenverwaltung hochgeladen werden.
+unter **Mandanten & Branding** hochgeladen werden.
 
 ### Objekt- und Kundenstruktur
 

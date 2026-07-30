@@ -10,13 +10,13 @@
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
           <div>
-            <h2 class="h5 mb-2">Firmenverwaltung</h2>
+            <h2 class="h5 mb-2">Mandanten & Branding</h2>
             <p class="text-body-secondary mb-0">
               Hinterlege Markenprofile samt Logos, um die Prüfauftragsverwaltung optisch an eure Organisation anzupassen.
             </p>
           </div>
-          <a class="btn btn-primary" href="<?= htmlspecialchars(url_for('firmen/neu'), ENT_QUOTES) ?>">
-            <i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Neue Firma
+          <a class="btn btn-primary" href="<?= htmlspecialchars(url_for('mandanten/neu'), ENT_QUOTES) ?>">
+            <i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Neuer Mandant
           </a>
         </div>
 
@@ -29,7 +29,7 @@
               <div class="stat-value">
                 <?= htmlspecialchars((string) $stats['total']) ?>
               </div>
-              <div class="stat-label">Hinterlegte Firmen</div>
+              <div class="stat-label">Hinterlegte Mandanten</div>
             </div>
           </div>
           <div class="stat-tile">
@@ -50,7 +50,7 @@
   <div class="col-12 col-xl-4">
     <div class="card shadow-sm border-0 h-100">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-secondary fw-semibold mb-3">Aktuelle Standardfirma</h2>
+        <h2 class="h6 text-uppercase text-secondary fw-semibold mb-3">Aktueller Standardmandant</h2>
         <?php if ($defaultCompany !== null): ?>
           <div class="d-flex flex-column gap-3">
             <div class="d-flex align-items-center gap-3">
@@ -71,13 +71,13 @@
               </div>
             <?php else: ?>
               <div class="alert alert-warning mb-0" role="status">
-                Für die Standardfirma ist noch kein Logo hinterlegt.
+                Für den Standardmandanten ist noch kein Logo hinterlegt.
               </div>
             <?php endif; ?>
           </div>
         <?php else: ?>
           <p class="text-body-secondary mb-0">
-            Es ist aktuell keine Standardfirma definiert. Wähle eine bestehende Firma aus oder lege eine neue an,
+            Es ist aktuell kein Standardmandant definiert. Wähle einen bestehenden Mandanten aus oder lege einen neuen an,
             um Branding-Elemente automatisch zu übernehmen.
           </p>
         <?php endif; ?>
@@ -90,11 +90,11 @@
   <div class="card-header bg-body-tertiary border-0">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
       <div>
-        <h2 class="h5 mb-1">Übersicht aller Firmen</h2>
-        <p class="text-body-secondary mb-0">Passe Namen, Logos und Farben an und setze eine Standardfirma.</p>
+        <h2 class="h5 mb-1">Übersicht aller Mandanten</h2>
+        <p class="text-body-secondary mb-0">Passe Namen, Logos und Farben an und setze einen Standardmandanten.</p>
       </div>
-      <a class="btn btn-outline-primary" href="<?= htmlspecialchars(url_for('firmen/neu'), ENT_QUOTES) ?>">
-        <i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Neue Firma
+      <a class="btn btn-outline-primary" href="<?= htmlspecialchars(url_for('mandanten/neu'), ENT_QUOTES) ?>">
+        <i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Neuer Mandant
       </a>
     </div>
   </div>
@@ -114,7 +114,7 @@
           <tr>
             <td colspan="5" class="text-center py-5 text-body-secondary">
               <i class="fa-regular fa-building mb-3 d-block fs-2" aria-hidden="true"></i>
-              Es sind noch keine Firmen hinterlegt. Lege über den &bdquo;Neue Firma&ldquo;-Button dein erstes Branding an.
+              Es sind noch keine Mandanten hinterlegt. Lege über den &bdquo;Neuer Mandant&ldquo;-Button dein erstes Branding an.
             </td>
           </tr>
         <?php else: ?>
@@ -158,20 +158,20 @@
               <td class="text-end">
                 <div class="btn-group" role="group">
                   <a class="btn btn-outline-secondary btn-sm"
-                     href="<?= htmlspecialchars(url_for('firmen/' . $company['id'] . '/bearbeiten'), ENT_QUOTES) ?>">
+                     href="<?= htmlspecialchars(url_for('mandanten/' . $company['id'] . '/bearbeiten'), ENT_QUOTES) ?>">
                     <i class="fa-solid fa-pen-to-square me-1" aria-hidden="true"></i>
                     Bearbeiten
                   </a>
                   <form class="d-inline" method="post"
-                        action="<?= htmlspecialchars(url_for('firmen/' . $company['id'] . '/standard'), ENT_QUOTES) ?>">
+                        action="<?= htmlspecialchars(url_for('mandanten/' . $company['id'] . '/standard'), ENT_QUOTES) ?>">
                     <button type="submit" class="btn btn-outline-primary btn-sm"<?= !empty($company['is_default']) ? ' disabled' : '' ?>>
                       <i class="fa-solid fa-star me-1" aria-hidden="true"></i>
                       Als Standard
                     </button>
                   </form>
                   <form class="d-inline" method="post"
-                        action="<?= htmlspecialchars(url_for('firmen/' . $company['id'] . '/loeschen'), ENT_QUOTES) ?>"
-                        onsubmit="return confirm('Soll diese Firma wirklich gelöscht werden?');">
+                        action="<?= htmlspecialchars(url_for('mandanten/' . $company['id'] . '/loeschen'), ENT_QUOTES) ?>"
+                        onsubmit="return confirm('Soll dieser Mandant wirklich gelöscht werden?');">
                     <button type="submit" class="btn btn-outline-danger btn-sm"<?= !empty($company['is_default']) || !empty($company['is_login_brand']) ? ' disabled' : '' ?>>
                       <i class="fa-solid fa-trash-can me-1" aria-hidden="true"></i>
                       Löschen
