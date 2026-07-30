@@ -12,6 +12,17 @@ $buildingsById = $byId($buildings);
 $floorsById = $byId($floors);
 $areasById = $byId($areas);
 
+$siteCountByCustomer = [];
+foreach ($sites as $site) {
+    $customerId = (int) $site->customer_id;
+    $siteCountByCustomer[$customerId] = ($siteCountByCustomer[$customerId] ?? 0) + 1;
+}
+$buildingCountBySite = [];
+foreach ($buildings as $building) {
+    $siteId = (int) $building->site_id;
+    $buildingCountBySite[$siteId] = ($buildingCountBySite[$siteId] ?? 0) + 1;
+}
+
 $labelWithCode = static function ($bean): string {
     $name = (string) ($bean->name ?? '');
     $code = trim((string) ($bean->code ?? ''));
@@ -102,7 +113,8 @@ $summaryLabel = static function (string $type, $item): string {
 };
 
 $hierarchyBadges = static function (string $type, $item) use (
-    $customersById, $sitesById, $buildingsById, $floorsById
+    $customers, $customersById, $sitesById, $buildingsById, $floorsById,
+    $siteCountByCustomer, $buildingCountBySite
 ): string {
     $customer = $site = $building = null;
     if ($type === 'customer') {
@@ -122,12 +134,13 @@ $hierarchyBadges = static function (string $type, $item) use (
     }
 
     $definitions = [
-        [$customer, 'fa-users', 'text-bg-primary', 'Kunde'],
-        [$site, 'fa-location-dot', 'text-bg-info', 'Standort'],
-        [$building, 'fa-building', 'text-bg-secondary', 'Gebäude'],
+        [$customer, count($customers) > 1, 'fa-users', 'text-bg-primary', 'Kunde'],
+        [$site, ($siteCountByCustomer[(int) ($site->customer_id ?? 0)] ?? 0) > 1, 'fa-location-dot', 'text-bg-info', 'Standort'],
+        [$building, ($buildingCountBySite[(int) ($building->site_id ?? 0)] ?? 0) > 1, 'fa-building', 'text-bg-secondary', 'Gebäude'],
     ];
     $html = '';
-    foreach ($definitions as [$bean, $icon, $class, $label]) {
+    foreach ($definitions as [$bean, $visible, $icon, $class, $label]) {
+        if (!$visible) continue;
         $code = trim((string) ($bean->code ?? ''));
         if ($code === '') continue;
         $html .= sprintf(
@@ -286,13 +299,13 @@ $section = static function (string $title, string $type, array $items) use ($for
     <?php foreach ($buildings as $building): ?>
       <section class="mb-4 structure-filter-group" <?= $filterAttributes('building', $building) ?>>
         <div class="border-bottom pb-2 mb-2">
-          <h3 class="h5 mb-1"><?= $hierarchyBadges('building', $building) ?><span class="ms-1"><?= htmlspecialchars((string) $building->name) ?></span></h3>
+          <h3 class="h5 mb-1"><?= $hierarchyBadges('building', $building) ?><span><?= htmlspecialchars((string) $building->name) ?></span></h3>
           <?php if (trim((string) $building->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $building->description) ?></p><?php endif; ?>
         </div>
         <div class="row g-3">
         <?php foreach ($floors as $floor): if ((int) $floor->building_id !== (int) $building->id) continue; ?>
           <?php $floorIdentifier = StructureController::floorIdentifier($floor, $building); ?>
-          <div class="col-md-6 col-xl-4 structure-filter-item" <?= $filterAttributes('floor', $floor) ?>><details class="border rounded p-2"><summary><?= $hierarchyBadges('floor', $floor) ?><strong class="ms-1"><?= htmlspecialchars($floorIdentifier) ?></strong><?php if ((string) $floor->name !== $floorIdentifier): ?> · <?= htmlspecialchars((string) $floor->name) ?><?php endif; ?><?php if (trim((string) $floor->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $floor->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
+          <div class="col-md-6 col-xl-4 structure-filter-item" <?= $filterAttributes('floor', $floor) ?>><details class="border rounded p-2"><summary><?= $hierarchyBadges('floor', $floor) ?><strong><?= htmlspecialchars($floorIdentifier) ?></strong><?php if ((string) $floor->name !== $floorIdentifier): ?> · <?= htmlspecialchars((string) $floor->name) ?><?php endif; ?><?php if (trim((string) $floor->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $floor->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
         <?php endforeach; ?>
         </div>
       </section>
@@ -310,7 +323,7 @@ $section = static function (string $title, string $type, array $items) use ($for
         <?php foreach ($floors as $floor): ?>
           <?php $building = $buildingsById[(int) $floor->building_id] ?? null; ?>
           <section class="structure-filter-group" <?= $filterAttributes('floor', $floor) ?>>
-          <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= $hierarchyBadges('floor', $floor) ?><span class="ms-1"><?= htmlspecialchars(StructureController::floorIdentifier($floor, $building)) ?></span></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
+          <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= $hierarchyBadges('floor', $floor) ?><span><?= htmlspecialchars(StructureController::floorIdentifier($floor, $building)) ?></span></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
           <div class="vstack gap-2">
           <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; ?>
             <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>
