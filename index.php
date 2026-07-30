@@ -14,7 +14,7 @@ require_once __DIR__ . '/controllers/InspectionController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
-    ['GET', '/kurse', fn($params, $isHx) => CourseController::index($params, $isHx)],
+    ['GET', '/kurse', fn($params, $isHx) => [303, ['Location' => url_for('geraete')], '']],
     ['GET', '/kurse/tabelle', fn($params, $isHx) => CourseController::table($params, $isHx)],
     ['POST', '/kurse', fn($params, $isHx) => CourseController::create($params, $isHx)],
     ['DELETE', '/kurse/{id}', fn($params, $isHx) => CourseController::delete($params, $isHx)],
