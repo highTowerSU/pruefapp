@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "../ceneos-php-base",
-                "reference": "0ae6ccb1d3786572ac46fc706401a355499a7270"
+                "reference": "9109f0798f6883e63841d6fc28d620831383f826"
             },
             "require": {
                 "ext-json": "*",

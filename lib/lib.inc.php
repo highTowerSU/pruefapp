@@ -3,6 +3,7 @@
 use \RedBeanPHP\R as R;
 use Ceneos\PhpBase\Config\Config;
 use Ceneos\PhpBase\Database\RevisionSupport;
+use Ceneos\PhpBase\Http\BootstrapErrorPage;
 
 $baseDir = dirname(__DIR__);
 $appConfigCache = [];
@@ -26,11 +27,15 @@ if (!class_exists(Config::class)) {
     );
 }
 
-Config::load(
-    $baseDir,
-    'pruefapp',
-    defined('CENEOS_CONFIG_FILE') ? CENEOS_CONFIG_FILE : null
-);
+try {
+    Config::load(
+        $baseDir,
+        'pruefapp',
+        defined('CENEOS_CONFIG_FILE') ? CENEOS_CONFIG_FILE : null
+    );
+} catch (\Throwable $exception) {
+    BootstrapErrorPage::emit('PrüfApp', $exception);
+}
 
 configure_session();
 session_start();
