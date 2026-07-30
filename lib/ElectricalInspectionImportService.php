@@ -115,15 +115,37 @@ final class ElectricalInspectionImportService
         $header = $this->uniqueHeaders($header);
         $hasBenning = $this->findColumn($header, ['speicher nr', 'speichernr', 'speicherplatz']) !== null;
         $hasLegacy = $this->findColumn($header, ['number', 'nummer', 'prüfungsnr']) !== null;
-        if (!$hasBenning && !$hasLegacy) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'Kein Speicher-Nr.- oder Prüfnummer-Header erkannt. Die CSV ist vermutlich unvollständig oder beschädigt.'];
+        $headerlessRows = null;
+        if (!$hasBenning && !$hasLegacy) {
+            // Benning exports can start with a binary marker and contain no
+            // header at all.  In that format the first column is Speicher Nr.
+            rewind($stream);
+            $headerlessRows = [];
+            while (($candidate = fgetcsv($stream, 0, $delimiter)) !== false) {
+                if (preg_match('/^\s*\d+\s*$/', (string) ($candidate[0] ?? '')) && count($candidate) >= 3) {
+                    $headerlessRows[] = $candidate;
+                }
+            }
+            if ($headerlessRows === []) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'Kein Speicher-Nr.-Header und keine gültigen Benning-Datensätze erkannt.'];
+            $header = $this->benningHeaders();
+        }
 
         $ods = $this->readOds($this->matchingOdsPath($path));
         $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => []];
-        while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
+        $rows = $headerlessRows ?? null;
+        while (true) {
+            $row = $rows !== null ? array_shift($rows) : fgetcsv($stream, 0, $delimiter);
+            if ($row === null || $row === false) break;
             if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
             $record = $this->csvRecord($header, $row);
             $slot = trim((string) ($record['storage_slot'] ?? ''));
-            if ($slot !== '' && isset($ods[$slot])) $record = array_merge($record, $ods[$slot]);
+            $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
+            if (is_array($odsRow)) {
+                $record = array_merge($record, $odsRow);
+                // In the ODS, “Notiz Gerät” is the actual device description;
+                // the CSV's Bezeichnung is only the protection class.
+                if (trim((string) ($record['device_note'] ?? '')) !== '') $record['device_type'] = trim((string) $record['device_note']);
+            }
             if (trim((string) ($record['external_number'] ?? '')) === '-' || trim((string) ($record['external_number'] ?? '')) === '') {
                 $record['external_number'] = trim((string) ($record['legacy_number'] ?? '')) ?: $slot;
             }
@@ -249,7 +271,7 @@ final class ElectricalInspectionImportService
         if ($description !== '' && trim((string) ($device->comment ?? '')) === '') $device->comment = mb_substr($description, 0, 1000);
         if (!empty($record['comment'])) $device->comment = (string) $record['comment'];
         if ($room !== '' && (int) ($device->room_id ?? 0) === 0) {
-            $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$room, $room]);
+            $roomBean = $this->findRoomByIdentifier($room);
             if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         }
         if (!$device->room_id) $device->room_id = 0;
@@ -257,6 +279,23 @@ final class ElectricalInspectionImportService
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
         return ['device' => $device, 'created' => $created];
+    }
+
+    private function findRoomByIdentifier(string $identifier): ?\RedBeanPHP\OODBBean
+    {
+        $identifier = trim($identifier);
+        if ($identifier === '') return null;
+        $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$identifier, $identifier]);
+        if ($roomBean !== null) return $roomBean;
+        foreach (R::findAll('room') as $candidate) {
+            $floor = R::load('floor', (int) $candidate->floor_id);
+            if (!$floor || !(int) $floor->id) continue;
+            $candidateIdentifier = class_exists('StructureController')
+                ? StructureController::roomIdentifier($candidate, $floor, null)
+                : '';
+            if (strcasecmp(trim($candidateIdentifier), $identifier) === 0) return $candidate;
+        }
+        return null;
     }
 
     private function ensureImportedRoom(array $record, string $room): ?\RedBeanPHP\OODBBean
@@ -362,8 +401,7 @@ final class ElectricalInspectionImportService
         }
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY,
-            RecursiveIteratorIterator::CATCH_GET_CHILD
+            RecursiveIteratorIterator::LEAVES_ONLY
         );
         foreach ($iterator as $file) {
             if (!$file->isFile() || strtolower($file->getExtension()) !== 'pdf') continue;
@@ -410,14 +448,18 @@ final class ElectricalInspectionImportService
             if ($header === null || count(array_filter($values, static fn($value): bool => $value !== '')) === 0) continue;
             $rowData = array_combine($header, array_pad($values, count($header), '')) ?: [];
             $slot = $this->value($rowData, ['Speicherplatz']);
-            if ($slot !== '') $result[$slot] = [
+            if ($slot !== '') {
+                $rowData = [
                 'storage_slot' => $slot,
                 'legacy_number' => $this->value($rowData, ['Nr. alt', 'Nr alt']),
                 'external_number' => $this->value($rowData, ['Nr. neu', 'Nr neu']),
                 'room_snapshot' => $this->value($rowData, ['Raumnummer']),
                 'comment' => $this->value($rowData, ['Bemerkung/Kommentar']),
                 'device_note' => $this->value($rowData, ['Notiz Gerät']),
-            ];
+                ];
+                $result[$slot] = $rowData;
+                $result[ltrim($slot, '0')] = $rowData;
+            }
         }
         return $result;
     }
@@ -426,6 +468,12 @@ final class ElectricalInspectionImportService
     {
         $candidate = preg_replace('/\.csv$/i', '.ods', $csvPath);
         return is_string($candidate) && is_file($candidate) ? $candidate : null;
+    }
+
+    /** @return list<string> */
+    private function benningHeaders(): array
+    {
+        return ['Speicher Nr', 'Bezeichnung', 'Prüfdatum', 'Prüfergebnis', 'RPE Wert', 'RPE Einheit', 'RPE Ergebnis', 'IPE Wert', 'IPE Einheit', 'IPE Ergebnis', 'IBer Wert', 'IBer Einheit', 'IBer Ergebnis', 'IEA Wert', 'IEA Einheit', 'IEA Ergebnis', 'RISO Wert', 'RISO Einheit', 'RISO Ergebnis', 'RISO Spannung', 'Kabel Wert', 'Kabel Einheit', 'Kabel Ergebnis', 'Sichtprüfung Ergebnis', 'FI/RCD Test', 'FI/RCD Wert', 'FI/RCD Einheit', 'FI/RCD Ergebnis'];
     }
 
     /** @param list<string> $headers */
