@@ -28,17 +28,24 @@ if (!class_exists(Config::class)) {
 }
 
 try {
+    ob_start();
     Config::load(
         $baseDir,
         'pruefapp',
         defined('CENEOS_CONFIG_FILE') ? CENEOS_CONFIG_FILE : null
     );
+    ob_end_clean();
 } catch (\Throwable $exception) {
+    if (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     BootstrapErrorPage::emit('PrüfApp', $exception);
 }
 
-configure_session();
-session_start();
+if (PHP_SAPI !== 'cli') {
+    configure_session();
+    session_start();
+}
 
 if (!class_exists('RedBeanPHP\\R')) {
     throw new \RuntimeException('RedBeanPHP konnte nicht geladen werden. Bitte Composer-Abhängigkeiten installieren.');
@@ -836,6 +843,13 @@ function initialisiere_oidc(bool $force = false): void
             unset($_SESSION['auth_user_id'], $_SESSION['user_role']);
         }
     }
+}
+
+// CLI tools (for example the electrical inspection importer) must not run the
+// browser authentication flow or emit redirects/headers.
+if (PHP_SAPI === 'cli') {
+    initialize_database();
+    return;
 }
 
 // Seiten ohne Login-Anforderung
