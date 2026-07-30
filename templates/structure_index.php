@@ -149,7 +149,7 @@ $form = static function (string $type, $entity = null) use (
       <div class="form-text"><code>auto</code> erzeugt z. B. <code>1.24</code>, mit Bereich <code>E10</code> und im Untergeschoss <code>NU07</code>. Muster wie <code>{building}{floor}{room}</code> erzeugen auch <code>K181</code>.</div>
     </div>
   <?php endif; ?>
-  <div class="col-12"><label class="form-label">Beschreibung</label><textarea class="form-control" name="description" rows="2" placeholder="Kurze fachliche Beschreibung des Eintrags"><?= htmlspecialchars((string) $entity->description) ?></textarea></div>
+  <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Kurze fachliche Beschreibung des Eintrags"><?= htmlspecialchars((string) $entity->description) ?></textarea><div class="form-text">Wird direkt in der Strukturübersicht angezeigt, maximal 240 Zeichen.</div></div>
   <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $entity->comment) ?></textarea></div>
   <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars((string) ($entity->metadata_json ?: '{}')) ?></textarea></div>
   <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
@@ -165,7 +165,10 @@ $section = static function (string $title, string $type, array $items) use ($for
     <div class="vstack gap-2">
       <?php foreach ($items as $item): ?>
         <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
-          <summary><strong><?= htmlspecialchars((string) $item->name) ?></strong><?php if (!empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?></summary>
+          <summary>
+            <strong><?= htmlspecialchars((string) $item->name) ?></strong><?php if (!empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
+            <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
+          </summary>
           <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?></div>
         </details>
       <?php endforeach; ?>
@@ -236,11 +239,14 @@ $section = static function (string $title, string $type, array $items) use ($for
     <?php if ($canManage): ?><details class="border rounded p-2 mb-4"><summary class="fw-semibold">Neue Etage anlegen</summary><div class="pt-3"><?php $form('floor'); ?></div></details><?php endif; ?>
     <?php foreach ($buildings as $building): ?>
       <section class="mb-4 structure-filter-group" <?= $filterAttributes('building', $building) ?>>
-        <h3 class="h5 border-bottom pb-2"><?= htmlspecialchars($optionLabel($building, 'building')) ?></h3>
+        <div class="border-bottom pb-2 mb-2">
+          <h3 class="h5 mb-1"><?= htmlspecialchars($optionLabel($building, 'building')) ?></h3>
+          <?php if (trim((string) $building->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $building->description) ?></p><?php endif; ?>
+        </div>
         <div class="row g-3">
         <?php foreach ($floors as $floor): if ((int) $floor->building_id !== (int) $building->id) continue; ?>
           <?php $floorIdentifier = StructureController::floorIdentifier($floor, $building); ?>
-          <div class="col-md-6 col-xl-4 structure-filter-item" <?= $filterAttributes('floor', $floor) ?>><details class="border rounded p-2"><summary><strong><?= htmlspecialchars($floorIdentifier) ?></strong><?php if ((string) $floor->name !== $floorIdentifier): ?> · <?= htmlspecialchars((string) $floor->name) ?><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
+          <div class="col-md-6 col-xl-4 structure-filter-item" <?= $filterAttributes('floor', $floor) ?>><details class="border rounded p-2"><summary><strong><?= htmlspecialchars($floorIdentifier) ?></strong><?php if ((string) $floor->name !== $floorIdentifier): ?> · <?= htmlspecialchars((string) $floor->name) ?><?php endif; ?><?php if (trim((string) $floor->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $floor->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
         <?php endforeach; ?>
         </div>
       </section>
@@ -258,10 +264,10 @@ $section = static function (string $title, string $type, array $items) use ($for
         <?php foreach ($floors as $floor): ?>
           <?php $building = $buildingsById[(int) $floor->building_id] ?? null; ?>
           <section class="structure-filter-group" <?= $filterAttributes('floor', $floor) ?>>
-          <h3 class="h6 mt-4 border-bottom pb-2"><?= htmlspecialchars($optionLabel($floor, 'floor')) ?></h3>
+          <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= htmlspecialchars($optionLabel($floor, 'floor')) ?></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
           <div class="vstack gap-2">
           <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; ?>
-            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>
+            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>
           <?php endforeach; ?>
           </div>
           </section>

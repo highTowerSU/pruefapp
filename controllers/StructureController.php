@@ -80,7 +80,9 @@ class StructureController
 
         $entity->name = $name;
         $entity->{$definition['parent']} = $parentId > 0 ? $parentId : null;
-        $entity->description = trim((string) ($_POST['description'] ?? ''));
+        $description = trim((string) ($_POST['description'] ?? ''));
+        if (mb_strlen($description) > 240) return self::redirectWithError('Die Kurzbeschreibung darf maximal 240 Zeichen enthalten.');
+        $entity->description = $description;
         $entity->comment = trim((string) ($_POST['comment'] ?? ''));
         $entity->metadata_json = $metadata;
         if ($type === 'customer' || $type === 'floor') {

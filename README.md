@@ -151,6 +151,8 @@ Standort, Gebäude und Etage filtern.
 Kunden und Standorte können ebenfalls optionale Kürzel erhalten. Auswahlfelder
 zeigen die Hierarchie kompakt mit diesen Kürzeln, etwa
 `KD · SN · Altbau (AB)` oder `KD · SN · AB0`.
+Kurzbeschreibungen sind auf 240 Zeichen begrenzt und werden in Struktur- und
+Geräteübersichten direkt unter Name beziehungsweise Kennung angezeigt.
 
 ## Tests
 
