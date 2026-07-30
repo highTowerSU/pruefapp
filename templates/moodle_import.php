@@ -104,7 +104,7 @@ $moodleLookupError = $moodleLookupError ?? null;
 
         <?php if (!$status['configured']): ?>
             <div class="alert alert-warning" role="alert">
-                Der Pfad zur Moodle-Installation ist nicht konfiguriert. Bitte setze die Umgebungsvariable
+                Der Pfad zur Moodle-Installation ist nicht konfiguriert. Bitte setze den Wert
                 <code>MOODLE_PATH</code>, sodass sie auf das Moodle-Stammverzeichnis verweist.
             </div>
         <?php elseif (!$status['script_exists']): ?>

@@ -24,23 +24,16 @@ class MoodleCourseService
         } elseif (function_exists('moodle_root_path')) {
             $resolvedRoot = moodle_root_path();
         } else {
-            $envRoot = getenv('MOODLE_PATH');
-            if ($envRoot === false && isset($_ENV['MOODLE_PATH'])) {
-                $envRoot = (string) $_ENV['MOODLE_PATH'];
-            }
-            $resolvedRoot = rtrim((string) ($envRoot ?: ''), DIRECTORY_SEPARATOR);
+            $resolvedRoot = rtrim((string) (config_value('MOODLE_PATH') ?? ''), DIRECTORY_SEPARATOR);
         }
 
         $this->moodleRoot = $resolvedRoot;
 
-        $envPhp = getenv('MOODLE_PHP_BIN');
-        if ($envPhp === false && isset($_ENV['MOODLE_PHP_BIN'])) {
-            $envPhp = (string) $_ENV['MOODLE_PHP_BIN'];
-        }
+        $configuredPhp = config_value('MOODLE_PHP_BIN');
 
         $this->phpBinary = $phpBinary !== null
             ? $phpBinary
-            : ($envPhp ?: PHP_BINARY);
+            : ($configuredPhp ?? PHP_BINARY);
 
         $this->defaultOptions = $defaultOptions + [
             'visible' => 1,

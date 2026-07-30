@@ -15,23 +15,16 @@ class MoodleImportService
         } elseif (function_exists('moodle_root_path')) {
             $resolvedRoot = moodle_root_path();
         } else {
-            $envRoot = getenv('MOODLE_PATH');
-            if ($envRoot === false && isset($_ENV['MOODLE_PATH'])) {
-                $envRoot = (string) $_ENV['MOODLE_PATH'];
-            }
-            $resolvedRoot = rtrim((string) ($envRoot ?: ''), DIRECTORY_SEPARATOR);
+            $resolvedRoot = rtrim((string) (config_value('MOODLE_PATH') ?? ''), DIRECTORY_SEPARATOR);
         }
 
         $this->moodleRoot = $resolvedRoot;
 
-        $envPhp = getenv('MOODLE_PHP_BIN');
-        if ($envPhp === false && isset($_ENV['MOODLE_PHP_BIN'])) {
-            $envPhp = (string) $_ENV['MOODLE_PHP_BIN'];
-        }
+        $configuredPhp = config_value('MOODLE_PHP_BIN');
 
         $this->phpBinary = $phpBinary !== null
             ? $phpBinary
-            : $this->detectPhpBinary($envPhp ?: PHP_BINARY);
+            : $this->detectPhpBinary($configuredPhp ?? PHP_BINARY);
 
         $this->defaultOptions = $defaultOptions + [
             // Moodle expects the delimiter option to contain the literal character and not
@@ -372,7 +365,7 @@ class MoodleImportService
             return is_file($this->phpBinary) && is_executable($this->phpBinary);
         }
 
-        $paths = explode(PATH_SEPARATOR, (string) getenv('PATH'));
+        $paths = explode(PATH_SEPARATOR, (string) ($_SERVER['PATH'] ?? ''));
 
         foreach ($paths as $path) {
             $candidate = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $this->phpBinary;

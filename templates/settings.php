@@ -3,8 +3,8 @@
 /** @var array<string, string> $errors */
 /** @var string|null $effectiveKeycloakAccountUrl */
 /** @var string|null $effectiveKeycloakAdminUrl */
-/** @var string|null $keycloakAccountEnvOverride */
-/** @var string|null $keycloakAdminEnvOverride */
+/** @var string|null $keycloakAccountFileOverride */
+/** @var string|null $keycloakAdminFileOverride */
 ?>
 
 <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
@@ -32,8 +32,8 @@
       <?php endif; ?>
     </div>
 
-    <?php if (!empty($keycloakAccountEnvOverride) || !empty($keycloakAdminEnvOverride)): ?>
-      <div class="alert alert-warning mb-0">Hinweis: Environment-Variablen überschreiben gespeicherte Werte.</div>
+    <?php if (!empty($keycloakAccountFileOverride) || !empty($keycloakAdminFileOverride)): ?>
+      <div class="alert alert-warning mb-0">Hinweis: Werte aus der externen Konfigurationsdatei überschreiben gespeicherte Werte.</div>
     <?php endif; ?>
   </div>
   <div class="card-footer text-end">

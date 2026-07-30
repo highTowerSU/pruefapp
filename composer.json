@@ -1,7 +1,17 @@
 {
+    "license": "proprietary",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../ceneos-php-base",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "require": {
+        "ceneos/php-base": "dev-main",
         "jumbojett/openid-connect-php": "^1.0",
-        "gabordemooij/redbean": "dev-master",
-        "hightowersu/redbean_rebean": "dev-master"
+        "gabordemooij/redbean": "dev-master"
     }
 }

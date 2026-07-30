@@ -10,7 +10,7 @@ function get_branding(): array
         return $branding;
     }
 
-    $brandKey = getenv('APP_BRAND') ?: ($_ENV['APP_BRAND'] ?? '');
+    $brandKey = config_value('APP_BRAND') ?? '';
     $brandKey = strtolower(trim($brandKey));
 
     $brandAliases = [

@@ -29,7 +29,7 @@
         <div class="mb-3">
           <label class="form-label" for="slug">Kurznamen (Slug) *</label>
           <input type="text" class="form-control" id="slug" name="slug" required value="<?= htmlspecialchars($company['slug']) ?>">
-          <div class="form-text">Kleinbuchstaben, Zahlen und Bindestriche. Wird u.a. für die Auswahl per Umgebungsvariable verwendet.</div>
+          <div class="form-text">Kleinbuchstaben, Zahlen und Bindestriche. Wird u.a. für die Auswahl über die externe Konfigurationsdatei verwendet.</div>
         </div>
       </div>
     </div>

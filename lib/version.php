@@ -8,7 +8,7 @@ function app_version_info(): array
         return $cache;
     }
 
-    $version = env_value('APP_VERSION');
+    $version = config_value('APP_VERSION');
     if ($version === null) {
         $version = detect_app_version_from_json(dirname(__DIR__) . '/composer.json');
     }
@@ -16,12 +16,12 @@ function app_version_info(): array
         $version = detect_app_version_from_json(dirname(__DIR__) . '/package.json');
     }
 
-    $commit = env_value('APP_GIT_COMMIT');
+    $commit = config_value('APP_GIT_COMMIT');
     if ($commit === null) {
         $commit = detect_git_commit();
     }
 
-    $buildDate = env_value('APP_BUILD_DATE');
+    $buildDate = config_value('APP_BUILD_DATE');
 
     $cache = [
         'version' => $version ?? 'dev',

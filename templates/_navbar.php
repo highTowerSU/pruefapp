@@ -107,7 +107,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
             $userMenuId = 'userMenuDropdown';
             $userManagementUrl = $branding['user_management_url'] ?? null;
             if (empty($userManagementUrl)) {
-                $userManagementUrl = getenv('APP_USER_MANAGEMENT_URL') ?: ($_ENV['APP_USER_MANAGEMENT_URL'] ?? null);
+                $userManagementUrl = config_value('APP_USER_MANAGEMENT_URL');
             }
             if (is_string($userManagementUrl)) {
                 $userManagementUrl = trim($userManagementUrl);

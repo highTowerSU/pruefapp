@@ -40,7 +40,8 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 ## Installation
 
-1. Repository klonen.
+1. Dieses Repository und `ceneos-php-base` als benachbarte Verzeichnisse
+   klonen (`pruefapp/` und `ceneos-php-base/`).
 2. Abhängigkeiten installieren:
    ```bash
    composer install
@@ -61,6 +62,25 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 ## Konfiguration
 
+Die Anwendung lädt beim Start die externe Datei
+`../config/pruefapp.php`. Der Pfad liegt damit außerhalb dieses
+Git-Repositories. Die Datei muss ein PHP-Array zurückgeben und insbesondere
+die OIDC-Zugangsdaten enthalten:
+
+```php
+<?php
+
+return [
+    'APP_STORAGE_NAMESPACE' => 'pruefapp',
+    'APP_OIDC_ISSUER_URL' => 'https://login.example.org/realms/example',
+    'APP_OIDC_CLIENT_ID' => 'pruefapp',
+    'APP_OIDC_CLIENT_SECRET' => 'lokales-secret',
+];
+```
+
+Die Datei sollte nur für den betreibenden Benutzer und den Webserver lesbar
+sein. Installationsspezifische Werte und Secrets gehören nicht ins Repository.
+
 ### Keycloak
 
 - `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Admin-Oberfläche eines Realms. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet; für die Standard-Konfiguration der Königsblau-Instanz wird automatisch `https://keycloak.koenigsbl.au` verwendet. Die URL kann alternativ im Backend unter „Konfiguration“ hinterlegt werden.
@@ -72,19 +92,12 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 Wenn mehrere PHP-Apps unter derselben Domain bzw. auf demselben Server laufen, kann die Prüf-Doku-App mit eigenen Session-Cookies und einem eigenen SQLite-Speicherbereich konfiguriert werden:
 
-- Für **pruefapp** ist bereits ein Standard hinterlegt: Ohne zusätzliche Variablen nutzt die App automatisch den Namespace `pruefapp` und leitet daraus einen stabilen Session-Cookie-Namen ab.
+- Für **pruefapp** ist in der externen Konfigurationsdatei der Namespace `pruefapp` hinterlegt.
 - `APP_STORAGE_NAMESPACE` – Namespace für den SQLite-Ablagepfad (Standard: `pruefapp`). Die DB wird bevorzugt in `data/<namespace>/db.sqlite` gesucht/angelegt.
 - `APP_INSTANCE_ID` – Fallback für den Namespace, falls `APP_STORAGE_NAMESPACE` nicht gesetzt ist.
 - `APP_SESSION_NAME` – expliziter PHP-Session-Cookie-Name. Ohne Wert wird automatisch ein stabiler Name auf Basis des Namespace erzeugt.
 
-Beispiel (nur nötig, wenn du vom Standard `pruefapp` abweichen willst):
-
-```bash
-APP_STORAGE_NAMESPACE=pruefapp-prod
-# alternativ:
-# APP_INSTANCE_ID=pruefapp-prod
-# APP_SESSION_NAME=pruefapp_prod_session
-```
+Diese Werte werden als weitere Einträge im zurückgegebenen PHP-Array gepflegt.
 
 ### Objekt- und Kundenstruktur
 
@@ -101,7 +114,15 @@ Die Tabellen werden beim Start automatisch angelegt (`ensure_structure_schema()`
 
 ## Tests
 
-Aktuell sind keine automatisierten Tests definiert. Bitte testen Sie Änderungen manuell über die Weboberfläche.
+Der Bootstrap einschließlich externer Konfiguration und SQLite-Anbindung wird
+mit einer temporären, isolierten Instanz geprüft:
+
+```bash
+php tests/bootstrap_config_test.php
+```
+
+Fachliche Änderungen sollten zusätzlich manuell über die Weboberfläche geprüft
+werden.
 
 ## Lizenz
 

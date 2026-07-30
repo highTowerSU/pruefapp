@@ -56,8 +56,8 @@ class SettingsController
             'errors' => $errors,
             'effectiveKeycloakAccountUrl' => keycloak_account_console_base_url(),
             'effectiveKeycloakAdminUrl' => keycloak_admin_console_base_url(),
-            'keycloakAccountEnvOverride' => env_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL'),
-            'keycloakAdminEnvOverride' => env_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL'),
+            'keycloakAccountFileOverride' => config_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL'),
+            'keycloakAdminFileOverride' => config_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL'),
         ]);
 
         if ($isHx) {

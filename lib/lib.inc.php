@@ -1,12 +1,11 @@
 <?php
 
 use \RedBeanPHP\R as R;
+use Ceneos\PhpBase\Config\Config;
+use Ceneos\PhpBase\Database\RevisionSupport;
 
 $baseDir = dirname(__DIR__);
 $appConfigCache = [];
-
-configure_session();
-session_start();
 
 $autoloadCandidates = [
     $baseDir . '/vendor/autoload.php',
@@ -20,6 +19,21 @@ foreach ($autoloadCandidates as $autoloadPath) {
         break;
     }
 }
+
+if (!class_exists(Config::class)) {
+    throw new \RuntimeException(
+        'CENEOS PHP Base konnte nicht geladen werden. Bitte Composer-Abhängigkeiten installieren.'
+    );
+}
+
+Config::load(
+    $baseDir,
+    'pruefapp',
+    defined('CENEOS_CONFIG_FILE') ? CENEOS_CONFIG_FILE : null
+);
+
+configure_session();
+session_start();
 
 if (!class_exists('RedBeanPHP\\R')) {
     throw new \RuntimeException('RedBeanPHP konnte nicht geladen werden. Bitte Composer-Abhängigkeiten installieren.');
@@ -125,9 +139,9 @@ function set_app_config(string $key, ?string $value): void
 
 function moodle_root_path(): string
 {
-    $envRoot = env_value('MOODLE_PATH');
-    if ($envRoot !== null) {
-        return rtrim($envRoot, DIRECTORY_SEPARATOR);
+    $fileRoot = config_value('MOODLE_PATH');
+    if ($fileRoot !== null) {
+        return rtrim($fileRoot, DIRECTORY_SEPARATOR);
     }
 
     $configured = get_app_config('moodle_path', '');
@@ -142,9 +156,9 @@ function moodle_root_path(): string
 
 function moodle_webservice_base_url(): string
 {
-    $envUrl = env_value('MOODLE_WEBSERVICE_URL');
-    if ($envUrl !== null && $envUrl !== '') {
-        return rtrim($envUrl, '/');
+    $fileUrl = config_value('MOODLE_WEBSERVICE_URL');
+    if ($fileUrl !== null && $fileUrl !== '') {
+        return rtrim($fileUrl, '/');
     }
 
     $configured = get_app_config('moodle_webservice_url', '');
@@ -159,9 +173,9 @@ function moodle_webservice_base_url(): string
 
 function moodle_webservice_token(): string
 {
-    $envToken = env_value('MOODLE_WEBSERVICE_TOKEN');
-    if ($envToken !== null && $envToken !== '') {
-        return $envToken;
+    $fileToken = config_value('MOODLE_WEBSERVICE_TOKEN');
+    if ($fileToken !== null && $fileToken !== '') {
+        return $fileToken;
     }
 
     $configured = get_app_config('moodle_webservice_token', '');
@@ -185,7 +199,18 @@ function initialize_database(): void
     $storageNamespace = app_storage_namespace();
     $legacyNamespace = 'pruefapp';
 
-    $dbCandidates = [
+    $dbCandidates = [];
+    $configuredDatabasePath = config_value('APP_DATABASE_PATH');
+    if ($configuredDatabasePath !== null) {
+        if (!str_starts_with($configuredDatabasePath, '/')
+            && preg_match('/^[A-Za-z]:[\\\\\\/]/', $configuredDatabasePath) !== 1
+        ) {
+            throw new \RuntimeException('APP_DATABASE_PATH muss ein absoluter Pfad sein.');
+        }
+        $dbCandidates[] = $configuredDatabasePath;
+    }
+
+    $dbCandidates = array_merge($dbCandidates, [
         $baseDir . '/../../data/' . $storageNamespace . '/db.sqlite',
         $baseDir . '/data/' . $storageNamespace . '/db.sqlite',
         dirname($baseDir) . '/data/' . $storageNamespace . '/db.sqlite',
@@ -193,7 +218,7 @@ function initialize_database(): void
         $baseDir . '/data/' . $legacyNamespace . '/db.sqlite',
         dirname($baseDir) . '/data/' . $legacyNamespace . '/db.sqlite',
         $baseDir . '/db.sqlite',
-    ];
+    ]);
 
     $dbPath = null;
     foreach ($dbCandidates as $candidate) {
@@ -216,17 +241,9 @@ function initialize_database(): void
     R::freeze(false);
     ensure_structure_schema();
 
-    if (method_exists(R::class, 'createRevisionSupport')) {
-        try {
-            foreach (['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'auditlog'] as $table) {
-                R::createRevisionSupport(R::dispense($table));
-            }
-        } catch (\Throwable $throwable) {
-            error_log('Failed to enable RedBean revision support: ' . $throwable->getMessage());
-        }
-    } else {
-        error_log('Failed to enable RedBean revision support: extension createRevisionSupport not available.');
-    }
+    RevisionSupport::enableFor(
+        ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'auditlog']
+    );
 
     $initialized = true;
 }
@@ -254,25 +271,14 @@ function ensure_structure_schema(): void
     }
 }
 
-function env_value(string $name): ?string
+function config_value(string $name): ?string
 {
-    $value = getenv($name);
-    if ($value === false) {
-        $value = $_ENV[$name] ?? null;
-    }
-
-    if ($value === null) {
-        return null;
-    }
-
-    $value = trim((string) $value);
-
-    return $value === '' ? null : $value;
+    return Config::string($name);
 }
 
 function app_storage_namespace(): string
 {
-    $configured = env_value('APP_STORAGE_NAMESPACE') ?? env_value('APP_INSTANCE_ID');
+    $configured = config_value('APP_STORAGE_NAMESPACE') ?? config_value('APP_INSTANCE_ID');
 
     if ($configured !== null) {
         $sanitized = preg_replace('/[^a-z0-9._-]+/i', '_', strtolower($configured));
@@ -287,7 +293,7 @@ function app_storage_namespace(): string
 
 function app_session_cookie_name(): string
 {
-    $configured = env_value('APP_SESSION_NAME');
+    $configured = config_value('APP_SESSION_NAME');
     if ($configured !== null && preg_match('/^[A-Za-z][A-Za-z0-9_-]*$/', $configured) === 1) {
         return $configured;
     }
@@ -470,7 +476,7 @@ function oidc_userinfo_to_array($userInfo): array
 
 function determine_default_role(array $userData): string
 {
-    $configuredEmails = getenv('APP_ADMIN_EMAILS') ?: '';
+    $configuredEmails = config_value('APP_ADMIN_EMAILS') ?? '';
     $emailCandidates = array_filter(array_map('trim', explode(',', $configuredEmails)), static function ($value) {
         return $value !== '';
     });
@@ -591,24 +597,7 @@ function current_user_role(): ?string
 
 function current_user_has_role(string ...$roles): bool
 {
-    $role = current_user_role();
-    if ($role === null) {
-        return false;
-    }
-
-    $role = strtolower($role);
-    $roles = array_map('strtolower', $roles);
-
-    if (in_array($role, $roles, true)) {
-        return true;
-    }
-
-    // Administrator:innen haben automatisch alle Rechte.
-    if ($role === 'admin' && !empty($roles)) {
-        return true;
-    }
-
-    return false;
+    return \Ceneos\PhpBase\Auth\RolePolicy::allows(current_user_role(), ...$roles);
 }
 
 function current_user_can_manage_courses(): bool
@@ -623,24 +612,17 @@ function current_user_can_manage_participants(): bool
 
 function available_user_roles(): array
 {
-    return [
-        'admin' => 'Administrator/in',
-        'editor' => 'Editor/in',
-        'user' => 'Betrachter/in',
-    ];
+    return \Ceneos\PhpBase\Auth\RolePolicy::labels();
 }
 
 function role_label(string $role): string
 {
-    $roles = available_user_roles();
-    $normalized = strtolower($role);
-
-    return $roles[$normalized] ?? ucfirst($role);
+    return \Ceneos\PhpBase\Auth\RolePolicy::label($role);
 }
 
 function keycloak_admin_console_base_url(): ?string
 {
-    $configured = env_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL');
+    $configured = config_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL');
     if ($configured === null) {
         $configured = get_app_config('keycloak_admin_console_base_url');
         if (is_string($configured)) {
@@ -657,9 +639,9 @@ function keycloak_admin_console_base_url(): ?string
         return rtrim($configured, '/');
     }
 
-    $realm = env_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
+    $realm = config_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
 
-    $serverUrl = env_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
+    $serverUrl = config_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
     $serverUrl = rtrim($serverUrl, '/');
 
     if ($serverUrl === 'https://login.koenigsbl.au') {
@@ -675,7 +657,7 @@ function keycloak_admin_console_base_url(): ?string
 
 function keycloak_account_console_base_url(): ?string
 {
-    $configured = env_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL');
+    $configured = config_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL');
     if ($configured === null) {
         $configured = get_app_config('keycloak_account_console_base_url');
         if (is_string($configured)) {
@@ -692,8 +674,8 @@ function keycloak_account_console_base_url(): ?string
         return rtrim($configured, '/');
     }
 
-    $serverUrl = env_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
-    $realm = env_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
+    $serverUrl = config_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au';
+    $realm = config_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
 
     $serverUrl = rtrim($serverUrl, '/');
     if ($serverUrl === 'https://login.koenigsbl.au') {
@@ -732,7 +714,7 @@ function render_oidc_error_response(?\Throwable $throwable = null): void
         error_log('OIDC authentication failed: ' . $throwable->getMessage());
     }
 
-    $supportContact = env_value('APP_SUPPORT_CONTACT') ?? env_value('APP_SUPPORT_EMAIL');
+    $supportContact = config_value('APP_SUPPORT_CONTACT') ?? config_value('APP_SUPPORT_EMAIL');
 
     $content = render_template('auth_error.php', [
         'retryUrl' => url_for(),
@@ -753,12 +735,19 @@ function initialisiere_oidc(bool $force = false): void
 {
     if ($force || !isset($_SESSION['user'])) {
         try {
+            $issuerUrl = config_value('APP_OIDC_ISSUER_URL');
+            $clientId = config_value('APP_OIDC_CLIENT_ID');
+            $clientSecret = config_value('APP_OIDC_CLIENT_SECRET');
+            if ($issuerUrl === null || $clientId === null || $clientSecret === null) {
+                throw new \RuntimeException('Die OIDC-Konfiguration ist unvollständig.');
+            }
+
             $oidc = new \Jumbojett\OpenIDConnectClient(
-                'https://login.koenigsbl.au/realms/koenigsbl.au',
-                'moodle-user-gen',
-                'ThDCoZOf8xzFoGkpzA9AUSzNmDQftNGa'
+                $issuerUrl,
+                $clientId,
+                $clientSecret
             );
-            $oidc->setRedirectURL(absolute_url_for('callback.php'));
+            $oidc->setRedirectURL(config_value('APP_OIDC_REDIRECT_URL') ?? absolute_url_for('callback.php'));
             $oidc->authenticate();
 
             $userInfo = $oidc->requestUserInfo();
@@ -847,50 +836,12 @@ if (isset($_SESSION['auth_user_id'])) {
 
 function transliterate_to_ascii(string $value): string
 {
-    if ($value === '') {
-        return '';
-    }
-
-    $value = strtr($value, [
-        'Ä' => 'Ae',
-        'ä' => 'ae',
-        'Ö' => 'Oe',
-        'ö' => 'oe',
-        'Ü' => 'Ue',
-        'ü' => 'ue',
-        'ß' => 'ss',
-    ]);
-
-    if (class_exists('Transliterator')) {
-        $transliterator = \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC; Any-Latin; Latin-ASCII');
-        if ($transliterator !== null) {
-            $result = $transliterator->transliterate($value);
-            if ($result !== false) {
-                $value = $result;
-            }
-        }
-    } elseif (function_exists('iconv')) {
-        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
-        if ($converted !== false) {
-            $value = $converted;
-        }
-    }
-
-    return $value;
+    return \Ceneos\PhpBase\Support\TextHelper::transliterate($value);
 }
 
 function sanitize_username(string $username): string
 {
-    $username = trim($username);
-    if ($username === '') {
-        return '';
-    }
-
-    $username = transliterate_to_ascii($username);
-    $username = strtolower($username);
-    $username = preg_replace('/[^a-z0-9_.-]+/', '', $username) ?? '';
-
-    return $username;
+    return \Ceneos\PhpBase\Support\TextHelper::username($username);
 }
 
 function ensure_unique_username(string $base, ?int $excludeId = null): string
@@ -991,10 +942,11 @@ function generate_email($username) {
 
 function render_template($file, $vars = []) {
     global $baseDir;
-    extract($vars);
-    ob_start();
-    include $baseDir . '/templates/' . $file;
-    return ob_get_clean();
+    static $renderer = null;
+
+    $renderer ??= new \Ceneos\PhpBase\View\TemplateRenderer($baseDir . '/templates');
+
+    return $renderer->render((string) $file, (array) $vars);
 }
 
 function forbidden_response(?string $message = null): array
