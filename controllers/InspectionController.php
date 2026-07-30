@@ -13,6 +13,13 @@ final class InspectionController
         $message = null;
         $stats = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'phoenix_sync') {
+                try {
+                    $stats = (new PhoenixSyncService())->sync(trim((string) ($_POST['phoenix_customer_id'] ?? '')), trim((string) ($_POST['phoenix_token'] ?? '')), trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix');
+                    $message = sprintf('Phoenix-Sync abgeschlossen: %d neue Geräte, %d Prüfungen importiert; %d bereits vorhandene Geräte übersprungen.', (int) ($stats['devices'] ?? 0), (int) ($stats['imported'] ?? 0), (int) ($stats['skipped_existing'] ?? 0));
+                } catch (Throwable $exception) { $message = 'Phoenix-Sync nicht möglich: ' . $exception->getMessage(); }
+                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats])])];
+            }
             $directory = trim((string) ($_POST['directory'] ?? ''));
             if (isset($_FILES['csv'], $_FILES['ods']) && is_array($_FILES['csv']) && is_array($_FILES['ods'])) {
                 try {

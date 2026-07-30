@@ -67,6 +67,7 @@ require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
+require_once __DIR__ . '/PhoenixSyncService.php';
 
 initialize_database();
 

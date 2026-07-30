@@ -15,6 +15,16 @@
       <div class="col-md-6"><label class="form-label" for="ods">Gerätedaten (ODS)</label><input class="form-control" id="ods" name="ods" type="file" accept=".ods" required></div>
       <div class="col-12"><button class="btn btn-primary">Paar importieren</button></div>
     </form>
+    <hr>
+    <h2 class="h6">Phoenix-Einweg-Sync (nur neue Geräte)</h2>
+    <p class="text-body-secondary">Lädt Prüfungen eines Phoenix-Kunden über die API und übernimmt ausschließlich Gerätenummern, die lokal noch nicht existieren. Der Bearer-Token wird nicht gespeichert.</p>
+    <form method="post" class="row g-2">
+      <input type="hidden" name="action" value="phoenix_sync">
+      <div class="col-md-3"><label class="form-label" for="phoenix_customer_id">Phoenix-Kunden-ID</label><input class="form-control" id="phoenix_customer_id" name="phoenix_customer_id" inputmode="numeric" required></div>
+      <div class="col-md-5"><label class="form-label" for="phoenix_token">Bearer-Token</label><input class="form-control" id="phoenix_token" name="phoenix_token" type="password" autocomplete="off" required></div>
+      <div class="col-md-4"><label class="form-label" for="phoenix_api_url">API-URL</label><input class="form-control" id="phoenix_api_url" name="phoenix_api_url" value="https://api.phoenix-arbeitswelt.de/phoenix"></div>
+      <div class="col-12"><button class="btn btn-outline-primary">Neue Phoenix-Geräte synchronisieren</button></div>
+    </form>
     <?php if (is_array($stats)): ?><hr><pre class="mb-0"><?= htmlspecialchars((string) json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre><?php endif; ?>
     <?php if (is_array($stats) && !empty($stats['new_devices'])): ?><details class="mt-3"><summary>Neu angelegte Geräte (<?= count($stats['new_devices']) ?>)</summary><ul class="mt-2"><?php foreach ($stats['new_devices'] as $newDevice): ?><li><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $newDevice['id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $newDevice['number']) ?> · <?= htmlspecialchars((string) $newDevice['name']) ?></a></li><?php endforeach; ?></ul></details><?php endif; ?>
   </div>
