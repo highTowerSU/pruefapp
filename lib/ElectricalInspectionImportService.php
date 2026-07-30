@@ -32,7 +32,7 @@ final class ElectricalInspectionImportService
             throw new InvalidArgumentException('Importverzeichnis oder Importdatei wurde nicht gefunden.');
         }
         $root = is_dir($source) ? $source : dirname($source);
-        $this->indexReports($root);
+        $this->indexReports($root, is_dir($source));
         $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
         $files = is_file($source)
             ? [new SplFileInfo($source)]
@@ -237,10 +237,17 @@ final class ElectricalInspectionImportService
         return ['device' => $device, 'created' => $created];
     }
 
-    private function indexReports(string $root): void
+    private function indexReports(string $root, bool $recursive = true): void
     {
         $this->reportsByNumber = [];
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+        if (!$recursive) {
+            foreach (glob($root . '/*.pdf') ?: [] as $path) {
+                $file = new SplFileInfo($path);
+                if (preg_match('/^(\d+)/', $file->getBasename('.pdf'), $match)) $this->reportsByNumber[$match[1]] = $file->getPathname();
+            }
+            return;
+        }
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS, RecursiveDirectoryIterator::CATCH_GET_CHILD));
         foreach ($iterator as $file) {
             if (!$file->isFile() || strtolower($file->getExtension()) !== 'pdf') continue;
             if (preg_match('/^(\d+)/', $file->getBasename('.pdf'), $match)) $this->reportsByNumber[$match[1]] = $file->getPathname();
