@@ -94,7 +94,6 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           }
         ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-          <a href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $devicesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Prüfungen &amp; Geräte</a>
           <a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $structureActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Struktur</a>
           <a href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $devicesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Geräte</a>
           <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
