@@ -34,7 +34,7 @@ final class ElectricalInspectionImportService
         $root = is_dir($source) ? $source : dirname($source);
         $reportRoot = $reportsDirectory !== null && is_dir($reportsDirectory) ? realpath($reportsDirectory) : $root;
         $this->indexReports($reportRoot ?: $root, $reportsDirectory !== null || is_dir($source));
-        $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'errors' => []];
+        $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'not_imported' => [], 'errors' => []];
         $files = is_file($source)
             ? [new SplFileInfo($source)]
             : new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS));
@@ -50,7 +50,7 @@ final class ElectricalInspectionImportService
                     : $this->importCsvFile($file->getPathname(), $root);
                 foreach ($result as $key => $value) {
                     if ($key === 'reason') { $stats['errors'][] = $file->getPathname() . ': ' . $value; continue; }
-                    if ($key === 'new_devices' && is_array($value)) { $stats['new_devices'] = array_merge($stats['new_devices'], $value); continue; }
+                    if (in_array($key, ['new_devices', 'not_imported'], true) && is_array($value)) { $stats[$key] = array_merge($stats[$key] ?? [], $value); continue; }
                     if (array_key_exists($key, $stats) && is_int($value)) $stats[$key] += $value;
                 }
             } catch (Throwable $exception) {
@@ -87,7 +87,8 @@ final class ElectricalInspectionImportService
 
     private function importJsonRecords(array $records, string $path, string $root): array
     {
-        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => []];
+        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'not_imported' => []];
+        $matchedSlots = [];
         foreach ($records as $record) {
             if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
                 $result['skipped']++;
@@ -130,7 +131,8 @@ final class ElectricalInspectionImportService
             $header = $this->benningHeaders();
         }
 
-        $ods = $this->readOds($this->matchingOdsPath($path));
+        $odsPath = $this->matchingOdsPath($path);
+        $ods = $this->readOds($odsPath);
         $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => []];
         $rows = $headerlessRows ?? null;
         while (true) {
@@ -140,7 +142,13 @@ final class ElectricalInspectionImportService
             $record = $this->csvRecord($header, $row);
             $slot = trim((string) ($record['storage_slot'] ?? ''));
             $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
+            if ($odsPath !== null && !is_array($odsRow)) {
+                $result['skipped']++;
+                $result['not_imported'][] = ['storage_slot' => $slot, 'source' => 'CSV', 'reason' => 'Speicherplatz fehlt in der ODS'];
+                continue;
+            }
             if (is_array($odsRow)) {
+                $matchedSlots[ltrim($slot, '0')] = true;
                 $record = array_merge($record, $odsRow);
                 // In the ODS, “Notiz Gerät” is the actual device description;
                 // the CSV's Bezeichnung is only the protection class.
@@ -155,6 +163,18 @@ final class ElectricalInspectionImportService
             }
             $one = $this->importRecord($record, 'csv', $path, $root);
             foreach ($one as $key => $value) { if ($key === 'new_devices') $result[$key] = array_merge($result[$key], $value); else $result[$key] += $value; }
+        }
+        if ($odsPath !== null && $ods !== []) {
+            foreach ($ods as $odsRow) {
+                if (!is_array($odsRow)) continue;
+                $odsSlot = trim((string) ($odsRow['storage_slot'] ?? ''));
+                $key = ltrim($odsSlot, '0');
+                if ($odsSlot !== '' && !isset($matchedSlots[$key])) {
+                    $result['skipped']++;
+                    $result['not_imported'][] = ['storage_slot' => $odsSlot, 'source' => 'ODS', 'reason' => 'Speicherplatz fehlt in der CSV'];
+                    $matchedSlots[$key] = true;
+                }
+            }
         }
         fclose($stream);
 

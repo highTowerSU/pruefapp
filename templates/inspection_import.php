@@ -27,5 +27,6 @@
     </form>
     <?php if (is_array($stats)): ?><hr><pre class="mb-0"><?= htmlspecialchars((string) json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre><?php endif; ?>
     <?php if (is_array($stats) && !empty($stats['new_devices'])): ?><details class="mt-3"><summary>Neu angelegte Geräte (<?= count($stats['new_devices']) ?>)</summary><ul class="mt-2"><?php foreach ($stats['new_devices'] as $newDevice): ?><li><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $newDevice['id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $newDevice['number']) ?> · <?= htmlspecialchars((string) $newDevice['name']) ?></a></li><?php endforeach; ?></ul></details><?php endif; ?>
+    <?php if (is_array($stats) && !empty($stats['not_imported'])): ?><details class="mt-3"><summary>Nicht importiert (<?= count($stats['not_imported']) ?>)</summary><div class="table-responsive mt-2"><table class="table table-sm"><thead><tr><th>Speicherplatz</th><th>Quelle</th><th>Grund</th></tr></thead><tbody><?php foreach ($stats['not_imported'] as $entry): ?><tr><td><?= htmlspecialchars((string) ($entry['storage_slot'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($entry['source'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($entry['reason'] ?? '')) ?></td></tr><?php endforeach; ?></tbody></table></div></details><?php endif; ?>
   </div>
 </div>
