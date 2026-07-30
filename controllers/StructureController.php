@@ -46,6 +46,7 @@ class StructureController
     public static function createBuilding(array $params, bool $isHx): array { return self::saveBuilding($params, $isHx); }
     public static function createFloor(array $params, bool $isHx): array { return self::saveFloor($params, $isHx); }
     public static function createRoom(array $params, bool $isHx): array { return self::saveRoom($params, $isHx); }
+    public static function deleteRoom(array $params, bool $isHx): array { $params['type'] = 'room'; return self::delete($params, $isHx); }
 
     public static function delete(array $params, bool $isHx): array
     {
@@ -67,6 +68,13 @@ class StructureController
                 R::exec('DELETE FROM device WHERE room_id IN (' . $marks . ')', $roomIds);
             }
             foreach (['room', 'area', 'floor', 'building', 'site', 'customer'] as $table) foreach ($descendants[$table] ?? [] as $childId) R::exec("DELETE FROM {$table} WHERE id = ?", [$childId]);
+        }
+        if ($type === 'room') {
+            R::exec('DELETE FROM inspection WHERE device_id IN (SELECT id FROM device WHERE room_id = ?)', [$id]);
+            R::exec('DELETE FROM device WHERE room_id = ?', [$id]);
+            R::exec('DELETE FROM room WHERE id = ?', [$id]);
+            $_SESSION['meldung'] = 'Raum und zugehörige Geräte gelöscht.';
+            return [303, ['Location' => url_for('struktur')], ''];
         }
         R::trash($entity);
         $_SESSION['meldung'] = 'Struktureintrag gelöscht.';
