@@ -262,6 +262,7 @@ final class ElectricalInspectionImportService
         $customerCode = $this->shortCode($customerName, $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'CNO' : '')));
         $customer = R::findOne('customer', ' code = ? OR name = ? ', [$customerCode, $customerName]);
         if ($customer === null) { $customer = R::dispense('customer'); $customer->name = $customerName; $customer->code = $customerCode; $customer->room_code_pattern = 'auto'; $customer->created_at = date(DATE_ATOM); }
+        if ($customerCode === 'AK' && trim((string) ($customer->room_code_pattern ?? '')) === 'auto') $customer->room_code_pattern = '{building}{floor}{room}';
         R::store($customer);
         $siteName = $location ?: $customerName;
         $siteCode = $this->shortCode($siteName, $knownSiteCode ?: ($siteName === 'Antoniuskolleg' ? 'NKS' : ''));
