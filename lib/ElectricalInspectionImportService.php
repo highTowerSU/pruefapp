@@ -301,8 +301,8 @@ final class ElectricalInspectionImportService
     private function roomPart(string $room, string $buildingCode, string $floorCode): string
     {
         if (str_contains($room, '-')) {
-            if (preg_match('/^(\d+)(-.*)$/', $room, $range)) return $buildingCode . str_pad($range[1], 3, '0', STR_PAD_LEFT) . $range[2];
-            return str_starts_with(strtoupper($room), strtoupper($buildingCode)) ? $room : $buildingCode . $room;
+            if (preg_match('/^(?:' . preg_quote($buildingCode, '/') . ')?(\d+)/i', $room, $range)) return $this->shortNumericRoom($range[1]);
+            return $room;
         }
         $prefix = $buildingCode . $floorCode;
         if ($prefix !== '' && strncasecmp($room, $prefix, strlen($prefix)) === 0) {
@@ -310,9 +310,14 @@ final class ElectricalInspectionImportService
             if ($part !== '' && ctype_digit($part)) return $part;
         }
         if (preg_match('/^' . preg_quote($buildingCode, '/') . '(\d+)$/i', $room, $match)) {
-            return ltrim($match[1], '0') ?: '0';
+            return $this->shortNumericRoom($match[1]);
         }
         return $room;
+    }
+
+    private function shortNumericRoom(string $number): string
+    {
+        return str_pad(ltrim($number, '0') ?: '0', 2, '0', STR_PAD_LEFT);
     }
 
     private function buildingCode(string $room, string $level): string
