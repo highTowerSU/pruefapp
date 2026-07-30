@@ -26,13 +26,34 @@ class DeviceController
             ];
             $roomLabels[(int) $room->id] = implode(' · ', array_filter($tokens));
         }
-        $perPage = 50;
+        $perPage = in_array((int) ($_GET['per_page'] ?? 50), [25, 50, 100, 200], true) ? (int) $_GET['per_page'] : 50;
         $page = max(1, (int) ($_GET['page'] ?? 1));
-        $total = (int) R::count('device');
+        $query = trim((string) ($_GET['q'] ?? ''));
+        $year = trim((string) ($_GET['year'] ?? ''));
+        $from = trim((string) ($_GET['from'] ?? ''));
+        $to = trim((string) ($_GET['to'] ?? ''));
+        $deviceId = (int) ($_GET['device_id'] ?? 0);
+        $sort = (string) ($_GET['sort'] ?? 'name');
+        $orderBy = ['room' => 'd.room_id, d.name', 'id' => 'd.id', 'name' => 'd.name'][$sort] ?? 'd.name';
+        $where = [];
+        $paramsQuery = [];
+        if ($deviceId > 0) { $where[] = 'd.id = ?'; $paramsQuery[] = $deviceId; }
+        if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
+        $dateWhere = [];
+        if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $paramsQuery[] = $year . '-01-01'; $paramsQuery[] = ((int) $year + 1) . '-01-01'; }
+        if ($from !== '') { $dateWhere[] = 'i.test_date >= ?'; $paramsQuery[] = $from; }
+        if ($to !== '') { $dateWhere[] = 'i.test_date <= ?'; $paramsQuery[] = $to; }
+        $join = $dateWhere !== [] ? ' JOIN inspection i ON i.device_id = d.id ' : '';
+        if ($dateWhere !== []) $where[] = '(' . implode(' AND ', $dateWhere) . ')';
+        $whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
+        $total = (int) R::getCell('SELECT COUNT(DISTINCT d.id) FROM device d' . $join . $whereSql, $paramsQuery);
         $pages = max(1, (int) ceil($total / $perPage));
         $page = min($page, $pages);
         $offset = ($page - 1) * $perPage;
-        $devices = array_values(R::findAll('device', ' ORDER BY name LIMIT ' . $perPage . ' OFFSET ' . $offset));
+        $devices = array_values(R::getAll('SELECT DISTINCT d.* FROM device d' . $join . $whereSql . ' ORDER BY ' . $orderBy . ' LIMIT ' . $perPage . ' OFFSET ' . $offset, $paramsQuery));
+        $deviceBeans = [];
+        foreach ($devices as $row) { $bean = R::load('device', (int) $row['id']); $deviceBeans[] = $bean; }
+        $devices = $deviceBeans;
         $inspections = [];
         foreach ($devices as $device) {
             $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
@@ -49,6 +70,7 @@ class DeviceController
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
+                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'per_page' => $perPage, 'sort' => $sort],
             ]),
         ])];
     }

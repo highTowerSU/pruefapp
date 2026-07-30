@@ -34,7 +34,7 @@ final class ElectricalInspectionImportService
         $root = is_dir($source) ? $source : dirname($source);
         $reportRoot = $reportsDirectory !== null && is_dir($reportsDirectory) ? realpath($reportsDirectory) : $root;
         $this->indexReports($reportRoot ?: $root, $reportsDirectory !== null || is_dir($source));
-        $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
+        $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'errors' => []];
         $files = is_file($source)
             ? [new SplFileInfo($source)]
             : new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS));
@@ -50,6 +50,7 @@ final class ElectricalInspectionImportService
                     : $this->importCsvFile($file->getPathname(), $root);
                 foreach ($result as $key => $value) {
                     if ($key === 'reason') { $stats['errors'][] = $file->getPathname() . ': ' . $value; continue; }
+                    if ($key === 'new_devices' && is_array($value)) { $stats['new_devices'] = array_merge($stats['new_devices'], $value); continue; }
                     if (array_key_exists($key, $stats) && is_int($value)) $stats[$key] += $value;
                 }
             } catch (Throwable $exception) {
@@ -211,7 +212,7 @@ final class ElectricalInspectionImportService
         $inspection->updated_at = date(DATE_ATOM);
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
         R::store($inspection);
-        return ['imported' => $created ? 1 : 0, 'updated' => $created ? 0 : 1, 'devices' => $deviceResult['created'] ? 1 : 0, 'reports' => $report !== null ? 1 : 0];
+        return ['imported' => $created ? 1 : 0, 'updated' => $created ? 0 : 1, 'devices' => $deviceResult['created'] ? 1 : 0, 'reports' => $report !== null ? 1 : 0, 'new_devices' => $deviceResult['created'] ? [['id' => (int) $deviceResult['device']->id, 'number' => $external, 'name' => (string) $deviceResult['device']->name]] : []];
     }
 
     /** @return array{device:\RedBeanPHP\OODBBean,created:bool} */
