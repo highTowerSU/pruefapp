@@ -57,10 +57,19 @@ class StructureController
 
         $name = trim((string) ($_POST['name'] ?? ''));
         $parentId = (int) ($_POST[$definition['parent']] ?? 0);
-        if ($name === '') return self::redirectWithError($definition['label'] . ': Name fehlt.');
+        $submittedFloorCode = '';
+        if ($type === 'floor') {
+            $submittedFloorCode = self::code($_POST['code'] ?? '', false);
+            if ($submittedFloorCode === '') return self::redirectWithError('Bitte ein Etagenkürzel angeben, z. B. U, E oder 1.');
+            $building = $parentId > 0 ? R::load('building', $parentId) : null;
+            if ($building !== null && $building->id && $submittedFloorCode !== '') {
+                $name = (string) ($building->code ?? '') . $submittedFloorCode;
+            }
+        }
         if ($type !== 'customer' && !self::validParent($definition['parent_table'], $parentId)) {
             return self::redirectWithError($definition['label'] . ': Zuordnung fehlt.');
         }
+        if ($name === '') return self::redirectWithError($definition['label'] . ': Name fehlt.');
         if ($type === 'customer' && $parentId === $id) return self::redirectWithError('Ein Kunde kann nicht sein eigener Unterkunde sein.');
 
         try {
@@ -87,7 +96,7 @@ class StructureController
             $entity->code = self::code($_POST['code'] ?? '', true);
             if ($entity->code === '') return self::redirectWithError('Bitte ein Gebäudekürzel angeben, z. B. AB.');
         } elseif ($type === 'floor') {
-            $entity->code = self::code($_POST['code'] ?? '', false);
+            $entity->code = $submittedFloorCode;
             if ($entity->code === '') return self::redirectWithError('Bitte ein Etagenkürzel angeben, z. B. U, E oder 1.');
             $entity->sort_order = isset($_POST['sort_order']) && $_POST['sort_order'] !== ''
                 ? (int) $_POST['sort_order']

@@ -145,6 +145,9 @@ und `{room}` gebildet; eine Etage kann das Kundenmuster überschreiben.
 Beispiele sind `1.24`, `E10`, `NU07` und `K181`. Untergeschosse mit Kürzel
 `U`, `UG` oder `K` werden in der automatischen Sortierung vor dem Erdgeschoss
 einsortiert.
+Etagen werden automatisch aus Gebäude- und Etagenkürzel benannt, beispielsweise
+`AB` + `0` als `AB0`. Die Strukturansicht lässt sich nach Freitext, Kunde,
+Standort, Gebäude und Etage filtern.
 
 ## Tests
 
