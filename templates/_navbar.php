@@ -16,6 +16,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $helpUrl = url_for('hilfe');
     $structureUrl = url_for('struktur');
     $devicesUrl = url_for('geraete');
+    $inspectionImportUrl = url_for('admin/pruefungen/import');
 
     $coursesPrefix = rtrim($coursesUrl, '/');
     if ($coursesPrefix === '') {
@@ -102,6 +103,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
             <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $userAdminActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
             <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $companyActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Mandanten</a>
             <a href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $settingsActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Konfiguration</a>
+            <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0">Prüfungen importieren</a>
           <?php endif; ?>
         </div>
       <?php else: ?>

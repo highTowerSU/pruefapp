@@ -59,6 +59,7 @@ require_once __DIR__ . '/htmx.php';
 require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
+require_once __DIR__ . '/ElectricalInspectionImportService.php';
 
 initialize_database();
 
@@ -260,6 +261,7 @@ function initialize_database(): void
             'area',
             'room',
             'device',
+            'inspection',
         ]
     );
 
@@ -277,6 +279,7 @@ function ensure_structure_schema(): void
         'CREATE TABLE IF NOT EXISTS area (id INTEGER PRIMARY KEY AUTOINCREMENT, floor_id INTEGER NOT NULL, name TEXT NOT NULL, code TEXT NOT NULL, comment TEXT NULL, metadata_json TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS room (id INTEGER PRIMARY KEY AUTOINCREMENT, floor_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS inspection (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, dedupe_key TEXT NOT NULL UNIQUE, source_type TEXT NOT NULL, source_file TEXT NULL, external_number TEXT NULL, storage_slot TEXT NULL, test_date TEXT NULL, next_due_date TEXT NULL, result_status TEXT NULL, device_type TEXT NULL, manufacturer TEXT NULL, device_model TEXT NULL, room_snapshot TEXT NULL, measurements_json TEXT NULL, checklist_json TEXT NULL, raw_json TEXT NULL, report_path TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_building_site ON building (site_id)',
@@ -284,6 +287,8 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_room_floor ON room (floor_id)',
         'CREATE INDEX IF NOT EXISTS idx_area_floor ON area (floor_id)',
         'CREATE INDEX IF NOT EXISTS idx_device_room ON device (room_id)',
+        'CREATE INDEX IF NOT EXISTS idx_inspection_device ON inspection (device_id)',
+        'CREATE INDEX IF NOT EXISTS idx_inspection_date ON inspection (test_date)',
     ];
 
     foreach ($statements as $statement) {
@@ -297,7 +302,7 @@ function ensure_structure_schema(): void
         'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'area' => ['description' => 'TEXT NULL'],
         'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as $table => $definitions) {
         $existing = R::getColumns($table);

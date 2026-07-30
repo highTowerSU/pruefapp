@@ -26,13 +26,20 @@ class DeviceController
             ];
             $roomLabels[(int) $room->id] = implode(' · ', array_filter($tokens));
         }
+        $devices = array_values(R::findAll('device', ' ORDER BY name '));
+        $inspections = [];
+        foreach ($devices as $device) {
+            $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
+        }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'content' => render_template('device_index.php', [
-                'devices' => array_values(R::findAll('device', ' ORDER BY name ')),
+                'devices' => $devices,
+                'inspections' => $inspections,
                 'rooms' => $rooms,
                 'roomLabels' => $roomLabels,
                 'canManage' => current_user_can_manage_courses(),
+                'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
             ]),
         ])];
     }

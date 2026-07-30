@@ -154,6 +154,16 @@ zeigen die Hierarchie kompakt mit diesen Kürzeln, etwa
 Kurzbeschreibungen sind auf 240 Zeichen begrenzt und werden in Struktur- und
 Geräteübersichten direkt unter Name beziehungsweise Kennung angezeigt.
 
+### Elektro-Prüfungen importieren
+
+Historische JSON-Exporte sowie die aktuellen Benning-Dateien können über
+`php bin/import_electro.php /pfad/zu/Elektro-Testdaten` oder als Administrator
+unter `/admin/pruefungen/import` eingelesen werden. Bei CSV/ODS-Paaren werden
+Messwerte aus der CSV und Geräteinformationen aus der ODS über
+`Speicher Nr`/`Speicherplatz` verbunden. Die neue Gerätenummer (`Nr. neu`),
+alte Nummer und Speicherplatz bleiben am Gerät erhalten; jede Prüfung wird
+separat mit Datum, Messwerten, Rohdaten und optionalem PDF-Bericht gespeichert.
+
 ## Tests
 
 Der Bootstrap einschließlich externer Konfiguration und SQLite-Anbindung wird
