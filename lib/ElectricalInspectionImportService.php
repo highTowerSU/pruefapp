@@ -247,8 +247,11 @@ final class ElectricalInspectionImportService
         $level = trim((string) ($record['level'] ?? ''));
         $source = strtolower((string) ($record['_legacy_source'] ?? ''));
         $isAk = str_contains($source, 'ak-elektro') || in_array(strtolower($location), ['antoniuskolleg', 'ak'], true);
-        $customerName = $isAk ? 'AK' : (trim((string) ($record['customer']['company'] ?? '')) ?: ($location ?: 'Importkunde'));
-        $customerCode = $this->shortCode($customerName, $isAk ? 'AK' : '');
+        $rawCustomer = trim((string) ($record['customer']['company'] ?? ''));
+        if (!$isAk && $rawCustomer === '' && $location === '') return null;
+        $isCeneos = str_contains(strtolower($rawCustomer), 'ceneos');
+        $customerName = $isAk ? 'AK' : ($isCeneos ? 'Ceneos GmbH' : ($rawCustomer ?: $location));
+        $customerCode = $this->shortCode($customerName, $isAk ? 'AK' : ($isCeneos ? 'CNO' : ''));
         $customer = R::findOne('customer', ' code = ? OR name = ? ', [$customerCode, $customerName]);
         if ($customer === null) { $customer = R::dispense('customer'); $customer->name = $customerName; $customer->code = $customerCode; $customer->room_code_pattern = 'auto'; $customer->created_at = date(DATE_ATOM); }
         R::store($customer);
