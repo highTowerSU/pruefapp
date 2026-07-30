@@ -275,9 +275,21 @@ final class ElectricalInspectionImportService
         $floorCode = $this->floorCode($level, $room);
         $floor = R::findOne('floor', ' building_id = ? AND code = ? ', [(int) $building->id, $floorCode]);
         if ($floor === null) { $floor = R::dispense('floor'); $floor->building_id = (int) $building->id; $floor->code = $floorCode; $floor->name = $buildingCode . $floorCode; $floor->sort_order = 0; $floor->created_at = date(DATE_ATOM); R::store($floor); }
-        $roomBean = R::findOne('room', ' floor_id = ? AND (number = ? OR name = ?)', [(int) $floor->id, $room, $room]);
-        if ($roomBean === null) { $roomBean = R::dispense('room'); $roomBean->floor_id = (int) $floor->id; $roomBean->number = $room; $roomBean->name = $room; $roomBean->created_at = date(DATE_ATOM); R::store($roomBean); }
+        $roomNumber = $this->roomPart($room, $buildingCode, $floorCode);
+        $roomBean = R::findOne('room', ' floor_id = ? AND (number = ? OR name = ? OR number = ? OR name = ?)', [(int) $floor->id, $roomNumber, $roomNumber, $room, $room]);
+        if ($roomBean !== null) { $roomBean->number = $roomNumber; $roomBean->name = $roomNumber; }
+        if ($roomBean === null) { $roomBean = R::dispense('room'); $roomBean->floor_id = (int) $floor->id; $roomBean->number = $roomNumber; $roomBean->name = $roomNumber; $roomBean->created_at = date(DATE_ATOM); R::store($roomBean); }
         return $roomBean;
+    }
+
+    private function roomPart(string $room, string $buildingCode, string $floorCode): string
+    {
+        $prefix = $buildingCode . $floorCode;
+        if ($prefix !== '' && strncasecmp($room, $prefix, strlen($prefix)) === 0) {
+            $part = trim(substr($room, strlen($prefix)));
+            if ($part !== '') return $part;
+        }
+        return $room;
     }
 
     private function buildingCode(string $room, string $level): string
