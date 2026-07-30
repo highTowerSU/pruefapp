@@ -334,7 +334,11 @@ final class ElectricalInspectionImportService
             }
             return;
         }
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS, RecursiveDirectoryIterator::CATCH_GET_CHILD));
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY,
+            RecursiveIteratorIterator::CATCH_GET_CHILD
+        );
         foreach ($iterator as $file) {
             if (!$file->isFile() || strtolower($file->getExtension()) !== 'pdf') continue;
             if (preg_match('/^(\d+)/', $file->getBasename('.pdf'), $match)) $this->reportsByNumber[$match[1]] = $file->getPathname();
