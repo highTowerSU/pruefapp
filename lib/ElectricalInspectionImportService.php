@@ -219,6 +219,7 @@ final class ElectricalInspectionImportService
         $device->external_number = $external;
         $device->legacy_number = $legacy === '-' ? '' : $legacy;
         $device->storage_slot = $slot;
+        if (array_key_exists('warming_device', $record)) $device->warming_device = filter_var($record['warming_device'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
         if ($room !== '') $device->room_snapshot = $room;
         $roomBean = $this->ensureImportedRoom($record, $room);

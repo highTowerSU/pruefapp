@@ -1,6 +1,6 @@
 <?php
 $form = static function ($device = null) use ($rooms, $roomLabels): void {
-    $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
+    $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'warming_device' => 0, 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
     $metadataValue = trim((string) ($device->metadata_json ?? ''));
     if ($metadataValue === '{}') $metadataValue = '';
 ?>
@@ -12,6 +12,7 @@ $form = static function ($device = null) use ($rooms, $roomLabels): void {
     <div class="col-md-2"><label class="form-label">Seriennummer</label><input class="form-control" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"></div>
     <div class="col-md-3"><label class="form-label">Typ</label><input class="form-control" name="device_model" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"></div>
     <div class="col-md-3"><label class="form-label">Hersteller</label><input class="form-control" name="manufacturer" value="<?= htmlspecialchars((string) ($device->manufacturer ?? '')) ?>"></div>
+    <div class="col-md-2 form-check mt-4 ms-2"><input class="form-check-input" type="checkbox" name="warming_device" id="warming-<?= (int) $device->id ?>"<?= !empty($device->warming_device) ? ' checked' : '' ?>><label class="form-check-label" for="warming-<?= (int) $device->id ?>">Wärmegerät</label></div>
     <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
     <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
     <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
