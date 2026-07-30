@@ -212,6 +212,28 @@
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
 }
 
+.ts-wrapper.structure-filter-select .option[aria-disabled="true"] {
+  display: none;
+}
+
+.ts-dropdown-content {
+  max-height: min(45vh, 22rem);
+}
+
+@media (pointer: coarse), (max-width: 575.98px) {
+  .ts-wrapper .ts-control {
+    min-height: 44px;
+    font-size: 16px;
+    align-items: center;
+  }
+
+  .ts-dropdown .option {
+    min-height: 44px;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+}
+
 @media (max-width: 575.98px) {
   .stat-tile {
     min-width: 0;

@@ -70,7 +70,9 @@ class StructureController
             return self::redirectWithError($definition['label'] . ': Zuordnung fehlt.');
         }
         if ($name === '') return self::redirectWithError($definition['label'] . ': Name fehlt.');
-        if ($type === 'customer' && $parentId === $id) return self::redirectWithError('Ein Kunde kann nicht sein eigener Unterkunde sein.');
+        if ($type === 'customer' && $id > 0 && $parentId === $id) {
+            return self::redirectWithError('Ein Kunde kann nicht sein eigener Unterkunde sein.');
+        }
 
         try {
             $metadata = self::metadata((string) ($_POST['metadata_json'] ?? ''));

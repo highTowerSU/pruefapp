@@ -7,6 +7,20 @@ require dirname(__DIR__) . '/controllers/StructureController.php';
 
 use RedBeanPHP\R;
 
+function current_user_can_manage_courses(): bool
+{
+    return true;
+}
+
+function url_for(string $path): string
+{
+    return '/' . ltrim($path, '/');
+}
+
+function audit_log(string $event, array $data = []): void
+{
+}
+
 R::setup('sqlite::memory:');
 
 $metadataMethod = new ReflectionMethod(StructureController::class, 'metadata');
@@ -64,5 +78,19 @@ $floorK->code = '1';
 R::store($floorK);
 $room->number = '81';
 if (StructureController::roomIdentifier($room, $floorK) !== 'K181') throw new RuntimeException('K181 wurde nicht gebildet.');
+
+$customerCount = R::count('customer');
+$_POST = [
+    'name' => 'Neuer Hauptkunde',
+    'parent_customer_id' => '0',
+    'metadata_json' => '',
+    'room_code_pattern' => '',
+];
+$saveMethod = new ReflectionMethod(StructureController::class, 'save');
+$saveMethod->setAccessible(true);
+$response = $saveMethod->invoke(null, 'customer');
+if (($response[0] ?? 0) !== 303 || R::count('customer') !== $customerCount + 1) {
+    throw new RuntimeException('Ein neuer Kunde ohne übergeordneten Kunden muss gespeichert werden können.');
+}
 
 R::close();

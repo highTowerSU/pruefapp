@@ -194,7 +194,7 @@ $form = static function (string $type, $entity = null) use (
   <?php endif; ?>
   <div class="col-md-6">
     <label class="form-label"><?= htmlspecialchars($config['parent_label']) ?></label>
-    <select class="form-select" name="<?= $config['parent'] ?>"<?= $type === 'customer' ? '' : ' required' ?>>
+    <select class="form-select" name="<?= $config['parent'] ?>" data-search-select data-placeholder="<?= htmlspecialchars($config['prompt'], ENT_QUOTES) ?>"<?= $type === 'customer' ? '' : ' required' ?>>
       <option value="0"><?= $config['prompt'] ?></option>
       <?php foreach ($config['parents'] as $parent): if ((int) $parent->id === (int) $entity->id && $type === 'customer') continue; ?>
         <option value="<?= (int) $parent->id ?>"<?= (int) $entity->{$config['parent']} === (int) $parent->id ? ' selected' : '' ?>><?= htmlspecialchars($optionLabel($parent, $config['parent_type'])) ?></option>
@@ -209,7 +209,7 @@ $form = static function (string $type, $entity = null) use (
     <div class="col-md-6"><label class="form-label">Sortierreihenfolge</label><input type="number" class="form-control" name="sort_order" placeholder="U automatisch vor E" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
   <?php elseif ($type === 'room'): ?>
     <div class="col-md-6"><label class="form-label">Raumnummer</label><input class="form-control" name="number" required placeholder="z. B. 07, 10 oder 24" value="<?= htmlspecialchars((string) ($entity->number ?: $entity->name)) ?>"></div>
-    <div class="col-md-6"><label class="form-label">Bereich</label><select class="form-select" name="area_id"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars($optionLabel($area, 'area')) ?></option><?php endforeach; ?></select></div>
+    <div class="col-md-6"><label class="form-label">Bereich</label><select class="form-select" name="area_id" data-search-select data-placeholder="Bereich suchen"><option value="0">Kein Bereich</option><?php foreach ($areas as $area): ?><option value="<?= (int) $area->id ?>"<?= (int) $entity->area_id === (int) $area->id ? ' selected' : '' ?>><?= htmlspecialchars($optionLabel($area, 'area')) ?></option><?php endforeach; ?></select></div>
   <?php endif; ?>
   <?php if ($type === 'customer' || $type === 'floor'): ?>
     <div class="col-12">
@@ -264,19 +264,19 @@ $section = static function (string $title, string $type, array $items) use ($for
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureCustomer">Kunde</label>
-        <select class="form-select" id="structureCustomer"><option value="">Alle</option><?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"><?= htmlspecialchars($optionLabel($customer, 'customer')) ?></option><?php endforeach; ?></select>
+        <select class="form-select structure-filter-select" id="structureCustomer" data-search-select data-placeholder="Kunde suchen"><option value="">Alle</option><?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"><?= htmlspecialchars($optionLabel($customer, 'customer')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureSite">Standort</label>
-        <select class="form-select" id="structureSite"><option value="">Alle</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>" data-customer="<?= (int) $site->customer_id ?>"><?= htmlspecialchars($optionLabel($site, 'site')) ?></option><?php endforeach; ?></select>
+        <select class="form-select structure-filter-select" id="structureSite" data-search-select data-placeholder="Standort suchen"><option value="">Alle</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>" data-customer="<?= (int) $site->customer_id ?>"><?= htmlspecialchars($optionLabel($site, 'site')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureBuilding">Gebäude</label>
-        <select class="form-select" id="structureBuilding"><option value="">Alle</option><?php foreach ($buildings as $building): ?><option value="<?= (int) $building->id ?>" data-site="<?= (int) $building->site_id ?>"><?= htmlspecialchars($optionLabel($building, 'building')) ?></option><?php endforeach; ?></select>
+        <select class="form-select structure-filter-select" id="structureBuilding" data-search-select data-placeholder="Gebäude suchen"><option value="">Alle</option><?php foreach ($buildings as $building): ?><option value="<?= (int) $building->id ?>" data-site="<?= (int) $building->site_id ?>"><?= htmlspecialchars($optionLabel($building, 'building')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureFloor">Etage</label>
-        <select class="form-select" id="structureFloor"><option value="">Alle</option><?php foreach ($floors as $floor): ?><option value="<?= (int) $floor->id ?>" data-building="<?= (int) $floor->building_id ?>"><?= htmlspecialchars($optionLabel($floor, 'floor')) ?></option><?php endforeach; ?></select>
+        <select class="form-select structure-filter-select" id="structureFloor" data-search-select data-placeholder="Etage suchen"><option value="">Alle</option><?php foreach ($floors as $floor): ?><option value="<?= (int) $floor->id ?>" data-building="<?= (int) $floor->building_id ?>"><?= htmlspecialchars($optionLabel($floor, 'floor')) ?></option><?php endforeach; ?></select>
       </div>
     </div>
     <div class="small text-body-secondary mt-3"><span id="structureResultCount"></span></div>
@@ -364,6 +364,22 @@ $section = static function (string $title, string $type, array $items) use ($for
   const groups = [...document.querySelectorAll('.structure-filter-group')];
   const resultCount = document.getElementById('structureResultCount');
   const noResults = document.getElementById('structureNoResults');
+  const setValue = (control, value) => {
+    if (control.tomselect) {
+      control.tomselect.setValue(value, true);
+    } else {
+      control.value = value;
+    }
+  };
+  const setOptionHidden = (control, option, hidden) => {
+    option.hidden = hidden;
+    option.disabled = hidden;
+    const select = control.tomselect;
+    const selectOption = select?.options[option.value];
+    if (selectOption) {
+      select.updateOption(option.value, { ...selectOption, disabled: hidden });
+    }
+  };
 
   const matches = item => {
     const search = controls.search.value.trim().toLocaleLowerCase('de');
@@ -378,30 +394,30 @@ $section = static function (string $title, string $type, array $items) use ($for
     const customer = controls.customer.value;
     [...controls.site.options].forEach(option => {
       if (!option.value) return;
-      option.hidden = Boolean(customer && option.dataset.customer !== customer);
+      setOptionHidden(controls.site, option, Boolean(customer && option.dataset.customer !== customer));
     });
-    if (controls.site.selectedOptions[0]?.hidden) controls.site.value = '';
+    if (controls.site.selectedOptions[0]?.hidden) setValue(controls.site, '');
 
     const site = controls.site.value;
     [...controls.building.options].forEach(option => {
       if (!option.value) return;
       const siteOption = controls.site.querySelector(`option[value="${option.dataset.site}"]`);
       const wrongCustomer = customer && siteOption?.dataset.customer !== customer;
-      option.hidden = Boolean((site && option.dataset.site !== site) || wrongCustomer);
+      setOptionHidden(controls.building, option, Boolean((site && option.dataset.site !== site) || wrongCustomer));
     });
-    if (controls.building.selectedOptions[0]?.hidden) controls.building.value = '';
+    if (controls.building.selectedOptions[0]?.hidden) setValue(controls.building, '');
 
     const building = controls.building.value;
     [...controls.floor.options].forEach(option => {
       if (!option.value) return;
       const buildingOption = controls.building.querySelector(`option[value="${option.dataset.building}"]`);
-      option.hidden = Boolean(
+      setOptionHidden(controls.floor, option, Boolean(
         (building && option.dataset.building !== building)
         || (site && buildingOption?.dataset.site !== site)
         || (customer && controls.site.querySelector(`option[value="${buildingOption?.dataset.site}"]`)?.dataset.customer !== customer)
-      );
+      ));
     });
-    if (controls.floor.selectedOptions[0]?.hidden) controls.floor.value = '';
+    if (controls.floor.selectedOptions[0]?.hidden) setValue(controls.floor, '');
   };
 
   const applyFilters = () => {
@@ -426,7 +442,7 @@ $section = static function (string $title, string $type, array $items) use ($for
     applyFilters
   ));
   document.getElementById('structureFilterReset').addEventListener('click', () => {
-    Object.values(controls).forEach(control => control.value = '');
+    Object.values(controls).forEach(control => setValue(control, ''));
     applyFilters();
     controls.search.focus();
   });
