@@ -54,6 +54,21 @@
       <label class="form-label" for="home_headline">Startseiten-Headline</label>
       <input type="text" class="form-control" id="home_headline" name="home_headline" value="<?= htmlspecialchars($company['home_headline']) ?>">
     </div>
+    <h2 class="h5 mt-4">Logo-Varianten</h2>
+    <div class="row g-4 mb-3">
+      <div class="col-lg-6">
+        <label class="form-label" for="logo_light_path">Logo auf hellem Hintergrund</label>
+        <input type="text" class="form-control" id="logo_light_path" name="logo_light_path" value="<?= htmlspecialchars($company['logo_light_path']) ?>">
+        <input type="file" class="form-control mt-2" name="logo_light_file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp">
+        <div class="form-text">Üblicherweise die dunkle Logo-Variante.</div>
+      </div>
+      <div class="col-lg-6">
+        <label class="form-label" for="logo_dark_path">Logo auf dunklem Hintergrund</label>
+        <input type="text" class="form-control" id="logo_dark_path" name="logo_dark_path" value="<?= htmlspecialchars($company['logo_dark_path']) ?>">
+        <input type="file" class="form-control mt-2" name="logo_dark_file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp">
+        <div class="form-text">Üblicherweise die helle Logo-Variante.</div>
+      </div>
+    </div>
     <div class="mb-3">
       <label class="form-label" for="home_intro">Startseiten-Intro</label>
       <textarea class="form-control" id="home_intro" name="home_intro" rows="2"><?= htmlspecialchars($company['home_intro']) ?></textarea>
@@ -98,6 +113,22 @@
     </div>
 
     <hr>
+
+    <h2 class="h5">Theme-Farben</h2>
+    <div class="row g-4 mb-4">
+      <?php foreach ([
+        'primary_color' => ['Primary', '#0D6EFD'],
+        'primary_text_color' => ['Text auf Primary', '#FFFFFF'],
+        'light_color' => ['Fläche im hellen Theme', '#F8F9FA'],
+        'dark_color' => ['Fläche im dunklen Theme', '#212529'],
+      ] as $field => [$label, $fallback]): ?>
+        <div class="col-sm-6 col-xl-3">
+          <label class="form-label" for="<?= $field ?>"><?= $label ?></label>
+          <input type="color" class="form-control form-control-color" id="<?= $field ?>" name="<?= $field ?>" value="<?= htmlspecialchars($company[$field] ?: $fallback) ?>">
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <h2 class="h5">Navbar-Farben</h2>
 
     <div class="row g-4">
       <div class="col-lg-6">

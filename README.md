@@ -119,6 +119,12 @@ Für BSW Consult, CENEOS und Koenigsbl.au sind passende SVG-Logos und
 Ausgangsfarben bereits unter `public/img/` enthalten. Eigene Logos können in
 unter **Mandanten & Branding** hochgeladen werden.
 
+Die Login-Maske kann gezielt über `login.php?tenant=<slug>` aufgerufen werden,
+zum Beispiel `login.php?tenant=bsw`. Die Auswahl bleibt während des
+OIDC-Redirects erhalten. Je Mandant lassen sich Logos für helle und dunkle
+Hintergründe sowie Primary-, Light-, Dark- und davon unabhängige
+Navbar-Farben pflegen.
+
 ### Objekt- und Kundenstruktur
 
 Die Anwendung besitzt jetzt ein eigenes Strukturmodul (`/struktur`) mit folgenden Entitäten:

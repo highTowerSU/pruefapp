@@ -172,13 +172,22 @@ class TenantController
             if ($errors === []) {
                 $previousSlug = (string) ($company->slug ?? '');
                 $previousLogoPath = (string) ($company->header_logo_path ?? '');
+                $previousLightLogoPath = (string) ($company->logo_light_path ?? '');
+                $previousDarkLogoPath = (string) ($company->logo_dark_path ?? '');
 
                 $uploadResult = self::handleHeaderLogoUpload($data, $errors);
+                $lightUploadResult = self::handleHeaderLogoUpload($data, $errors, 'logo_light_file', 'light');
+                $darkUploadResult = self::handleHeaderLogoUpload($data, $errors, 'logo_dark_file', 'dark');
 
                 if ($errors === []) {
                     if ($uploadResult !== null) {
+                        $previousSubmittedLogo = $data['header_logo_path'];
                         $data['header_logo_path'] = $uploadResult['path'];
+                        if ($data['logo_light_path'] === '' || $data['logo_light_path'] === $previousSubmittedLogo) $data['logo_light_path'] = $uploadResult['path'];
+                        if ($data['logo_dark_path'] === '' || $data['logo_dark_path'] === $previousSubmittedLogo) $data['logo_dark_path'] = $uploadResult['path'];
                     }
+                    if ($lightUploadResult !== null) $data['logo_light_path'] = $lightUploadResult['path'];
+                    if ($darkUploadResult !== null) $data['logo_dark_path'] = $darkUploadResult['path'];
 
                     $company->name = $data['name'];
                     $company->slug = $data['slug'];
@@ -189,6 +198,12 @@ class TenantController
                     $company->home_details = $data['home_details'];
                     $company->header_logo_path = $data['header_logo_path'];
                     $company->header_logo_alt = $data['header_logo_alt'] !== '' ? $data['header_logo_alt'] : $data['name'];
+                    $company->logo_light_path = $data['logo_light_path'];
+                    $company->logo_dark_path = $data['logo_dark_path'];
+                    $company->primary_color = $data['primary_color'];
+                    $company->primary_text_color = $data['primary_text_color'];
+                    $company->light_color = $data['light_color'];
+                    $company->dark_color = $data['dark_color'];
                     $company->nav_background_color = $data['nav_background_color'];
                     $company->nav_text_color = $data['nav_text_color'];
                     $company->legal_impressum_label = $data['legal_impressum_label'];
@@ -225,12 +240,16 @@ class TenantController
                         $_SESSION['meldung'] = 'Die Mandantendaten wurden gespeichert.';
 
                         self::finalizeHeaderLogoUpload($uploadResult, $previousLogoPath);
+                        self::finalizeHeaderLogoUpload($lightUploadResult, $previousLightLogoPath);
+                        self::finalizeHeaderLogoUpload($darkUploadResult, $previousDarkLogoPath);
 
                         return [303, ['Location' => url_for('mandanten')], ''];
                     }
                 }
 
                 self::rollbackHeaderLogoUpload($uploadResult ?? null);
+                self::rollbackHeaderLogoUpload($lightUploadResult ?? null);
+                self::rollbackHeaderLogoUpload($darkUploadResult ?? null);
             }
         }
         $companyData = self::mapCompany($company);
@@ -246,6 +265,9 @@ class TenantController
             $companyData['header_logo_path'] = $data['header_logo_path'];
             $companyData['header_logo_url'] = self::resolveAssetPath($data['header_logo_path']);
             $companyData['header_logo_alt'] = $data['header_logo_alt'] ?: $data['name'];
+            foreach (['logo_light_path', 'logo_dark_path', 'primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
+                $companyData[$field] = $data[$field];
+            }
             $companyData['nav_background_color'] = $data['nav_background_color'];
             $companyData['nav_text_color'] = $data['nav_text_color'];
             $companyData['legal_impressum_label'] = $data['legal_impressum_label'];
@@ -287,8 +309,13 @@ class TenantController
         $data['home_details'] = trim((string) ($input['home_details'] ?? ''));
         $data['header_logo_path'] = trim((string) ($input['header_logo_path'] ?? ''));
         $data['header_logo_alt'] = trim((string) ($input['header_logo_alt'] ?? ''));
+        $data['logo_light_path'] = trim((string) ($input['logo_light_path'] ?? $data['header_logo_path']));
+        $data['logo_dark_path'] = trim((string) ($input['logo_dark_path'] ?? $data['header_logo_path']));
         $data['nav_background_color'] = self::sanitizeColor((string) ($input['nav_background_color'] ?? ''));
         $data['nav_text_color'] = self::sanitizeColor((string) ($input['nav_text_color'] ?? ''));
+        foreach (['primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
+            $data[$field] = self::sanitizeColor((string) ($input[$field] ?? ''));
+        }
         $data['legal_impressum_label'] = trim((string) ($input['legal_impressum_label'] ?? ''));
         $data['legal_impressum_url'] = trim((string) ($input['legal_impressum_url'] ?? ''));
         $data['legal_privacy_label'] = trim((string) ($input['legal_privacy_label'] ?? ''));
@@ -321,6 +348,9 @@ class TenantController
         if ($data['header_logo_path'] !== '' && !self::isValidRelativeOrUrl($data['header_logo_path'])) {
             $errors[] = 'Der Pfad zum Header-Logo muss eine relative URL oder eine vollständige Adresse sein.';
         }
+        foreach (['logo_light_path', 'logo_dark_path'] as $field) {
+            if ($data[$field] !== '' && !self::isValidRelativeOrUrl($data[$field])) $errors[] = 'Die Logo-Pfade sind ungültig.';
+        }
 
         if ($data['legal_impressum_url'] !== '' && !filter_var($data['legal_impressum_url'], FILTER_VALIDATE_URL)) {
             $errors[] = 'Die Impressums-URL ist ungültig.';
@@ -336,6 +366,9 @@ class TenantController
 
         if ($data['nav_text_color'] !== '' && !self::isValidHexColor($data['nav_text_color'])) {
             $errors[] = 'Die Textfarbe der Navigation muss als Hex-Wert angegeben werden (z. B. #FFFFFF).';
+        }
+        foreach (['primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
+            if ($data[$field] !== '' && !self::isValidHexColor($data[$field])) $errors[] = 'Alle Theme-Farben müssen als Hex-Wert angegeben werden.';
         }
 
         return $errors;
@@ -375,6 +408,12 @@ class TenantController
             'header_logo_path' => $headerLogoPath,
             'header_logo_url' => self::resolveAssetPath($headerLogoPath),
             'header_logo_alt' => $headerLogoAlt,
+            'logo_light_path' => (string) ($company->logo_light_path ?? '') ?: $headerLogoPath,
+            'logo_dark_path' => (string) ($company->logo_dark_path ?? '') ?: $headerLogoPath,
+            'primary_color' => self::sanitizeColor((string) ($company->primary_color ?? '')),
+            'primary_text_color' => self::sanitizeColor((string) ($company->primary_text_color ?? '')),
+            'light_color' => self::sanitizeColor((string) ($company->light_color ?? '')),
+            'dark_color' => self::sanitizeColor((string) ($company->dark_color ?? '')),
             'nav_background_color' => $navBackground,
             'nav_text_color' => $navText,
             'legal_impressum_label' => (string) ($company->legal_impressum_label ?? ''),
@@ -432,13 +471,13 @@ class TenantController
         return (bool) preg_match('/^#([0-9A-F]{3}|[0-9A-F]{6})$/', strtoupper($value));
     }
 
-    private static function handleHeaderLogoUpload(array $data, array &$errors): ?array
+    private static function handleHeaderLogoUpload(array $data, array &$errors, string $inputName = 'header_logo_file', string $suffix = 'header'): ?array
     {
-        if (!isset($_FILES['header_logo_file']) || !is_array($_FILES['header_logo_file'])) {
+        if (!isset($_FILES[$inputName]) || !is_array($_FILES[$inputName])) {
             return null;
         }
 
-        $file = $_FILES['header_logo_file'];
+        $file = $_FILES[$inputName];
         $error = isset($file['error']) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
         if ($error === UPLOAD_ERR_NO_FILE) {
             return null;
@@ -520,7 +559,7 @@ class TenantController
             }
         }
 
-        $filename = $slug . '-' . date('YmdHis') . '.' . $extension;
+        $filename = $slug . '-' . $suffix . '-' . date('YmdHis') . '.' . $extension;
         $targetPath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
 
         if (!move_uploaded_file($tmpName, $targetPath)) {

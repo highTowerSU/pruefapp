@@ -55,13 +55,16 @@ function get_branding(): array
     return map_static_branding($fallbackKey, $fallback);
 }
 
-function get_login_branding(): array
+function get_login_branding(?string $tenantSlug = null): array
 {
     $defaults = default_branding_definitions();
     ensure_branding_seeded($defaults);
     ensure_company_branding_schema();
 
-    $company = (new TenantRepository())->login();
+    $repository = new TenantRepository();
+    $tenantSlug = strtolower(trim((string) $tenantSlug));
+    $company = $tenantSlug !== '' ? $repository->findBySlug($tenantSlug) : null;
+    $company ??= $repository->login();
 
     return $company !== null ? map_company_branding($company) : get_branding();
 }
@@ -156,6 +159,17 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
             'path' => $headerLogoPath,
             'alt' => $headerLogoAlt,
         ],
+        'logos' => [
+            'light' => (string) ($company->logo_light_path ?? '') ?: $headerLogoPath,
+            'dark' => (string) ($company->logo_dark_path ?? '') ?: $headerLogoPath,
+            'alt' => $headerLogoAlt,
+        ],
+        'theme_colors' => [
+            'primary' => $normalizeColor((string) ($company->primary_color ?? ''), $navBackground),
+            'primary_text' => $normalizeColor((string) ($company->primary_text_color ?? ''), $navText),
+            'light' => $normalizeColor((string) ($company->light_color ?? ''), '#F8F9FA'),
+            'dark' => $normalizeColor((string) ($company->dark_color ?? ''), '#212529'),
+        ],
         'nav_colors' => [
             'background' => $navBackground,
             'text' => $navText,
@@ -207,6 +221,17 @@ function map_static_branding(string $key, array $data): array
     if (empty($branding['header_logo']['alt'])) {
         $branding['header_logo']['alt'] = $branding['company_name'];
     }
+    $branding['logos'] = $data['logos'] ?? [
+        'light' => $branding['header_logo']['path'] ?? '',
+        'dark' => $branding['header_logo']['path'] ?? '',
+        'alt' => $branding['header_logo']['alt'],
+    ];
+    $branding['theme_colors'] = [
+        'primary' => $normalizeColor((string) ($data['primary_color'] ?? ''), $branding['nav_colors']['background']),
+        'primary_text' => $normalizeColor((string) ($data['primary_text_color'] ?? ''), $branding['nav_colors']['text']),
+        'light' => $normalizeColor((string) ($data['light_color'] ?? ''), '#F8F9FA'),
+        'dark' => $normalizeColor((string) ($data['dark_color'] ?? ''), '#212529'),
+    ];
 
     $branding['project_owner'] = branding_project_owner();
     $branding['group_reference'] = trim((string)($branding['group_reference'] ?? '')) ?: branding_default_group_reference();

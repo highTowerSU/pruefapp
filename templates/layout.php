@@ -3,6 +3,15 @@ $branding = $branding ?? get_branding();
 $brandColors = $branding['nav_colors'] ?? [];
 $brandBackground = $brandColors['background'] ?? '#0D6EFD';
 $brandText = $brandColors['text'] ?? '#FFFFFF';
+$themeColors = $branding['theme_colors'] ?? [];
+$primaryColor = $themeColors['primary'] ?? '#0D6EFD';
+$primaryTextColor = $themeColors['primary_text'] ?? '#FFFFFF';
+$lightColor = $themeColors['light'] ?? '#F8F9FA';
+$darkColor = $themeColors['dark'] ?? '#212529';
+$primaryHex = ltrim($primaryColor, '#');
+$primaryRgb = strlen($primaryHex) === 6
+    ? implode(', ', [hexdec(substr($primaryHex, 0, 2)), hexdec(substr($primaryHex, 2, 2)), hexdec(substr($primaryHex, 4, 2))])
+    : '13, 110, 253';
 ?>
 <!DOCTYPE html>
 <html lang="de" data-bs-theme="auto">
@@ -119,6 +128,12 @@ $brandText = $brandColors['text'] ?? '#FFFFFF';
         :root {
             --app-brand-bg: <?= htmlspecialchars($brandBackground, ENT_QUOTES) ?>;
             --app-brand-color: <?= htmlspecialchars($brandText, ENT_QUOTES) ?>;
+            --app-primary: <?= htmlspecialchars($primaryColor, ENT_QUOTES) ?>;
+            --app-primary-text: <?= htmlspecialchars($primaryTextColor, ENT_QUOTES) ?>;
+            --app-theme-light: <?= htmlspecialchars($lightColor, ENT_QUOTES) ?>;
+            --app-theme-dark: <?= htmlspecialchars($darkColor, ENT_QUOTES) ?>;
+            --bs-primary: var(--app-primary);
+            --bs-primary-rgb: <?= htmlspecialchars($primaryRgb, ENT_QUOTES) ?>;
         }
         .brand-panel {
             background: var(--app-brand-bg);
@@ -126,19 +141,25 @@ $brandText = $brandColors['text'] ?? '#FFFFFF';
         }
         .brand-panel .text-body-secondary,
         .brand-panel a {
-            color: color-mix(in srgb, var(--app-brand-color), transparent 18%) !important;
+            color: inherit !important;
+            opacity: .82;
         }
         .btn-primary {
-            --bs-btn-bg: var(--app-brand-bg);
-            --bs-btn-border-color: var(--app-brand-bg);
-            --bs-btn-color: var(--app-brand-color);
-            --bs-btn-hover-bg: color-mix(in srgb, var(--app-brand-bg), black 12%);
-            --bs-btn-hover-border-color: color-mix(in srgb, var(--app-brand-bg), black 12%);
-            --bs-btn-hover-color: var(--app-brand-color);
-            --bs-btn-active-bg: color-mix(in srgb, var(--app-brand-bg), black 18%);
-            --bs-btn-active-border-color: color-mix(in srgb, var(--app-brand-bg), black 18%);
-            --bs-btn-active-color: var(--app-brand-color);
+            --bs-btn-bg: var(--app-primary);
+            --bs-btn-border-color: var(--app-primary);
+            --bs-btn-color: var(--app-primary-text);
+            --bs-btn-hover-bg: color-mix(in srgb, var(--app-primary), black 12%);
+            --bs-btn-hover-border-color: color-mix(in srgb, var(--app-primary), black 12%);
+            --bs-btn-hover-color: var(--app-primary-text);
+            --bs-btn-active-bg: color-mix(in srgb, var(--app-primary), black 18%);
+            --bs-btn-active-border-color: color-mix(in srgb, var(--app-primary), black 18%);
+            --bs-btn-active-color: var(--app-primary-text);
         }
+        [data-bs-theme="light"] .brand-panel { background: var(--app-theme-light); color: var(--bs-body-color); }
+        [data-bs-theme="dark"] .brand-panel { background: var(--app-theme-dark); color: var(--bs-body-color); }
+        .brand-logo-for-dark { display: none; }
+        [data-bs-theme="dark"] .brand-logo-for-light { display: none; }
+        [data-bs-theme="dark"] .brand-logo-for-dark { display: inline-block; }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">

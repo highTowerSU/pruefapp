@@ -59,7 +59,15 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
 
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
-      <?php $brandLogo = $branding['header_logo']['path'] ?? ''; ?>
+      <?php
+        $hex = ltrim($navBackgroundColor, '#');
+        if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        $luminance = strlen($hex) === 6
+            ? (0.299 * hexdec(substr($hex, 0, 2)) + 0.587 * hexdec(substr($hex, 2, 2)) + 0.114 * hexdec(substr($hex, 4, 2)))
+            : 0;
+        $logoVariant = $luminance > 150 ? 'light' : 'dark';
+        $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path'] ?? '');
+      ?>
       <?php if (!empty($brandLogo)): ?>
         <?php $brandLogoUrl = preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo); ?>
         <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES) ?>"

@@ -29,14 +29,14 @@
         <div class="col-md-7 bg-body">
           <div class="p-4 p-lg-5">
             <div class="text-center mb-4">
-              <?php $logo = $branding['header_logo']['path'] ?? null; ?>
-              <?php if (!empty($logo)): ?>
-                <?php $logoUrl = preg_match('#^https?://#i', $logo) ? $logo : url_for($logo); ?>
-                <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES) ?>"
-                     class="img-fluid mb-3"
-                     style="max-height: 70px;"
-                     alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? 'Logo')) ?>">
-              <?php endif; ?>
+              <?php foreach (['light' => 'brand-logo-for-light', 'dark' => 'brand-logo-for-dark'] as $variant => $class): ?>
+                <?php $logo = $branding['logos'][$variant] ?? ($branding['header_logo']['path'] ?? ''); ?>
+                <?php if ($logo !== ''): ?>
+                  <?php $logoUrl = preg_match('#^https?://#i', $logo) ? $logo : url_for($logo); ?>
+                  <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES) ?>" class="img-fluid mb-3 <?= $class ?>"
+                       style="max-height:70px" alt="<?= htmlspecialchars($branding['logos']['alt'] ?? ($branding['company_name'] ?? 'Logo')) ?>">
+                <?php endif; ?>
+              <?php endforeach; ?>
               <h2 class="h4 mb-1">Anmelden</h2>
               <p class="text-body-secondary mb-0">Melde dich mit deinem Login.Koenigsbl.au-Konto an, um fortzufahren.</p>
             </div>
@@ -49,6 +49,7 @@
 
             <form method="post" id="loginForm" class="d-grid gap-3">
               <input type="hidden" name="redirect" value="<?= htmlspecialchars((string)($redirectTarget ?? '/'), ENT_QUOTES) ?>">
+              <input type="hidden" name="tenant" value="<?= htmlspecialchars((string)($tenantSlug ?? ''), ENT_QUOTES) ?>">
               <button type="submit" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center gap-2">
                 <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
                 <span>Login.Koenigsbl.au</span>
