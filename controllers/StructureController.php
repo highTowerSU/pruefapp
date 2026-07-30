@@ -202,6 +202,7 @@ class StructureController
     public static function roomIdentifier(OODBBean $room, OODBBean $floor, ?OODBBean $area = null): string
     {
         $number = (string) ($room->number ?: $room->name);
+        if (str_contains($number, '-')) return $number;
         if ($number !== '' && preg_match('/^[^\d]+$/u', $number) && !preg_match('/^[A-Z]{1,3}$/', $number)) return $number;
         $building = R::load('building', (int) $floor->building_id);
         $buildingCode = (string) ($building->code ?? '');
