@@ -280,13 +280,17 @@ final class ElectricalInspectionImportService
         $site = R::findOne('site', ' customer_id = ? AND (code = ? OR name = ?)', [(int) $customer->id, $siteCode, $siteName]);
         if ($site === null) { $site = R::dispense('site'); $site->customer_id = (int) $customer->id; $site->name = $siteName; $site->code = $siteCode; $site->created_at = date(DATE_ATOM); R::store($site); }
         if ($room === '-' || $room === '') return null;
-        $buildingCode = $this->buildingCode($room, $level);
+        $specialKitchen = $customerCode === 'AK' && strtolower($room) === 'küche';
+        $specialMensa = $customerCode === 'AK' && strtolower($room) === 'mensa';
+        $buildingCode = ($specialKitchen || $specialMensa) ? 'AB' : $this->buildingCode($room, $level);
         if ($buildingCode === 'Import') return null;
         $building = R::findOne('building', ' site_id = ? AND code = ? ', [(int) $site->id, $buildingCode]);
-        if ($building === null) { $building = R::dispense('building'); $building->site_id = (int) $site->id; $building->name = $buildingCode; $building->code = $buildingCode; $building->created_at = date(DATE_ATOM); R::store($building); }
-        $floorCode = $this->floorCode($level, $room);
+        if ($building === null) { $building = R::dispense('building'); $building->site_id = (int) $site->id; $building->name = $buildingCode === 'AB' ? 'Altbau' : $buildingCode; $building->code = $buildingCode; $building->created_at = date(DATE_ATOM); R::store($building); }
+        $floorCode = $specialKitchen ? 'U' : ($specialMensa ? '0' : $this->floorCode($level, $room));
         $floor = R::findOne('floor', ' building_id = ? AND code = ? ', [(int) $building->id, $floorCode]);
-        if ($floor === null) { $floor = R::dispense('floor'); $floor->building_id = (int) $building->id; $floor->code = $floorCode; $floor->name = $buildingCode . $floorCode; $floor->sort_order = 0; $floor->created_at = date(DATE_ATOM); R::store($floor); }
+        if ($floor === null) { $floor = R::dispense('floor'); $floor->building_id = (int) $building->id; $floor->code = $floorCode; $floor->name = $buildingCode . $floorCode; $floor->sort_order = $floorCode === 'U' ? -100 : 0; $floor->room_code_pattern = ($specialKitchen || $specialMensa) ? '{building}{room}' : ''; $floor->created_at = date(DATE_ATOM); R::store($floor); }
+        if ($specialKitchen || $specialMensa) { $floor->room_code_pattern = '{building}{room}'; R::store($floor); }
+        if ($specialKitchen || $specialMensa) $room = $specialKitchen ? 'KU' : 'ME';
         $roomNumber = $this->roomPart($room, $buildingCode, $floorCode);
         $roomBean = R::findOne('room', ' floor_id = ? AND (number = ? OR name = ? OR number = ? OR name = ?)', [(int) $floor->id, $roomNumber, $roomNumber, $room, $room]);
         if ($roomBean !== null) { $roomBean->number = $roomNumber; $roomBean->name = $roomNumber; }
