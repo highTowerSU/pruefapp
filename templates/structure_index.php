@@ -41,7 +41,7 @@ foreach ($buildings as $building) {
 $labelWithCode = static function ($bean): string {
     $name = (string) ($bean->name ?? '');
     $code = trim((string) ($bean->code ?? ''));
-    return $code === '' ? $name : $name . ' (' . $code . ')';
+    return $code === '' ? $name : $code . ' · ' . $name;
 };
 $contextToken = static function ($bean): string {
     $code = trim((string) ($bean->code ?? ''));
