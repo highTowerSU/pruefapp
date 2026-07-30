@@ -47,6 +47,49 @@ class StructureController
     public static function createFloor(array $params, bool $isHx): array { return self::saveFloor($params, $isHx); }
     public static function createRoom(array $params, bool $isHx): array { return self::saveRoom($params, $isHx); }
 
+    public static function delete(array $params, bool $isHx): array
+    {
+        if (!current_user_can_manage_courses()) return forbidden_response();
+        $type = (string) ($params['type'] ?? '');
+        if (!isset(self::DEFINITIONS[$type])) return [404, [], 'Strukturtyp nicht gefunden'];
+        $id = (int) ($params['id'] ?? 0);
+        $entity = R::load($type, $id);
+        if (!$entity->id) return self::redirectWithError('Eintrag nicht gefunden.');
+        $cascade = ($_POST['cascade'] ?? '0') === '1';
+        $descendants = self::descendants($type, $id);
+        if ($descendants !== [] && !$cascade) return self::redirectWithError('Der Eintrag enthält noch Unterstruktur. Bitte die Kaskadenlöschung bestätigen.');
+        if ($cascade) {
+            $roomIds = $descendants['room'] ?? [];
+            if ($type === 'room') $roomIds[] = $id;
+            if ($roomIds !== []) {
+                $marks = implode(',', array_fill(0, count($roomIds), '?'));
+                R::exec('DELETE FROM inspection WHERE device_id IN (SELECT id FROM device WHERE room_id IN (' . $marks . '))', $roomIds);
+                R::exec('DELETE FROM device WHERE room_id IN (' . $marks . ')', $roomIds);
+            }
+            foreach (['room', 'area', 'floor', 'building', 'site', 'customer'] as $table) foreach ($descendants[$table] ?? [] as $childId) R::exec("DELETE FROM {$table} WHERE id = ?", [$childId]);
+        }
+        R::trash($entity);
+        $_SESSION['meldung'] = 'Struktureintrag gelöscht.';
+        return [303, ['Location' => url_for('struktur')], ''];
+    }
+
+    private static function descendants(string $type, int $id): array
+    {
+        $children = ['customer' => ['site', 'customer_id'], 'site' => ['building', 'site_id'], 'building' => ['floor', 'building_id'], 'floor' => ['area', 'floor_id', 'room', 'floor_id'], 'area' => ['room', 'area_id']];
+        $result = [];
+        $walk = static function (string $parentType, int $parentId) use (&$walk, &$result, $children): void {
+            if (!isset($children[$parentType])) return;
+            $rules = $children[$parentType];
+            for ($i = 0; $i < count($rules); $i += 2) {
+                [$childType, $column] = [$rules[$i], $rules[$i + 1]];
+                $beans = R::findAll($childType, " {$column} = ? ", [$parentId]);
+                foreach ($beans as $bean) { $childId = (int) $bean->id; $result[$childType][] = $childId; $walk($childType, $childId); }
+            }
+        };
+        $walk($type, $id);
+        return $result;
+    }
+
     private static function save(string $type): array
     {
         if (!current_user_can_manage_courses()) return forbidden_response();

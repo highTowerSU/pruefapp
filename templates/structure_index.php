@@ -253,7 +253,9 @@ $section = static function (string $title, string $type, array $items) use ($for
             <?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
             <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
           </summary>
-          <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?></div>
+          <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?>
+            <?php if ($canManage): ?><div class="d-flex justify-content-end gap-2 mt-2"><form method="post" action="<?= htmlspecialchars(url_for('struktur/' . $type . '/' . (int) $item->id . '/loeschen'), ENT_QUOTES) ?>" onsubmit="return confirm('Diesen leeren Eintrag wirklich löschen?');"><button class="btn btn-sm btn-outline-danger" type="submit">Löschen</button></form><form method="post" action="<?= htmlspecialchars(url_for('struktur/' . $type . '/' . (int) $item->id . '/loeschen'), ENT_QUOTES) ?>" onsubmit="return confirm('Auch alle Untereinträge, Geräte und Prüfungen darunter löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');"><input type="hidden" name="cascade" value="1"><button class="btn btn-sm btn-danger" type="submit">Mit Unterstruktur löschen</button></form></div><?php endif; ?>
+          </div>
         </details>
       <?php endforeach; ?>
     </div>
