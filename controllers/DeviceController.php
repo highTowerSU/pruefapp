@@ -31,7 +31,8 @@ class DeviceController
         $total = (int) R::count('device');
         $pages = max(1, (int) ceil($total / $perPage));
         $page = min($page, $pages);
-        $devices = array_values(R::findAll('device', ' ORDER BY name LIMIT ? OFFSET ? ', [$perPage, ($page - 1) * $perPage]));
+        $offset = ($page - 1) * $perPage;
+        $devices = array_values(R::findAll('device', ' ORDER BY name LIMIT ' . $perPage . ' OFFSET ' . $offset));
         $inspections = [];
         foreach ($devices as $device) {
             $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
