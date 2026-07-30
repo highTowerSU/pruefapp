@@ -235,8 +235,8 @@ final class ElectricalInspectionImportService
         }
         $serial = trim((string) ($record['serial_number'] ?? $record['serial'] ?? ''));
         if ($serial !== '') $device->serial_number = $this->importValue($serial);
-        $description = trim((string) ($record['free_text'] ?? $record['device_note'] ?? $record['device_type'] ?? ''));
-        if ($description !== '') $device->description = mb_substr($description, 0, 240);
+        $description = trim((string) ($record['free_text'] ?? $record['device_note'] ?? ''));
+        if ($description !== '' && trim((string) ($device->comment ?? '')) === '') $device->comment = mb_substr($description, 0, 1000);
         if (!empty($record['comment'])) $device->comment = (string) $record['comment'];
         if ($room !== '' && (int) ($device->room_id ?? 0) === 0) {
             $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$room, $room]);
