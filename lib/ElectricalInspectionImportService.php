@@ -225,10 +225,10 @@ final class ElectricalInspectionImportService
         if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         $device->name = trim((string) ($device->name ?? '')) ?: trim((string) ($record['device_model'] ?? $record['device_type'] ?? '')) ?: ('Gerät ' . ($external ?: $slot));
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
-            if (!empty($record[$source]) && strtolower(trim((string) $record[$source])) !== 'n.e.') $device->$target = (string) $record[$source];
+            if (!empty($record[$source])) $device->$target = $this->importValue((string) $record[$source]);
         }
         $serial = trim((string) ($record['serial_number'] ?? $record['serial'] ?? ''));
-        if ($serial !== '' && strtolower($serial) !== 'n.e.') $device->serial_number = $serial;
+        if ($serial !== '') $device->serial_number = $this->importValue($serial);
         $description = trim((string) ($record['free_text'] ?? $record['device_note'] ?? $record['device_type'] ?? ''));
         if ($description !== '') $device->description = mb_substr($description, 0, 240);
         if (!empty($record['comment'])) $device->comment = (string) $record['comment'];
@@ -298,6 +298,11 @@ final class ElectricalInspectionImportService
         if ($preferred !== '') return $preferred;
         $parts = preg_split('/[^A-Za-z0-9]+/', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         return strtoupper(implode('', array_map(static fn(string $part): string => $part[0], $parts))) ?: 'IMP';
+    }
+
+    private function importValue(string $value): string
+    {
+        return strtolower(trim($value)) === 'n.e.' ? 'nicht erkennbar' : trim($value);
     }
 
     private function indexReports(string $root, bool $recursive = true): void
