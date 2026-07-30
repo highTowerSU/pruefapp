@@ -270,7 +270,7 @@ final class ElectricalInspectionImportService
         $description = trim((string) ($record['free_text'] ?? $record['device_note'] ?? ''));
         if ($description !== '' && trim((string) ($device->comment ?? '')) === '') $device->comment = mb_substr($description, 0, 1000);
         if (!empty($record['comment'])) $device->comment = (string) $record['comment'];
-        if ($room !== '' && (int) ($device->room_id ?? 0) === 0) {
+        if ($room !== '') {
             $roomBean = $this->findRoomByIdentifier($room);
             if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         }
