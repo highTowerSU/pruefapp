@@ -250,7 +250,7 @@ final class ElectricalInspectionImportService
         $locationKey = strtolower($location);
         $level = trim((string) ($record['level'] ?? ''));
         $source = strtolower((string) ($record['_legacy_source'] ?? ''));
-        $known = ['antoniuskolleg' => ['AK', 'NKS', 'Antoniuskolleg'], 'ak' => ['AK', 'NKS', 'Antoniuskolleg'], 'berufskolleg' => ['BB', 'BB', 'Berufskolleg'], 'quickputz gmbh & co.kg' => ['QP', 'QP', 'Quickputz GmbH & Co.KG']];
+        $known = ['antoniuskolleg' => ['AK', 'NKS', 'Antoniuskolleg'], 'ak' => ['AK', 'NKS', 'Antoniuskolleg'], 'berufskolleg' => ['AK', 'BB', 'Berufskolleg'], 'quickputz gmbh & co.kg' => ['QP', 'QP', 'Quickputz GmbH & Co.KG']];
         if (isset($known[$locationKey])) [$knownCustomer, $knownSiteCode, $knownSiteName] = $known[$locationKey];
         else [$knownCustomer, $knownSiteCode, $knownSiteName] = ['', '', ''];
         $isAk = str_contains($source, 'ak-elektro') || $knownCustomer === 'AK';
@@ -258,7 +258,7 @@ final class ElectricalInspectionImportService
         if ($knownCustomer !== '') { $rawCustomer = $knownCustomer; $location = $knownSiteName; }
         if ($location === '' || $locationKey === strtolower($rawCustomer) || str_contains($locationKey, 'ceneos')) return null;
         $isCeneos = str_contains(strtolower($rawCustomer), 'ceneos');
-        $customerName = $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'Ceneos GmbH' : ($rawCustomer ?: $location)));
+        $customerName = $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'CENEOS GmbH' : ($rawCustomer ?: $location)));
         $customerCode = $this->shortCode($customerName, $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'CNO' : '')));
         $customer = R::findOne('customer', ' code = ? OR name = ? ', [$customerCode, $customerName]);
         if ($customer === null) { $customer = R::dispense('customer'); $customer->name = $customerName; $customer->code = $customerCode; $customer->room_code_pattern = 'auto'; $customer->created_at = date(DATE_ATOM); }
