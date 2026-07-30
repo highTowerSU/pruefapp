@@ -13,11 +13,21 @@ class SubmissionController
             return [404, [], '<h1>Ungültiger Link</h1>'];
         }
 
+        $branding = get_company_branding((int) ($link->company_id ?? 0));
+        if ($branding === null) {
+            return [410, [], '<h1>Dieser Link ist nicht mehr gültig.</h1>'];
+        }
+
         $kurs = $link->kurs;
         $showThankYou = isset($_GET['danke']);
 
         if (!$link->aktiv && !$showThankYou) {
-            return [403, [], '<h1>Dieser Übermittlungslink ist derzeit deaktiviert.</h1>'];
+            return self::renderPage(
+                'Teilnehmerdaten übermitteln',
+                '<div class="alert alert-warning">Dieser Übermittlungslink ist derzeit deaktiviert.</div>',
+                $branding,
+                403
+            );
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -69,8 +79,22 @@ class SubmissionController
         $body = render_template('layout.php', [
             'title' => 'Teilnehmerdaten übermitteln',
             'content' => $content,
+            'branding' => $branding,
         ]);
 
         return [200, [], $body];
+    }
+
+    private static function renderPage(string $title, string $content, array $branding, int $status): array
+    {
+        return [
+            $status,
+            [],
+            render_template('layout.php', [
+                'title' => $title,
+                'content' => $content,
+                'branding' => $branding,
+            ]),
+        ];
     }
 }

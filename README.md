@@ -62,9 +62,10 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 ## Konfiguration
 
-Die Anwendung lädt beim Start die externe Datei
-`../config/pruefapp.php`. Der Pfad liegt damit außerhalb dieses
-Git-Repositories. Die Datei muss ein PHP-Array zurückgeben und insbesondere
+Die Anwendung lädt beim Start standardmäßig die externe Datei
+`/var/www/config/pruefapp.php`, wenn das Projekt unter
+`/var/www/html/pruefapp` liegt. Der Pfad liegt damit außerhalb des
+Document-Roots und des Git-Repositories. Die Datei muss ein PHP-Array zurückgeben und insbesondere
 die OIDC-Zugangsdaten enthalten:
 
 ```php
@@ -98,6 +99,21 @@ Wenn mehrere PHP-Apps unter derselben Domain bzw. auf demselben Server laufen, k
 - `APP_SESSION_NAME` – expliziter PHP-Session-Cookie-Name. Ohne Wert wird automatisch ein stabiler Name auf Basis des Namespace erzeugt.
 
 Diese Werte werden als weitere Einträge im zurückgegebenen PHP-Array gepflegt.
+
+### Firmenbezogenes Branding
+
+In der **Firmenverwaltung** werden Logo, Seitentitel, Navigationsfarben und
+Rechtstexte je Firma gepflegt. Genau eine Firma kann über
+**„Für die Login-Maske verwenden“** als Login-Branding ausgewählt werden.
+
+Beim Erstellen eines öffentlichen Übermittlungslinks ist eine Branding-Firma
+Pflicht. Die öffentliche Teilnehmerseite übernimmt anschließend Logo, Farben,
+Texte, Impressum und Datenschutz dieser Firma. Links ohne Firmenzuordnung
+gelten als nicht mehr gültig.
+
+Für BSW Consult, CENEOS und Koenigsbl.au sind passende SVG-Logos und
+Ausgangsfarben bereits unter `public/img/` enthalten. Eigene Logos können in
+der Firmenverwaltung hochgeladen werden.
 
 ### Objekt- und Kundenstruktur
 

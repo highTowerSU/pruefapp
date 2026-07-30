@@ -126,6 +126,9 @@
                   <?php if (!empty($company['is_default'])): ?>
                     <span class="badge text-bg-primary">Standard</span>
                   <?php endif; ?>
+                  <?php if (!empty($company['is_login_brand'])): ?>
+                    <span class="badge text-bg-info">Login</span>
+                  <?php endif; ?>
                 </div>
               </td>
               <td>
@@ -146,6 +149,8 @@
               <td>
                 <?php if (!empty($company['is_default'])): ?>
                   <span class="badge rounded-pill text-bg-primary">Aktiv</span>
+                <?php elseif (!empty($company['is_login_brand'])): ?>
+                  <span class="badge rounded-pill text-bg-info">Login</span>
                 <?php else: ?>
                   <span class="badge rounded-pill text-bg-secondary">Optional</span>
                 <?php endif; ?>
@@ -167,7 +172,7 @@
                   <form class="d-inline" method="post"
                         action="<?= htmlspecialchars(url_for('firmen/' . $company['id'] . '/loeschen'), ENT_QUOTES) ?>"
                         onsubmit="return confirm('Soll diese Firma wirklich gelöscht werden?');">
-                    <button type="submit" class="btn btn-outline-danger btn-sm"<?= !empty($company['is_default']) ? ' disabled' : '' ?>>
+                    <button type="submit" class="btn btn-outline-danger btn-sm"<?= !empty($company['is_default']) || !empty($company['is_login_brand']) ? ' disabled' : '' ?>>
                       <i class="fa-solid fa-trash-can me-1" aria-hidden="true"></i>
                       Löschen
                     </button>

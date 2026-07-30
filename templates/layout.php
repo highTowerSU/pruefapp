@@ -1,3 +1,9 @@
+<?php
+$branding = $branding ?? get_branding();
+$brandColors = $branding['nav_colors'] ?? [];
+$brandBackground = $brandColors['background'] ?? '#0D6EFD';
+$brandText = $brandColors['text'] ?? '#FFFFFF';
+?>
 <!DOCTYPE html>
 <html lang="de" data-bs-theme="auto">
 <head>
@@ -109,10 +115,32 @@
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/css/tabulator_bootstrap5.min.css'), ENT_QUOTES) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/@fortawesome/fontawesome-free/css/all.min.css'), ENT_QUOTES) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('public/css/custom.css'), ENT_QUOTES) ?>">
-
-
+    <style>
+        :root {
+            --app-brand-bg: <?= htmlspecialchars($brandBackground, ENT_QUOTES) ?>;
+            --app-brand-color: <?= htmlspecialchars($brandText, ENT_QUOTES) ?>;
+        }
+        .brand-panel {
+            background: var(--app-brand-bg);
+            color: var(--app-brand-color);
+        }
+        .brand-panel .text-body-secondary,
+        .brand-panel a {
+            color: color-mix(in srgb, var(--app-brand-color), transparent 18%) !important;
+        }
+        .btn-primary {
+            --bs-btn-bg: var(--app-brand-bg);
+            --bs-btn-border-color: var(--app-brand-bg);
+            --bs-btn-color: var(--app-brand-color);
+            --bs-btn-hover-bg: color-mix(in srgb, var(--app-brand-bg), black 12%);
+            --bs-btn-hover-border-color: color-mix(in srgb, var(--app-brand-bg), black 12%);
+            --bs-btn-hover-color: var(--app-brand-color);
+            --bs-btn-active-bg: color-mix(in srgb, var(--app-brand-bg), black 18%);
+            --bs-btn-active-border-color: color-mix(in srgb, var(--app-brand-bg), black 18%);
+            --bs-btn-active-color: var(--app-brand-color);
+        }
+    </style>
 </head>
-<?php $branding = $branding ?? get_branding(); ?>
 <body class="d-flex flex-column min-vh-100">
 <?php include "templates/_navbar.php"; ?>
 <main class="flex-grow-1">

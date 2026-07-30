@@ -78,10 +78,18 @@ class CourseController
 
             if ($action === 'create') {
                 $bezeichnung = trim($_POST['name'] ?? '');
+                $companyId = (int) ($_POST['company_id'] ?? 0);
+                $company = $companyId > 0 ? R::load('company', $companyId) : null;
+
+                if ($company === null || !$company->id) {
+                    $_SESSION['fehlermeldung'] = 'Bitte wähle eine Firma für das Link-Branding aus.';
+                    return [303, ['Location' => url_for('kurse/' . $kurs->id . '/link')], ''];
+                }
 
                 $link = R::dispense('uebermittlungslink');
                 $link->token = bin2hex(random_bytes(8));
                 $link->bezeichnung = $bezeichnung;
+                $link->company_id = (int) $company->id;
                 $link->aktiv = 1;
                 $link->kurs = $kurs;
                 R::store($link);
@@ -91,6 +99,8 @@ class CourseController
                     'kurs_name' => (string) $kurs->name,
                     'link_id' => (int) $link->id,
                     'bezeichnung' => $bezeichnung,
+                    'firma_id' => (int) $company->id,
+                    'firma_name' => (string) $company->name,
                     'token_vorschau' => audit_log_mask_token((string) $link->token),
                 ]);
 
@@ -151,18 +161,28 @@ class CourseController
                     ]);
                 } elseif ($action === 'rename') {
                     $bezeichnung = trim($_POST['name'] ?? '');
+                    $companyId = (int) ($_POST['company_id'] ?? 0);
+                    $company = $companyId > 0 ? R::load('company', $companyId) : null;
+                    if ($company === null || !$company->id) {
+                        $_SESSION['fehlermeldung'] = 'Bitte wähle eine Firma für das Link-Branding aus.';
+                        return [303, ['Location' => url_for('kurse/' . $kurs->id . '/link')], ''];
+                    }
                     $previousName = (string) $link->bezeichnung;
+                    $previousCompanyId = (int) ($link->company_id ?? 0);
                     $link->bezeichnung = $bezeichnung;
+                    $link->company_id = (int) $company->id;
                     R::store($link);
-                    $_SESSION['meldung'] = 'Bezeichnung gespeichert.';
+                    $_SESSION['meldung'] = 'Bezeichnung und Firma gespeichert.';
 
-                    if ($previousName !== $bezeichnung) {
+                    if ($previousName !== $bezeichnung || $previousCompanyId !== (int) $company->id) {
                         audit_log('uebermittlungslink_umbenannt', [
                             'kurs_id' => (int) $kurs->id,
                             'kurs_name' => (string) $kurs->name,
                             'link_id' => (int) $link->id,
                             'bezeichnung_alt' => $previousName,
                             'bezeichnung_neu' => $bezeichnung,
+                            'firma_id_alt' => $previousCompanyId,
+                            'firma_id_neu' => (int) $company->id,
                         ]);
                     }
                 }
@@ -191,6 +211,7 @@ class CourseController
         $content = render_template('link_erzeugen.php', [
             'kurs' => $kurs,
             'links' => array_values($links),
+            'companies' => get_branding_companies(),
         ]);
 
         $body = render_template('layout.php', [

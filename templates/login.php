@@ -3,7 +3,7 @@
   <div class="col-lg-8 col-xl-6">
     <div class="card border-0 shadow-lg overflow-hidden">
       <div class="row g-0">
-        <div class="col-md-5 d-none d-md-flex align-items-stretch bg-primary-subtle text-primary-emphasis">
+        <div class="col-md-5 d-none d-md-flex align-items-stretch brand-panel">
           <div class="p-4 p-lg-5 w-100 d-flex flex-column justify-content-between">
             <div>
               <div class="text-uppercase small fw-semibold mb-2">Willkommen</div>

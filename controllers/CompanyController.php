@@ -133,8 +133,8 @@ class CompanyController
             return [404, [], '<h1>404 – Firma nicht gefunden</h1>'];
         }
 
-        if ((int) $company->is_default === 1) {
-            $_SESSION['fehlermeldung'] = 'Die Standardfirma kann nicht gelöscht werden.';
+        if ((int) $company->is_default === 1 || (int) ($company->is_login_brand ?? 0) === 1) {
+            $_SESSION['fehlermeldung'] = 'Eine Standard- oder Login-Firma kann nicht gelöscht werden.';
 
             return [303, ['Location' => url_for('firmen')], ''];
         }
@@ -202,7 +202,9 @@ class CompanyController
                     }
 
                     $isDefault = $data['is_default'];
+                    $isLoginBrand = $data['is_login_brand'];
                     $company->is_default = $isDefault ? 1 : (int) $company->is_default;
+                    $company->is_login_brand = $isLoginBrand ? 1 : (int) ($company->is_login_brand ?? 0);
 
                     R::begin();
                     try {
@@ -210,6 +212,9 @@ class CompanyController
 
                         if ($isDefault) {
                             R::exec('UPDATE company SET is_default = 0 WHERE id != ?', [$company->id]);
+                        }
+                        if ($isLoginBrand) {
+                            R::exec('UPDATE company SET is_login_brand = 0 WHERE id != ?', [$company->id]);
                         }
 
                         R::commit();
@@ -225,6 +230,7 @@ class CompanyController
                             'slug_alt' => $isNew ? null : $previousSlug,
                             'slug_neu' => (string) $company->slug,
                             'standard' => (bool) $company->is_default,
+                            'login_branding' => (bool) $company->is_login_brand,
                         ]);
 
                         $_SESSION['meldung'] = 'Die Firmendaten wurden gespeichert.';
@@ -258,6 +264,7 @@ class CompanyController
             $companyData['legal_privacy_label'] = $data['legal_privacy_label'];
             $companyData['legal_privacy_url'] = $data['legal_privacy_url'];
             $companyData['is_default'] = $data['is_default'];
+            $companyData['is_login_brand'] = $data['is_login_brand'];
         }
 
         $companyData['is_default'] = (bool) ($companyData['is_default'] ?? false);
@@ -298,6 +305,7 @@ class CompanyController
         $data['legal_privacy_label'] = trim((string) ($input['legal_privacy_label'] ?? ''));
         $data['legal_privacy_url'] = trim((string) ($input['legal_privacy_url'] ?? ''));
         $data['is_default'] = isset($input['is_default']);
+        $data['is_login_brand'] = isset($input['is_login_brand']);
 
         return $data;
     }
@@ -385,6 +393,7 @@ class CompanyController
             'legal_privacy_label' => (string) ($company->legal_privacy_label ?? ''),
             'legal_privacy_url' => (string) ($company->legal_privacy_url ?? ''),
             'is_default' => (bool) $company->is_default,
+            'is_login_brand' => (bool) ($company->is_login_brand ?? false),
             'updated_at' => $updatedAt,
         ];
     }

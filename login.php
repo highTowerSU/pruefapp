@@ -32,7 +32,7 @@ if ($redirectTarget !== null) {
     $_SESSION['login_redirect_to'] = $redirectTarget;
 }
 
-$branding = get_branding();
+$branding = get_login_branding();
 
 $content = render_template('login.php', [
     'branding' => $branding,

@@ -3,11 +3,23 @@
         <h2 class="h4">Neuen Übermittlungslink anlegen</h2>
         <p>Erzeuge individuelle Links für unterschiedliche Auftraggeber oder Firmen. Jeder Link kann nach der Nutzung automatisch deaktiviert werden.</p>
 
-        <form method="post" class="row g-2 align-items-end">
+        <form method="post" class="row g-3 align-items-end">
             <input type="hidden" name="action" value="create">
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <label class="form-label" for="neuer-link-name">Bezeichnung / Auftraggeber (optional)</label>
                 <input type="text" class="form-control" id="neuer-link-name" name="name" placeholder="z. B. Firma Müller GmbH">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label" for="neuer-link-company">Branding-Firma *</label>
+                <select class="form-select" id="neuer-link-company" name="company_id" required>
+                    <option value="">Bitte auswählen</option>
+                    <?php foreach ($companies as $company): ?>
+                        <option value="<?= (int) $company->id ?>"<?= !empty($company->is_login_brand) ? ' selected' : '' ?>>
+                            <?= htmlspecialchars((string) $company->name) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="form-text">Logo, Farben und Rechtstexte für die öffentliche Seite.</div>
             </div>
             <div class="col-auto">
                 <button class="btn btn-primary">Link erstellen</button>
@@ -34,15 +46,25 @@
                     <?php $linkUrl = absolute_url_for('uebermitteln/' . $link->token); ?>
                     <tr>
                         <td>
-                            <form method="post" class="d-flex gap-2">
+                            <form method="post" class="d-grid gap-2">
                                 <input type="hidden" name="action" value="rename">
                                 <input type="hidden" name="link_id" value="<?= (int) $link->id ?>">
-                                <input type="text"
-                                       name="name"
-                                       class="form-control form-control-sm"
-                                       value="<?= htmlspecialchars($link->bezeichnung ?? '') ?>"
-                                       placeholder="Bezeichnung">
-                                <button class="btn btn-outline-secondary btn-sm">Speichern</button>
+                                <div class="input-group input-group-sm">
+                                    <input type="text"
+                                           name="name"
+                                           class="form-control form-control-sm"
+                                           value="<?= htmlspecialchars($link->bezeichnung ?? '') ?>"
+                                           placeholder="Bezeichnung">
+                                    <button class="btn btn-outline-secondary btn-sm">Speichern</button>
+                                </div>
+                                <select class="form-select form-select-sm" name="company_id" required aria-label="Branding-Firma">
+                                    <option value="">Firma auswählen</option>
+                                    <?php foreach ($companies as $company): ?>
+                                        <option value="<?= (int) $company->id ?>"<?= (int) ($link->company_id ?? 0) === (int) $company->id ? ' selected' : '' ?>>
+                                            <?= htmlspecialchars((string) $company->name) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </form>
                         </td>
                         <td>

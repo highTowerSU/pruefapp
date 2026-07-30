@@ -25,6 +25,7 @@ function get_branding(): array
     $defaults = default_branding_definitions();
 
     ensure_branding_seeded($defaults);
+    ensure_company_branding_schema();
 
     $brandBean = null;
 
@@ -51,6 +52,42 @@ function get_branding(): array
     $fallback = $defaults[$fallbackKey] ?? reset($defaults);
 
     return map_static_branding($fallbackKey, $fallback);
+}
+
+function get_login_branding(): array
+{
+    $defaults = default_branding_definitions();
+    ensure_branding_seeded($defaults);
+    ensure_company_branding_schema();
+
+    $company = R::findOne('company', ' is_login_brand = 1 ');
+
+    return $company !== null ? map_company_branding($company) : get_branding();
+}
+
+function get_company_branding(int $companyId): ?array
+{
+    if ($companyId < 1) {
+        return null;
+    }
+
+    ensure_branding_seeded(default_branding_definitions());
+    ensure_company_branding_schema();
+
+    $company = R::load('company', $companyId);
+
+    return $company->id ? map_company_branding($company) : null;
+}
+
+/**
+ * @return array<int, \RedBeanPHP\OODBBean>
+ */
+function get_branding_companies(): array
+{
+    ensure_branding_seeded(default_branding_definitions());
+    ensure_company_branding_schema();
+
+    return array_values(R::findAll('company', ' ORDER BY name '));
 }
 
 function ensure_branding_seeded(array $defaults): void
@@ -94,6 +131,7 @@ function ensure_branding_seeded(array $defaults): void
         $company->legal_privacy_label = $legal['privacy']['label'] ?? '';
         $company->legal_privacy_url = $legal['privacy']['url'] ?? '';
         $company->is_default = !empty($data['is_default']) ? 1 : 0;
+        $company->is_login_brand = !empty($data['is_default']) ? 1 : 0;
         $company->created_at = date('c');
         $company->updated_at = date('c');
         R::store($company);
@@ -110,6 +148,30 @@ function ensure_branding_seeded(array $defaults): void
     }
 
     $seeded = true;
+}
+
+function ensure_company_branding_schema(): void
+{
+    static $ready = false;
+
+    if ($ready || !R::testConnection() || !R::getWriter()->tableExists('company')) {
+        return;
+    }
+
+    $columns = R::getColumns('company');
+    if (!array_key_exists('is_login_brand', $columns)) {
+        R::exec('ALTER TABLE company ADD COLUMN is_login_brand INTEGER NOT NULL DEFAULT 0');
+    }
+
+    if (R::count('company', ' is_login_brand = 1 ') === 0) {
+        $fallback = R::findOne('company', ' is_default = 1 ') ?? R::findOne('company');
+        if ($fallback !== null) {
+            $fallback->is_login_brand = 1;
+            R::store($fallback);
+        }
+    }
+
+    $ready = true;
 }
 
 function map_company_branding(\RedBeanPHP\OODBBean $company): array
@@ -139,6 +201,7 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
     $navText = $normalizeColor((string)($company->nav_text_color ?? ''), '#FFFFFF');
 
     return [
+        'company_id' => (int) $company->id,
         'key' => strtolower((string)($company->slug ?? '')) ?: 'company_' . (int)$company->id,
         'company_name' => $companyName,
         'app_title' => (string)($company->app_title ?? 'Prüf-Doku'),
