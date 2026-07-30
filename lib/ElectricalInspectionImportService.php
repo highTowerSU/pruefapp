@@ -287,6 +287,10 @@ final class ElectricalInspectionImportService
         if ($identifier === '') return null;
         $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$identifier, $identifier]);
         if ($roomBean !== null) return $roomBean;
+        if (!class_exists('StructureController')) {
+            $controller = dirname(__DIR__) . '/controllers/StructureController.php';
+            if (is_file($controller)) require_once $controller;
+        }
         foreach (R::findAll('room') as $candidate) {
             $floor = R::load('floor', (int) $candidate->floor_id);
             if (!$floor || !(int) $floor->id) continue;
