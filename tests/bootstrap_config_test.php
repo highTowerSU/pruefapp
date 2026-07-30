@@ -36,6 +36,8 @@ if (!RedBeanPHP\R::getWriter()->tableExists('area')) {
     throw new \RuntimeException('Die Bereichstabelle wurde nicht angelegt.');
 }
 foreach ([
+    'customer' => 'code',
+    'site' => 'code',
     'building' => 'code',
     'floor' => 'room_code_pattern',
     'area' => 'description',

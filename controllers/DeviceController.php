@@ -14,8 +14,17 @@ class DeviceController
         foreach ($rooms as $room) {
             $floor = R::load('floor', (int) $room->floor_id);
             $area = (int) ($room->area_id ?? 0) > 0 ? R::load('area', (int) $room->area_id) : null;
-            $roomLabels[(int) $room->id] = StructureController::roomIdentifier($room, $floor, $area)
-                . ' · ' . (string) $room->name;
+            $building = R::load('building', (int) $floor->building_id);
+            $site = R::load('site', (int) $building->site_id);
+            $customer = R::load('customer', (int) $site->customer_id);
+            $tokens = [
+                self::token($customer),
+                self::token($site),
+                self::token($building),
+                StructureController::roomIdentifier($room, $floor, $area),
+                (string) $room->name,
+            ];
+            $roomLabels[(int) $room->id] = implode(' · ', array_filter($tokens));
         }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
@@ -58,5 +67,10 @@ class DeviceController
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
         $_SESSION['meldung'] = 'Gerät gespeichert.';
         return [303, ['Location' => url_for('geraete')], ''];
+    }
+
+    private static function token($bean): string
+    {
+        return trim((string) ($bean->code ?? '')) ?: (string) ($bean->name ?? '');
     }
 }

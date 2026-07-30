@@ -12,6 +12,16 @@ $buildingsById = $byId($buildings);
 $floorsById = $byId($floors);
 $areasById = $byId($areas);
 
+$labelWithCode = static function ($bean): string {
+    $name = (string) ($bean->name ?? '');
+    $code = trim((string) ($bean->code ?? ''));
+    return $code === '' ? $name : $name . ' (' . $code . ')';
+};
+$contextToken = static function ($bean): string {
+    $code = trim((string) ($bean->code ?? ''));
+    return $code !== '' ? $code : (string) ($bean->name ?? '');
+};
+
 $filterContext = static function (string $type, $item) use (
     $customersById, $sitesById, $buildingsById, $floorsById
 ): array {
@@ -37,8 +47,11 @@ $filterContext = static function (string $type, $item) use (
         (string) ($item->name ?? ''), (string) ($item->code ?? ''),
         (string) ($item->number ?? ''), (string) ($item->description ?? ''), (string) ($item->comment ?? ''),
         (string) ($customersById[$customerId]->name ?? ''),
+        (string) ($customersById[$customerId]->code ?? ''),
         (string) ($sitesById[$siteId]->name ?? ''),
+        (string) ($sitesById[$siteId]->code ?? ''),
         (string) ($buildingsById[$buildingId]->name ?? ''),
+        (string) ($buildingsById[$buildingId]->code ?? ''),
         (string) ($floorsById[$floorId]->name ?? ''),
     ];
     return [
@@ -57,17 +70,30 @@ $filterAttributes = static function (string $type, $item) use ($filterContext): 
     );
 };
 
-$optionLabel = static function ($bean, string $type) use ($buildingsById): string {
+$optionLabel = static function ($bean, string $type) use (
+    $customersById, $sitesById, $buildingsById, $labelWithCode, $contextToken
+): string {
+    if ($type === 'customer') return $labelWithCode($bean);
+    if ($type === 'site') {
+        $customer = $customersById[(int) $bean->customer_id] ?? null;
+        return ($customer ? $contextToken($customer) . ' · ' : '') . $labelWithCode($bean);
+    }
+    if ($type === 'building') {
+        $site = $sitesById[(int) $bean->site_id] ?? null;
+        $customer = $site ? ($customersById[(int) $site->customer_id] ?? null) : null;
+        return ($customer ? $contextToken($customer) . ' · ' : '')
+            . ($site ? $contextToken($site) . ' · ' : '')
+            . $labelWithCode($bean);
+    }
     if ($type === 'floor') {
         $building = $buildingsById[(int) $bean->building_id] ?? null;
-        $buildingLabel = $building
-            ? $building->name . ((string) $building->code !== '' ? ' (' . $building->code . ')' : '') . ' · '
-            : '';
+        $site = $building ? ($sitesById[(int) $building->site_id] ?? null) : null;
+        $customer = $site ? ($customersById[(int) $site->customer_id] ?? null) : null;
+        $buildingLabel = ($customer ? $contextToken($customer) . ' · ' : '')
+            . ($site ? $contextToken($site) . ' · ' : '');
         return $buildingLabel . StructureController::floorIdentifier($bean, $building);
     }
-    if (in_array($type, ['building', 'area'], true) && (string) ($bean->code ?? '') !== '') {
-        return (string) $bean->name . ' (' . (string) $bean->code . ')';
-    }
+    if ($type === 'area') return $labelWithCode($bean);
     return (string) $bean->name;
 };
 
@@ -106,8 +132,9 @@ $form = static function (string $type, $entity = null) use (
       <?php endforeach; ?>
     </select>
   </div>
-  <?php if (in_array($type, ['building', 'floor', 'area'], true)): ?>
-    <div class="col-md-6"><label class="form-label"><?= $type === 'building' ? 'Gebäudekürzel' : ($type === 'floor' ? 'Etagenkürzel' : 'Bereichskürzel') ?></label><input class="form-control text-uppercase" name="code" required placeholder="<?= $type === 'building' ? 'z. B. AB' : ($type === 'floor' ? 'U, E, 0, 1 …' : 'E, F …') ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
+  <?php if (in_array($type, ['customer', 'site', 'building', 'floor', 'area'], true)): ?>
+    <?php $codeLabel = ['customer' => 'Kundenkürzel', 'site' => 'Standortkürzel', 'building' => 'Gebäudekürzel', 'floor' => 'Etagenkürzel', 'area' => 'Bereichskürzel'][$type]; ?>
+    <div class="col-md-6"><label class="form-label"><?= $codeLabel ?></label><input class="form-control text-uppercase" name="code"<?= in_array($type, ['building', 'floor', 'area'], true) ? ' required' : '' ?> placeholder="<?= $type === 'building' ? 'z. B. AB' : ($type === 'floor' ? 'U, E, 0, 1 …' : ($type === 'area' ? 'E, F …' : 'optional')) ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
   <?php endif; ?>
   <?php if ($type === 'floor'): ?>
     <div class="col-md-6"><label class="form-label">Sortierreihenfolge</label><input type="number" class="form-control" name="sort_order" placeholder="U automatisch vor E" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
@@ -165,15 +192,15 @@ $section = static function (string $title, string $type, array $items) use ($for
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureCustomer">Kunde</label>
-        <select class="form-select" id="structureCustomer"><option value="">Alle</option><?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"><?= htmlspecialchars((string) $customer->name) ?></option><?php endforeach; ?></select>
+        <select class="form-select" id="structureCustomer"><option value="">Alle</option><?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"><?= htmlspecialchars($optionLabel($customer, 'customer')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureSite">Standort</label>
-        <select class="form-select" id="structureSite"><option value="">Alle</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>" data-customer="<?= (int) $site->customer_id ?>"><?= htmlspecialchars((string) $site->name) ?></option><?php endforeach; ?></select>
+        <select class="form-select" id="structureSite"><option value="">Alle</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>" data-customer="<?= (int) $site->customer_id ?>"><?= htmlspecialchars($optionLabel($site, 'site')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureBuilding">Gebäude</label>
-        <select class="form-select" id="structureBuilding"><option value="">Alle</option><?php foreach ($buildings as $building): ?><option value="<?= (int) $building->id ?>" data-site="<?= (int) $building->site_id ?>"><?= htmlspecialchars((string) $building->name) ?> (<?= htmlspecialchars((string) $building->code) ?>)</option><?php endforeach; ?></select>
+        <select class="form-select" id="structureBuilding"><option value="">Alle</option><?php foreach ($buildings as $building): ?><option value="<?= (int) $building->id ?>" data-site="<?= (int) $building->site_id ?>"><?= htmlspecialchars($optionLabel($building, 'building')) ?></option><?php endforeach; ?></select>
       </div>
       <div class="col-sm-6 col-lg-2">
         <label class="form-label" for="structureFloor">Etage</label>
@@ -209,7 +236,7 @@ $section = static function (string $title, string $type, array $items) use ($for
     <?php if ($canManage): ?><details class="border rounded p-2 mb-4"><summary class="fw-semibold">Neue Etage anlegen</summary><div class="pt-3"><?php $form('floor'); ?></div></details><?php endif; ?>
     <?php foreach ($buildings as $building): ?>
       <section class="mb-4 structure-filter-group" <?= $filterAttributes('building', $building) ?>>
-        <h3 class="h5 border-bottom pb-2"><?= htmlspecialchars((string) $building->name) ?> <span class="text-body-secondary">(<?= htmlspecialchars((string) $building->code) ?>)</span></h3>
+        <h3 class="h5 border-bottom pb-2"><?= htmlspecialchars($optionLabel($building, 'building')) ?></h3>
         <div class="row g-3">
         <?php foreach ($floors as $floor): if ((int) $floor->building_id !== (int) $building->id) continue; ?>
           <?php $floorIdentifier = StructureController::floorIdentifier($floor, $building); ?>
@@ -231,7 +258,7 @@ $section = static function (string $title, string $type, array $items) use ($for
         <?php foreach ($floors as $floor): ?>
           <?php $building = $buildingsById[(int) $floor->building_id] ?? null; ?>
           <section class="structure-filter-group" <?= $filterAttributes('floor', $floor) ?>>
-          <h3 class="h6 mt-4 border-bottom pb-2"><?= htmlspecialchars($building ? (string) $building->name : '') ?> · <?= htmlspecialchars(StructureController::floorIdentifier($floor, $building)) ?></h3>
+          <h3 class="h6 mt-4 border-bottom pb-2"><?= htmlspecialchars($optionLabel($floor, 'floor')) ?></h3>
           <div class="vstack gap-2">
           <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; ?>
             <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>

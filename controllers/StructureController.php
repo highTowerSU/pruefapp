@@ -96,6 +96,8 @@ class StructureController
         if ($type === 'building') {
             $entity->code = self::code($_POST['code'] ?? '', true);
             if ($entity->code === '') return self::redirectWithError('Bitte ein Gebäudekürzel angeben, z. B. AB.');
+        } elseif (in_array($type, ['customer', 'site'], true)) {
+            $entity->code = self::code($_POST['code'] ?? '', true);
         } elseif ($type === 'floor') {
             $entity->code = $submittedFloorCode;
             if ($entity->code === '') return self::redirectWithError('Bitte ein Etagenkürzel angeben, z. B. U, E oder 1.');
