@@ -219,13 +219,14 @@ final class ElectricalInspectionImportService
         $device->external_number = $external;
         $device->legacy_number = $legacy === '-' ? '' : $legacy;
         $device->storage_slot = $slot;
+        $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
+        if ($room !== '') $device->room_snapshot = $room;
         $device->name = trim((string) ($device->name ?? '')) ?: trim((string) ($record['device_model'] ?? $record['device_type'] ?? '')) ?: ('Gerät ' . ($external ?: $slot));
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
             if (!empty($record[$source]) && empty($device->$target)) $device->$target = (string) $record[$source];
         }
         if (!empty($record['device_note']) && empty($device->description)) $device->description = mb_substr(trim((string) $record['device_note']), 0, 240);
         if (!empty($record['comment']) && empty($device->comment)) $device->comment = (string) $record['comment'];
-        $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
         if ($room !== '' && (int) ($device->room_id ?? 0) === 0) {
             $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$room, $room]);
             if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
