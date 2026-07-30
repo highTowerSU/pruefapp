@@ -32,6 +32,16 @@ $contextToken = static function ($bean): string {
     $code = trim((string) ($bean->code ?? ''));
     return $code !== '' ? $code : (string) ($bean->name ?? '');
 };
+$floorDisplayLabel = static function ($floor, $building): string {
+    $identifier = trim(StructureController::floorIdentifier($floor, $building));
+    $name = trim((string) ($floor->name ?? ''));
+
+    if ($name !== '' && $name !== $identifier) {
+        return $identifier !== '' ? $identifier . ' · ' . $name : $name;
+    }
+
+    return $identifier !== '' ? $identifier : 'Etage #' . (int) $floor->id;
+};
 
 $filterContext = static function (string $type, $item) use (
     $customersById, $sitesById, $buildingsById, $floorsById
@@ -82,7 +92,7 @@ $filterAttributes = static function (string $type, $item) use ($filterContext): 
 };
 
 $optionLabel = static function ($bean, string $type) use (
-    $customersById, $sitesById, $buildingsById, $labelWithCode, $contextToken
+    $customersById, $sitesById, $buildingsById, $labelWithCode, $contextToken, $floorDisplayLabel
 ): string {
     if ($type === 'customer') return $labelWithCode($bean);
     if ($type === 'site') {
@@ -102,7 +112,7 @@ $optionLabel = static function ($bean, string $type) use (
         $customer = $site ? ($customersById[(int) $site->customer_id] ?? null) : null;
         $buildingLabel = ($customer ? $contextToken($customer) . ' ' : '')
             . ($site ? $contextToken($site) . ' ' : '');
-        return $buildingLabel . StructureController::floorIdentifier($bean, $building);
+        return $buildingLabel . $floorDisplayLabel($bean, $building);
     }
     if ($type === 'area') return $labelWithCode($bean);
     return (string) $bean->name;
@@ -304,8 +314,8 @@ $section = static function (string $title, string $type, array $items) use ($for
         </div>
         <div class="row g-3">
         <?php foreach ($floors as $floor): if ((int) $floor->building_id !== (int) $building->id) continue; ?>
-          <?php $floorIdentifier = StructureController::floorIdentifier($floor, $building); ?>
-          <div class="col-md-6 col-xl-4 structure-filter-item" <?= $filterAttributes('floor', $floor) ?>><details class="border rounded p-2"><summary><?= $hierarchyBadges('floor', $floor) ?><strong><?= htmlspecialchars($floorIdentifier) ?></strong><?php if ((string) $floor->name !== $floorIdentifier): ?> · <?= htmlspecialchars((string) $floor->name) ?><?php endif; ?><?php if (trim((string) $floor->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $floor->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
+          <?php $floorLabel = $floorDisplayLabel($floor, $building); ?>
+          <div class="col-md-6 col-xl-4 structure-filter-item" <?= $filterAttributes('floor', $floor) ?>><details class="border rounded p-2"><summary><?= $hierarchyBadges('floor', $floor) ?><strong><?= htmlspecialchars($floorLabel) ?></strong><?php if (trim((string) $floor->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $floor->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('floor', $floor); ?></div></details></div>
         <?php endforeach; ?>
         </div>
       </section>
@@ -323,7 +333,7 @@ $section = static function (string $title, string $type, array $items) use ($for
         <?php foreach ($floors as $floor): ?>
           <?php $building = $buildingsById[(int) $floor->building_id] ?? null; ?>
           <section class="structure-filter-group" <?= $filterAttributes('floor', $floor) ?>>
-          <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= $hierarchyBadges('floor', $floor) ?><span><?= htmlspecialchars(StructureController::floorIdentifier($floor, $building)) ?></span></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
+          <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= $hierarchyBadges('floor', $floor) ?><span><?= htmlspecialchars($floorDisplayLabel($floor, $building)) ?></span></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
           <div class="vstack gap-2">
           <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; ?>
             <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?></div></details>
