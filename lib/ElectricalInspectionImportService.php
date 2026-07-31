@@ -341,15 +341,28 @@ final class ElectricalInspectionImportService
             $controller = dirname(__DIR__) . '/controllers/StructureController.php';
             if (is_file($controller)) require_once $controller;
         }
+        $dotted = preg_match('/^(\d+)\.(\d+)$/', $identifier, $parts) ? [$parts[1], ltrim($parts[2], '0') ?: '0'] : null;
+        $best = null; $bestScore = -1;
         foreach (R::findAll('room') as $candidate) {
             $floor = R::load('floor', (int) $candidate->floor_id);
             if (!$floor || !(int) $floor->id) continue;
             $candidateIdentifier = class_exists('StructureController')
                 ? StructureController::roomIdentifier($candidate, $floor, null)
                 : '';
-            if (strcasecmp(trim($candidateIdentifier), $identifier) === 0) return $candidate;
+            $matches = strcasecmp(trim($candidateIdentifier), $identifier) === 0;
+            if (!$matches && $dotted !== null && (string) $floor->code === $dotted[0]) {
+                $candidateNumber = ltrim(preg_replace('/^\D+/', '', (string) ($candidate->number ?: $candidate->name)), '0') ?: '0';
+                $matches = $candidateNumber === $dotted[1] || str_ends_with($candidateIdentifier, $dotted[1]);
+            }
+            if (!$matches) continue;
+            $building = R::load('building', (int) $floor->building_id);
+            $site = $building && $building->id ? R::load('site', (int) $building->site_id) : null;
+            $customer = $site && $site->id ? R::load('customer', (int) $site->customer_id) : null;
+            $score = (string) ($customer->code ?? '') === 'AK' ? 20 : 0;
+            $score += (string) ($site->code ?? '') === 'NKS' ? 10 : 0;
+            if ($matches && $score > $bestScore) { $best = $candidate; $bestScore = $score; }
         }
-        return null;
+        return $best;
     }
 
     private function ensureImportedRoom(array $record, string $room): ?\RedBeanPHP\OODBBean
