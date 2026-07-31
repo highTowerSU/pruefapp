@@ -48,10 +48,10 @@ final class InspectionController
                 return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers])])];
             }
             try {
-                $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? ''))];
+                $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0)];
                 $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true);
                 if (is_array($rules)) $defaults['import_rules'] = $rules;
-                $defaults = array_filter($defaults, static fn(string $value): bool => $value !== '');
+                $defaults = array_filter($defaults, static fn($value): bool => $value !== '' && $value !== 0);
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory, null, $defaults);
                 self::saveImportLog('CSV/ODS/Datei-Import', $stats);
                 $message = ($message ? $message . ' ' : '') . sprintf('%d Prüfungen importiert, %d aktualisiert, %d Geräte neu angelegt.', $stats['imported'], $stats['updated'], $stats['devices']);

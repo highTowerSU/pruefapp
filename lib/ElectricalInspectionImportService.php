@@ -243,7 +243,9 @@ final class ElectricalInspectionImportService
         $inspection->legacy_number = $this->yearNumber(trim((string) ($record['legacy_number'] ?? '')), $date);
         $inspection->storage_slot = $slot;
         $inspection->test_date = $date;
-        $inspection->next_due_date = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
+        $nextDue = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
+        if ($nextDue === '' && (int) ($record['next_due_offset_days'] ?? 0) > 0 && $date !== '') $nextDue = date('Y-m-d', strtotime($date . ' +' . (int) $record['next_due_offset_days'] . ' days'));
+        $inspection->next_due_date = $nextDue;
         $inspection->inspection_type = $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? '');
         $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
         $inspection->result_status = (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null));
@@ -455,7 +457,7 @@ final class ElectricalInspectionImportService
             }
             if ($matches && $score > $bestScore) { $best = $rule; $bestScore = $score; }
         }
-        if (is_array($best)) foreach (['inspection_type', 'examiner', 'next_due_date'] as $field) if (trim((string) ($best[$field] ?? '')) !== '') $record[$field] = $best[$field];
+        if (is_array($best)) foreach (['inspection_type', 'examiner', 'next_due_date', 'next_due_offset_days'] as $field) if (trim((string) ($best[$field] ?? '')) !== '') $record[$field] = $best[$field];
         unset($record['import_rules']);
         return $record;
     }
