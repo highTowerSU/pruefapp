@@ -271,6 +271,12 @@ final class ElectricalInspectionImportService
         $device ??= $external !== '' ? R::findOne('device', ' legacy_number = ? ', [$external]) : null;
         $device ??= $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
         $created = $device === null;
+        if (!$created && $legacy !== '' && $legacy !== '-' && $external !== '') {
+            foreach (R::findAll('device', ' external_number = ? AND id <> ? ', [$external, (int) $device->id]) as $duplicate) {
+                R::exec('UPDATE inspection SET device_id = ? WHERE device_id = ?', [(int) $device->id, (int) $duplicate->id]);
+                R::trash($duplicate);
+            }
+        }
         $device ??= R::dispense('device');
         $device->external_number = $external;
         $device->legacy_number = $legacy === '-' ? '' : $legacy;
