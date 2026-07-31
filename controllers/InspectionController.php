@@ -135,7 +135,8 @@ final class InspectionController
         $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/cron-heartbeat.json';
         $data = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : [];
         $timestamp = isset($data['last_run']) ? strtotime((string) $data['last_run']) : (is_file($path) ? filemtime($path) : 0);
-        return ['last_run' => $timestamp > 0 ? date(DATE_ATOM, $timestamp) : null, 'age' => $timestamp > 0 ? max(0, time() - $timestamp) : null, 'healthy' => $timestamp > 0 && (time() - $timestamp) <= 300];
+        $displayTime = $timestamp > 0 ? (new DateTimeImmutable('@' . $timestamp))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('Y-m-d H:i:s T') : null;
+        return ['last_run' => $displayTime, 'age' => $timestamp > 0 ? max(0, time() - $timestamp) : null, 'healthy' => $timestamp > 0 && (time() - $timestamp) <= 300];
     }
 
     private static function savePairUpload(array $csv, array $ods): string
