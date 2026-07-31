@@ -7,6 +7,8 @@
   </p>
 </section>
 
+<?php if (!empty($materials)): ?><section class="mb-5"><h2 class="h4">Lehrmaterial und Prüfhinweise</h2><p class="text-body-secondary">Dokumente zu Elektroprüfung, Sicherheit und Unterweisung.</p><div class="list-group"><?php foreach ($materials as $material): ?><a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="<?= htmlspecialchars($material['url'], ENT_QUOTES) ?>" target="_blank" rel="noopener"><?= htmlspecialchars($material['name']) ?><span class="badge text-bg-secondary">Öffnen</span></a><?php endforeach; ?></div></section><?php endif; ?>
+
 <section class="mb-5">
   <h2 class="h4">Standardablauf für DGUV-V3-Prüfungen</h2>
   <ol class="ps-3">

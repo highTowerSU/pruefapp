@@ -64,6 +64,7 @@ $routes = [
     ['GET', '/kurse/{id}/link', fn($params, $isHx) => CourseController::linkSettings($params, $isHx)],
     ['POST', '/kurse/{id}/link', fn($params, $isHx) => CourseController::linkSettings($params, $isHx)],
     ['GET', '/hilfe', fn($params, $isHx) => HelpController::index($params, $isHx)],
+    ['GET', '/hilfe/dokument/{file}', fn($params, $isHx) => HelpController::document($params, $isHx)],
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
     ['POST', '/struktur/kunden', fn($params, $isHx) => StructureController::createCustomer($params, $isHx)],
     ['POST', '/struktur/standorte', fn($params, $isHx) => StructureController::createSite($params, $isHx)],
