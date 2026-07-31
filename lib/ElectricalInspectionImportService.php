@@ -207,6 +207,7 @@ final class ElectricalInspectionImportService
             'storage_slot' => $slot,
             'test_date' => $this->normalizeDate($date),
             'result_status' => $this->status($this->value($values, ['Prüfergebnis', 'OK', 'audit_ok', 'result'])),
+            'inspection_type' => $this->value($values, ['Bezeichnung', 'Prüfart', 'inspection_type']),
             'device_type' => $this->value($values, ['Bezeichnung', 'Typ', 'device_type']),
             'manufacturer' => $this->value($values, ['Hersteller', 'manufacturer']),
             'device_model' => $this->value($values, ['Modell', 'device_model']),

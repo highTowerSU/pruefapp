@@ -15,6 +15,7 @@ final class InspectionController
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
         $cron = self::cronStatus();
+        $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) . (trim((string) ($user->email ?? '')) !== '' ? ' · ' . trim((string) $user->email) : ''), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         if ($phoenixJob !== '') {
             $job = self::readPhoenixJob($phoenixJob);
@@ -44,7 +45,7 @@ final class InspectionController
                 }
             }
             if ($directory === '') {
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus()])])];
+                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers])])];
             }
             try {
                 $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? ''))];
@@ -66,6 +67,7 @@ final class InspectionController
                 'jobs' => $jobs,
                 'importLogs' => $importLogs,
                 'cron' => $cron,
+                'examinerUsers' => $examinerUsers,
             ]),
         ])];
     }
