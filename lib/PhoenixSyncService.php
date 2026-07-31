@@ -32,7 +32,7 @@ final class PhoenixSyncService
             if (!empty($item['id'])) $this->downloadReport($baseUrl . '/webhook/good-parrot-49/audits/' . (int) $item['id'], $number, $token, $reportDir);
         }
         if ($progress !== null) $progress($total, $total, '', 'Lokalen Import ausführen');
-        if ($records === []) { @rmdir($reportDir); $stats = ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; app_write_import_log('Phoenix-Sync', $stats); return $stats; }
+        if ($records === []) { @rmdir($reportDir); return ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; }
         $tmp = tempnam(sys_get_temp_dir(), 'phoenix-sync-');
         if ($tmp === false) throw new RuntimeException('Temporäre Importdatei konnte nicht angelegt werden.');
         $jsonl = $tmp . '.jsonl';
@@ -42,7 +42,6 @@ final class PhoenixSyncService
         fclose($handle);
         try { $stats = (new ElectricalInspectionImportService())->importDirectory($jsonl, $reportDir); } finally { @unlink($jsonl); $this->removeDirectory($reportDir); }
         $stats['fetched'] = count($items); $stats['skipped_existing'] = $skipped; $stats['new'] = count($records);
-        app_write_import_log('Phoenix-Sync', $stats);
         return $stats;
     }
 

@@ -150,6 +150,7 @@ final class InspectionController
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
             $directory = trim((string) ($_POST['directory'] ?? ''));
+            $reportsDirectory = trim((string) ($_POST['reports_directory'] ?? ''));
             if (isset($_FILES['csv'], $_FILES['ods']) && is_array($_FILES['csv']) && is_array($_FILES['ods'])) {
                 try {
                     $directory = self::savePairUpload($_FILES['csv'], $_FILES['ods']);
@@ -167,8 +168,7 @@ final class InspectionController
                 $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true);
                 if (is_array($rules)) $defaults['import_rules'] = $rules;
                 $defaults = array_filter($defaults, static fn($value): bool => $value !== '' && $value !== 0);
-                $stats = (new ElectricalInspectionImportService())->importDirectory($directory, null, $defaults);
-                app_write_import_log('Web-Import', $stats);
+                $stats = (new ElectricalInspectionImportService())->importDirectory($directory, $reportsDirectory !== '' ? $reportsDirectory : null, $defaults);
                 $message = ($message ? $message . ' ' : '') . sprintf('%d Prüfungen importiert, %d aktualisiert, %d Geräte neu angelegt.', $stats['imported'], $stats['updated'], $stats['devices']);
                 if (!empty($stats['errors'])) $message .= ' Hinweis: ' . implode(' | ', array_slice($stats['errors'], 0, 3));
             } catch (Throwable $exception) {
