@@ -19,7 +19,7 @@ final class ElectricalInspectionImportService
 
     public function __construct(?string $storageRoot = null)
     {
-        $this->storageRoot = $storageRoot ?: dirname(__DIR__) . '/data/' . app_storage_namespace() . '/reports';
+        $this->storageRoot = $storageRoot ?: app_data_root() . '/' . app_storage_namespace() . '/reports';
     }
 
     /**
@@ -64,7 +64,7 @@ final class ElectricalInspectionImportService
 
     private function persistImportLog(array $stats): void
     {
-        $root = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/import-logs';
+        $root = app_data_root() . '/' . app_storage_namespace() . '/import-logs';
         if (!is_dir($root)) @mkdir($root, 0770, true);
         if (is_dir($root)) @file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => 'Import', 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
     }

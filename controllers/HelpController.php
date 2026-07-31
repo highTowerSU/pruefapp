@@ -22,7 +22,7 @@ class HelpController
 
     private static function materials(): array
     {
-        $root = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/materials'; $items = [];
+        $root = app_data_root() . '/' . app_storage_namespace() . '/materials'; $items = [];
         foreach (glob($root . '/*') ?: [] as $path) {
             if (!is_file($path) || !in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['pdf', 'pptx', 'odt', 'ots'], true)) continue;
             $items[] = ['name' => basename($path), 'url' => url_for('hilfe/dokument/' . rawurlencode(basename($path)))];
@@ -36,7 +36,7 @@ class HelpController
         if (!current_user()) return [403, [], ''];
         $name = basename(rawurldecode((string) ($params['file'] ?? '')));
         if ($name === '' || !in_array(strtolower(pathinfo($name, PATHINFO_EXTENSION)), ['pdf', 'pptx', 'odt', 'ots'], true)) return [404, [], 'Dokument nicht gefunden'];
-        $root = realpath(dirname(__DIR__) . '/data/' . app_storage_namespace() . '/materials');
+        $root = realpath(app_data_root() . '/' . app_storage_namespace() . '/materials');
         $path = $root !== false ? realpath($root . DIRECTORY_SEPARATOR . $name) : false;
         if ($path === false || !str_starts_with($path, $root . DIRECTORY_SEPARATOR) || !is_file($path)) return [404, [], 'Dokument nicht gefunden'];
         $types = ['pdf' => 'application/pdf', 'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'odt' => 'application/vnd.oasis.opendocument.text', 'ots' => 'application/vnd.oasis.opendocument.spreadsheet'];

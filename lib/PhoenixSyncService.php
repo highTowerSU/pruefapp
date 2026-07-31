@@ -34,14 +34,13 @@ final class PhoenixSyncService
         }
         if ($progress !== null) $progress($total, $total, '', 'Lokalen Import ausführen');
         if ($records === []) { @rmdir($reportDir); return ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; }
-        $tmp = tempnam(sys_get_temp_dir(), 'phoenix-sync-');
-        if ($tmp === false) throw new RuntimeException('Temporäre Importdatei konnte nicht angelegt werden.');
-        $jsonl = $tmp . '.jsonl';
-        rename($tmp, $jsonl);
+        $archiveRoot = app_data_root() . '/' . app_storage_namespace() . '/phoenix-imports';
+        if (!is_dir($archiveRoot) && !mkdir($archiveRoot, 0770, true) && !is_dir($archiveRoot)) throw new RuntimeException('Phoenix-Archiv konnte nicht angelegt werden.');
+        $jsonl = $archiveRoot . '/phoenix-sync-' . bin2hex(random_bytes(12)) . '.jsonl';
         $handle = fopen($jsonl, 'wb');
         foreach ($records as $record) fwrite($handle, json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
         fclose($handle);
-        try { $stats = (new ElectricalInspectionImportService())->importDirectory($jsonl, $reportDir); } finally { @unlink($jsonl); $this->removeDirectory($reportDir); }
+        try { $stats = (new ElectricalInspectionImportService())->importDirectory($jsonl, $reportDir); } finally { $this->removeDirectory($reportDir); }
         $stats['fetched'] = count($items); $stats['skipped_existing'] = $skipped; $stats['new'] = count($records);
         return $stats;
     }

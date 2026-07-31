@@ -346,9 +346,16 @@ function app_storage_namespace(): string
     return 'pruefapp';
 }
 
+function app_data_root(): string
+{
+    $configured = config_value('APP_DATA_ROOT');
+    if (is_string($configured) && trim($configured) !== '') return rtrim(trim($configured), '/');
+    return '/var/www/data';
+}
+
 function app_write_import_log(string $type, array $stats): void
 {
-    $root = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/import-logs';
+    $root = app_data_root() . '/' . app_storage_namespace() . '/import-logs';
     if (!is_dir($root)) @mkdir($root, 0770, true);
     @file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => $type, 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
