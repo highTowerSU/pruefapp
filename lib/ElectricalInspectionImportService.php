@@ -265,14 +265,20 @@ final class ElectricalInspectionImportService
         $external = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
         $legacy = trim((string) ($record['legacy_number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
-        $device = $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
+        // The new number is canonical. Prefer an existing new-number device;
+        // only fall back to the old device when the new one does not exist yet.
+        $device = $external !== '' ? R::findOne('device', ' external_number = ? ', [$external]) : null;
+        $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
         $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' external_number = ? ', [$legacy]) : null;
-        $device ??= $external !== '' ? R::findOne('device', ' external_number = ? ', [$external]) : null;
         $device ??= $external !== '' ? R::findOne('device', ' legacy_number = ? ', [$external]) : null;
         $device ??= $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
         $created = $device === null;
         if (!$created && $legacy !== '' && $legacy !== '-' && $external !== '') {
-            foreach (R::findAll('device', ' external_number = ? AND id <> ? ', [$external, (int) $device->id]) as $duplicate) {
+            $oldDevices = R::findAll('device', ' (legacy_number = ? OR external_number = ?) AND id <> ? ', [$legacy, $legacy, (int) $device->id]);
+            foreach ($oldDevices as $duplicate) {
+                foreach (['name', 'inventory_number', 'device_model', 'manufacturer', 'serial_number', 'comment', 'room_id', 'room_snapshot'] as $field) {
+                    if (trim((string) ($device->$field ?? '')) === '' && trim((string) ($duplicate->$field ?? '')) !== '') $device->$field = $duplicate->$field;
+                }
                 R::exec('UPDATE inspection SET device_id = ? WHERE device_id = ?', [(int) $device->id, (int) $duplicate->id]);
                 R::trash($duplicate);
             }
