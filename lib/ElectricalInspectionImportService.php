@@ -34,7 +34,7 @@ final class ElectricalInspectionImportService
         $root = is_dir($source) ? $source : dirname($source);
         $reportRoot = $reportsDirectory !== null && is_dir($reportsDirectory) ? realpath($reportsDirectory) : $root;
         $this->indexReports($reportRoot ?: $root, $reportsDirectory !== null || is_dir($source));
-        $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'not_imported' => [], 'errors' => []];
+        $stats = ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
         $files = is_file($source)
             ? [new SplFileInfo($source)]
             : new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS));
@@ -50,7 +50,7 @@ final class ElectricalInspectionImportService
                     : $this->importCsvFile($file->getPathname(), $root);
                 foreach ($result as $key => $value) {
                     if ($key === 'reason') { $stats['errors'][] = $file->getPathname() . ': ' . $value; continue; }
-                    if (in_array($key, ['new_devices', 'not_imported'], true) && is_array($value)) { $stats[$key] = array_merge($stats[$key] ?? [], $value); continue; }
+                    if (in_array($key, ['new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) { $stats[$key] = array_merge($stats[$key] ?? [], $value); continue; }
                     if (array_key_exists($key, $stats) && is_int($value)) $stats[$key] += $value;
                 }
             } catch (Throwable $exception) {
@@ -87,7 +87,7 @@ final class ElectricalInspectionImportService
 
     private function importJsonRecords(array $records, string $path, string $root): array
     {
-        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'not_imported' => []];
+        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => []];
         $matchedSlots = [];
         foreach ($records as $record) {
             if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
@@ -95,7 +95,7 @@ final class ElectricalInspectionImportService
                 continue;
             }
             $one = $this->importRecord($record, 'json', $path, $root);
-            foreach ($one as $key => $value) { if ($key === 'new_devices') $result[$key] = array_merge($result[$key], $value); else $result[$key] += $value; }
+            foreach ($one as $key => $value) { if (in_array($key, ['new_devices', 'updated_devices'], true)) $result[$key] = array_merge($result[$key] ?? [], $value); else $result[$key] += $value; }
         }
 
         return $result;
@@ -133,7 +133,7 @@ final class ElectricalInspectionImportService
 
         $odsPath = $this->matchingOdsPath($path);
         $ods = $this->readOds($odsPath);
-        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => []];
+        $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => []];
         $rows = $headerlessRows ?? null;
         while (true) {
             $row = $rows !== null ? array_shift($rows) : fgetcsv($stream, 0, $delimiter);
@@ -162,7 +162,7 @@ final class ElectricalInspectionImportService
                 continue;
             }
             $one = $this->importRecord($record, 'csv', $path, $root);
-            foreach ($one as $key => $value) { if ($key === 'new_devices') $result[$key] = array_merge($result[$key], $value); else $result[$key] += $value; }
+            foreach ($one as $key => $value) { if (in_array($key, ['new_devices', 'updated_devices'], true)) $result[$key] = array_merge($result[$key] ?? [], $value); else $result[$key] += $value; }
         }
         if ($odsPath !== null && $ods !== []) {
             foreach ($ods as $odsRow) {
@@ -255,7 +255,8 @@ final class ElectricalInspectionImportService
         $inspection->updated_at = date(DATE_ATOM);
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
         R::store($inspection);
-        return ['imported' => $created ? 1 : 0, 'updated' => $created ? 0 : 1, 'devices' => $deviceResult['created'] ? 1 : 0, 'reports' => $report !== null ? 1 : 0, 'new_devices' => $deviceResult['created'] ? [['id' => (int) $deviceResult['device']->id, 'number' => $external, 'name' => (string) $deviceResult['device']->name]] : []];
+        $deviceInfo = ['id' => (int) $deviceResult['device']->id, 'number' => $external, 'name' => (string) $deviceResult['device']->name];
+        return ['imported' => $created ? 1 : 0, 'updated' => $created ? 0 : 1, 'devices' => $deviceResult['created'] ? 1 : 0, 'reports' => $report !== null ? 1 : 0, 'new_devices' => $deviceResult['created'] ? [$deviceInfo] : [], 'updated_devices' => !$deviceResult['created'] ? [$deviceInfo] : []];
     }
 
     /** @return array{device:\RedBeanPHP\OODBBean,created:bool} */
