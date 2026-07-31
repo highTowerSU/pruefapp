@@ -73,12 +73,22 @@ final class ElectricalInspectionImportService
     private function importJsonFile(string $path, string $root, bool $jsonLines = false, array $defaults = []): array
     {
         if ($jsonLines) {
-            $records = [];
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-                if (is_array($decoded)) $records[] = $decoded;
-            }
-            return $this->importJsonRecords($records, $path, $root, $defaults);
+            $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => []];
+            $handle = fopen($path, 'rb');
+            if ($handle === false) throw new RuntimeException('JSONL-Datei konnte nicht geöffnet werden.');
+            try {
+                while (($line = fgets($handle)) !== false) {
+                    if (trim($line) === '') continue;
+                    $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+                    if (!is_array($decoded) || trim((string) ($decoded['number'] ?? '')) === '') { $result['skipped']++; continue; }
+                    $one = $this->importRecord(array_merge($defaults, $decoded), 'json', $path, $root);
+                    foreach ($one as $key => $value) {
+                        if (in_array($key, ['new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) $result[$key] = array_merge($result[$key] ?? [], $value);
+                        elseif (array_key_exists($key, $result) && is_int($value)) $result[$key] += $value;
+                    }
+                }
+            } finally { fclose($handle); }
+            return $result;
         }
         $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         $records = [];
