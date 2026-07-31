@@ -131,6 +131,11 @@ class DeviceController
         $manufacturerOptions = array_keys($manufacturerOptions);
         sort($manufacturerOptions, SORT_NATURAL | SORT_FLAG_CASE);
         foreach ($modelOptionsByManufacturer as $manufacturer => $models) { $modelOptionsByManufacturer[$manufacturer] = array_keys($models); natcasesort($modelOptionsByManufacturer[$manufacturer]); $modelOptionsByManufacturer[$manufacturer] = array_values($modelOptionsByManufacturer[$manufacturer]); }
+        $suggestedDeviceNumber = '';
+        foreach (R::getAll("SELECT external_number FROM device WHERE TRIM(COALESCE(external_number, '')) <> '' ORDER BY id DESC LIMIT 100") as $row) {
+            $candidate = trim((string) ($row['external_number'] ?? ''));
+            if (preg_match('/^\d+$/', $candidate)) { $suggestedDeviceNumber = (string) ((int) $candidate + 1); break; }
+        }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'content' => render_template('device_index.php', [
@@ -159,6 +164,7 @@ class DeviceController
                 'total' => $total,
                 'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'per_page' => $perPage, 'sort' => $sort],
                 'newNumber' => $newNumber,
+                'suggestedDeviceNumber' => $suggestedDeviceNumber,
             ]),
         ])];
     }
