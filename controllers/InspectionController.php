@@ -54,29 +54,25 @@ final class InspectionController
                 $user = current_user();
                 $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
             }
-            $examinerUser = R::findOne('oauthuser', ' email = ? OR name = ? ', [$inspection->examiner, $inspection->examiner]);
-            if ($examinerUser !== null) {
-                $examinerUser->initial_instruction = trim((string) ($_POST['initial_instruction'] ?? ''));
-                $examinerUser->followup_instruction = trim((string) ($_POST['followup_instruction'] ?? ''));
-                R::store($examinerUser);
-            }
             $inspection->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
-            $inspection->checklist_json = json_encode($_POST['checklist'] ?? [], JSON_UNESCAPED_UNICODE);
+            $checklist = is_array($_POST['checklist'] ?? null) ? array_map(static fn($value): string => in_array((string) $value, ['ja', 'ok', 'nein'], true) ? ((string) $value === 'ok' ? 'ja' : (string) $value) : '', $_POST['checklist']) : [];
+            $inspection->checklist_json = json_encode($checklist, JSON_UNESCAPED_UNICODE);
             $complete = ($_POST['complete'] ?? '') === '1';
             if ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '')) {
-                $error = 'Für den Abschluss fehlen Schutzklasse, Prüfart oder Prüfer.';
+                $error = 'Für den Abschluss fehlen Schutzklasse oder Prüfer.';
+            } elseif ($complete && count($checklist) < 5 || ($complete && in_array('', $checklist, true))) {
+                $error = 'Bitte alle Sicht- und Funktionsprüfungen mit Ja oder Nein beantworten.';
             } else {
                 $inspection->status = $complete ? 'completed' : ($inspection->storage_slot !== '' ? 'measurement_pending' : 'draft');
-                $inspection->result_status = $complete ? trim((string) ($_POST['result_status'] ?? 'bestanden')) : 'ausstehend';
+                $inspection->result_status = $complete ? (in_array('nein', $checklist, true) ? 'durchgefallen' : 'bestanden') : 'ausstehend';
                 $inspection->updated_at = date(DATE_ATOM);
                 R::store($inspection);
                 return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id . '/bearbeiten')], ''];
             }
         }
         $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
-        $examinerUser = R::findOne('oauthuser', ' email = ? OR name = ? ', [(string) $inspection->examiner, (string) $inspection->examiner]) ?: current_user();
         $canChooseOtherExaminer = current_user_has_role('admin');
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'examinerUser'))])];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer'))])];
     }
     public static function import(array $params, bool $isHx): array
     {
