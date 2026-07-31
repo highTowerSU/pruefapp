@@ -105,6 +105,18 @@ class DeviceController
         foreach ($buildings as $building) { $buildingLabels[(int) $building->id] = $entityLabel($building); $buildingSiteIds[(int) $building->id] = (int) $building->site_id; }
         foreach ($floors as $floor) { $floorLabels[(int) $floor->id] = $entityLabel($floor); $floorBuildingIds[(int) $floor->id] = (int) $floor->building_id; }
         foreach ($rooms as $room) $roomFloorIds[(int) $room->id] = (int) $room->floor_id;
+        $manufacturerOptions = [];
+        $modelOptionsByManufacturer = [];
+        foreach (R::getAll("SELECT manufacturer, device_model FROM device WHERE TRIM(COALESCE(manufacturer, '')) <> '' ORDER BY manufacturer, device_model") as $row) {
+            $manufacturer = trim((string) ($row['manufacturer'] ?? ''));
+            $model = trim((string) ($row['device_model'] ?? ''));
+            if ($manufacturer === '') continue;
+            $manufacturerOptions[$manufacturer] = true;
+            if ($model !== '') $modelOptionsByManufacturer[$manufacturer][$model] = true;
+        }
+        $manufacturerOptions = array_keys($manufacturerOptions);
+        sort($manufacturerOptions, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($modelOptionsByManufacturer as $manufacturer => $models) { $modelOptionsByManufacturer[$manufacturer] = array_keys($models); natcasesort($modelOptionsByManufacturer[$manufacturer]); $modelOptionsByManufacturer[$manufacturer] = array_values($modelOptionsByManufacturer[$manufacturer]); }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'content' => render_template('device_index.php', [
@@ -124,6 +136,8 @@ class DeviceController
                 'floorBuildingIds' => $floorBuildingIds,
                 'roomFloorIds' => $roomFloorIds,
                 'canManage' => current_user_has_role('admin'),
+                'manufacturerOptions' => $manufacturerOptions,
+                'modelOptionsByManufacturer' => $modelOptionsByManufacturer,
                 'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
                 'page' => $page,
                 'pages' => $pages,

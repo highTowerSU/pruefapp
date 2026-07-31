@@ -1,6 +1,6 @@
 <?php
 $displayImportValue = static function ($value): string { if (is_array($value)) { foreach (['brezel_name', 'name', 'email', 'company'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key]; return implode(', ', array_map(static fn($item): string => is_scalar($item) ? (string) $item : '', $value)); } return is_scalar($value) ? (string) $value : ''; };
-$form = static function ($device = null) use ($rooms, $roomLabels): void {
+$form = static function ($device = null) use ($rooms, $roomLabels, $manufacturerOptions, $modelOptionsByManufacturer): void {
     $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'warming_device' => 0, 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
     $metadataValue = trim((string) ($device->metadata_json ?? ''));
     if ($metadataValue === '{}') $metadataValue = '';
@@ -12,8 +12,9 @@ $form = static function ($device = null) use ($rooms, $roomLabels): void {
     <div class="col-md-4"><label class="form-label">Raum</label><select class="form-select" name="room_id" required data-search-select data-placeholder="Raum suchen"><option value="">Raum wählen</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) $device->room_id === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select></div>
     <div class="col-md-2"><label class="form-label">Inventarnummer</label><input class="form-control" name="inventory_number" value="<?= htmlspecialchars((string) $device->inventory_number) ?>"></div>
     <div class="col-md-2"><label class="form-label">Seriennummer</label><input class="form-control" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"></div>
-    <div class="col-md-3"><label class="form-label">Typ</label><input class="form-control" name="device_model" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"></div>
-    <div class="col-md-3"><label class="form-label">Hersteller</label><input class="form-control" name="manufacturer" value="<?= htmlspecialchars((string) ($device->manufacturer ?? '')) ?>"></div>
+    <?php $formKey = (int) ($device->id ?? 0); $manufacturerListId = 'manufacturers-' . $formKey; $modelListId = 'models-' . $formKey; $currentManufacturer = trim((string) ($device->manufacturer ?? '')); ?>
+    <div class="col-md-3"><label class="form-label" for="manufacturer-<?= $formKey ?>">Hersteller</label><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" list="<?= $manufacturerListId ?>" autocomplete="organization" value="<?= htmlspecialchars($currentManufacturer) ?>"><datalist id="<?= $manufacturerListId ?>"><?php foreach ($manufacturerOptions as $manufacturer): ?><option value="<?= htmlspecialchars($manufacturer) ?>"></option><?php endforeach; ?></datalist></div>
+    <div class="col-md-3"><label class="form-label" for="device-model-<?= $formKey ?>">Typ / Modell</label><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" list="<?= $modelListId ?>" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"><datalist id="<?= $modelListId ?>"><?php foreach (($modelOptionsByManufacturer[$currentManufacturer] ?? []) as $model): ?><option value="<?= htmlspecialchars($model) ?>"></option><?php endforeach; ?></datalist></div>
     <div class="col-md-2 form-check mt-4 ms-2"><input class="form-check-input" type="checkbox" name="warming_device" id="warming-<?= (int) $device->id ?>"<?= !empty($device->warming_device) ? ' checked' : '' ?>><label class="form-check-label" for="warming-<?= (int) $device->id ?>">Wärmegerät</label></div>
     <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
     <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
@@ -33,6 +34,20 @@ $form = static function ($device = null) use ($rooms, $roomLabels): void {
   const siteLabels = <?= json_encode($safeSiteLabels, JSON_UNESCAPED_UNICODE) ?>;
   const buildingLabels = <?= json_encode($safeBuildingLabels, JSON_UNESCAPED_UNICODE) ?>;
   const customerLabels = <?= json_encode(array_reduce($customers, static function (array $out, $customer): array { $code = is_scalar($customer->code ?? null) ? (string) $customer->code : ''; $name = is_scalar($customer->name ?? null) ? (string) $customer->name : ''; $out[(int) $customer->id] = $code !== '' ? $code . ' · ' . $name : $name; return $out; }, []), JSON_UNESCAPED_UNICODE) ?>;
+  const modelOptionsByManufacturer = <?= json_encode($modelOptionsByManufacturer, JSON_UNESCAPED_UNICODE) ?>;
+  document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
+    const manufacturer = form.querySelector('[name="manufacturer"]');
+    const model = form.querySelector('[name="device_model"]');
+    const modelList = model ? document.getElementById(model.getAttribute('list')) : null;
+    if (manufacturer && modelList) {
+      const refreshModels = () => { modelList.replaceChildren(...(modelOptionsByManufacturer[manufacturer.value.trim()] || []).map(value => { const option = document.createElement('option'); option.value = value; return option; })); };
+      manufacturer.addEventListener('input', refreshModels);
+      manufacturer.addEventListener('change', refreshModels);
+    }
+    const submitBlock = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
+    const fieldBlocks = ['manufacturer', 'device_model', 'name', 'inventory_number', 'serial_number', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'].map(name => form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]')).filter(Boolean);
+    if (submitBlock) fieldBlocks.forEach(block => form.insertBefore(block, submitBlock));
+  });
   const group = (select, key, label) => {
     if (!select) return;
     const options = [...select.querySelectorAll(':scope > option')];
