@@ -14,6 +14,7 @@ if ($directory === '') {
 
 try {
     $stats = (new ElectricalInspectionImportService())->importDirectory($directory, $reportsDirectory);
+    app_write_import_log('CLI Elektro-Import', $stats);
     echo json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
     exit(count($stats['errors']) > 0 ? 1 : 0);
 } catch (Throwable $exception) {

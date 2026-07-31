@@ -168,6 +168,7 @@ final class InspectionController
                 if (is_array($rules)) $defaults['import_rules'] = $rules;
                 $defaults = array_filter($defaults, static fn($value): bool => $value !== '' && $value !== 0);
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory, null, $defaults);
+                app_write_import_log('Web-Import', $stats);
                 $message = ($message ? $message . ' ' : '') . sprintf('%d Prüfungen importiert, %d aktualisiert, %d Geräte neu angelegt.', $stats['imported'], $stats['updated'], $stats['devices']);
                 if (!empty($stats['errors'])) $message .= ' Hinweis: ' . implode(' | ', array_slice($stats['errors'], 0, 3));
             } catch (Throwable $exception) {
