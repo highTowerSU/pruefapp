@@ -27,6 +27,67 @@ foreach ($customers as $customer) {
     }
 }
 
+// Counts shown in the destructive cascade confirmation.  They are calculated
+// here (rather than guessed in JavaScript) so the warning reflects the data
+// that will actually be removed by the controller.
+$cascadeCounts = static function (string $type, $item) use ($customerScopeByOwner): array {
+    $in = static function (array $ids): string {
+        return implode(',', array_fill(0, count($ids), '?'));
+    };
+    $ids = static function (string $sql, array $params): array {
+        if ($params === []) return [];
+        return array_map('intval', \RedBeanPHP\R::getCol($sql, $params));
+    };
+
+    $customerIds = $siteIds = $buildingIds = $floorIds = $areaIds = $roomIds = [];
+    if ($type === 'customer') {
+        $customerIds = array_values(array_unique(array_map('intval', $customerScopeByOwner[(int) $item->id] ?? [(int) $item->id])));
+        $p = $in($customerIds);
+        $siteIds = $ids("SELECT id FROM site WHERE customer_id IN ($p)", $customerIds);
+    } elseif ($type === 'site') {
+        $siteIds = [(int) $item->id];
+    } elseif ($type === 'building') {
+        $buildingIds = [(int) $item->id];
+    } elseif ($type === 'floor') {
+        $floorIds = [(int) $item->id];
+    } elseif ($type === 'area') {
+        $areaIds = [(int) $item->id];
+    }
+
+    if ($siteIds !== []) {
+        $p = $in($siteIds);
+        $buildingIds = $ids("SELECT id FROM building WHERE site_id IN ($p)", $siteIds);
+    }
+    if ($buildingIds !== []) {
+        $p = $in($buildingIds);
+        $floorIds = $ids("SELECT id FROM floor WHERE building_id IN ($p)", $buildingIds);
+    }
+    if ($floorIds !== []) {
+        $p = $in($floorIds);
+        $areaIds = $ids("SELECT id FROM area WHERE floor_id IN ($p)", $floorIds);
+        $roomIds = $ids("SELECT id FROM room WHERE floor_id IN ($p)", $floorIds);
+    }
+    if ($areaIds !== []) {
+        $p = $in($areaIds);
+        $areaRoomIds = $ids("SELECT id FROM room WHERE area_id IN ($p)", $areaIds);
+        $roomIds = array_values(array_unique(array_merge($roomIds, $areaRoomIds)));
+    }
+    if ($roomIds === [] && $type === 'room') $roomIds = [(int) $item->id];
+
+    $deviceCount = 0;
+    $inspectionCount = 0;
+    if ($roomIds !== []) {
+        $p = $in($roomIds);
+        $deviceCount = (int) \RedBeanPHP\R::getCell("SELECT COUNT(*) FROM device WHERE room_id IN ($p)", $roomIds);
+        $inspectionCount = (int) \RedBeanPHP\R::getCell("SELECT COUNT(*) FROM inspection i JOIN device d ON d.id = i.device_id WHERE d.room_id IN ($p)", $roomIds);
+    }
+    return [
+        'sites' => count($siteIds), 'buildings' => count($buildingIds), 'floors' => count($floorIds),
+        'areas' => count($areaIds), 'rooms' => count($roomIds), 'devices' => $deviceCount,
+        'inspections' => $inspectionCount,
+    ];
+};
+
 $siteCountByCustomer = [];
 foreach ($sites as $site) {
     $customerId = (int) $site->customer_id;
@@ -240,7 +301,7 @@ $form = static function (string $type, $entity = null) use (
 </form>
 <?php };
 
-$section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel, $hierarchyBadges, $rooms): void {
+$section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel, $hierarchyBadges, $rooms, $cascadeCounts): void {
 ?>
 <div class="card shadow-sm h-100">
   <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><?= htmlspecialchars($title) ?></h2><span class="badge text-bg-secondary" data-structure-count="<?= $type ?>"><?= count($items) ?></span></div>
@@ -248,13 +309,14 @@ $section = static function (string $title, string $type, array $items) use ($for
     <?php if ($canManage): ?><details class="border rounded p-2 mb-3"><summary class="fw-semibold">Neu anlegen</summary><div class="pt-3"><?php $form($type); ?></div></details><?php endif; ?>
     <div class="vstack gap-2">
       <?php foreach ($items as $item): ?>
+            <?php $cascade = $cascadeCounts($type, $item); $cascadeSummary = sprintf('%d Standort(e), %d Gebäude, %d Etage(n), %d Bereich(e), %d Raum/Räume, %d Gerät(e), %d Prüfung(en)', $cascade['sites'], $cascade['buildings'], $cascade['floors'], $cascade['areas'], $cascade['rooms'], $cascade['devices'], $cascade['inspections']); ?>
             <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
           <summary>
             <?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building', 'room'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
             <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
           </summary>
           <div class="pt-3"><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?>
-            <?php if ($canManage): ?><div class="d-flex justify-content-end gap-2 mt-2"><?php $deletePath = $type === 'room' ? 'struktur/raeume/' . (int) $item->id . '/loeschen' : 'struktur/' . $type . '/' . (int) $item->id . '/loeschen'; ?><form method="post" action="<?= htmlspecialchars(url_for($deletePath), ENT_QUOTES) ?>" onsubmit="return confirm('Diesen leeren Eintrag wirklich löschen?');"><button class="btn btn-sm btn-outline-danger" type="submit">Löschen</button></form><form method="post" action="<?= htmlspecialchars(url_for($deletePath), ENT_QUOTES) ?>" onsubmit="return confirm('Auch alle Untereinträge, Geräte und Prüfungen darunter löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');"><input type="hidden" name="cascade" value="1"><button class="btn btn-sm btn-danger" type="submit">Mit Unterstruktur löschen</button></form></div><?php endif; ?>
+            <?php if ($canManage): ?><div class="d-flex justify-content-end gap-2 mt-2"><?php $deletePath = $type === 'room' ? 'struktur/raeume/' . (int) $item->id . '/loeschen' : 'struktur/' . $type . '/' . (int) $item->id . '/loeschen'; ?><form method="post" action="<?= htmlspecialchars(url_for($deletePath), ENT_QUOTES) ?>" onsubmit="return confirm('Diesen leeren Eintrag wirklich löschen?');"><button class="btn btn-sm btn-outline-danger" type="submit">Löschen</button></form><form method="post" action="<?= htmlspecialchars(url_for($deletePath), ENT_QUOTES) ?>" onsubmit="return confirm('<?= htmlspecialchars('Auch alle Untereinträge löschen? Betroffen: ' . $cascadeSummary . '. Dieser Vorgang kann nicht rückgängig gemacht werden.', ENT_QUOTES) ?>');"><input type="hidden" name="cascade" value="1"><button class="btn btn-sm btn-danger" type="submit">Mit Unterstruktur löschen</button></form></div><?php endif; ?>
           </div>
         </details>
       <?php endforeach; ?>
@@ -352,8 +414,8 @@ $section = static function (string $title, string $type, array $items) use ($for
           <section class="structure-filter-group" <?= $filterAttributes('floor', $floor) ?>>
           <div class="mt-4 border-bottom pb-2"><h3 class="h6 mb-1"><?= $hierarchyBadges('floor', $floor) ?><span><?= htmlspecialchars($floorDisplayLabel($floor, $building)) ?></span></h3><?php if (trim((string) $floor->description) !== ''): ?><p class="small text-body-secondary mb-0"><?= htmlspecialchars((string) $floor->description) ?></p><?php endif; ?></div>
           <div class="vstack gap-2">
-          <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; $roomDeviceCount = (int) \RedBeanPHP\R::count('device', 'room_id = ?', [(int) $room->id]); ?>
-            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?><?php if ($canManage): ?><div class="d-flex justify-content-end gap-2 mt-2"><form method="post" action="<?= htmlspecialchars(url_for('struktur/raeume/' . (int) $room->id . '/loeschen'), ENT_QUOTES) ?>" onsubmit="return confirm('<?= htmlspecialchars('Raum ' . StructureController::roomIdentifier($room, $floor, $area) . ' und ' . $roomDeviceCount . ' Gerät(e) samt Prüfungen löschen?', ENT_QUOTES) ?>');"><button class="btn btn-sm btn-outline-danger">Raum löschen</button></form></div><?php endif; ?><?php if ($canManage && $roomDeviceCount > 0): ?><form method="post" action="<?= htmlspecialchars(url_for('struktur/raeume/' . (int) $room->id . '/geraete-verschieben'), ENT_QUOTES) ?>" class="border rounded p-2 mt-3" onsubmit="return confirm('Alle Geräte aus diesem Raum in den ausgewählten Zielraum verschieben?');"><label class="form-label">Geräte verschieben</label><select class="form-select form-select-sm mb-2" name="target_room_id" required data-search-select data-placeholder="Zielraum suchen"><option value="">Zielraum wählen</option><?php foreach ($rooms as $targetRoom): if ((int) $targetRoom->id === (int) $room->id) continue; $targetFloor = $floorsById[(int) $targetRoom->floor_id] ?? null; $targetBuilding = $targetFloor ? ($buildingsById[(int) $targetFloor->building_id] ?? null) : null; $targetArea = $areasById[(int) ($targetRoom->area_id ?? 0)] ?? null; $targetIdentifier = $targetFloor && $targetBuilding ? StructureController::roomIdentifier($targetRoom, $targetFloor, $targetArea) : (string) $targetRoom->name; $targetLabel = $targetIdentifier === (string) $targetRoom->name ? $targetIdentifier : $targetIdentifier . ' · ' . (string) $targetRoom->name; ?><option value="<?= (int) $targetRoom->id ?>"><?= htmlspecialchars($targetLabel) ?></option><?php endforeach; ?></select><button class="btn btn-sm btn-outline-primary">Alle Geräte verschieben</button></form><?php endif; ?></div></details>
+          <?php foreach ($rooms as $room): if ((int) $room->floor_id !== (int) $floor->id) continue; $area = $areasById[(int) $room->area_id] ?? null; $roomDeviceCount = (int) \RedBeanPHP\R::count('device', 'room_id = ?', [(int) $room->id]); $roomInspectionCount = (int) \RedBeanPHP\R::getCell('SELECT COUNT(*) FROM inspection i JOIN device d ON d.id = i.device_id WHERE d.room_id = ?', [(int) $room->id]); ?>
+            <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes('room', $room) ?>><summary><strong><?= htmlspecialchars(StructureController::roomIdentifier($room, $floor, $area)) ?></strong> · <?= htmlspecialchars((string) $room->name) ?><?php if (trim((string) $room->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $room->description) ?></span><?php endif; ?></summary><div class="pt-3"><?php if ($canManage) $form('room', $room); ?><?php if ($canManage): ?><div class="d-flex justify-content-end gap-2 mt-2"><form method="post" action="<?= htmlspecialchars(url_for('struktur/raeume/' . (int) $room->id . '/loeschen'), ENT_QUOTES) ?>" onsubmit="return confirm('<?= htmlspecialchars('Raum ' . StructureController::roomIdentifier($room, $floor, $area) . ' sowie ' . $roomDeviceCount . ' Gerät(e) und ' . $roomInspectionCount . ' Prüfung(en) löschen?', ENT_QUOTES) ?>');"><button class="btn btn-sm btn-outline-danger">Raum löschen</button></form></div><?php endif; ?><?php if ($canManage && $roomDeviceCount > 0): ?><form method="post" action="<?= htmlspecialchars(url_for('struktur/raeume/' . (int) $room->id . '/geraete-verschieben'), ENT_QUOTES) ?>" class="border rounded p-2 mt-3" onsubmit="return confirm('Alle Geräte aus diesem Raum in den ausgewählten Zielraum verschieben?');"><label class="form-label">Geräte verschieben</label><select class="form-select form-select-sm mb-2" name="target_room_id" required data-search-select data-placeholder="Zielraum suchen"><option value="">Zielraum wählen</option><?php foreach ($rooms as $targetRoom): if ((int) $targetRoom->id === (int) $room->id) continue; $targetFloor = $floorsById[(int) $targetRoom->floor_id] ?? null; $targetBuilding = $targetFloor ? ($buildingsById[(int) $targetFloor->building_id] ?? null) : null; $targetArea = $areasById[(int) ($targetRoom->area_id ?? 0)] ?? null; $targetIdentifier = $targetFloor && $targetBuilding ? StructureController::roomIdentifier($targetRoom, $targetFloor, $targetArea) : (string) $targetRoom->name; $targetLabel = $targetIdentifier === (string) $targetRoom->name ? $targetIdentifier : $targetIdentifier . ' · ' . (string) $targetRoom->name; ?><option value="<?= (int) $targetRoom->id ?>"><?= htmlspecialchars($targetLabel) ?></option><?php endforeach; ?></select><button class="btn btn-sm btn-outline-primary">Alle Geräte verschieben</button></form><?php endif; ?></div></details>
           <?php endforeach; ?>
           </div>
           </section>
