@@ -6,6 +6,16 @@ use RedBeanPHP\R;
 
 final class InspectionController
 {
+    public static function normalizeManualResult($inspection): void
+    {
+        $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
+        if ((string) ($inspection->source_type ?? '') !== 'manual' || (string) ($inspection->result_status ?? '') !== 'bestanden' || (is_array($measurements) && $measurements !== [])) return;
+        $inspection->result_status = 'ausstehend';
+        $inspection->status = 'measurement_pending';
+        $inspection->updated_at = date(DATE_ATOM);
+        R::store($inspection);
+    }
+
     private static function uniqueExternalNumber(string $base, int $ignoreId = 0): string
     {
         $candidate = $base;
@@ -47,6 +57,7 @@ final class InspectionController
         if (!current_user_has_role('admin')) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        self::normalizeManualResult($inspection);
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
         if (trim((string) ($inspection->examiner ?? '')) === '') {
@@ -72,6 +83,8 @@ final class InspectionController
                 $error = 'Für den Abschluss fehlen Schutzklasse oder Prüfer.';
             } elseif ($complete && count($checklist) < 5 || ($complete && in_array('', $checklist, true))) {
                 $error = 'Bitte alle Sicht- und Funktionsprüfungen mit Ja oder Nein beantworten.';
+            } elseif ($complete && (!is_array(json_decode((string) ($inspection->measurements_json ?? ''), true)) || json_decode((string) ($inspection->measurements_json ?? ''), true) === [])) {
+                $error = 'Die Prüfung kann erst nach dem Import der Messwerte abgeschlossen werden.';
             } else {
                 $inspection->status = $complete ? 'completed' : ($inspection->storage_slot !== '' ? 'measurement_pending' : 'draft');
                 $inspection->result_status = $complete ? (in_array('nein', $checklist, true) ? 'durchgefallen' : 'bestanden') : 'ausstehend';
@@ -251,6 +264,7 @@ final class InspectionController
         if (!current_user()) return [403, [], ''];
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        self::normalizeManualResult($inspection);
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
@@ -264,6 +278,7 @@ final class InspectionController
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        self::normalizeManualResult($inspection);
         if ((string) $inspection->result_status !== 'ausstehend') return [409, [], 'Nur Prüfungen mit ausstehendem Ergebnis können gelöscht werden.'];
         $deviceId = (int) $inspection->device_id;
         R::trash($inspection);
