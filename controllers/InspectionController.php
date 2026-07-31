@@ -14,9 +14,17 @@ final class InspectionController
         $inspection = R::dispense('inspection');
         $inspection->device_id = (int) $device->id;
         $inspection->external_number = trim((string) $device->external_number) . '-' . date('y');
+        $inspection->dedupe_key = hash('sha256', 'manual|' . $device->id . '|' . microtime(true) . '|' . bin2hex(random_bytes(8)));
+        $inspection->source_type = 'manual';
+        $inspection->source_file = null;
         $inspection->test_date = date('Y-m-d');
         $inspection->status = 'draft';
         $inspection->result_status = 'ausstehend';
+        $inspection->next_due_date = null;
+        $inspection->raw_json = '{}';
+        $inspection->checklist_json = '[]';
+        $inspection->measurements_json = '[]';
+        $inspection->created_at = date(DATE_ATOM);
         $inspection->updated_at = date(DATE_ATOM);
         R::store($inspection);
         return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id . '/bearbeiten')], ''];
