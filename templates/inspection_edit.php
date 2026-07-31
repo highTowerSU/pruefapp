@@ -27,6 +27,8 @@
 .plug-variant-mini-item img{width:92px;height:58px}
 @media(max-width:767.98px){.protection-plug-image{height:96px}.plug-variant-mini-item{width:92px}.plug-variant-mini-item img{width:92px;height:56px}}
 .protection-choice{display:grid!important;grid-template-rows:auto 400px 40px minmax(180px,auto) auto;align-items:start;min-height:760px;height:100%;gap:.75rem}
+.protection-choice:focus-within,.checklist-card:focus-within{outline:3px solid var(--bs-primary);outline-offset:3px}
+.checklist-status .btn-check:focus-visible + .btn,.interval-btn:focus-visible,.btn:focus-visible,.form-control:focus-visible,.form-select:focus-visible{box-shadow:0 0 0 .25rem rgba(var(--bs-primary-rgb),.35)}
 .protection-choice[data-sk="SK Kabel"]:before{display:none!important}
 .connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start;height:400px;min-height:400px}
 .connector-example{display:grid;grid-template-rows:88px auto;align-items:center;text-align:center;margin:0;padding:.6rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
