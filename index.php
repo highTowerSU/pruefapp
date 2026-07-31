@@ -25,6 +25,9 @@ register_shutdown_function(static function () use ($renderApplicationError): voi
     error_log('[pruefapp][' . $requestId . '] Fatal error: ' . ($last['message'] ?? 'Unbekannter Fehler') . ' in ' . ($last['file'] ?? '?') . ':' . ($last['line'] ?? '?'));
     $renderApplicationError($requestId);
 });
+$renderNotFound = static function (): string {
+    return '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Seite nicht gefunden</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#f8f9fa;color:#212529;margin:0;padding:2rem}.box{max-width:42rem;margin:8vh auto;background:#fff;border:1px solid #dee2e6;border-radius:.75rem;padding:2rem;box-shadow:0 .25rem 1rem #0001}h1{margin-top:0;font-size:1.5rem}.actions{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.5rem}a{display:inline-block;padding:.6rem 1rem;border-radius:.4rem;text-decoration:none;background:#0d6efd;color:#fff}</style></head><body><main class="box"><h1>Diese Seite wurde nicht gefunden.</h1><p>Der Link ist möglicherweise veraltet oder die Adresse enthält einen Tippfehler.</p><div class="actions"><a href="' . htmlspecialchars(url_for('geraete'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">Zur Geräteübersicht</a></div></main></body></html>';
+};
 require_once __DIR__ . '/controllers/HomeController.php';
 require_once __DIR__ . '/controllers/CourseController.php';
 require_once __DIR__ . '/controllers/ParticipantController.php';
@@ -102,8 +105,12 @@ $routes = [
     ['POST', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
 ];
 
-$kernel = Htmx::handle(function ($isHx) use ($routes) {
-    return Router::dispatch($routes, $isHx);
+$kernel = Htmx::handle(function ($isHx) use ($routes, $renderNotFound) {
+    $response = Router::dispatch($routes, $isHx);
+    if (($response[0] ?? 0) === 404 && trim(strip_tags((string) ($response[2] ?? ''))) === '404 Not Found') {
+        return [404, [], $renderNotFound()];
+    }
+    return $response;
 });
 
 $kernel();
