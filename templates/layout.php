@@ -261,6 +261,10 @@ $primaryRgb = strlen($primaryHex) === 6
                 const defaultLabel = button.querySelector('[data-label-default]');
                 const confirmLabel = button.querySelector('[data-label-confirm]');
 
+                if (!defaultLabel && !confirmLabel && button.dataset.originalLabel) {
+                    button.textContent = button.dataset.originalLabel;
+                }
+
                 if (defaultLabel) {
                     defaultLabel.classList.remove('d-none');
                 }
@@ -280,6 +284,7 @@ $primaryRgb = strlen($primaryHex) === 6
 
                 if (button.dataset.doubleConfirmState === 'awaiting') {
                     resetButton(button);
+                    if (button.form) button.form.dataset.confirmed = '1';
                     button.dispatchEvent(new CustomEvent('confirmed', { bubbles: true }));
                     return;
                 }
@@ -298,6 +303,11 @@ $primaryRgb = strlen($primaryHex) === 6
                 const defaultLabel = button.querySelector('[data-label-default]');
                 const confirmLabel = button.querySelector('[data-label-confirm]');
 
+                if (!defaultLabel && !confirmLabel) {
+                    button.dataset.originalLabel = button.textContent.trim();
+                    button.textContent = 'Nochmal klicken';
+                }
+
                 if (defaultLabel) {
                     defaultLabel.classList.add('d-none');
                 }
@@ -310,6 +320,24 @@ $primaryRgb = strlen($primaryHex) === 6
                     resetButton(button);
                 }, 3000));
             });
+
+            // Migrate legacy inline confirm() handlers to the same two-click
+            // interaction. This keeps destructive actions consistent across
+            // older templates and dynamically generated buttons.
+            const migrateConfirmForms = () => {
+                document.querySelectorAll('form').forEach(form => {
+                    const inline = form.getAttribute('onsubmit');
+                    const handler = form.onsubmit;
+                    if (!((inline && inline.includes('confirm(')) || (handler && String(handler).includes('confirm(')))) return;
+                    form.removeAttribute('onsubmit');
+                    form.onsubmit = null;
+                    const button = form.querySelector('button[type="submit"], button:not([type])');
+                    if (!button || button.dataset.doubleConfirm) return;
+                    button.dataset.doubleConfirm = '1';
+                });
+            };
+            migrateConfirmForms();
+            new MutationObserver(migrateConfirmForms).observe(document.body, {childList: true, subtree: true});
 
             document.body.addEventListener('htmx:beforeSwap', (event) => {
                 const detail = event.detail;
