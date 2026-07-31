@@ -45,8 +45,8 @@
   const type = document.querySelector('[name="inspection_type"]');
   const protection = [...document.querySelectorAll('[name="protection_class"]')];
   if (!date || !next) return;
-  const update = days => { if (!date.value) return; const d = new Date(date.value + 'T12:00:00'); d.setDate(d.getDate() + Number(days)); next.value = d.toISOString().slice(0, 10); next.classList.add('bg-warning-subtle'); next.dataset.confirmed = '0'; };
-  document.querySelectorAll('.interval-btn').forEach(button => button.addEventListener('click', () => update(button.dataset.days)));
+  const update = (days, confirmed = false) => { if (!date.value) return; const d = new Date(date.value + 'T12:00:00'); d.setDate(d.getDate() + Number(days)); next.value = d.toISOString().slice(0, 10); next.dataset.confirmed = confirmed ? '1' : '0'; next.classList.toggle('bg-warning-subtle', !confirmed); };
+  document.querySelectorAll('.interval-btn').forEach(button => button.addEventListener('click', () => update(button.dataset.days, true)));
   document.getElementById('confirm_next_due')?.addEventListener('click', () => { next.classList.remove('bg-warning-subtle'); next.dataset.confirmed = '1'; });
   date.addEventListener('change', () => update(365));
   const syncType = () => { const selected = protection.find(input => input.checked); if (selected && type) type.value = ({I:'Schutzklasse I', II:'Schutzklasse II', III:'Schutzklasse III', Kabel:'Kabelprüfung'})[selected.value] || ''; };
