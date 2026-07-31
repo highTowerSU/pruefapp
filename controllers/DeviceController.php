@@ -114,12 +114,19 @@ class DeviceController
         foreach ($rooms as $room) $roomFloorIds[(int) $room->id] = (int) $room->floor_id;
         $manufacturerOptions = [];
         $modelOptionsByManufacturer = [];
+        $nameOptionsByManufacturerModel = [];
         foreach (R::getAll("SELECT manufacturer, device_model FROM device WHERE TRIM(COALESCE(manufacturer, '')) <> '' ORDER BY manufacturer, device_model") as $row) {
             $manufacturer = trim((string) ($row['manufacturer'] ?? ''));
             $model = trim((string) ($row['device_model'] ?? ''));
             if ($manufacturer === '') continue;
             $manufacturerOptions[$manufacturer] = true;
             if ($model !== '') $modelOptionsByManufacturer[$manufacturer][$model] = true;
+        }
+        foreach (R::getAll("SELECT manufacturer, device_model, name FROM device WHERE TRIM(COALESCE(manufacturer, '')) <> '' AND TRIM(COALESCE(device_model, '')) <> '' AND TRIM(COALESCE(name, '')) <> '' ORDER BY manufacturer, device_model, name") as $row) {
+            $manufacturer = trim((string) ($row['manufacturer'] ?? ''));
+            $model = trim((string) ($row['device_model'] ?? ''));
+            $name = trim((string) ($row['name'] ?? ''));
+            if ($manufacturer !== '' && $model !== '' && $name !== '') $nameOptionsByManufacturerModel[strtolower($manufacturer) . '|' . strtolower($model)][$name] = true;
         }
         $manufacturerOptions = array_keys($manufacturerOptions);
         sort($manufacturerOptions, SORT_NATURAL | SORT_FLAG_CASE);
@@ -145,6 +152,7 @@ class DeviceController
                 'canManage' => current_user_has_role('admin'),
                 'manufacturerOptions' => $manufacturerOptions,
                 'modelOptionsByManufacturer' => $modelOptionsByManufacturer,
+                'nameOptionsByManufacturerModel' => array_map(static fn(array $names): array => array_keys($names), $nameOptionsByManufacturerModel),
                 'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
                 'page' => $page,
                 'pages' => $pages,
