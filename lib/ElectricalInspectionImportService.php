@@ -267,6 +267,13 @@ final class ElectricalInspectionImportService
         $inspection->rsl_limit_ohm = $length > 0 ? min(1, 0.3 + max(0, (int) ceil(($length - 5) / 7.5)) * 0.1) : 0.3;
         $inspection->test_date = $date;
         $nextDue = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
+        // Phoenix occasionally exports the inspection date again as the next
+        // due date. That is not a usable interval; use the configured
+        // relative fallback (or one year for legacy syncs) instead.
+        if ($nextDue !== '' && $date !== '' && $nextDue <= $date) {
+            $fallbackDays = (int) ($record['next_due_offset_days'] ?? 365);
+            $nextDue = date('Y-m-d', strtotime($date . ' +' . max(1, $fallbackDays) . ' days'));
+        }
         if ($nextDue === '' && (int) ($record['next_due_offset_days'] ?? 0) > 0 && $date !== '') $nextDue = date('Y-m-d', strtotime($date . ' +' . (int) $record['next_due_offset_days'] . ' days'));
         $inspection->next_due_date = $nextDue;
         $inspection->inspection_type = $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? '');

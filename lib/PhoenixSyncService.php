@@ -59,13 +59,22 @@ final class PhoenixSyncService
     private function record(array $detail, array $fallback): array
     {
         $s = $detail + $fallback; $type = $s['type'] ?? ''; $by = $s['created_by'] ?? ''; $checks = is_array($s['checklist'] ?? null) ? $s['checklist'] : [];
+        $typeName = trim((string) $this->scalar($type, 'brezel_name'));
+        $typeName = (string) (preg_replace('/\s*\(\s*\)\s*$/u', '', $typeName) ?: $typeName);
         $normalizedChecks = [];
         $measurements = [];
-        $r = ['number' => (string) ($s['number'] ?? ''), 'total_cost_plus' => $s['total_cost_plus'] ?? 0, 'location' => (string) ($s['location'] ?? ''), 'inventory_number' => (string) ($s['inventory_number'] ?? ''), 'free_text' => (string) ($s['free_text'] ?? ''), 'audit_ok' => $s['audit_ok'] ?? null, 'level' => (string) ($s['level'] ?? ''), 'room' => (string) ($s['room'] ?? ''), 'device_type' => $this->scalar($s['device_type'] ?? ''), 'manufacturer' => (string) ($s['manufacturer'] ?? ''), 'device_model' => (string) ($s['device_model'] ?? ''), 'warming_device' => $s['warming_device'] ?? false, 'date' => (string) ($s['date'] ?? ''), 'next_audit' => (string) ($s['next_audit'] ?? ''), 'created_by' => $this->scalar($by, 'brezel_name'), 'type' => $this->scalar($type, 'brezel_name'), '_legacy_source' => 'phoenix-sync'];
+        $r = ['number' => (string) ($s['number'] ?? ''), 'total_cost_plus' => $s['total_cost_plus'] ?? 0, 'location' => (string) ($s['location'] ?? ''), 'inventory_number' => (string) ($s['inventory_number'] ?? ''), 'free_text' => (string) ($s['free_text'] ?? ''), 'audit_ok' => $s['audit_ok'] ?? null, 'level' => (string) ($s['level'] ?? ''), 'room' => (string) ($s['room'] ?? ''), 'device_type' => $this->scalar($s['device_type'] ?? ''), 'manufacturer' => (string) ($s['manufacturer'] ?? ''), 'device_model' => (string) ($s['device_model'] ?? ''), 'warming_device' => $s['warming_device'] ?? false, 'date' => (string) ($s['date'] ?? ''), 'next_audit' => (string) ($s['next_audit'] ?? ''), 'created_by' => $this->scalar($by, 'brezel_name'), 'type' => $typeName, '_legacy_source' => 'phoenix-sync'];
         foreach ($checks as $i => $c) if (is_array($c)) {
             $step = $c['step'] ?? null;
             $criterion = $c['criterion'] ?? null;
-            $result = $c['result'] ?? null;
+            $result = $c['result'] ?? ($c['answer'] ?? ($c['value'] ?? ($c['status'] ?? null)));
+            if (is_string($result)) {
+                $resultText = trim($result);
+                if (strcasecmp($resultText, 'ok') === 0 || preg_match('/^ja(?:\b|\s*,)/iu', $resultText)) $result = 'ja';
+                elseif (preg_match('/^nein(?:\b|\s*,)/iu', $resultText)) $result = 'nein';
+            } elseif (isset($c['ok']) && is_bool($c['ok'])) {
+                $result = $c['ok'] ? 'ja' : 'nein';
+            }
             $normalizedChecks[] = ['step' => $step, 'criterion' => $criterion, 'result' => $result, 'cost_plus' => $c['cost_plus'] ?? null];
             $r['step' . $i] = $step; $r['criterion' . $i] = $criterion; $r['result' . $i] = $result; $r['cost_plus' . $i] = $c['cost_plus'] ?? null;
             $stepText = is_scalar($step) ? (string) $step : '';
