@@ -37,6 +37,7 @@
 .connector-empty{grid-column:1/-1;min-height:220px;display:grid;place-items:center;text-align:center;color:var(--bs-secondary-color);border:1px dashed var(--bs-border-color);border-radius:.5rem}
 .connector-title{grid-row:3;display:flex;align-items:center;gap:.5rem;margin-top:.5rem}.connector-title i{margin:0!important}.connector-title strong{font-size:1.05rem}
 .connector-description{grid-row:4;min-height:180px;margin-top:.35rem}.connector-badge{grid-row:5;align-self:end;justify-self:start;margin-top:.25rem}
+.card-body>form.row.g-3{row-gap:2.25rem}.inspection-data-heading,.regie-heading{padding-top:.25rem}.col-12>h2{margin-bottom:.25rem}
 @media(max-width:575.98px){.protection-choice{grid-template-rows:auto 360px 40px minmax(170px,auto) auto;min-height:700px}.connector-grid{height:360px;min-height:360px;gap:.6rem}.connector-example{grid-template-rows:72px auto;padding:.45rem}.connector-example img{height:68px}.connector-empty{min-height:200px}}
 </style>
 <script>
@@ -45,6 +46,23 @@
   const next = document.getElementById('next_due_date');
   const type = document.querySelector('[name="inspection_type"]');
   const protection = [...document.querySelectorAll('[name="protection_class"]')];
+  const form = document.querySelector('form.row.g-3');
+  if (form) {
+    const protectionBlock = form.querySelector('.col-md-9');
+    const protectionLabel = protectionBlock?.querySelector(':scope > .form-label');
+    if (protectionBlock && protectionLabel) { protectionLabel.outerHTML = '<h2 class="h5 mb-0">Schutzklasse bestimmen</h2>'; protectionBlock.classList.remove('col-md-9'); protectionBlock.classList.add('col-12'); }
+    const examinerBlock = form.querySelector('[name="examiner"]')?.closest('.col-md-6');
+    const storageBlock = form.querySelector('[name="storage_slot"]')?.closest('[class*="col-md-"]');
+    const nextBlock = form.querySelector('[name="next_due_date"]')?.closest('.col-md-6');
+    if (examinerBlock && !form.querySelector('.inspection-data-heading')) { const heading = document.createElement('div'); heading.className = 'col-12 inspection-data-heading'; heading.innerHTML = '<h2 class="h5 mb-0">Prüfungsdaten</h2>'; examinerBlock.before(heading); }
+    [examinerBlock, storageBlock, nextBlock].forEach(block => { if (block) { block.classList.remove('col-md-6', 'col-md-3'); block.classList.add('col-md-4'); } });
+    const checklistSection = [...form.querySelectorAll('.col-12')].find(block => block.querySelector(':scope > h2')?.textContent.includes('Sichtprüfung'));
+    checklistSection?.querySelectorAll(':scope > .row > .col-md-6').forEach(block => { block.classList.remove('col-md-6'); block.classList.add('col-12'); });
+    const regieBlock = form.querySelector('[name="regie_minutes"]')?.closest('.col-md-3');
+    const reasonBlock = form.querySelector('[name="regie_reason"]')?.closest('.col-md-9');
+    if (regieBlock && !form.querySelector('.regie-heading')) { const heading = document.createElement('div'); heading.className = 'col-12 regie-heading'; heading.innerHTML = '<h2 class="h5 mb-0">Regiezeit</h2>'; regieBlock.before(heading); }
+    [regieBlock, reasonBlock].forEach(block => { if (block) { block.classList.remove('col-md-3', 'col-md-9'); block.classList.add('col-12'); } });
+  }
   if (!date || !next) return;
   const update = (days, confirmed = false) => { if (!date.value) return; const d = new Date(date.value + 'T12:00:00'); d.setDate(d.getDate() + Number(days)); next.value = d.toISOString().slice(0, 10); next.dataset.confirmed = confirmed ? '1' : '0'; next.classList.toggle('bg-warning-subtle', !confirmed); };
   document.querySelectorAll('.interval-btn').forEach(button => button.addEventListener('click', () => update(button.dataset.days, true)));
