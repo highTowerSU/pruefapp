@@ -118,7 +118,7 @@
       });
     }
     if (card.dataset.sk === 'SK Kabel') {
-      [['kabel-c13.svg', 'CEE 7/7 → IEC C13', 'Kaltgerätekabel'], ['c5_power_cable.svg', 'CEE 7/7 → IEC C5', 'Mickey-Mouse-Kabel'], ['c7_power_cable.svg', 'CEE 7/16 → IEC C7', 'Liegende Acht / Rasiererkabel']].forEach(([file, connector, label]) => {
+      [['kabel-schuko.jpg', 'CEE 7/7 → Schuko-Kupplung', 'Schuko-Verlängerung'], ['kabel-c13.svg', 'CEE 7/7 → IEC C13', 'Kaltgerätekabel'], ['kabel-c19.svg', 'CEE 7/7 → IEC C19', 'IEC-C19-Anschlussleitung'], ['c5_power_cable.svg', 'CEE 7/7 oder CEE 7/16 → IEC C5', 'Mickey-Mouse- / Kleeblattkabel · mit geeignetem Adapter separat prüfbar']].forEach(([file, connector, label]) => {
         const figure = document.createElement('figure');
         figure.className = 'connector-example';
         const image = document.createElement('img');
@@ -154,6 +154,12 @@
       const description = document.createElement('div');
       description.className = 'connector-description';
       descriptions.forEach(item => description.appendChild(item));
+      if (card.dataset.sk === 'SK Kabel') {
+        const note = document.createElement('div');
+        note.className = 'small text-body-secondary border rounded p-2 mt-2';
+        note.textContent = 'Hinweis: Zweipolige Anschlussleitungen ohne Schutzleiter, z. B. IEC C7, werden nicht separat als SK-Kabel geprüft, sondern zusammen mit dem zugehörigen Schutzklasse-II-Gerät.';
+        description.appendChild(note);
+      }
       titleWrap.after(description);
     }
     const badge = card.querySelector(':scope > span.badge.rounded-pill');
