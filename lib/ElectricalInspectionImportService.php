@@ -387,7 +387,7 @@ final class ElectricalInspectionImportService
         $isAk = str_contains($source, 'ak-elektro') || $knownCustomer === 'AK';
         $rawCustomer = trim((string) ($record['customer']['company'] ?? ''));
         if ($knownCustomer !== '') { $rawCustomer = $knownCustomer; $location = $knownSiteName; }
-        if ($location === '' || $locationKey === strtolower($rawCustomer) || str_contains($locationKey, 'ceneos')) return null;
+        if ($location === '' || str_contains($locationKey, 'ceneos')) return null;
         $isCeneos = str_contains(strtolower($rawCustomer), 'ceneos');
         $customerName = $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'CENEOS GmbH' : ($rawCustomer ?: $location)));
         $customerCode = $this->shortCode($customerName, $knownCustomer !== '' ? $knownCustomer : ($isAk ? 'AK' : ($isCeneos ? 'CNO' : '')));
@@ -403,9 +403,10 @@ final class ElectricalInspectionImportService
         $specialKitchen = $customerCode === 'AK' && strtolower($room) === 'küche';
         $specialMensa = $customerCode === 'AK' && strtolower($room) === 'mensa';
         $buildingCode = ($specialKitchen || $specialMensa) ? 'AB' : $this->buildingCode($room, $level);
-        if ($buildingCode === 'Import') return null;
+        $unknownBuilding = $buildingCode === 'Import';
+        if ($unknownBuilding) $buildingCode = 'NEU';
         $building = R::findOne('building', ' site_id = ? AND code = ? ', [(int) $site->id, $buildingCode]);
-        if ($building === null) { $building = R::dispense('building'); $building->site_id = (int) $site->id; $building->name = $buildingCode === 'AB' ? 'Altbau' : $buildingCode; $building->code = $buildingCode; $building->created_at = date(DATE_ATOM); R::store($building); }
+        if ($building === null) { $building = R::dispense('building'); $building->site_id = (int) $site->id; $building->name = $buildingCode === 'AB' ? 'Altbau' : ($unknownBuilding ? 'Neues Gebäude' : $buildingCode); $building->code = $buildingCode; $building->created_at = date(DATE_ATOM); R::store($building); }
         $floorCode = $specialKitchen ? 'U' : ($specialMensa ? '0' : $this->floorCode($level, $room));
         $floor = R::findOne('floor', ' building_id = ? AND code = ? ', [(int) $building->id, $floorCode]);
         if ($floor === null) { $floor = R::dispense('floor'); $floor->building_id = (int) $building->id; $floor->code = $floorCode; $floor->name = ($level === '' && !$specialKitchen && !$specialMensa) ? 'Neue Etage' : $buildingCode . $floorCode; $floor->sort_order = $floorCode === 'U' ? -100 : 0; $floor->room_code_pattern = ($specialKitchen || $specialMensa) ? '{building}{room}' : ''; $floor->created_at = date(DATE_ATOM); R::store($floor); }
