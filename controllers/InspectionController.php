@@ -14,6 +14,7 @@ final class InspectionController
         $stats = null;
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
+        $cron = self::cronStatus();
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         if ($phoenixJob !== '') {
             $job = self::readPhoenixJob($phoenixJob);
@@ -43,7 +44,7 @@ final class InspectionController
                 }
             }
             if ($directory === '') {
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs()])])];
+                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus()])])];
             }
             try {
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory);
@@ -62,6 +63,7 @@ final class InspectionController
                 'stats' => $stats,
                 'jobs' => $jobs,
                 'importLogs' => $importLogs,
+                'cron' => $cron,
             ]),
         ])];
     }
@@ -120,6 +122,14 @@ final class InspectionController
         $root = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/import-logs';
         if (!is_dir($root)) mkdir($root, 0770, true);
         file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => $type, 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+
+    private static function cronStatus(): array
+    {
+        $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/cron-heartbeat.json';
+        $data = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : [];
+        $timestamp = isset($data['last_run']) ? strtotime((string) $data['last_run']) : (is_file($path) ? filemtime($path) : 0);
+        return ['last_run' => $timestamp > 0 ? date(DATE_ATOM, $timestamp) : null, 'age' => $timestamp > 0 ? max(0, time() - $timestamp) : null, 'healthy' => $timestamp > 0 && (time() - $timestamp) <= 300];
     }
 
     private static function savePairUpload(array $csv, array $ods): string

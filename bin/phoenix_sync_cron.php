@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 // Run from cron as the same user that owns the application data (usually www-data).
 $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+if (!is_dir($root)) mkdir($root, 0700, true);
+file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
