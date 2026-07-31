@@ -36,7 +36,7 @@ class SettingsController
                         R::wipe($table);
                     }
                     if ($scope !== 'structure') {
-                        $reportRoot = app_data_root() . '/' . app_storage_namespace() . '/reports';
+                        $reportRoot = app_data_root() . '/reports';
                         self::removeDirectoryContents($reportRoot);
                     }
                     audit_log('elektro_daten_nuke', ['umfang' => $scope, 'tabellen' => $tables]);

@@ -276,7 +276,7 @@ final class InspectionController
 
     private static function importLogs(): array
     {
-        $root = app_data_root() . '/' . app_storage_namespace() . '/import-logs'; $logs = [];
+        $root = app_data_root() . '/import-logs'; $logs = [];
         foreach (array_reverse(glob($root . '/*.json') ?: []) as $path) { $log = json_decode((string) file_get_contents($path), true); if (is_array($log)) $logs[] = $log; if (count($logs) >= 20) break; }
         return $logs;
     }
@@ -320,7 +320,7 @@ final class InspectionController
         $reportDevice = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
         if (!$inspection->id || !$reportDevice || !$reportDevice->id || !current_user_can_access_customer(device_customer_id($reportDevice))) return [404, [], 'Bericht nicht gefunden'];
         $relative = trim((string) ($inspection->report_path ?? ''));
-        $root = app_data_root() . '/' . app_storage_namespace();
+        $root = app_data_root();
         $path = $relative !== '' ? realpath($root . '/' . ltrim($relative, '/')) : false;
         $rootReal = realpath($root);
         if (!$inspection->id || $path === false || $rootReal === false || !str_starts_with($path, $rootReal . DIRECTORY_SEPARATOR) || !is_file($path)) return [404, [], 'Bericht nicht gefunden'];
