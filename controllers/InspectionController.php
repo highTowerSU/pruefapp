@@ -47,7 +47,7 @@ final class InspectionController
                 return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus()])])];
             }
             try {
-                $defaults = ['examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? ''))];
+                $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? ''))];
                 $defaults = array_filter($defaults, static fn(string $value): bool => $value !== '');
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory, null, $defaults);
                 self::saveImportLog('CSV/ODS/Datei-Import', $stats);
