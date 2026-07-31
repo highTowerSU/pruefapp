@@ -25,7 +25,7 @@ final class ElectricalInspectionImportService
     /**
      * @return array{files:int, imported:int, updated:int, devices:int, reports:int, skipped:int, errors:list<string>}
      */
-    public function importDirectory(string $directory, ?string $reportsDirectory = null): array
+    public function importDirectory(string $directory, ?string $reportsDirectory = null, array $defaults = []): array
     {
         $source = realpath($directory) ?: '';
         if ($source === '' || (!is_dir($source) && !is_file($source))) {
@@ -46,8 +46,8 @@ final class ElectricalInspectionImportService
             $stats['files']++;
             try {
                 $result = in_array($extension, ['json', 'jsonl'], true)
-                    ? $this->importJsonFile($file->getPathname(), $root, $extension === 'jsonl')
-                    : $this->importCsvFile($file->getPathname(), $root);
+                    ? $this->importJsonFile($file->getPathname(), $root, $extension === 'jsonl', $defaults)
+                    : $this->importCsvFile($file->getPathname(), $root, $defaults);
                 foreach ($result as $key => $value) {
                     if ($key === 'reason') { $stats['errors'][] = $file->getPathname() . ': ' . $value; continue; }
                     if (in_array($key, ['new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) { $stats[$key] = array_merge($stats[$key] ?? [], $value); continue; }
@@ -62,7 +62,7 @@ final class ElectricalInspectionImportService
     }
 
     /** @return array{imported:int,updated:int,devices:int,reports:int,skipped:int} */
-    private function importJsonFile(string $path, string $root, bool $jsonLines = false): array
+    private function importJsonFile(string $path, string $root, bool $jsonLines = false, array $defaults = []): array
     {
         if ($jsonLines) {
             $records = [];
@@ -70,7 +70,7 @@ final class ElectricalInspectionImportService
                 $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
                 if (is_array($decoded)) $records[] = $decoded;
             }
-            return $this->importJsonRecords($records, $path, $root);
+            return $this->importJsonRecords($records, $path, $root, $defaults);
         }
         $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         $records = [];
@@ -82,10 +82,10 @@ final class ElectricalInspectionImportService
             $records = $data;
         }
 
-        return $this->importJsonRecords($records, $path, $root);
+        return $this->importJsonRecords($records, $path, $root, $defaults);
     }
 
-    private function importJsonRecords(array $records, string $path, string $root): array
+    private function importJsonRecords(array $records, string $path, string $root, array $defaults = []): array
     {
         $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => []];
         $matchedSlots = [];
@@ -94,7 +94,7 @@ final class ElectricalInspectionImportService
                 $result['skipped']++;
                 continue;
             }
-            $one = $this->importRecord($record, 'json', $path, $root);
+            $one = $this->importRecord(array_merge($defaults, $record), 'json', $path, $root);
             foreach ($one as $key => $value) { if (in_array($key, ['new_devices', 'updated_devices'], true)) $result[$key] = array_merge($result[$key] ?? [], $value); else $result[$key] += $value; }
         }
 
@@ -102,7 +102,7 @@ final class ElectricalInspectionImportService
     }
 
     /** @return array{imported:int,updated:int,devices:int,reports:int,skipped:int} */
-    private function importCsvFile(string $path, string $root): array
+    private function importCsvFile(string $path, string $root, array $defaults = []): array
     {
         $contents = (string) file_get_contents($path);
         $contents = str_replace("\0", '', $contents);
@@ -161,7 +161,7 @@ final class ElectricalInspectionImportService
                 $result['skipped']++;
                 continue;
             }
-            $one = $this->importRecord($record, 'csv', $path, $root);
+            $one = $this->importRecord(array_merge($defaults, $record), 'csv', $path, $root);
             foreach ($one as $key => $value) { if (in_array($key, ['new_devices', 'updated_devices'], true)) $result[$key] = array_merge($result[$key] ?? [], $value); else $result[$key] += $value; }
         }
         if ($odsPath !== null && $ods !== []) {

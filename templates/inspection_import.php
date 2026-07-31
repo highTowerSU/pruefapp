@@ -16,6 +16,8 @@
     <form method="post" enctype="multipart/form-data" class="row g-2">
       <div class="col-md-6"><label class="form-label" for="csv">Messdaten (CSV)</label><input class="form-control" id="csv" name="csv" type="file" accept=".csv" required></div>
       <div class="col-md-6"><label class="form-label" for="ods">Gerätedaten (ODS)</label><input class="form-control" id="ods" name="ods" type="file" accept=".ods" required></div>
+      <div class="col-md-4"><label class="form-label" for="default_examiner">Prüfer für fehlende Angaben</label><input class="form-control" id="default_examiner" name="default_examiner" placeholder="name@example.org"></div>
+      <div class="col-md-4"><label class="form-label" for="default_next_due_date">Nächste Prüfung für fehlende Angaben</label><input class="form-control" id="default_next_due_date" name="default_next_due_date" type="date"></div>
       <div class="col-12"><button class="btn btn-primary">Paar importieren</button></div>
     </form>
     <hr>
