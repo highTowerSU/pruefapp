@@ -390,7 +390,8 @@ final class ElectricalInspectionImportService
         if ($specialKitchen || $specialMensa) { $floor->room_code_pattern = '{building}{room}'; R::store($floor); }
         if ($specialKitchen || $specialMensa) $room = $specialKitchen ? 'KU' : 'ME';
         $roomNumber = $this->roomPart($room, $buildingCode, $floorCode);
-        $roomBean = R::findOne('room', ' floor_id = ? AND (number = ? OR name = ? OR number = ? OR name = ?)', [(int) $floor->id, $roomNumber, $roomNumber, $room, $room]);
+        $shortUnderfloor = strcasecmp($floorCode, 'U') === 0 && strncasecmp($room, $buildingCode . 'U', 2) === 0 ? substr($room, 2) : '';
+        $roomBean = R::findOne('room', ' floor_id = ? AND (number = ? OR name = ? OR number = ? OR name = ? OR number = ? OR name = ?)', [(int) $floor->id, $roomNumber, $roomNumber, $room, $room, $shortUnderfloor, $shortUnderfloor]);
         if ($roomBean !== null) { $roomBean->number = $roomNumber; $roomBean->name = $roomNumber; }
         if ($roomBean === null) { $roomBean = R::dispense('room'); $roomBean->floor_id = (int) $floor->id; $roomBean->number = $roomNumber; $roomBean->name = $roomNumber; $roomBean->created_at = date(DATE_ATOM); R::store($roomBean); }
         return $roomBean;
@@ -398,6 +399,7 @@ final class ElectricalInspectionImportService
 
     private function roomPart(string $room, string $buildingCode, string $floorCode): string
     {
+        if (strcasecmp($floorCode, 'U') === 0 && strncasecmp($room, $buildingCode . 'U', 2) === 0) return $room;
         if (str_contains($room, '-')) {
             if (preg_match('/^(?:' . preg_quote($buildingCode, '/') . ')?(\d+)/i', $room, $range)) return $this->shortNumericRoom($range[1]);
             return $room;
