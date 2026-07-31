@@ -6,6 +6,47 @@ use RedBeanPHP\R;
 
 final class InspectionController
 {
+    public static function create(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $device = R::load('device', (int) ($params['deviceId'] ?? 0));
+        if (!$device->id) return [404, [], 'Gerät nicht gefunden'];
+        $inspection = R::dispense('inspection');
+        $inspection->device_id = (int) $device->id;
+        $inspection->external_number = trim((string) $device->external_number) . '-' . date('y');
+        $inspection->test_date = date('Y-m-d');
+        $inspection->status = 'draft';
+        $inspection->result_status = 'ausstehend';
+        $inspection->updated_at = date(DATE_ATOM);
+        R::store($inspection);
+        return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id . '/bearbeiten')], ''];
+    }
+
+    public static function edit(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
+        if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        $device = R::load('device', (int) $inspection->device_id);
+        $error = null;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            $inspection->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
+            $inspection->checklist_json = json_encode($_POST['checklist'] ?? [], JSON_UNESCAPED_UNICODE);
+            $complete = ($_POST['complete'] ?? '') === '1';
+            if ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '' || $inspection->storage_slot === '')) {
+                $error = 'Für den Abschluss fehlen Schutzklasse, Prüfart, Prüfer oder Speicherplatz.';
+            } else {
+                $inspection->status = $complete ? 'completed' : ($inspection->storage_slot !== '' ? 'measurement_pending' : 'draft');
+                $inspection->result_status = $complete ? trim((string) ($_POST['result_status'] ?? 'bestanden')) : 'ausstehend';
+                $inspection->updated_at = date(DATE_ATOM);
+                R::store($inspection);
+                return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id . '/bearbeiten')], ''];
+            }
+        }
+        $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error'))])];
+    }
     public static function import(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();
