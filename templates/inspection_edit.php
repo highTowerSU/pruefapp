@@ -27,6 +27,16 @@
 .protection-plug-image{height:112px}
 .plug-variant-mini-item img{width:92px;height:58px}
 @media(max-width:767.98px){.protection-plug-image{height:96px}.plug-variant-mini-item{width:92px}.plug-variant-mini-item img{width:92px;height:56px}}
+.protection-choice{display:grid!important;grid-template-rows:auto minmax(220px,auto) auto minmax(96px,auto) auto;align-items:start}
+.protection-choice[data-sk="SK Kabel"]:before{display:none!important}
+.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;align-content:start;min-height:220px}
+.connector-example{display:grid;grid-template-rows:78px auto;align-items:center;text-align:center;margin:0;padding:.25rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
+.connector-example img{width:100%;height:74px;object-fit:contain;background:transparent}
+.connector-example figcaption{font-size:.7rem;line-height:1.15;color:var(--bs-secondary-color)}
+.connector-empty{grid-column:1/-1;min-height:220px;display:grid;place-items:center;text-align:center;color:var(--bs-secondary-color);border:1px dashed var(--bs-border-color);border-radius:.5rem}
+.connector-title{grid-row:3;display:flex;align-items:center;gap:.5rem;margin-top:.5rem}.connector-title i{margin:0!important}.connector-title strong{font-size:1.05rem}
+.connector-description{grid-row:4;margin-top:.35rem}.connector-badge{grid-row:5;justify-self:start}
+@media(max-width:575.98px){.protection-choice{grid-template-rows:auto minmax(200px,auto) auto minmax(110px,auto) auto}.connector-grid{min-height:200px}.connector-example{grid-template-rows:68px auto}.connector-example img{height:64px}.connector-empty{min-height:200px}}
 </style>
 <script>
 (() => {
@@ -71,5 +81,53 @@
     });
     gallery.remove();
   }
+  const connectorLabels = {
+    'SK I': ['CEE 7/4 · Schuko-Stecker', 'CEE 7/7 · Kombistecker E/F'],
+    'SK II': ['CEE 7/16 · Eurostecker', 'CEE 7/17 · Konturenstecker'],
+    'SK III': ['DC-Hohlbuchse · USB · Batterie/Akku']
+  };
+  document.querySelectorAll('.protection-choice').forEach(card => {
+    const header = card.querySelector(':scope > span');
+    const images = [...card.querySelectorAll(':scope > .protection-plug-image')];
+    const mini = card.querySelector(':scope > .plug-variant-mini');
+    const grid = document.createElement('div');
+    grid.className = 'connector-grid';
+    images.forEach((image, index) => {
+      const figure = document.createElement('figure');
+      figure.className = 'connector-example';
+      figure.appendChild(image);
+      const caption = document.createElement('figcaption');
+      caption.textContent = (connectorLabels[card.dataset.sk] || [])[index] || image.alt.replace(/^Beispiel:\s*/i, '');
+      figure.appendChild(caption);
+      grid.appendChild(figure);
+    });
+    if (mini) {
+      mini.querySelectorAll('figure').forEach(figure => { figure.className = 'connector-example'; grid.appendChild(figure); });
+      mini.remove();
+    }
+    if (!grid.children.length) {
+      const empty = document.createElement('div');
+      empty.className = 'connector-empty';
+      empty.textContent = 'Anschluss- und Verlängerungskabel';
+      grid.appendChild(empty);
+    }
+    const icon = card.querySelector(':scope > i');
+    const title = card.querySelector(':scope > strong');
+    if (!header || !icon || !title) return;
+    header.after(grid);
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'connector-title';
+    titleWrap.append(icon, title);
+    grid.after(titleWrap);
+    const descriptions = [...card.querySelectorAll(':scope > span.d-block.small')];
+    if (descriptions.length) {
+      const description = document.createElement('div');
+      description.className = 'connector-description';
+      descriptions.forEach(item => description.appendChild(item));
+      titleWrap.after(description);
+    }
+    const badge = card.querySelector(':scope > span.badge.rounded-pill');
+    if (badge) badge.classList.add('connector-badge');
+  });
 })();
 </script>
