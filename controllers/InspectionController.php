@@ -12,13 +12,23 @@ final class InspectionController
 
         $message = null;
         $stats = null;
+        $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
+        if ($phoenixJob !== '') {
+            $job = self::readPhoenixJob($phoenixJob);
+            if (($job['state'] ?? '') === 'done') { $stats = $job['stats'] ?? null; $message = 'Phoenix-Sync abgeschlossen.'; }
+            elseif (($job['state'] ?? '') === 'error') $message = 'Phoenix-Sync fehlgeschlagen: ' . (string) ($job['error'] ?? 'Unbekannter Fehler');
+            else $message = 'Phoenix-Sync läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
+        }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($_POST['action'] ?? '') === 'phoenix_sync') {
                 try {
-                    $stats = (new PhoenixSyncService())->sync(trim((string) ($_POST['phoenix_customer_id'] ?? '')), trim((string) ($_POST['phoenix_token'] ?? '')), trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix');
-                    $message = sprintf('Phoenix-Sync abgeschlossen: %d neue Geräte, %d Prüfungen importiert; %d bereits vorhandene Geräte übersprungen.', (int) ($stats['devices'] ?? 0), (int) ($stats['imported'] ?? 0), (int) ($stats['skipped_existing'] ?? 0));
-                } catch (Throwable $exception) { $message = 'Phoenix-Sync nicht möglich: ' . $exception->getMessage(); }
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats])])];
+                    $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+                    if (!is_dir($root)) mkdir($root, 0700, true);
+                    file_put_contents($root . '/' . $id . '.json', json_encode(['customer_id' => trim((string) ($_POST['phoenix_customer_id'] ?? '')), 'token' => trim((string) ($_POST['phoenix_token'] ?? '')), 'api_url' => trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    $worker = dirname(__DIR__) . '/bin/phoenix_sync_worker.php';
+                    exec('nohup ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($worker) . ' ' . escapeshellarg($id) . ' >/dev/null 2>&1 &');
+                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
+                } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
             $directory = trim((string) ($_POST['directory'] ?? ''));
             if (isset($_FILES['csv'], $_FILES['ods']) && is_array($_FILES['csv']) && is_array($_FILES['ods'])) {
@@ -49,6 +59,13 @@ final class InspectionController
                 'stats' => $stats,
             ]),
         ])];
+    }
+
+    private static function readPhoenixJob(string $id): array
+    {
+        if (!preg_match('/^[a-f0-9]{24}$/', $id)) return ['state' => 'error', 'error' => 'Ungültige Job-ID.'];
+        $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
+        return is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: ['state' => 'running']) : ['state' => 'running'];
     }
 
     private static function savePairUpload(array $csv, array $ods): string

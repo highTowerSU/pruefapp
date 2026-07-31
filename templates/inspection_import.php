@@ -1,3 +1,4 @@
+<?php if (isset($_GET['phoenix_job']) && (($message ?? '') !== null) && str_contains((string) ($message ?? ''), 'läuft noch')): ?><meta http-equiv="refresh" content="3;url=<?= htmlspecialchars(url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $_GET['phoenix_job'])), ENT_QUOTES) ?>"><?php endif; ?>
 <div class="card">
   <div class="card-body">
     <h1 class="h4">Elektro-Prüfungen importieren</h1>
