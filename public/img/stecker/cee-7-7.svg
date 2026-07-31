@@ -1,0 +1,43 @@
+<svg width="650" height="650" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xml:space="preserve" stroke="black" stroke-width="5">
+  <metadata id="metadata2471">image/svg+xml</metadata>
+  <defs>
+    <circle cx="0" cy="0" id="pin-5mm" r="25" />
+  </defs>
+  <g transform="translate(650 0) scale(-1 1)">
+    <g transform="translate(130 130)">
+      <rect x="180" y="0" width="30" height="50" fill="green" stroke="none" />
+      <rect x="180" y="340" width="30" height="50" fill="green" stroke="none" />
+      <g class="layer">
+        <title>Plug</title>
+        <path d="
+          M	180	0.86	180	50.09	210	50.09	210	0.86	214.93	1.11				
+          C	270.25	6.72	318.73	35.45	350.56	77.47								
+          L	354.91	83.78	354.91	170.04	388.22	170.04	388.22	220.04	354.89	220.04	354.89	306.33	350.56	312.62
+          C	318.73	354.64	270.25	383.36	214.93	388.98								
+          L	210	389.23	210	340	180	340	180	389.23	175.06	388.98				
+          C	119.74	383.36	71.26	354.64	39.43	312.62								
+          L	35	306.19	35	220.04	1.77	220.04	1.77	170.04	34.99	170.04	34.99	83.91	39.43	77.47
+          C	71.26	35.45	119.74	6.72	175.06	1.11								
+          Z														
+      " fill="white" />
+      </g>
+      <g class="layer">
+        <title>Pins</title>
+        <g transform="translate(195 195)">
+          <!-- clockwise ending on PE CEE7=12h CEE17=6h -->
+          <!-- main pins 19mm apart -->
+          <use fill="white" id="L" transform="rotate(0) translate(95 0)" xlink:href="#pin-5mm" />
+          <use fill="grey" id="N" transform="rotate(180) translate(95 0)" xlink:href="#pin-5mm" />
+          <!-- PE pin 10.2mm offset -->
+          <g id="green_crossed" transform="rotate(270) translate(102 0)">
+            <use fill="green" id="PE" xlink:href="#pin-5mm" />
+            <g id="cross" transform="rotate(45)" stroke-width="2">
+              <path d="M-25,0h50" id="hline" />
+              <path d="M0,-25v50" id="vline" />
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

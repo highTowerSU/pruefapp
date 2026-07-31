@@ -1,0 +1,37 @@
+<svg width="650" height="650" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xml:space="preserve" stroke="black" stroke-width="5">
+  <metadata id="metadata2471">image/svg+xml</metadata>
+  <defs>
+    <circle cx="0" cy="0" id="pin-5mm" r="25" />
+  </defs>
+  <g transform="translate(650 0) scale(-1 1)">
+    <g transform="translate(130 130)">
+      <g class="layer">
+        <title>Plug</title>
+        <path d="
+          M	180.00	0.86	180.00	50.07	180.00	73.71	177.43	75.44
+          C	172.91	79.96	170.11	86.21	170.11	93.11	170.11	106.90	181.30	118.09	195.11	118.09	208.92	118.09	220.11	106.90	220.11	93.11	220.11	86.21	217.32	79.96	212.79	75.44
+          L	210.00	73.56	210.00	50.07	210.00	0.86	214.93	1.11
+          C	270.25	6.72	318.73	35.44	350.56	77.45
+          L	354.91	83.76	354.91	169.99	388.22	169.99	389.12	219.98	354.89	219.98	354.89	306.24	350.56	312.52
+          C	318.73	354.53	270.25	383.25	214.93	388.86
+          L	210.00	389.11	210.00	339.90	210.00	316.27	212.56	314.54
+          C	217.09	310.02	219.88	303.78	219.88	296.88	219.88	283.08	208.69	271.89	194.88	271.89	181.08	271.89	169.88	283.08	169.88	296.88	169.88	303.78	172.68	310.02	177.20	314.54
+          L	180.00	316.43	180.00	339.90	180.00	389.11	175.06	388.86
+          C	119.74	383.25	71.26	354.53	39.43	312.52
+          L	35.00	306.09	35.00	219.97	1.77	219.97	1.77	169.99	34.99	169.99	34.99	83.89	39.43	77.45
+          C	71.26	35.44	119.74	6.72	175.06	1.11
+          Z
+      " fill="white" />
+      </g>
+      <g class="layer">
+        <title>Pins</title>
+        <g transform="translate(195 195)">
+          <!-- clockwise ending on PE CEE7=12h CEE17=6h -->
+          <!-- main pins 19mm apart -->
+          <use fill="white" id="L" transform="rotate(0) translate(95 0)" xlink:href="#pin-5mm" />
+          <use fill="grey" id="N" transform="rotate(180) translate(95 0)" xlink:href="#pin-5mm" />
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

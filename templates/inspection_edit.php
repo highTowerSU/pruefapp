@@ -27,16 +27,16 @@
 .protection-plug-image{height:112px}
 .plug-variant-mini-item img{width:92px;height:58px}
 @media(max-width:767.98px){.protection-plug-image{height:96px}.plug-variant-mini-item{width:92px}.plug-variant-mini-item img{width:92px;height:56px}}
-.protection-choice{display:grid!important;grid-template-rows:auto minmax(220px,auto) auto minmax(96px,auto) auto;align-items:start}
+.protection-choice{display:grid!important;grid-template-rows:auto 300px auto 120px auto;align-items:start;min-height:620px}
 .protection-choice[data-sk="SK Kabel"]:before{display:none!important}
-.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;align-content:start;min-height:220px}
+.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;align-content:start;height:300px;overflow:auto}
 .connector-example{display:grid;grid-template-rows:78px auto;align-items:center;text-align:center;margin:0;padding:.25rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
 .connector-example img{width:100%;height:74px;object-fit:contain;background:transparent}
 .connector-example figcaption{font-size:.7rem;line-height:1.15;color:var(--bs-secondary-color)}
 .connector-empty{grid-column:1/-1;min-height:220px;display:grid;place-items:center;text-align:center;color:var(--bs-secondary-color);border:1px dashed var(--bs-border-color);border-radius:.5rem}
 .connector-title{grid-row:3;display:flex;align-items:center;gap:.5rem;margin-top:.5rem}.connector-title i{margin:0!important}.connector-title strong{font-size:1.05rem}
 .connector-description{grid-row:4;margin-top:.35rem}.connector-badge{grid-row:5;justify-self:start}
-@media(max-width:575.98px){.protection-choice{grid-template-rows:auto minmax(200px,auto) auto minmax(110px,auto) auto}.connector-grid{min-height:200px}.connector-example{grid-template-rows:68px auto}.connector-example img{height:64px}.connector-empty{min-height:200px}}
+@media(max-width:575.98px){.protection-choice{grid-template-rows:auto 270px auto 140px auto;min-height:590px}.connector-grid{height:270px}.connector-example{grid-template-rows:68px auto}.connector-example img{height:64px}.connector-empty{min-height:200px}}
 </style>
 <script>
 (() => {
@@ -54,9 +54,9 @@
   protection.forEach(input => input.addEventListener('change', () => { syncType(); syncChecklist(); })); syncType(); syncChecklist();
   if (next.value) next.classList.add('bg-warning-subtle');
   const schematicByClass = {
-    'SK I': ['schuko-schematic.svg', 'schuko-schematic.svg'],
-    'SK II': ['euro-schematic.svg', 'kontur-schematic.svg'],
-    'SK III': ['dc-schematic.svg']
+    'SK I': ['cee-7-4.svg', 'cee-7-7.svg'],
+    'SK II': ['cee-7-16.svg', 'cee-7-17.svg'],
+    'SK III': ['dc-buchse.svg']
   };
   document.querySelectorAll('.protection-choice').forEach(card => {
     const images = schematicByClass[card.dataset.sk];
@@ -73,6 +73,8 @@
       const target = document.querySelector(caption.includes('SK II') ? '[data-sk="SK II"]' : '[data-sk="SK I"]');
       const image = figure.querySelector('img');
       if (!target || !image) return;
+      const actual = caption.includes('C5') ? 'iec-c5.svg' : (caption.includes('C13') ? 'iec-c13.svg' : (caption.includes('C19') ? 'iec-c19.svg' : (caption.includes('C7') ? 'iec-c7-real.svg' : '')));
+      if (actual) image.src = `<?= htmlspecialchars(url_for('public/img/stecker/'), ENT_QUOTES) ?>${actual}`;
       let mini = target.querySelector('.plug-variant-mini');
       if (!mini) { mini = document.createElement('div'); mini.className = 'plug-variant-mini'; target.appendChild(mini); }
       const item = figure.cloneNode(true);
@@ -101,6 +103,34 @@
       figure.appendChild(caption);
       grid.appendChild(figure);
     });
+    if (card.dataset.sk === 'SK III') {
+      [['usb.svg', 'USB-Anschluss'], ['batterie.svg', 'Batterie / Akku']].forEach(([file, label]) => {
+        const figure = document.createElement('figure');
+        figure.className = 'connector-example';
+        const image = document.createElement('img');
+        image.src = `<?= htmlspecialchars(url_for('public/img/stecker/'), ENT_QUOTES) ?>${file}`;
+        image.alt = label;
+        figure.appendChild(image);
+        const caption = document.createElement('figcaption');
+        caption.textContent = label;
+        figure.appendChild(caption);
+        grid.appendChild(figure);
+      });
+    }
+    if (card.dataset.sk === 'SK Kabel') {
+      [['kabel-c13.svg', 'CEE 7/7 → IEC C13', 'Kaltgerätekabel'], ['c5_power_cable.svg', 'CEE 7/7 → IEC C5', 'Mickey-Mouse-Kabel'], ['c7_power_cable.svg', 'CEE 7/16 → IEC C7', 'Liegende Acht / Rasiererkabel']].forEach(([file, connector, label]) => {
+        const figure = document.createElement('figure');
+        figure.className = 'connector-example';
+        const image = document.createElement('img');
+        image.src = `<?= htmlspecialchars(url_for('public/img/stecker/'), ENT_QUOTES) ?>${file}`;
+        image.alt = connector;
+        figure.appendChild(image);
+        const caption = document.createElement('figcaption');
+        caption.innerHTML = `${connector}<br><span>${label}</span>`;
+        figure.appendChild(caption);
+        grid.appendChild(figure);
+      });
+    }
     if (mini) {
       mini.querySelectorAll('figure').forEach(figure => { figure.className = 'connector-example'; grid.appendChild(figure); });
       mini.remove();
