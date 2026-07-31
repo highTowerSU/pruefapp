@@ -59,6 +59,7 @@ $routes = [
     ['GET', '/admin/pruefungen/import/{id}/status', fn($params, $isHx) => InspectionController::phoenixStatus($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/bericht', fn($params, $isHx) => InspectionController::report($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}', fn($params, $isHx) => InspectionController::detail($params, $isHx)],
+    ['POST', '/admin/pruefungen/{id}/loeschen', fn($params, $isHx) => InspectionController::delete($params, $isHx)],
     ['GET', '/admin/nutzer', fn($params, $isHx) => AdminController::users($params, $isHx)],
     ['POST', '/admin/nutzer/{id}/rolle', fn($params, $isHx) => AdminController::updateUserRole($params, $isHx)],
     ['POST', '/admin/nutzer/{id}/kunden', fn($params, $isHx) => AdminController::updateUserCustomers($params, $isHx)],

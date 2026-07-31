@@ -248,4 +248,16 @@ final class InspectionController
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
         return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist'))])];
     }
+
+    public static function delete(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
+        if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        if ((string) $inspection->result_status !== 'ausstehend') return [409, [], 'Nur Prüfungen mit ausstehendem Ergebnis können gelöscht werden.'];
+        $deviceId = (int) $inspection->device_id;
+        R::trash($inspection);
+        audit_log('pruefung_geloescht', ['id' => (int) ($params['id'] ?? 0), 'device_id' => $deviceId]);
+        return [303, ['Location' => url_for('geraete?device_id=' . $deviceId)], ''];
+    }
 }
