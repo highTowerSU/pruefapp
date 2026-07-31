@@ -59,8 +59,22 @@ final class PhoenixSyncService
     private function record(array $detail, array $fallback): array
     {
         $s = $detail + $fallback; $type = $s['type'] ?? ''; $by = $s['created_by'] ?? ''; $checks = is_array($s['checklist'] ?? null) ? $s['checklist'] : [];
+        $normalizedChecks = [];
+        $measurements = [];
         $r = ['number' => (string) ($s['number'] ?? ''), 'total_cost_plus' => $s['total_cost_plus'] ?? 0, 'location' => (string) ($s['location'] ?? ''), 'inventory_number' => (string) ($s['inventory_number'] ?? ''), 'free_text' => (string) ($s['free_text'] ?? ''), 'audit_ok' => $s['audit_ok'] ?? null, 'level' => (string) ($s['level'] ?? ''), 'room' => (string) ($s['room'] ?? ''), 'device_type' => $this->scalar($s['device_type'] ?? ''), 'manufacturer' => (string) ($s['manufacturer'] ?? ''), 'device_model' => (string) ($s['device_model'] ?? ''), 'warming_device' => $s['warming_device'] ?? false, 'date' => (string) ($s['date'] ?? ''), 'next_audit' => (string) ($s['next_audit'] ?? ''), 'created_by' => $this->scalar($by, 'brezel_name'), 'type' => $this->scalar($type, 'brezel_name'), '_legacy_source' => 'phoenix-sync'];
-        foreach ($checks as $i => $c) if (is_array($c)) { $r['step' . $i] = $c['step'] ?? null; $r['criterion' . $i] = $c['criterion'] ?? null; $r['result' . $i] = $c['result'] ?? null; $r['cost_plus' . $i] = $c['cost_plus'] ?? null; }
+        foreach ($checks as $i => $c) if (is_array($c)) {
+            $step = $c['step'] ?? null;
+            $criterion = $c['criterion'] ?? null;
+            $result = $c['result'] ?? null;
+            $normalizedChecks[] = ['step' => $step, 'criterion' => $criterion, 'result' => $result, 'cost_plus' => $c['cost_plus'] ?? null];
+            $r['step' . $i] = $step; $r['criterion' . $i] = $criterion; $r['result' . $i] = $result; $r['cost_plus' . $i] = $c['cost_plus'] ?? null;
+            $stepText = is_scalar($step) ? (string) $step : '';
+            if (is_scalar($result) && trim((string) $result) !== '' && (preg_match('/messung|widerstand|strom|spannung|wert|ergebnis/i', $stepText) || is_numeric(str_replace(',', '.', (string) $result)))) {
+                $measurements[] = ['name' => $stepText !== '' ? $stepText : 'Messwert', 'value' => (string) $result, 'unit' => '', 'result' => ''];
+            }
+        }
+        $r['checklist'] = $normalizedChecks;
+        $r['measurements'] = $measurements;
         return $r;
     }
 
