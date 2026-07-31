@@ -265,7 +265,9 @@ final class ElectricalInspectionImportService
         $legacy = trim((string) ($record['legacy_number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
         $device = $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
+        $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' external_number = ? ', [$legacy]) : null;
         $device ??= $external !== '' ? R::findOne('device', ' external_number = ? ', [$external]) : null;
+        $device ??= $external !== '' ? R::findOne('device', ' legacy_number = ? ', [$external]) : null;
         $device ??= $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
         $created = $device === null;
         $device ??= R::dispense('device');
