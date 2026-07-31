@@ -75,6 +75,12 @@ final class InspectionController
         return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
     }
 
+    public static function phoenixStatus(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return [403, ['Content-Type' => 'application/json'], '{}'];
+        return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(self::readPhoenixJob((string) ($params['id'] ?? '')), JSON_UNESCAPED_UNICODE)];
+    }
+
     private static function readPhoenixJob(string $id): array
     {
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return ['state' => 'error', 'error' => 'Ungültige Job-ID.'];
