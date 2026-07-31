@@ -242,6 +242,8 @@ final class ElectricalInspectionImportService
         $inspection->storage_slot = $slot;
         $inspection->test_date = $date;
         $inspection->next_due_date = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
+        $inspection->inspection_type = $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? '');
+        $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
         $inspection->result_status = (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null));
         $inspection->device_type = (string) ($record['device_type'] ?? '');
         $inspection->manufacturer = (string) ($record['manufacturer'] ?? '');
@@ -427,6 +429,12 @@ final class ElectricalInspectionImportService
     private function importValue(string $value): string
     {
         return strtolower(trim($value)) === 'n.e.' ? 'nicht erkennbar' : trim($value);
+    }
+
+    private function scalarImportValue(mixed $value): string
+    {
+        if (is_array($value)) foreach (['brezel_name', 'name', 'email'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key];
+        return is_scalar($value) ? trim((string) $value) : '';
     }
 
     private function isProtectionClass(string $value): bool

@@ -159,4 +159,16 @@ final class InspectionController
         if (!$inspection->id || $path === false || $rootReal === false || !str_starts_with($path, $rootReal . DIRECTORY_SEPARATOR) || !is_file($path)) return [404, [], 'Bericht nicht gefunden'];
         return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="' . basename($path) . '"'], (string) file_get_contents($path)];
     }
+
+    public static function detail(array $params, bool $isHx): array
+    {
+        if (!current_user()) return [403, [], ''];
+        $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
+        if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        $device = R::load('device', (int) $inspection->device_id);
+        $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
+        $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
+        $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist'))])];
+    }
 }
