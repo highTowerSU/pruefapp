@@ -27,9 +27,10 @@ final class PhoenixSyncService
             $number = trim((string) $item['number']);
             if ($progress !== null) $progress($step, $total, $number, 'Prüfung laden');
             if (R::findOne('device', ' external_number = ? OR legacy_number = ? ', [$number, $number])) { $skipped++; continue; }
-            $detail = !empty($item['id']) ? $this->request($baseUrl . '/modules/audits/resources/' . (int) $item['id'], $token) : $item;
+            $auditId = (int) ($item['id'] ?? $item['audit_id'] ?? $item['resource_id'] ?? 0);
+            $detail = $auditId > 0 ? $this->request($baseUrl . '/modules/audits/resources/' . $auditId, $token) : $item;
             $records[] = $this->record(is_array($detail) ? $detail : [], $item);
-            if (!empty($item['id'])) $this->downloadReport($baseUrl . '/webhook/good-parrot-49/audits/' . (int) $item['id'], $number, $token, $reportDir);
+            if ($auditId > 0) $this->downloadReport($baseUrl . '/webhook/good-parrot-49/audits/' . $auditId, $number, $token, $reportDir);
         }
         if ($progress !== null) $progress($total, $total, '', 'Lokalen Import ausführen');
         if ($records === []) { @rmdir($reportDir); return ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; }
@@ -103,9 +104,9 @@ final class PhoenixSyncService
     private function downloadReport(string $url, string $number, string $token, string $directory): void
     {
         $ch = curl_init($url);
-        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{}', CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Content-Type: application/json', 'Accept: application/pdf']]);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 60, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{}', CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Content-Type: application/json', 'Accept: application/pdf, application/octet-stream', 'Origin: https://phoenix-arbeitswelt.de', 'X-Brezel-Frontend: https://phoenix-arbeitswelt.de']]);
         $body = curl_exec($ch); $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE); curl_close($ch);
-        if ($status < 400 && is_string($body) && str_contains(strtolower($type), 'pdf')) file_put_contents($directory . '/' . preg_replace('/[^A-Za-z0-9_.-]+/', '_', $number) . '.pdf', $body);
+        if ($status < 400 && is_string($body) && (str_contains(strtolower($type), 'pdf') || str_starts_with(ltrim($body), '%PDF'))) file_put_contents($directory . '/' . preg_replace('/[^A-Za-z0-9_.-]+/', '_', $number) . '.pdf', $body);
     }
 
     private function removeDirectory(string $directory): void
