@@ -73,6 +73,7 @@ class AdminController
             'users' => $users,
             'roleOptions' => $roleOptions,
             'customers' => R::findAll('customer', ' ORDER BY LOWER(name), id '),
+            'canManageUsers' => current_user_is_superadmin(),
         ]);
 
         $body = render_template('layout.php', [
@@ -110,7 +111,7 @@ class AdminController
 
     public static function updateUserRole(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_is_superadmin()) {
             return forbidden_response();
         }
 
@@ -157,7 +158,7 @@ class AdminController
 
     public static function updateUserCustomers(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_is_superadmin()) return forbidden_response();
         $userId = (int) ($params['id'] ?? 0); $user = R::load('oauthuser', $userId);
         if (!$user->id) return [404, [], 'Nutzer nicht gefunden'];
         R::exec('DELETE FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);

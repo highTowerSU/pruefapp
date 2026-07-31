@@ -686,6 +686,11 @@ function current_user_has_role(string ...$roles): bool
     return \Ceneos\PhpBase\Auth\RolePolicy::allows(current_user_role(), ...$roles);
 }
 
+function current_user_is_superadmin(): bool
+{
+    return strtolower((string) current_user_role()) === 'superadmin';
+}
+
 function current_user_can_manage_courses(): bool
 {
     return current_user_has_role('admin', 'editor');

@@ -100,9 +100,11 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $auditActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Audit &amp; Revisionen</a>
           <?php if (current_user_has_role('admin')): ?>
             <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $userAdminActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
+            <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0">Prüfungen importieren</a>
+          <?php endif; ?>
+          <?php if (current_user_is_superadmin()): ?>
             <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $companyActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Mandanten</a>
             <a href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $settingsActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Konfiguration</a>
-            <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0">Prüfungen importieren</a>
           <?php endif; ?>
         </div>
       <?php else: ?>

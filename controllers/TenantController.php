@@ -8,7 +8,7 @@ class TenantController
 {
     public static function index(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_is_superadmin()) {
             return forbidden_response();
         }
 
@@ -86,7 +86,7 @@ class TenantController
 
     public static function makeDefault(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_is_superadmin()) {
             return forbidden_response();
         }
 
@@ -120,7 +120,7 @@ class TenantController
 
     public static function delete(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_is_superadmin()) {
             return forbidden_response();
         }
 
@@ -154,7 +154,7 @@ class TenantController
 
     private static function handleForm(?\RedBeanPHP\OODBBean $company, bool $isPost = false): array
     {
-        if (!current_user_has_role('admin')) {
+        if (!current_user_is_superadmin()) {
             return forbidden_response();
         }
 

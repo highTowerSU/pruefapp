@@ -2,6 +2,7 @@
 /** @var array<int, array<string, mixed>> $users */
 /** @var array<string, string> $roleOptions */
 /** @var array<int, object> $customers */
+/** @var bool $canManageUsers */
 ?>
 <div class="card shadow-sm">
     <div class="card-body">
@@ -48,12 +49,12 @@
                                 <div class="small text-body-secondary mt-1">Logins: <?= htmlspecialchars((string) $user['login_count']) ?></div>
                             </td>
                             <td>
-                                <form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/kunden'), ENT_QUOTES) ?>">
+                                <?php if ($canManageUsers): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/kunden'), ENT_QUOTES) ?>">
                                     <select name="customer_ids[]" class="form-select form-select-sm" multiple size="3" aria-label="Kundenzugriff">
                                         <?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"<?= in_array((int) $customer->id, $user['customer_ids'] ?? [], true) ? ' selected' : '' ?>><?= htmlspecialchars(($customer->code ? $customer->code . ' · ' : '') . $customer->name) ?></option><?php endforeach; ?>
                                     </select>
                                     <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Zugriff speichern</button>
-                                </form>
+                                </form><?php else: ?><span class="text-body-secondary small"><?php $assigned = array_values(array_filter(array_map(static fn($customer): string => ($customer->code ? $customer->code . ' · ' : '') . (string) $customer->name, $customers), static fn($label, $index): bool => in_array((int) ($customers[$index]->id ?? 0), $user['customer_ids'] ?? [], true), ARRAY_FILTER_USE_BOTH)); ?><?= htmlspecialchars($assigned === [] ? 'Keine Zuordnung' : implode(', ', $assigned)) ?></span><?php endif; ?>
                             </td>
                             <td>
                                 <?php if ($user['last_login_at'] instanceof \DateTimeImmutable): ?>
@@ -65,7 +66,7 @@
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/rolle'), ENT_QUOTES) ?>" class="d-flex align-items-center gap-2 flex-wrap">
+                                <?php if ($canManageUsers): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/rolle'), ENT_QUOTES) ?>" class="d-flex align-items-center gap-2 flex-wrap">
                                     <label class="visually-hidden" for="role-<?= (int) $user['id'] ?>">Rolle</label>
                                     <select name="role" id="role-<?= (int) $user['id'] ?>" class="form-select form-select-sm w-auto">
                                         <?php foreach ($roleOptions as $value => $label): ?>
@@ -75,7 +76,7 @@
                                         <?php endforeach; ?>
                                     </select>
                                     <button type="submit" class="btn btn-primary btn-sm">Speichern</button>
-                                </form>
+                                </form><?php else: ?><span class="badge text-bg-secondary"><?= htmlspecialchars($roleOptions[$user['selected_role']] ?? $user['selected_role']) ?></span><?php endif; ?>
                                 <?php if (!empty($user['role_missing'])): ?>
                                     <div class="small text-warning mt-1">Keine explizite Rolle gesetzt – Standard &bdquo;Betrachter/in&ldquo; aktiv.</div>
                                 <?php endif; ?>
