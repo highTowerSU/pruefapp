@@ -28,8 +28,6 @@ final class InspectionController
                     if (!is_dir($root)) mkdir($root, 0700, true);
                     file_put_contents($root . '/' . $id . '.json', json_encode(['customer_id' => trim((string) ($_POST['phoenix_customer_id'] ?? '')), 'token' => trim((string) ($_POST['phoenix_token'] ?? '')), 'api_url' => trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix'], JSON_UNESCAPED_UNICODE), LOCK_EX);
                     file_put_contents($root . '/' . $id . '.status.json', json_encode(['state' => 'queued'], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    $worker = dirname(__DIR__) . '/bin/phoenix_sync_worker.php';
-                    exec('nohup ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($worker) . ' ' . escapeshellarg($id) . ' >/dev/null 2>&1 &');
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
