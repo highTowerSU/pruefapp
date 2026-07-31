@@ -1,6 +1,7 @@
 <?php
 /** @var array<int, array<string, mixed>> $users */
 /** @var array<string, string> $roleOptions */
+/** @var array<int, object> $customers */
 ?>
 <div class="card shadow-sm">
     <div class="card-body">
@@ -12,13 +13,14 @@
                         <th scope="col">Nutzer</th>
                         <th scope="col" class="text-nowrap">Letzter Login</th>
                         <th scope="col" class="text-nowrap">Rolle</th>
+                        <th scope="col">Kundenzugriff</th>
                         <th scope="col" class="text-end text-nowrap">Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if (empty($users)): ?>
                     <tr>
-                        <td colspan="4" class="text-center text-body-secondary py-4">Es wurden noch keine Nutzer synchronisiert.</td>
+                        <td colspan="5" class="text-center text-body-secondary py-4">Es wurden noch keine Nutzer synchronisiert.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($users as $user): ?>
@@ -44,6 +46,14 @@
                                     <?php endif; ?>
                                 </div>
                                 <div class="small text-body-secondary mt-1">Logins: <?= htmlspecialchars((string) $user['login_count']) ?></div>
+                            </td>
+                            <td>
+                                <form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/kunden'), ENT_QUOTES) ?>">
+                                    <select name="customer_ids[]" class="form-select form-select-sm" multiple size="3" aria-label="Kundenzugriff">
+                                        <?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"<?= in_array((int) $customer->id, $user['customer_ids'] ?? [], true) ? ' selected' : '' ?>><?= htmlspecialchars(($customer->code ? $customer->code . ' · ' : '') . $customer->name) ?></option><?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Zugriff speichern</button>
+                                </form>
                             </td>
                             <td>
                                 <?php if ($user['last_login_at'] instanceof \DateTimeImmutable): ?>

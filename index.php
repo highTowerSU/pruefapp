@@ -60,6 +60,7 @@ $routes = [
     ['GET', '/admin/pruefungen/{id}', fn($params, $isHx) => InspectionController::detail($params, $isHx)],
     ['GET', '/admin/nutzer', fn($params, $isHx) => AdminController::users($params, $isHx)],
     ['POST', '/admin/nutzer/{id}/rolle', fn($params, $isHx) => AdminController::updateUserRole($params, $isHx)],
+    ['POST', '/admin/nutzer/{id}/kunden', fn($params, $isHx) => AdminController::updateUserCustomers($params, $isHx)],
     ['GET', '/admin/audit-log', fn($params, $isHx) => AdminController::auditLog($params, $isHx)],
     ['GET', '/mandanten', fn($params, $isHx) => TenantController::index($params, $isHx)],
     ['GET', '/mandanten/neu', fn($params, $isHx) => TenantController::create($params, $isHx)],

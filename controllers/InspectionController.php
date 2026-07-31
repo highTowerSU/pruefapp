@@ -8,9 +8,9 @@ final class InspectionController
 {
     public static function create(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        if (!current_user_has_role('admin')) return forbidden_response();
         $device = R::load('device', (int) ($params['deviceId'] ?? 0));
-        if (!$device->id) return [404, [], 'Gerät nicht gefunden'];
+        if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Gerät nicht gefunden'];
         $inspection = R::dispense('inspection');
         $inspection->device_id = (int) $device->id;
         $inspection->external_number = trim((string) $device->external_number) . '-' . date('y');
@@ -34,10 +34,11 @@ final class InspectionController
 
     public static function edit(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        if (!current_user_has_role('admin')) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
+        if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
         $error = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
@@ -214,6 +215,8 @@ final class InspectionController
     {
         if (!current_user()) return [403, [], ''];
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
+        $reportDevice = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
+        if (!$inspection->id || !$reportDevice || !$reportDevice->id || !current_user_can_access_customer(device_customer_id($reportDevice))) return [404, [], 'Bericht nicht gefunden'];
         $relative = trim((string) ($inspection->report_path ?? ''));
         $root = dirname(__DIR__) . '/data/' . app_storage_namespace();
         $path = $relative !== '' ? realpath($root . '/' . ltrim($relative, '/')) : false;
@@ -228,6 +231,7 @@ final class InspectionController
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
+        if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];

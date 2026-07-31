@@ -65,12 +65,14 @@ class AdminController
                 'last_login_at' => $lastLogin,
                 'raw_last_login_at' => $rawLastLogin,
                 'sub' => (string) ($bean->sub ?? ''),
+                'customer_ids' => array_map('intval', R::getCol('SELECT customer_id FROM oauthuser_customer WHERE oauthuser_id = ?', [(int) $bean->id])),
             ];
         }, array_values($beans));
 
         $content = render_template('admin_user_list.php', [
             'users' => $users,
             'roleOptions' => $roleOptions,
+            'customers' => R::findAll('customer', ' ORDER BY LOWER(name), id '),
         ]);
 
         $body = render_template('layout.php', [
@@ -150,6 +152,20 @@ class AdminController
             }
         }
 
+        return [303, ['Location' => url_for('admin/nutzer')], ''];
+    }
+
+    public static function updateUserCustomers(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $userId = (int) ($params['id'] ?? 0); $user = R::load('oauthuser', $userId);
+        if (!$user->id) return [404, [], 'Nutzer nicht gefunden'];
+        R::exec('DELETE FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);
+        foreach (array_unique(array_map('intval', (array) ($_POST['customer_ids'] ?? []))) as $customerId) {
+            if ($customerId > 0 && R::load('customer', $customerId)->id) R::exec('INSERT OR IGNORE INTO oauthuser_customer (oauthuser_id, customer_id, created_at) VALUES (?, ?, ?)', [$userId, $customerId, date('c')]);
+        }
+        audit_log('nutzer_kundenzuordnung_geaendert', ['oauthuser_id' => $userId]);
+        $_SESSION['meldung'] = 'Kundenzuordnung aktualisiert.';
         return [303, ['Location' => url_for('admin/nutzer')], ''];
     }
 }

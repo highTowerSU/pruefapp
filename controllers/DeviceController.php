@@ -10,6 +10,13 @@ class DeviceController
     {
         if (!current_user()) return [303, ['Location' => url_for('login.php')], ''];
         $rooms = array_values(R::findAll('room', ' ORDER BY name '));
+        $allowedCustomers = current_user_customer_ids();
+        if (!current_user_has_role('admin')) {
+            $rooms = array_values(array_filter($rooms, static function ($room) use ($allowedCustomers): bool {
+                $floor = R::load('floor', (int) $room->floor_id); $building = R::load('building', (int) $floor->building_id); $site = R::load('site', (int) $building->site_id);
+                return in_array((int) $site->customer_id, $allowedCustomers, true);
+            }));
+        }
         $roomLabels = [];
         foreach ($rooms as $room) {
             $floor = R::load('floor', (int) $room->floor_id);
@@ -43,6 +50,10 @@ class DeviceController
         $orderBy = ['room' => 'd.room_id, d.name', 'id' => 'd.id', 'name' => 'd.name'][$sort] ?? 'd.name';
         $where = [];
         $paramsQuery = [];
+        if (!current_user_has_role('admin')) {
+            if ($allowedCustomers === []) $where[] = '1 = 0';
+            else { $where[] = 'c.id IN (' . implode(',', array_fill(0, count($allowedCustomers), '?')) . ')'; array_push($paramsQuery, ...$allowedCustomers); }
+        }
         if ($customerId > 0) { $where[] = 'c.id = ?'; $paramsQuery[] = $customerId; }
         if ($siteId > 0) { $where[] = 's.id = ?'; $paramsQuery[] = $siteId; }
         if ($buildingId > 0) { $where[] = 'b.id = ?'; $paramsQuery[] = $buildingId; }
@@ -74,6 +85,14 @@ class DeviceController
         $sites = array_values(R::findAll('site', ' ORDER BY name '));
         $buildings = array_values(R::findAll('building', ' ORDER BY name '));
         $floors = array_values(R::findAll('floor', ' ORDER BY sort_order, name '));
+        if (!current_user_has_role('admin')) {
+            $customers = array_values(array_filter($customers, static fn($customer): bool => in_array((int) $customer->id, $allowedCustomers, true)));
+            $sites = array_values(array_filter($sites, static fn($site): bool => in_array((int) $site->customer_id, $allowedCustomers, true)));
+            $siteIds = array_fill_keys(array_map(static fn($site): int => (int) $site->id, $sites), true);
+            $buildings = array_values(array_filter($buildings, static fn($building): bool => isset($siteIds[(int) $building->site_id])));
+            $buildingIds = array_fill_keys(array_map(static fn($building): int => (int) $building->id, $buildings), true);
+            $floors = array_values(array_filter($floors, static fn($floor): bool => isset($buildingIds[(int) $floor->building_id])));
+        }
         $entityLabel = static function ($entity): string {
             $code = trim((string) ($entity->code ?? ''));
             $name = trim((string) ($entity->name ?? ''));
@@ -104,7 +123,7 @@ class DeviceController
                 'buildingSiteIds' => $buildingSiteIds,
                 'floorBuildingIds' => $floorBuildingIds,
                 'roomFloorIds' => $roomFloorIds,
-                'canManage' => current_user_can_manage_courses(),
+                'canManage' => current_user_has_role('admin'),
                 'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
                 'page' => $page,
                 'pages' => $pages,
@@ -116,7 +135,7 @@ class DeviceController
 
     public static function save(array $params, bool $isHx): array
     {
-        if (!current_user_can_manage_courses()) return forbidden_response();
+        if (!current_user_has_role('admin')) return forbidden_response();
         $id = (int) ($_POST['id'] ?? 0);
         $device = $id > 0 ? R::load('device', $id) : R::dispense('device');
         $name = trim((string) ($_POST['name'] ?? ''));

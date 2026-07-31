@@ -281,6 +281,7 @@ function ensure_structure_schema(): void
 {
     $statements = [
         'CREATE TABLE IF NOT EXISTS customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, parent_customer_id INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        'CREATE TABLE IF NOT EXISTS oauthuser_customer (id INTEGER PRIMARY KEY AUTOINCREMENT, oauthuser_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, created_at TEXT NULL, UNIQUE(oauthuser_id, customer_id))',
         'CREATE TABLE IF NOT EXISTS site (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS building (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS floor (id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
@@ -647,6 +648,37 @@ function current_user_role(): ?string
     $role = (string) ($user->role ?? '');
 
     return $role !== '' ? $role : null;
+}
+
+/** Customer IDs visible to the current user. Admins are unrestricted; an unassigned user sees nothing. */
+function current_user_customer_ids(): array
+{
+    if (current_user_has_role('admin')) return array_map('intval', array_keys(R::findAll('customer')));
+    $userId = current_user_id();
+    if (!$userId) return [];
+    $roots = array_map('intval', R::getCol('SELECT customer_id FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]));
+    $visible = array_fill_keys($roots, true);
+    do {
+        $added = false;
+        foreach (R::findAll('customer', ' parent_customer_id IS NOT NULL ') as $customer) {
+            if (isset($visible[(int) $customer->parent_customer_id]) && !isset($visible[(int) $customer->id])) { $visible[(int) $customer->id] = true; $added = true; }
+        }
+    } while ($added);
+    return array_map('intval', array_keys($visible));
+}
+
+function current_user_can_access_customer(int $customerId): bool
+{
+    return current_user_has_role('admin') || in_array($customerId, current_user_customer_ids(), true);
+}
+
+function device_customer_id($device): int
+{
+    $room = R::load('room', (int) ($device->room_id ?? 0));
+    $floor = R::load('floor', (int) ($room->floor_id ?? 0));
+    $building = R::load('building', (int) ($floor->building_id ?? 0));
+    $site = R::load('site', (int) ($building->site_id ?? 0));
+    return (int) ($site->customer_id ?? 0);
 }
 
 function current_user_has_role(string ...$roles): bool

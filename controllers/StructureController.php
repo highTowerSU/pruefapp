@@ -25,6 +25,19 @@ class StructureController
             $order = $table === 'floor' ? ' ORDER BY building_id, sort_order, name ' : ' ORDER BY name ';
             $data[$table . 's'] = array_values(R::findAll($table, $order));
         }
+        if (!current_user_has_role('admin')) {
+            $allowed = array_fill_keys(current_user_customer_ids(), true);
+            $data['customers'] = array_values(array_filter($data['customers'], static fn($row): bool => isset($allowed[(int) $row->id])));
+            $data['sites'] = array_values(array_filter($data['sites'], static fn($row): bool => isset($allowed[(int) $row->customer_id])));
+            $siteIds = array_fill_keys(array_map(static fn($row): int => (int) $row->id, $data['sites']), true);
+            $data['buildings'] = array_values(array_filter($data['buildings'], static fn($row): bool => isset($siteIds[(int) $row->site_id])));
+            $buildingIds = array_fill_keys(array_map(static fn($row): int => (int) $row->id, $data['buildings']), true);
+            $data['floors'] = array_values(array_filter($data['floors'], static fn($row): bool => isset($buildingIds[(int) $row->building_id])));
+            $floorIds = array_fill_keys(array_map(static fn($row): int => (int) $row->id, $data['floors']), true);
+            $data['areas'] = array_values(array_filter($data['areas'], static fn($row): bool => isset($floorIds[(int) $row->floor_id])));
+            $areaIds = array_fill_keys(array_map(static fn($row): int => (int) $row->id, $data['areas']), true);
+            $data['rooms'] = array_values(array_filter($data['rooms'], static fn($row): bool => isset($floorIds[(int) $row->floor_id]) || isset($areaIds[(int) ($row->area_id ?? 0)])));
+        }
         $customerOrder = [];
         foreach ($data['customers'] as $index => $customer) $customerOrder[(int) $customer->id] = $index;
         usort($data['sites'], static function ($a, $b) use ($customerOrder): int {
@@ -40,7 +53,7 @@ class StructureController
         usort($data['floors'], static function ($a, $b) use ($buildingOrder): int {
             return [$buildingOrder[(int) $a->building_id] ?? PHP_INT_MAX, (int) ($a->sort_order ?? 0), mb_strtolower((string) $a->name)] <=> [$buildingOrder[(int) $b->building_id] ?? PHP_INT_MAX, (int) ($b->sort_order ?? 0), mb_strtolower((string) $b->name)];
         });
-        $data['canManage'] = current_user_can_manage_courses();
+        $data['canManage'] = current_user_has_role('admin');
 
         return [200, [], render_template('layout.php', [
             'title' => 'Struktur',
@@ -65,7 +78,7 @@ class StructureController
 
     public static function moveDevices(array $params, bool $isHx): array
     {
-        if (!current_user_can_manage_courses()) return forbidden_response();
+        if (!current_user_has_role('admin')) return forbidden_response();
         $sourceId = (int) ($params['id'] ?? 0);
         $targetId = (int) ($_POST['target_room_id'] ?? 0);
         $source = R::load('room', $sourceId);
@@ -78,7 +91,7 @@ class StructureController
 
     public static function delete(array $params, bool $isHx): array
     {
-        if (!current_user_can_manage_courses()) return forbidden_response();
+        if (!current_user_has_role('admin')) return forbidden_response();
         $type = (string) ($params['type'] ?? '');
         if (!isset(self::DEFINITIONS[$type])) return [404, [], 'Strukturtyp nicht gefunden'];
         $id = (int) ($params['id'] ?? 0);
@@ -128,7 +141,7 @@ class StructureController
 
     private static function save(string $type): array
     {
-        if (!current_user_can_manage_courses()) return forbidden_response();
+        if (!current_user_has_role('admin')) return forbidden_response();
         $definition = self::DEFINITIONS[$type];
         $id = (int) ($_POST['id'] ?? 0);
         $entity = $id > 0 ? R::load($type, $id) : R::dispense($type);
