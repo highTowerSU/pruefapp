@@ -33,18 +33,29 @@ class DeviceController
         $year = trim((string) ($_GET['year'] ?? ''));
         $from = trim((string) ($_GET['from'] ?? ''));
         $to = trim((string) ($_GET['to'] ?? ''));
+        $customerId = (int) ($_GET['customer_id'] ?? 0);
+        $siteId = (int) ($_GET['site_id'] ?? 0);
+        $buildingId = (int) ($_GET['building_id'] ?? 0);
+        $floorId = (int) ($_GET['floor_id'] ?? 0);
+        $roomId = (int) ($_GET['room_id'] ?? 0);
         $deviceId = (int) ($_GET['device_id'] ?? 0);
         $sort = (string) ($_GET['sort'] ?? 'name');
         $orderBy = ['room' => 'd.room_id, d.name', 'id' => 'd.id', 'name' => 'd.name'][$sort] ?? 'd.name';
         $where = [];
         $paramsQuery = [];
+        if ($customerId > 0) { $where[] = 'c.id = ?'; $paramsQuery[] = $customerId; }
+        if ($siteId > 0) { $where[] = 's.id = ?'; $paramsQuery[] = $siteId; }
+        if ($buildingId > 0) { $where[] = 'b.id = ?'; $paramsQuery[] = $buildingId; }
+        if ($floorId > 0) { $where[] = 'f.id = ?'; $paramsQuery[] = $floorId; }
+        if ($roomId > 0) { $where[] = 'r.id = ?'; $paramsQuery[] = $roomId; }
         if ($deviceId > 0) { $where[] = 'd.id = ?'; $paramsQuery[] = $deviceId; }
         if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
         $dateWhere = [];
         if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $paramsQuery[] = $year . '-01-01'; $paramsQuery[] = ((int) $year + 1) . '-01-01'; }
         if ($from !== '') { $dateWhere[] = 'i.test_date >= ?'; $paramsQuery[] = $from; }
         if ($to !== '') { $dateWhere[] = 'i.test_date <= ?'; $paramsQuery[] = $to; }
-        $join = $dateWhere !== [] ? ' JOIN inspection i ON i.device_id = d.id ' : '';
+        $structureJoin = ' LEFT JOIN room r ON r.id = d.room_id LEFT JOIN floor f ON f.id = r.floor_id LEFT JOIN building b ON b.id = f.building_id LEFT JOIN site s ON s.id = b.site_id LEFT JOIN customer c ON c.id = s.customer_id ';
+        $join = $structureJoin . ($dateWhere !== [] ? ' JOIN inspection i ON i.device_id = d.id ' : '');
         if ($dateWhere !== []) $where[] = '(' . implode(' AND ', $dateWhere) . ')';
         $whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
         $total = (int) R::getCell('SELECT COUNT(DISTINCT d.id) FROM device d' . $join . $whereSql, $paramsQuery);
@@ -59,6 +70,19 @@ class DeviceController
         foreach ($devices as $device) {
             $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
         }
+        $customers = array_values(R::findAll('customer', ' ORDER BY name '));
+        $sites = array_values(R::findAll('site', ' ORDER BY name '));
+        $buildings = array_values(R::findAll('building', ' ORDER BY name '));
+        $floors = array_values(R::findAll('floor', ' ORDER BY sort_order, name '));
+        $entityLabel = static function ($entity): string {
+            $code = trim((string) ($entity->code ?? ''));
+            $name = trim((string) ($entity->name ?? ''));
+            return $code !== '' && $name !== '' && strcasecmp($code, $name) !== 0 ? $code . ' · ' . $name : ($name ?: $code);
+        };
+        $siteLabels = $buildingLabels = $floorLabels = [];
+        foreach ($sites as $site) $siteLabels[(int) $site->id] = $entityLabel($site);
+        foreach ($buildings as $building) $buildingLabels[(int) $building->id] = $entityLabel($building);
+        foreach ($floors as $floor) $floorLabels[(int) $floor->id] = $entityLabel($floor);
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'content' => render_template('device_index.php', [
@@ -66,12 +90,19 @@ class DeviceController
                 'inspections' => $inspections,
                 'rooms' => $rooms,
                 'roomLabels' => $roomLabels,
+                'customers' => $customers,
+                'sites' => $sites,
+                'buildings' => $buildings,
+                'floors' => $floors,
+                'siteLabels' => $siteLabels,
+                'buildingLabels' => $buildingLabels,
+                'floorLabels' => $floorLabels,
                 'canManage' => current_user_can_manage_courses(),
                 'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
-                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'per_page' => $perPage, 'sort' => $sort],
+                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'per_page' => $perPage, 'sort' => $sort],
             ]),
         ])];
     }
