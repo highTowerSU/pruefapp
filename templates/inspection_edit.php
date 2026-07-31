@@ -38,6 +38,7 @@
 .connector-title{grid-row:3;display:flex;align-items:center;gap:.5rem;margin-top:.5rem}.connector-title i{margin:0!important}.connector-title strong{font-size:1.05rem}
 .connector-description{grid-row:4;min-height:180px;margin-top:.35rem}.connector-badge{grid-row:5;align-self:end;justify-self:start;margin-top:.25rem}
 .card-body>form.row.g-3{row-gap:2.25rem}.inspection-data-heading,.regie-heading{padding-top:.25rem}.col-12>h2{margin-bottom:.25rem}
+.criteria-catalog{border:1px solid var(--bs-border-color);border-left:4px solid var(--bs-primary);border-radius:.5rem;padding:1rem 1.25rem;background:var(--bs-tertiary-bg)}.criteria-catalog ul{padding-left:1.25rem}.criteria-catalog li+li{margin-top:.45rem}
 @media(max-width:575.98px){.protection-choice{grid-template-rows:auto 360px 40px minmax(170px,auto) auto;min-height:700px}.connector-grid{height:360px;min-height:360px;gap:.6rem}.connector-example{grid-template-rows:72px auto;padding:.45rem}.connector-example img{height:68px}.connector-empty{min-height:200px}}
 </style>
 <script>
@@ -62,6 +63,26 @@
     const reasonBlock = form.querySelector('[name="regie_reason"]')?.closest('.col-md-9');
     if (regieBlock && !form.querySelector('.regie-heading')) { const heading = document.createElement('div'); heading.className = 'col-12 regie-heading'; heading.innerHTML = '<h2 class="h5 mb-0">Regiezeit</h2>'; regieBlock.before(heading); }
     [regieBlock, reasonBlock].forEach(block => { if (block) { block.classList.remove('col-md-3', 'col-md-9'); block.classList.add('col-12'); } });
+  }
+  const criteriaByClass = {
+    I: {title:'Kriterienkatalog · Schutzklasse I', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Berührungsstrom: in den Altprotokollen typischerweise < 0,5 mA; Messwert und Prüfgerät dokumentieren.','Hinweis: Heizgeräte, Netzfilter und lange Leitungen können abweichende Messwerte verursachen und müssen besonders bewertet werden.']},
+    II: {title:'Kriterienkatalog · Schutzklasse II', items:['Kein Schutzleiter: keine metallischen Schutzkontakte auf 6 und 12 Uhr.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Berührbare leitfähige Teile und doppelte/verstärkte Isolierung besonders auf Beschädigungen prüfen.','Hinweis: IEC C7 und andere zweipolige Leitungen werden gemeinsam mit dem zugehörigen Gerät bewertet.']},
+    III: {title:'Kriterienkatalog · Schutzklasse III', items:['Nur Schutzkleinspannung: kein direkter Netzanschluss am Prüfobjekt.','Versorgung, Polarität, Akku/Batterie und Kleinspannungsanschluss auf Beschädigung und sicheren Sitz prüfen.','Messgrenzen richten sich nach der Gerätespezifikation und dem verwendeten Netzteil.']},
+    Kabel: {title:'Kriterienkatalog · Anschluss- und Verlängerungsleitung', items:['Leitungslänge und Leitungsquerschnitt dokumentieren; Grenzwerte des Prüfverfahrens beachten.','Schutzleiter und Durchgängigkeit über die gesamte Leitung prüfen.','Stecker, Kupplung, Zugentlastung, Isolation und Aderanschlüsse auf Beschädigungen prüfen.']}
+  };
+  const protectionBlock = form?.querySelector('[data-sk="SK I"]')?.closest('.col-6')?.parentElement?.parentElement;
+  const criteriaPanel = protectionBlock ? document.createElement('section') : null;
+  if (criteriaPanel && !document.getElementById('criteria-catalog')) {
+    criteriaPanel.id = 'criteria-catalog';
+    criteriaPanel.className = 'col-12 criteria-catalog';
+    protectionBlock.after(criteriaPanel);
+    const renderCriteria = () => {
+      const selected = protection.find(input => input.checked)?.value;
+      const criteria = criteriaByClass[selected];
+      criteriaPanel.innerHTML = criteria ? `<h2 class="h5 mb-2">${criteria.title}</h2><ul class="mb-0">${criteria.items.map(item => `<li>${item}</li>`).join('')}</ul>` : '<h2 class="h5 mb-2">Kriterienkatalog</h2><p class="mb-0 text-body-secondary">Bitte zuerst eine Schutzklasse auswählen.</p>';
+    };
+    protection.forEach(input => input.addEventListener('change', renderCriteria));
+    renderCriteria();
   }
   if (!date || !next) return;
   const update = (days, confirmed = false) => { if (!date.value) return; const d = new Date(date.value + 'T12:00:00'); d.setDate(d.getDate() + Number(days)); next.value = d.toISOString().slice(0, 10); next.dataset.confirmed = confirmed ? '1' : '0'; next.classList.toggle('bg-warning-subtle', !confirmed); };
