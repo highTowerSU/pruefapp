@@ -19,7 +19,6 @@ Die Bilder stammen aus Wikimedia Commons und werden entsprechend ihrer dort ange
 - `batterie.svg`: „Battery symbol.svg“, Public Domain.
 - `kabel-c13.svg`, `c5_power_cable.svg`, `c7_power_cable.svg`: technische vollständige Kabeldarstellungen, Wikimedia Commons (Lizenzangaben auf den Dateiseiten).
 - `kabel-schuko.jpg`: „Verlengsnoer (Extension cord).jpg“, Wikimedia Commons.
-- `kabel-c19.svg`: lokale Komposition aus den dokumentierten CEE-7/7- und IEC-C19-SVGs für die vollständige Leitungsdarstellung.
 
 Quellen:
 

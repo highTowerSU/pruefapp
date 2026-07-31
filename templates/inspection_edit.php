@@ -27,16 +27,16 @@
 .protection-plug-image{height:112px}
 .plug-variant-mini-item img{width:92px;height:58px}
 @media(max-width:767.98px){.protection-plug-image{height:96px}.plug-variant-mini-item{width:92px}.plug-variant-mini-item img{width:92px;height:56px}}
-.protection-choice{display:grid!important;grid-template-rows:auto minmax(300px,auto) auto minmax(160px,auto) auto;align-items:start;min-height:660px;gap:.75rem}
+.protection-choice{display:grid!important;grid-template-rows:auto 400px 40px minmax(180px,auto) auto;align-items:start;min-height:760px;height:100%;gap:.75rem}
 .protection-choice[data-sk="SK Kabel"]:before{display:none!important}
-.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start;min-height:300px}
+.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start;height:400px;min-height:400px}
 .connector-example{display:grid;grid-template-rows:88px auto;align-items:center;text-align:center;margin:0;padding:.6rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
 .connector-example img{width:100%;height:84px;object-fit:contain;background:transparent}
 .connector-example figcaption{font-size:.72rem;line-height:1.2;color:var(--bs-secondary-color);padding-top:.35rem}
 .connector-empty{grid-column:1/-1;min-height:220px;display:grid;place-items:center;text-align:center;color:var(--bs-secondary-color);border:1px dashed var(--bs-border-color);border-radius:.5rem}
 .connector-title{grid-row:3;display:flex;align-items:center;gap:.5rem;margin-top:.5rem}.connector-title i{margin:0!important}.connector-title strong{font-size:1.05rem}
-.connector-description{grid-row:4;min-height:160px;margin-top:.35rem}.connector-badge{grid-row:5;justify-self:start;margin-top:.25rem}
-@media(max-width:575.98px){.protection-choice{grid-template-rows:auto minmax(260px,auto) auto minmax(150px,auto) auto;min-height:620px}.connector-grid{min-height:260px;gap:.6rem}.connector-example{grid-template-rows:72px auto;padding:.45rem}.connector-example img{height:68px}.connector-empty{min-height:200px}}
+.connector-description{grid-row:4;min-height:180px;margin-top:.35rem}.connector-badge{grid-row:5;align-self:end;justify-self:start;margin-top:.25rem}
+@media(max-width:575.98px){.protection-choice{grid-template-rows:auto 360px 40px minmax(170px,auto) auto;min-height:700px}.connector-grid{height:360px;min-height:360px;gap:.6rem}.connector-example{grid-template-rows:72px auto;padding:.45rem}.connector-example img{height:68px}.connector-empty{min-height:200px}}
 </style>
 <script>
 (() => {
@@ -118,7 +118,7 @@
       });
     }
     if (card.dataset.sk === 'SK Kabel') {
-      [['kabel-schuko.jpg', 'CEE 7/7 → Schuko-Kupplung', 'Schuko-Verlängerung'], ['kabel-c13.svg', 'CEE 7/7 → IEC C13', 'Kaltgerätekabel'], ['kabel-c19.svg', 'CEE 7/7 → IEC C19', 'IEC-C19-Anschlussleitung'], ['c5_power_cable.svg', 'CEE 7/7 oder CEE 7/16 → IEC C5', 'Mickey-Mouse- / Kleeblattkabel · mit geeignetem Adapter separat prüfbar']].forEach(([file, connector, label]) => {
+      [['kabel-schuko.jpg', 'CEE 7/7 → Schuko-Kupplung', 'Schuko-Verlängerung'], ['kabel-c13.svg', 'CEE 7/7 → IEC C13', 'Kaltgerätekabel'], ['c5_power_cable.svg', 'CEE 7/7 oder CEE 7/16 → IEC C5', 'Mickey-Mouse- / Kleeblattkabel · mit geeignetem Adapter separat prüfbar']].forEach(([file, connector, label]) => {
         const figure = document.createElement('figure');
         figure.className = 'connector-example';
         const image = document.createElement('img');
