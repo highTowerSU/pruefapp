@@ -43,7 +43,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     const model = form.querySelector('[name="device_model"]');
     const modelList = model ? document.getElementById(model.getAttribute('list')) : null;
     if (manufacturer && modelList) {
-      const refreshModels = () => { modelList.replaceChildren(...(normalizedModelOptions[manufacturer.value.trim().toLocaleLowerCase()] || []).map(value => { const option = document.createElement('option'); option.value = value; return option; })); };
+      const refreshModels = () => { const typed = manufacturer.value.trim().toLocaleLowerCase(); const values = [...new Set(Object.entries(normalizedModelOptions).filter(([key]) => typed === '' || key === typed || key.startsWith(typed)).flatMap(([, models]) => models))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})); modelList.replaceChildren(...values.map(value => { const option = document.createElement('option'); option.value = value; return option; })); };
       manufacturer.addEventListener('input', refreshModels);
       manufacturer.addEventListener('change', refreshModels);
       refreshModels();
