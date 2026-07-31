@@ -8,7 +8,7 @@ final class InspectionController
 {
     public static function create(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $device = R::load('device', (int) ($params['deviceId'] ?? 0));
         if (!$device->id) return [404, [], 'Gerät nicht gefunden'];
         $inspection = R::dispense('inspection');
@@ -18,9 +18,11 @@ final class InspectionController
         $inspection->source_type = 'manual';
         $inspection->source_file = null;
         $inspection->test_date = date('Y-m-d');
+        $user = current_user();
+        $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
+        $inspection->next_due_date = date('Y-m-d', strtotime('+1 year'));
         $inspection->status = 'draft';
         $inspection->result_status = 'ausstehend';
-        $inspection->next_due_date = null;
         $inspection->raw_json = '{}';
         $inspection->checklist_json = '[]';
         $inspection->measurements_json = '[]';
@@ -32,13 +34,17 @@ final class InspectionController
 
     public static function edit(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
         $error = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            if (!current_user_has_role('admin')) {
+                $user = current_user();
+                $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
+            }
             $inspection->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
             $inspection->checklist_json = json_encode($_POST['checklist'] ?? [], JSON_UNESCAPED_UNICODE);
             $complete = ($_POST['complete'] ?? '') === '1';
@@ -53,7 +59,8 @@ final class InspectionController
             }
         }
         $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error'))])];
+        $canChooseOtherExaminer = current_user_has_role('admin');
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer'))])];
     }
     public static function import(array $params, bool $isHx): array
     {
