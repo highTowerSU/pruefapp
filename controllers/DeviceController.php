@@ -46,6 +46,7 @@ class DeviceController
         $floorId = (int) ($_GET['floor_id'] ?? 0);
         $roomId = (int) ($_GET['room_id'] ?? 0);
         $deviceId = (int) ($_GET['device_id'] ?? 0);
+        $newNumber = trim((string) ($_GET['new_number'] ?? ''));
         $sort = (string) ($_GET['sort'] ?? 'name');
         $orderBy = ['room' => 'd.room_id, d.name', 'id' => 'd.id', 'name' => 'd.name'][$sort] ?? 'd.name';
         $where = [];
@@ -143,6 +144,7 @@ class DeviceController
                 'pages' => $pages,
                 'total' => $total,
                 'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'per_page' => $perPage, 'sort' => $sort],
+                'newNumber' => $newNumber,
             ]),
         ])];
     }
@@ -152,6 +154,12 @@ class DeviceController
         if (!current_user_has_role('admin')) return forbidden_response();
         $id = (int) ($_POST['id'] ?? 0);
         $device = $id > 0 ? R::load('device', $id) : R::dispense('device');
+        if ($id === 0) {
+            $externalNumber = trim((string) ($_POST['external_number'] ?? ''));
+            if ($externalNumber === '') { $_SESSION['fehlermeldung'] = 'Die Gerätenummer ist erforderlich.'; return [303, ['Location' => url_for('geraete')], '']; }
+            if (R::findOne('device', ' external_number = ? ', [$externalNumber])) { $_SESSION['fehlermeldung'] = 'Diese Gerätenummer ist bereits vorhanden.'; return [303, ['Location' => url_for('geraete?device_id=' . (int) R::findOne('device', ' external_number = ? ', [$externalNumber])->id)], '']; }
+            $device->external_number = $externalNumber;
+        }
         $name = trim((string) ($_POST['name'] ?? ''));
         $roomId = (int) ($_POST['room_id'] ?? 0);
         if ($name === '' || !$roomId || !R::load('room', $roomId)->id) {
@@ -183,8 +191,21 @@ class DeviceController
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
+        if (isset($_POST['save_and_inspect'])) return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], ''];
         $_SESSION['meldung'] = 'Gerät gespeichert.';
         return [303, ['Location' => url_for('geraete')], ''];
+    }
+
+    public static function lookup(array $params, bool $isHx): array
+    {
+        if (!current_user()) return [401, ['Content-Type' => 'application/json'], json_encode(['error' => 'Nicht angemeldet'])];
+        $number = trim((string) ($_GET['number'] ?? ''));
+        if ($number === '') return [200, ['Content-Type' => 'application/json'], json_encode(['found' => false])];
+        $device = R::findOne('device', ' external_number = ? OR legacy_number = ? ', [$number, $number]);
+        if (!$device || (!current_user_has_role('admin') && !current_user_can_access_customer(device_customer_id($device)))) {
+            return [200, ['Content-Type' => 'application/json'], json_encode(['found' => false], JSON_UNESCAPED_UNICODE)];
+        }
+        return [200, ['Content-Type' => 'application/json'], json_encode(['found' => true, 'id' => (int) $device->id, 'number' => (string) $device->external_number, 'name' => (string) $device->name, 'url' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], JSON_UNESCAPED_UNICODE)];
     }
 
     private static function token($bean): string

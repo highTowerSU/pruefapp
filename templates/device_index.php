@@ -1,13 +1,14 @@
 <?php
 $displayImportValue = static function ($value): string { if (is_array($value)) { foreach (['brezel_name', 'name', 'email', 'company'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key]; return implode(', ', array_map(static fn($item): string => is_scalar($item) ? (string) $item : '', $value)); } return is_scalar($value) ? (string) $value : ''; };
-$form = static function ($device = null) use ($rooms, $roomLabels, $manufacturerOptions, $modelOptionsByManufacturer): void {
+$form = static function ($device = null, string $newNumber = '') use ($rooms, $roomLabels, $manufacturerOptions, $modelOptionsByManufacturer): void {
     $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'warming_device' => 0, 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
     $metadataValue = trim((string) ($device->metadata_json ?? ''));
     if ($metadataValue === '{}') $metadataValue = '';
 ?>
   <form method="post" action="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>" class="row g-2">
     <input type="hidden" name="id" value="<?= (int) $device->id ?>">
-    <div class="col-md-2"><label class="form-label">Gerätenummer</label><input class="form-control" value="<?= htmlspecialchars((string) ($device->external_number ?? '')) ?>" readonly></div>
+    <?php $initialNumber = (int) ($device->id ?? 0) > 0 ? (string) ($device->external_number ?? '') : $newNumber; ?>
+    <div class="col-md-2"><label class="form-label" for="external-number-<?= (int) $device->id ?>">Gerätenummer</label><input class="form-control" id="external-number-<?= (int) $device->id ?>" name="external_number" value="<?= htmlspecialchars($initialNumber) ?>"<?= $initialNumber !== '' ? ' readonly' : '' ?> required></div>
     <div class="col-md-4"><label class="form-label">Gerätebezeichnung</label><input class="form-control" name="name" required value="<?= htmlspecialchars((string) $device->name) ?>"></div>
     <div class="col-md-4"><label class="form-label">Raum</label><select class="form-select" name="room_id" required data-search-select data-placeholder="Raum suchen"><option value="">Raum wählen</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) $device->room_id === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select></div>
     <div class="col-md-2"><label class="form-label">Inventarnummer</label><input class="form-control" name="inventory_number" value="<?= htmlspecialchars((string) $device->inventory_number) ?>"></div>
@@ -19,12 +20,12 @@ $form = static function ($device = null) use ($rooms, $roomLabels, $manufacturer
     <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
     <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
     <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
-    <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
+    <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-outline-primary btn-sm" name="save_only" value="1">Speichern</button><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1">Speichern und neue Prüfung</button></div>
   </form>
 <?php }; ?>
 
 <form method="get" class="card card-body mb-4"><div class="row g-2 align-items-end"><div class="col-md-3"><label class="form-label">Suche</label><input class="form-control" name="q" value="<?= htmlspecialchars((string) ($filters['q'] ?? '')) ?>" placeholder="Gerät, Nummer, Inventar, Kommentar"></div><div class="col-md-2"><label class="form-label">Firma/Kunde</label><select class="form-select" name="customer_id"><option value="0">Alle Firmen</option><?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"<?= (int) ($filters['customer_id'] ?? 0) === (int) $customer->id ? ' selected' : '' ?>><?= htmlspecialchars($customer->code ? $customer->code . ' · ' . $customer->name : $customer->name) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Standort</label><select class="form-select" name="site_id"><option value="0">Alle Standorte</option><?php foreach ($sites as $site): ?><option value="<?= (int) $site->id ?>"<?= (int) ($filters['site_id'] ?? 0) === (int) $site->id ? ' selected' : '' ?>><?= htmlspecialchars($siteLabels[(int) $site->id] ?? (string) $site->name) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Gebäude</label><select class="form-select" name="building_id"><option value="0">Alle Gebäude</option><?php foreach ($buildings as $building): ?><option value="<?= (int) $building->id ?>"<?= (int) ($filters['building_id'] ?? 0) === (int) $building->id ? ' selected' : '' ?>><?= htmlspecialchars($buildingLabels[(int) $building->id] ?? (string) $building->name) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Etage</label><select class="form-select" name="floor_id"><option value="0">Alle Etagen</option><?php foreach ($floors as $floor): ?><option value="<?= (int) $floor->id ?>"<?= (int) ($filters['floor_id'] ?? 0) === (int) $floor->id ? ' selected' : '' ?>><?= htmlspecialchars($floorLabels[(int) $floor->id] ?? (string) $floor->name) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Raum</label><select class="form-select" name="room_id" data-search-select data-placeholder="Raum suchen"><option value="0">Alle Räume</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) ($filters['room_id'] ?? 0) === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Jahr</label><input class="form-control" name="year" inputmode="numeric" value="<?= htmlspecialchars((string) ($filters['year'] ?? '')) ?>" placeholder="2024"></div><div class="col-md-2"><label class="form-label">Von</label><input class="form-control" type="date" name="from" value="<?= htmlspecialchars((string) ($filters['from'] ?? '')) ?>"></div><div class="col-md-2"><label class="form-label">Bis</label><input class="form-control" type="date" name="to" value="<?= htmlspecialchars((string) ($filters['to'] ?? '')) ?>"></div><div class="col-md-1"><label class="form-label">Sortieren</label><select class="form-select" name="sort"><option value="name"<?= ($filters['sort'] ?? '') === 'name' ? ' selected' : '' ?>>Name</option><option value="room"<?= ($filters['sort'] ?? '') === 'room' ? ' selected' : '' ?>>Raum</option><option value="id"<?= ($filters['sort'] ?? '') === 'id' ? ' selected' : '' ?>>ID</option></select></div><div class="col-md-1"><label class="form-label">Je Seite</label><select class="form-select" name="per_page"><option<?= (int) $filters['per_page'] === 25 ? ' selected' : '' ?>>25</option><option<?= (int) $filters['per_page'] === 50 ? ' selected' : '' ?>>50</option><option<?= (int) $filters['per_page'] === 100 ? ' selected' : '' ?>>100</option><option<?= (int) $filters['per_page'] === 200 ? ' selected' : '' ?>>200</option></select></div><div class="col-md-1 d-flex gap-2"><button class="btn btn-primary">Filtern</button><a class="btn btn-outline-secondary" href="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>">Reset</a></div></div></form>
-<?php if ($canManage): ?><details class="card mb-4"><summary class="card-header"><strong>Neues Gerät</strong></summary><div class="card-body"><?php $form(); ?></div></details><?php endif; ?>
+<?php if ($canManage): ?><details class="card mb-4"><summary class="card-header"><strong>Neues Gerät</strong></summary><div class="card-body"><?php $form(null, (string) ($newNumber ?? '')); ?></div></details><?php endif; ?>
 <?php $safeLabelMap = static fn(array $values): array => array_map(static fn($value): string => is_scalar($value) ? (string) $value : '', $values); $safeSiteLabels = $safeLabelMap($siteLabels); $safeBuildingLabels = $safeLabelMap($buildingLabels); $safeFloorLabels = $safeLabelMap($floorLabels); ?>
 <script>
 (() => {
@@ -48,6 +49,32 @@ $form = static function ($device = null) use ($rooms, $roomLabels, $manufacturer
     const fieldBlocks = ['manufacturer', 'device_model', 'name', 'inventory_number', 'serial_number', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'].map(name => form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]')).filter(Boolean);
     if (submitBlock) fieldBlocks.forEach(block => form.insertBefore(block, submitBlock));
   });
+  const filterForm = document.querySelector('form[method="get"]');
+  if (<?= $canManage ? 'true' : 'false' ?> && filterForm) {
+    const panel = document.createElement('details');
+    panel.className = 'card mb-4';
+    panel.innerHTML = '<summary class="card-header"><strong><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Neue Prüfung</strong></summary><div class="card-body"><label class="form-label" for="inspection-device-number">Gerät suchen oder Barcode scannen</label><div class="input-group"><input class="form-control" id="inspection-device-number" inputmode="text" autocomplete="off" placeholder="Gerätenummer eingeben oder scannen"><button class="btn btn-primary" type="button" id="inspection-device-lookup">Suchen</button></div><div id="inspection-device-result" class="small mt-2" aria-live="polite"></div></div>';
+    filterForm.before(panel);
+    const numberInput = panel.querySelector('#inspection-device-number');
+    const result = panel.querySelector('#inspection-device-result');
+    const lookup = async () => {
+      const number = numberInput.value.trim();
+      if (!number) { result.textContent = ''; return; }
+      result.textContent = 'Suche …';
+      try {
+        const response = await fetch(`<?= htmlspecialchars(url_for('geraete/suche'), ENT_QUOTES) ?>?number=${encodeURIComponent(number)}`, {headers:{Accept:'application/json'}});
+        const data = await response.json();
+        result.replaceChildren();
+        if (data.found) { const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`; const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.textContent = 'Prüfung anlegen'; result.append(text, link); }
+        else { const text = document.createElement('span'); text.className = 'text-warning-emphasis'; text.textContent = 'Keine passende Gerätenummer gefunden.'; const link = document.createElement('a'); link.className = 'btn btn-sm btn-outline-primary ms-2'; link.href = `<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>?new_number=${encodeURIComponent(number)}`; link.textContent = 'Gerät neu anlegen'; result.append(text, link); }
+      } catch (_) { result.textContent = 'Suche momentan nicht verfügbar.'; }
+    };
+    panel.querySelector('#inspection-device-lookup').addEventListener('click', lookup);
+    numberInput.addEventListener('input', () => { clearTimeout(numberInput._lookupTimer); numberInput._lookupTimer = setTimeout(lookup, 250); });
+    numberInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); lookup(); } });
+  }
+  const newNumber = new URLSearchParams(window.location.search).get('new_number');
+  if (newNumber) { const newDeviceDetails = [...document.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent.includes('Neues Gerät')); const field = newDeviceDetails?.querySelector('[name="external_number"]'); if (newDeviceDetails && field) { newDeviceDetails.open = true; field.value = newNumber; field.readOnly = true; newDeviceDetails.scrollIntoView({behavior:'smooth', block:'start'}); } }
   const group = (select, key, label) => {
     if (!select) return;
     const options = [...select.querySelectorAll(':scope > option')];
