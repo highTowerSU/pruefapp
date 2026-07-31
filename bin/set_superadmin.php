@@ -5,6 +5,8 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 
+use RedBeanPHP\R;
+
 $email = trim((string) ($argv[1] ?? ''));
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
     fwrite(STDERR, "Verwendung: php bin/set_superadmin.php user@example.org\n");
