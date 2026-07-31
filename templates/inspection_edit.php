@@ -28,6 +28,7 @@
 @media(max-width:767.98px){.protection-plug-image{height:96px}.plug-variant-mini-item{width:92px}.plug-variant-mini-item img{width:92px;height:56px}}
 .protection-choice{display:grid!important;grid-template-rows:auto 400px 40px minmax(180px,auto) auto;align-items:start;min-height:760px;height:100%;gap:.75rem}
 .protection-choice:focus-within,.checklist-card:focus-within{outline:3px solid var(--bs-primary);outline-offset:3px}
+.protection-special-choice{cursor:pointer;transition:border-color .15s,box-shadow .15s,background-color .15s}.protection-special-choice:has(input:checked){border-color:var(--bs-warning)!important;box-shadow:0 0 0 .2rem rgba(var(--bs-warning-rgb),.25);background:rgba(var(--bs-warning-rgb),.08)}.protection-special-choice:focus-within{outline:3px solid var(--bs-warning);outline-offset:3px}
 .checklist-status .btn-check:focus-visible + .btn,.interval-btn:focus-visible,.btn:focus-visible,.form-control:focus-visible,.form-select:focus-visible{box-shadow:0 0 0 .25rem rgba(var(--bs-primary-rgb),.35)}
 .protection-choice[data-sk="SK Kabel"]:before{display:none!important}
 .connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start;height:400px;min-height:400px}
@@ -47,6 +48,14 @@
   const next = document.getElementById('next_due_date');
   const type = document.querySelector('[name="inspection_type"]');
   const protection = [...document.querySelectorAll('[name="protection_class"]')];
+  const protectionGrid = document.querySelector('[role="radiogroup"]');
+  if (protectionGrid && !protectionGrid.querySelector('[value="Drehstrom"]')) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'col-12 mt-3';
+    wrapper.innerHTML = '<label class="border border-warning rounded p-3 d-block protection-special-choice"><input class="visually-hidden" type="radio" name="protection_class" value="Drehstrom"<?= (string) $inspection->protection_class === 'Drehstrom' ? ' checked' : '' ?>><span class="d-flex align-items-center gap-3"><span class="sk-symbol" aria-hidden="true">⚡ 3~</span><span><strong>CE-Drehstromkabel</strong><span class="d-block small text-body-secondary">16 A / 32 A · Verteilungen und Verlängerungsleitungen</span></span><span class="badge text-bg-warning ms-auto">Sonderfall</span></span><span class="d-block small text-body-secondary mt-2">Prüfung mit passivem Prüfadapter und Strommesszange; separate Anleitung beachten.</span></label>';
+    protectionGrid.append(wrapper);
+    protection.push(wrapper.querySelector('[name="protection_class"]'));
+  }
   const form = document.querySelector('form.row.g-3');
   if (form) {
     const protectionBlock = form.querySelector('.col-md-9');
@@ -68,7 +77,8 @@
     I: {title:'Kriterienkatalog · Schutzklasse I', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Schutzleiterstrom IPE (Differenzstrom): maximal 3,5 mA an leitfähigen Teilen mit PE-Verbindung.','Berührungsstrom IB: kleiner als 0,5 mA an allen berührbaren leitfähigen Teilen.','Hinweis: Heizgeräte, Netzfilter und lange Leitungen können abweichende Messwerte verursachen und müssen besonders bewertet werden.']},
     II: {title:'Kriterienkatalog · Schutzklasse II', items:['Kein Schutzleiter: keine metallischen Schutzkontakte auf 6 und 12 Uhr.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Berührungsstrom IB: kleiner als 0,5 mA an allen berührbaren leitfähigen Teilen.','Berührbare leitfähige Teile und doppelte/verstärkte Isolierung besonders auf Beschädigungen prüfen.','Hinweis: IEC C7 und andere zweipolige Leitungen werden gemeinsam mit dem zugehörigen Gerät bewertet.']},
     III: {title:'Kriterienkatalog · Schutzklasse III', items:['Nur Schutzkleinspannung: kein direkter Netzanschluss am Prüfobjekt.','Versorgung, Polarität, Akku/Batterie und Kleinspannungsanschluss auf Beschädigung und sicheren Sitz prüfen.','Messgrenzen richten sich nach der Gerätespezifikation und dem verwendeten Netzteil.']},
-    Kabel: {title:'Kriterienkatalog · Anschluss- und Verlängerungsleitung', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ.','Schutzleiterstrom IPE (Differenzstrom): maximal 3,5 mA; Berührungsstrom IB: kleiner als 0,5 mA.','Leitungslänge und Leitungsquerschnitt dokumentieren; Stecker, Kupplung, Zugentlastung, Isolation und Aderanschlüsse prüfen.']}
+    Kabel: {title:'Kriterienkatalog · Anschluss- und Verlängerungsleitung', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ.','Schutzleiterstrom IPE (Differenzstrom): maximal 3,5 mA; Berührungsstrom IB: kleiner als 0,5 mA.','Leitungslänge und Leitungsquerschnitt dokumentieren; Stecker, Kupplung, Zugentlastung, Isolation und Aderanschlüsse prüfen.']},
+    Drehstrom: {title:'Sonderfall · CE-Drehstromleitung', items:['Geeignet für CE-Drehstromkabel, Verteilungen und Verlängerungsleitungen mit 16 A oder 32 A.','Nur mit passivem Prüfadapter und Strommesszange prüfen; niemals direkt an einen aktiven Drehstromanschluss anschließen.','Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ; Phasen, Neutralleiter und Schutzleiter einzeln gegen alle übrigen Leiter prüfen.','Vor Beginn: Anlage spannungsfrei schalten, Adapter und Messzange kontrollieren und Stromstärke (16 A / 32 A) dokumentieren.']}
   };
   const protectionBlock = form?.querySelector('[data-sk="SK I"]')?.closest('.col-6')?.parentElement?.parentElement;
   const criteriaPanel = protectionBlock ? document.createElement('section') : null;
@@ -92,7 +102,7 @@
   document.querySelectorAll('.interval-btn').forEach(button => button.addEventListener('click', () => update(button.dataset.days, true)));
   document.getElementById('confirm_next_due')?.addEventListener('click', () => { next.classList.remove('bg-warning-subtle'); next.dataset.confirmed = '1'; });
   date.addEventListener('change', () => update(365));
-  const syncType = () => { const selected = protection.find(input => input.checked); if (selected && type) type.value = ({I:'Schutzklasse I', II:'Schutzklasse II', III:'Schutzklasse III', Kabel:'Kabelprüfung'})[selected.value] || ''; };
+  const syncType = () => { const selected = protection.find(input => input.checked); if (selected && type) type.value = ({I:'Schutzklasse I', II:'Schutzklasse II', III:'Schutzklasse III', Kabel:'Kabelprüfung', Drehstrom:'CE-Drehstromprüfung'})[selected.value] || ''; };
   const syncChecklist = () => { const selected = protection.find(input => input.checked); const label = document.querySelectorAll('.checklist-card > div:first-child')[3]; if (label) label.textContent = selected?.value === 'I' ? 'Metallische Schutzkontakte auf 6 und 12 Uhr vorhanden und unbeschädigt' : (selected?.value === 'II' ? 'Keine metallischen Schutzkontakte auf 6 und 12 Uhr; Schutzisolierung erkennbar' : 'Stecker, Kontakte und Anschluss unbeschädigt'); };
   protection.forEach(input => input.addEventListener('change', () => { syncType(); syncChecklist(); })); syncType(); syncChecklist();
   if (next.value) next.classList.add('bg-warning-subtle');
