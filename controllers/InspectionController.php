@@ -69,7 +69,9 @@ final class InspectionController
         }
         $error = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            $cableLength = (float) str_replace(',', '.', (string) ($inspection->cable_length_m ?? ''));
+            $inspection->rsl_limit_ohm = $cableLength > 0 ? min(1, 0.3 + max(0, (int) ceil(($cableLength - 5) / 7.5)) * 0.1) : 0.3;
             $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III', 'Kabel' => 'Kabelprüfung'][$inspection->protection_class] ?? $inspection->inspection_type;
             if (!current_user_has_role('admin')) {
                 $user = current_user();

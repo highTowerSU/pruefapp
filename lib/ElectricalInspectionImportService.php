@@ -220,9 +220,11 @@ final class ElectricalInspectionImportService
             if (in_array($key, ['Speicher Nr', 'Speicherplatz', 'Prüfdatum', 'date', 'Datum', 'Prüfergebnis', 'number', 'Nummer', 'Prüfungsnr'], true)) continue;
             if (count($measurements) < 30) $measurements[] = ['name' => $key, 'value' => $value, 'unit' => '', 'result' => ''];
         }
+        $cableLength = $this->value($values, ['Kabellänge', 'Leitungslänge', 'cable_length_m', 'cable_length']);
         return [
             'external_number' => $number,
             'storage_slot' => $slot,
+            'cable_length_m' => $cableLength,
             'test_date' => $this->normalizeDate($date),
             'result_status' => $this->status($this->value($values, ['Prüfergebnis', 'OK', 'audit_ok', 'result'])),
             'inspection_type' => $this->value($values, ['Bezeichnung', 'Prüfart', 'inspection_type']),
@@ -260,6 +262,9 @@ final class ElectricalInspectionImportService
         $inspection->external_number = $created ? $this->uniqueInspectionNumber($external) : $external;
         $inspection->legacy_number = $this->yearNumber(trim((string) ($record['legacy_number'] ?? '')), $date);
         $inspection->storage_slot = $slot;
+        $inspection->cable_length_m = trim((string) ($record['cable_length_m'] ?? $record['cable_length'] ?? ''));
+        $length = (float) str_replace(',', '.', (string) $inspection->cable_length_m);
+        $inspection->rsl_limit_ohm = $length > 0 ? min(1, 0.3 + max(0, (int) ceil(($length - 5) / 7.5)) * 0.1) : 0.3;
         $inspection->test_date = $date;
         $nextDue = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
         if ($nextDue === '' && (int) ($record['next_due_offset_days'] ?? 0) > 0 && $date !== '') $nextDue = date('Y-m-d', strtotime($date . ' +' . (int) $record['next_due_offset_days'] . ' days'));
@@ -274,6 +279,12 @@ final class ElectricalInspectionImportService
         $inspection->device_model = (string) ($record['device_model'] ?? '');
         $inspection->room_snapshot = (string) ($record['room_snapshot'] ?? $record['room'] ?? '');
         $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $importMeasurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
+        foreach ($importMeasurements as $measurement) {
+            if (!is_array($measurement) || !in_array(strtoupper(trim((string) ($measurement['name'] ?? ''))), ['RSL', 'RPE'], true)) continue;
+            $measured = (float) str_replace(',', '.', (string) ($measurement['value'] ?? ''));
+            if ($measured > 0 && $measured > (float) $inspection->rsl_limit_ohm) { $inspection->result_status = 'durchgefallen'; break; }
+        }
         $inspection->checklist_json = json_encode($record['checklist'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->raw_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $report = $this->copyReport($rawExternal);
