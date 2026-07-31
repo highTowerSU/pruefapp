@@ -19,6 +19,7 @@ Die Bilder stammen aus Wikimedia Commons und werden entsprechend ihrer dort ange
 - `batterie.svg`: „Battery symbol.svg“, Public Domain.
 - `kabel-c13.svg`, `c5_power_cable.svg`, `c7_power_cable.svg`: technische vollständige Kabeldarstellungen, Wikimedia Commons (Lizenzangaben auf den Dateiseiten).
 - `kabel-schuko.jpg`: „Verlengsnoer (Extension cord).jpg“, Wikimedia Commons.
+- `cee-drehstrom-16a-verlaengerung.jpg`: „CEE 400V 16A 6h IP67 Verlängerungsleitungsring 2012 01 27.jpg“, Wikimedia Commons, CC BY-SA 3.0 (Autor: Bahntech).
 
 Quellen:
 
@@ -45,3 +46,4 @@ Quellen:
 - https://commons.wikimedia.org/wiki/File:C5_Power_Cable.svg
 - https://commons.wikimedia.org/wiki/File:C7_Power_Cable.svg
 - https://commons.wikimedia.org/wiki/File:Verlengsnoer_(Extension_cord).jpg
+- https://commons.wikimedia.org/wiki/File:CEE_400V_16A_6h_IP67_Verl%C3%A4ngerungsleitungsring_2012_01_27.jpg
