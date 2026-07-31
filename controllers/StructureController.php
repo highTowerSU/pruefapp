@@ -25,6 +25,21 @@ class StructureController
             $order = $table === 'floor' ? ' ORDER BY building_id, sort_order, name ' : ' ORDER BY name ';
             $data[$table . 's'] = array_values(R::findAll($table, $order));
         }
+        $customerOrder = [];
+        foreach ($data['customers'] as $index => $customer) $customerOrder[(int) $customer->id] = $index;
+        usort($data['sites'], static function ($a, $b) use ($customerOrder): int {
+            return [$customerOrder[(int) $a->customer_id] ?? PHP_INT_MAX, mb_strtolower((string) $a->name)] <=> [$customerOrder[(int) $b->customer_id] ?? PHP_INT_MAX, mb_strtolower((string) $b->name)];
+        });
+        $siteOrder = [];
+        foreach ($data['sites'] as $index => $site) $siteOrder[(int) $site->id] = $index;
+        usort($data['buildings'], static function ($a, $b) use ($siteOrder): int {
+            return [$siteOrder[(int) $a->site_id] ?? PHP_INT_MAX, mb_strtolower((string) $a->name)] <=> [$siteOrder[(int) $b->site_id] ?? PHP_INT_MAX, mb_strtolower((string) $b->name)];
+        });
+        $buildingOrder = [];
+        foreach ($data['buildings'] as $index => $building) $buildingOrder[(int) $building->id] = $index;
+        usort($data['floors'], static function ($a, $b) use ($buildingOrder): int {
+            return [$buildingOrder[(int) $a->building_id] ?? PHP_INT_MAX, (int) ($a->sort_order ?? 0), mb_strtolower((string) $a->name)] <=> [$buildingOrder[(int) $b->building_id] ?? PHP_INT_MAX, (int) ($b->sort_order ?? 0), mb_strtolower((string) $b->name)];
+        });
         $data['canManage'] = current_user_can_manage_courses();
 
         return [200, [], render_template('layout.php', [
