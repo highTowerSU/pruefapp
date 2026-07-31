@@ -140,6 +140,19 @@ final class InspectionController
             else $message = 'Phoenix-Sync läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'directory_import_job') {
+                try {
+                    $directoryJob = trim((string) ($_POST['directory'] ?? ''));
+                    if ($directoryJob === '') throw new InvalidArgumentException('Bitte ein Importverzeichnis angeben.');
+                    $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+                    if (!is_dir($root)) mkdir($root, 0700, true);
+                    $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0)];
+                    $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true); if (is_array($rules)) $defaults['import_rules'] = $rules;
+                    file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'directory_import', 'directory' => $directoryJob, 'reports_directory' => trim((string) ($_POST['reports_directory'] ?? '')), 'defaults' => $defaults], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Import wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
+                } catch (Throwable $exception) { $message = 'Import-Job konnte nicht gestartet werden: ' . $exception->getMessage(); }
+            }
             if (($_POST['action'] ?? '') === 'phoenix_sync') {
                 try {
                     $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
