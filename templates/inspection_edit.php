@@ -79,7 +79,10 @@
     const renderCriteria = () => {
       const selected = protection.find(input => input.checked)?.value;
       const criteria = criteriaByClass[selected];
-      criteriaPanel.innerHTML = criteria ? `<h2 class="h5 mb-2">${criteria.title}</h2><ul class="mb-0">${criteria.items.map(item => `<li>${item}</li>`).join('')}</ul>` : '<h2 class="h5 mb-2">Kriterienkatalog</h2><p class="mb-0 text-body-secondary">Bitte zuerst eine Schutzklasse auswählen.</p>';
+      criteriaPanel.innerHTML = criteria ? `<h2 class="h5 mb-2">${criteria.title}</h2><ul class="mb-0">${criteria.items.map(item => `<li>${item}</li>`).join('')}</ul>${selected === 'I' || selected === 'Kabel' ? '<div class="rsl-calculator mt-3"><label class="form-label" for="rsl-length">RSL-Grenzwert berechnen</label><div class="input-group"><input class="form-control" id="rsl-length" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Leitungslänge in Metern"><span class="input-group-text">m</span><output class="form-control rsl-result" for="rsl-length">≤ 0,30 Ω</output></div><div class="form-text">Bis 5 m: 0,30 Ω; je weitere 7,5 m: +0,10 Ω; maximal 1,00 Ω.</div></div>' : ''}` : '<h2 class="h5 mb-2">Kriterienkatalog</h2><p class="mb-0 text-body-secondary">Bitte zuerst eine Schutzklasse auswählen.</p>';
+      const lengthInput = criteriaPanel.querySelector('#rsl-length');
+      const result = criteriaPanel.querySelector('.rsl-result');
+      if (lengthInput && result) lengthInput.addEventListener('input', () => { const length = Number(lengthInput.value); if (!Number.isFinite(length) || length < 0) { result.value = '≤ 0,30 Ω'; return; } const steps = length <= 5 ? 0 : Math.ceil((length - 5) / 7.5); result.value = `≤ ${Math.min(1, 0.3 + steps * 0.1).toFixed(2).replace('.', ',')} Ω`; });
     };
     protection.forEach(input => input.addEventListener('change', renderCriteria));
     renderCriteria();
