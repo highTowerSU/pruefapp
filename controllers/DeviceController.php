@@ -80,9 +80,12 @@ class DeviceController
             return $code !== '' && $name !== '' && strcasecmp($code, $name) !== 0 ? $code . ' · ' . $name : ($name ?: $code);
         };
         $siteLabels = $buildingLabels = $floorLabels = [];
+        $siteCustomerIds = $buildingSiteIds = $floorBuildingIds = $roomFloorIds = [];
         foreach ($sites as $site) $siteLabels[(int) $site->id] = $entityLabel($site);
-        foreach ($buildings as $building) $buildingLabels[(int) $building->id] = $entityLabel($building);
-        foreach ($floors as $floor) $floorLabels[(int) $floor->id] = $entityLabel($floor);
+        foreach ($sites as $site) $siteCustomerIds[(int) $site->id] = (int) $site->customer_id;
+        foreach ($buildings as $building) { $buildingLabels[(int) $building->id] = $entityLabel($building); $buildingSiteIds[(int) $building->id] = (int) $building->site_id; }
+        foreach ($floors as $floor) { $floorLabels[(int) $floor->id] = $entityLabel($floor); $floorBuildingIds[(int) $floor->id] = (int) $floor->building_id; }
+        foreach ($rooms as $room) $roomFloorIds[(int) $room->id] = (int) $room->floor_id;
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'content' => render_template('device_index.php', [
@@ -97,6 +100,10 @@ class DeviceController
                 'siteLabels' => $siteLabels,
                 'buildingLabels' => $buildingLabels,
                 'floorLabels' => $floorLabels,
+                'siteCustomerIds' => $siteCustomerIds,
+                'buildingSiteIds' => $buildingSiteIds,
+                'floorBuildingIds' => $floorBuildingIds,
+                'roomFloorIds' => $roomFloorIds,
                 'canManage' => current_user_can_manage_courses(),
                 'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
                 'page' => $page,
