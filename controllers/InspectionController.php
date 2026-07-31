@@ -20,6 +20,8 @@ final class InspectionController
         $inspection->test_date = date('Y-m-d');
         $user = current_user();
         $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
+        $inspection->initial_instruction = '';
+        $inspection->followup_instruction = '';
         $inspection->next_due_date = date('Y-m-d', strtotime('+1 year'));
         $inspection->status = 'draft';
         $inspection->result_status = 'ausstehend';
@@ -39,9 +41,17 @@ final class InspectionController
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
+        if (trim((string) ($inspection->examiner ?? '')) === '') {
+            $user = current_user();
+            $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
+        }
+        if (trim((string) ($inspection->next_due_date ?? '')) === '' && trim((string) ($inspection->test_date ?? '')) !== '') {
+            $inspection->next_due_date = date('Y-m-d', strtotime((string) $inspection->test_date . ' +1 year'));
+        }
         $error = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'initial_instruction', 'followup_instruction'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III', 'Kabel' => 'Kabelprüfung'][$inspection->protection_class] ?? $inspection->inspection_type;
             if (!current_user_has_role('admin')) {
                 $user = current_user();
                 $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
