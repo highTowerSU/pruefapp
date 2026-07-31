@@ -48,6 +48,7 @@ $routes = [
     ['POST', '/struktur/{type}/{id}/loeschen', fn($params, $isHx) => StructureController::delete($params, $isHx)],
     ['GET', '/geraete', fn($params, $isHx) => DeviceController::index($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
+    ['GET', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],
     ['POST', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/bearbeiten', fn($params, $isHx) => InspectionController::edit($params, $isHx)],
     ['POST', '/admin/pruefungen/{id}/bearbeiten', fn($params, $isHx) => InspectionController::edit($params, $isHx)],
