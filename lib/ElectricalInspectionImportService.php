@@ -290,7 +290,7 @@ final class ElectricalInspectionImportService
         if ($this->isProtectionClass($preferredName)) $preferredName = '';
         $currentName = trim((string) ($device->name ?? ''));
         $legacyModelName = trim((string) ($record['device_model'] ?? ''));
-        if ($preferredName !== '' && ($currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
+        if ($preferredName !== '' && ($legacy !== '' || $currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
         if (trim((string) ($device->name ?? '')) === '' || $this->isProtectionClass((string) $device->name)) $device->name = 'Gerät ' . ($external ?: $slot);
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
             if (!empty($record[$source])) $device->$target = $this->importValue((string) $record[$source]);
