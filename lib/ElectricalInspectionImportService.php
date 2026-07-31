@@ -255,6 +255,8 @@ final class ElectricalInspectionImportService
         if ($nextDue === '' && (int) ($record['next_due_offset_days'] ?? 0) > 0 && $date !== '') $nextDue = date('Y-m-d', strtotime($date . ' +' . (int) $record['next_due_offset_days'] . ' days'));
         $inspection->next_due_date = $nextDue;
         $inspection->inspection_type = $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? '');
+        $derivedProtectionClass = $this->protectionClassFromRecord($record);
+        if ($derivedProtectionClass !== '') $inspection->protection_class = $derivedProtectionClass;
         $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
         $inspection->result_status = (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null));
         $inspection->device_type = (string) ($record['device_type'] ?? '');
@@ -468,6 +470,25 @@ final class ElectricalInspectionImportService
     {
         if (is_array($value)) foreach (['brezel_name', 'name', 'email'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key];
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private function protectionClassFromRecord(array $record): string
+    {
+        $values = [];
+        foreach (['protection_class', 'inspection_type', 'type', 'device_type', 'device_model'] as $field) {
+            $value = $this->scalarImportValue($record[$field] ?? '');
+            if ($value !== '') $values[] = mb_strtolower($value);
+        }
+        $text = implode(' ', $values);
+        if (preg_match('/\b(?:schutzklasse|klasse|sk)\s*(i{1,3}|[123])\b/u', $text, $match)) {
+            $token = strtolower($match[1]);
+            if ($token === '3' || $token === 'iii') return 'III';
+            if ($token === '2' || $token === 'ii') return 'II';
+            return 'I';
+        }
+        if (str_contains($text, 'drehstrom') || str_contains($text, 'cee')) return 'Drehstrom';
+        if (str_contains($text, 'kabel')) return 'Kabel';
+        return '';
     }
 
     private function uniqueInspectionNumber(string $base): string

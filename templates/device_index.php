@@ -36,14 +36,16 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
   const buildingLabels = <?= json_encode($safeBuildingLabels, JSON_UNESCAPED_UNICODE) ?>;
   const customerLabels = <?= json_encode(array_reduce($customers, static function (array $out, $customer): array { $code = is_scalar($customer->code ?? null) ? (string) $customer->code : ''; $name = is_scalar($customer->name ?? null) ? (string) $customer->name : ''; $out[(int) $customer->id] = $code !== '' ? $code . ' · ' . $name : $name; return $out; }, []), JSON_UNESCAPED_UNICODE) ?>;
   const modelOptionsByManufacturer = <?= json_encode($modelOptionsByManufacturer, JSON_UNESCAPED_UNICODE) ?>;
+  const normalizedModelOptions = Object.fromEntries(Object.entries(modelOptionsByManufacturer).map(([key, values]) => [key.trim().toLocaleLowerCase(), values]));
   document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
     const manufacturer = form.querySelector('[name="manufacturer"]');
     const model = form.querySelector('[name="device_model"]');
     const modelList = model ? document.getElementById(model.getAttribute('list')) : null;
     if (manufacturer && modelList) {
-      const refreshModels = () => { modelList.replaceChildren(...(modelOptionsByManufacturer[manufacturer.value.trim()] || []).map(value => { const option = document.createElement('option'); option.value = value; return option; })); };
+      const refreshModels = () => { modelList.replaceChildren(...(normalizedModelOptions[manufacturer.value.trim().toLocaleLowerCase()] || []).map(value => { const option = document.createElement('option'); option.value = value; return option; })); };
       manufacturer.addEventListener('input', refreshModels);
       manufacturer.addEventListener('change', refreshModels);
+      refreshModels();
     }
     const submitBlock = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
     const fieldBlocks = ['manufacturer', 'device_model', 'name', 'inventory_number', 'serial_number', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'].map(name => form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]')).filter(Boolean);
