@@ -84,6 +84,7 @@ $routes = [
     ['GET', '/admin/pruefungen/import', fn($params, $isHx) => InspectionController::import($params, $isHx)],
     ['POST', '/admin/pruefungen/import', fn($params, $isHx) => InspectionController::import($params, $isHx)],
     ['POST', '/admin/pruefungen/import/{id}/abbrechen', fn($params, $isHx) => InspectionController::cancelPhoenixJob($params, $isHx)],
+    ['POST', '/admin/pruefungen/import/{id}/archivieren', fn($params, $isHx) => InspectionController::archivePhoenixJob($params, $isHx)],
     ['GET', '/admin/pruefungen/import/{id}/status', fn($params, $isHx) => InspectionController::phoenixStatus($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/bericht', fn($params, $isHx) => InspectionController::report($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}', fn($params, $isHx) => InspectionController::detail($params, $isHx)],

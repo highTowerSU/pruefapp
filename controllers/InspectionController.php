@@ -231,6 +231,24 @@ final class InspectionController
         return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(self::readPhoenixJob((string) ($params['id'] ?? '')), JSON_UNESCAPED_UNICODE)];
     }
 
+    public static function archivePhoenixJob(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $id = (string) ($params['id'] ?? '');
+        if (!preg_match('/^[a-f0-9]{24}$/', $id)) return [400, [], 'Ungültige Job-ID.'];
+        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+        $statusPath = $root . '/' . $id . '.status.json';
+        if (is_file($statusPath)) {
+            $status = json_decode((string) file_get_contents($statusPath), true) ?: [];
+            if (in_array((string) ($status['state'] ?? ''), ['queued', 'running'], true)) return [409, [], 'Laufende Jobs können nicht archiviert werden.'];
+            $archiveRoot = $root . '/archive';
+            if (!is_dir($archiveRoot)) mkdir($archiveRoot, 0700, true);
+            rename($statusPath, $archiveRoot . '/' . $id . '.status.json');
+            if (is_file($root . '/' . $id . '.json')) rename($root . '/' . $id . '.json', $archiveRoot . '/' . $id . '.json');
+        }
+        return [303, ['Location' => url_for('admin/pruefungen/import')], ''];
+    }
+
     private static function readPhoenixJob(string $id): array
     {
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return ['state' => 'error', 'error' => 'Ungültige Job-ID.'];
