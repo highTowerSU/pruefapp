@@ -335,13 +335,15 @@ final class ElectricalInspectionImportService
     {
         $identifier = trim($identifier);
         if ($identifier === '') return null;
-        $roomBean = R::findOne('room', ' number = ? OR name = ? ', [$identifier, $identifier]);
+        $identifier = preg_replace('/^historischer\s+raum\s+/iu', '', $identifier) ?: $identifier;
+        $roomBean = R::findOne('room', ' LOWER(number) = LOWER(?) OR LOWER(name) = LOWER(?) ', [$identifier, $identifier]);
         if ($roomBean !== null) return $roomBean;
         if (!class_exists('StructureController')) {
             $controller = dirname(__DIR__) . '/controllers/StructureController.php';
             if (is_file($controller)) require_once $controller;
         }
         $dotted = preg_match('/^(\d+)\.(\d+)$/', $identifier, $parts) ? [$parts[1], ltrim($parts[2], '0') ?: '0'] : null;
+        $normalized = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $identifier) ?: '');
         $best = null; $bestScore = -1;
         foreach (R::findAll('room') as $candidate) {
             $floor = R::load('floor', (int) $candidate->floor_id);
@@ -350,6 +352,10 @@ final class ElectricalInspectionImportService
                 ? StructureController::roomIdentifier($candidate, $floor, null)
                 : '';
             $matches = strcasecmp(trim($candidateIdentifier), $identifier) === 0;
+            if (!$matches && $normalized !== '') {
+                $candidateNumber = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) ($candidate->number ?: $candidate->name)) ?: '');
+                $matches = $candidateNumber === $normalized;
+            }
             if (!$matches && $dotted !== null && (string) $floor->code === $dotted[0]) {
                 $candidateNumber = ltrim(preg_replace('/^\D+/', '', (string) ($candidate->number ?: $candidate->name)), '0') ?: '0';
                 $matches = $candidateNumber === $dotted[1] || str_ends_with($candidateIdentifier, $dotted[1]);
