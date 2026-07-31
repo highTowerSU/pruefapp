@@ -68,6 +68,7 @@ final class InspectionController
             $inspection->next_due_date = date('Y-m-d', strtotime((string) $inspection->test_date . ' +1 year'));
         }
         $error = null;
+        $correctionMode = current_user_is_superadmin();
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             $cableLength = (float) str_replace(',', '.', (string) ($inspection->cable_length_m ?? ''));
@@ -87,6 +88,12 @@ final class InspectionController
                 $error = 'Bitte alle Sicht- und Funktionsprüfungen mit Ja oder Nein beantworten.';
             } elseif ($complete && (!is_array(json_decode((string) ($inspection->measurements_json ?? ''), true)) || json_decode((string) ($inspection->measurements_json ?? ''), true) === [])) {
                 $error = 'Die Prüfung kann erst nach dem Import der Messwerte abgeschlossen werden.';
+            } elseif ($correctionMode && !$complete) {
+                // A superadmin may correct imported historical data without
+                // reopening a completed inspection or changing its result.
+                $inspection->updated_at = date(DATE_ATOM);
+                R::store($inspection);
+                return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id)], ''];
             } else {
                 $inspection->status = $complete ? 'completed' : ($inspection->storage_slot !== '' ? 'measurement_pending' : 'draft');
                 $inspection->result_status = $complete ? (in_array('nein', $checklist, true) ? 'durchgefallen' : 'bestanden') : 'ausstehend';
