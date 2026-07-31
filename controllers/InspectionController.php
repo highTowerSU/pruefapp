@@ -20,8 +20,6 @@ final class InspectionController
         $inspection->test_date = date('Y-m-d');
         $user = current_user();
         $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
-        $inspection->initial_instruction = '';
-        $inspection->followup_instruction = '';
         $inspection->next_due_date = date('Y-m-d', strtotime('+1 year'));
         $inspection->status = 'draft';
         $inspection->result_status = 'ausstehend';
@@ -50,17 +48,23 @@ final class InspectionController
         }
         $error = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'initial_instruction', 'followup_instruction'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III', 'Kabel' => 'Kabelprüfung'][$inspection->protection_class] ?? $inspection->inspection_type;
             if (!current_user_has_role('admin')) {
                 $user = current_user();
                 $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
             }
+            $examinerUser = R::findOne('oauthuser', ' email = ? OR name = ? ', [$inspection->examiner, $inspection->examiner]);
+            if ($examinerUser !== null) {
+                $examinerUser->initial_instruction = trim((string) ($_POST['initial_instruction'] ?? ''));
+                $examinerUser->followup_instruction = trim((string) ($_POST['followup_instruction'] ?? ''));
+                R::store($examinerUser);
+            }
             $inspection->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
             $inspection->checklist_json = json_encode($_POST['checklist'] ?? [], JSON_UNESCAPED_UNICODE);
             $complete = ($_POST['complete'] ?? '') === '1';
-            if ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '' || $inspection->storage_slot === '')) {
-                $error = 'Für den Abschluss fehlen Schutzklasse, Prüfart, Prüfer oder Speicherplatz.';
+            if ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '')) {
+                $error = 'Für den Abschluss fehlen Schutzklasse, Prüfart oder Prüfer.';
             } else {
                 $inspection->status = $complete ? 'completed' : ($inspection->storage_slot !== '' ? 'measurement_pending' : 'draft');
                 $inspection->result_status = $complete ? trim((string) ($_POST['result_status'] ?? 'bestanden')) : 'ausstehend';
@@ -70,8 +74,9 @@ final class InspectionController
             }
         }
         $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
+        $examinerUser = R::findOne('oauthuser', ' email = ? OR name = ? ', [(string) $inspection->examiner, (string) $inspection->examiner]) ?: current_user();
         $canChooseOtherExaminer = current_user_has_role('admin');
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer'))])];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'examinerUser'))])];
     }
     public static function import(array $params, bool $isHx): array
     {
