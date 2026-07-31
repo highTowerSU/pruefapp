@@ -6,6 +6,16 @@ use RedBeanPHP\R;
 
 final class InspectionController
 {
+    private static function uniqueExternalNumber(string $base, int $ignoreId = 0): string
+    {
+        $candidate = $base;
+        $suffix = 2;
+        while (R::count('inspection', ' external_number = ? AND id != ? ', [$candidate, $ignoreId]) > 0) {
+            $candidate = $base . '-' . $suffix++;
+        }
+        return $candidate;
+    }
+
     public static function create(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();
@@ -13,7 +23,7 @@ final class InspectionController
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Gerät nicht gefunden'];
         $inspection = R::dispense('inspection');
         $inspection->device_id = (int) $device->id;
-        $inspection->external_number = trim((string) $device->external_number) . '-' . date('y');
+        $inspection->external_number = self::uniqueExternalNumber(trim((string) $device->external_number) . '-' . date('y'));
         $inspection->dedupe_key = hash('sha256', 'manual|' . $device->id . '|' . microtime(true) . '|' . bin2hex(random_bytes(8)));
         $inspection->source_type = 'manual';
         $inspection->source_file = null;
