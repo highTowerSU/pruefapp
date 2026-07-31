@@ -177,6 +177,7 @@ final class InspectionController
         }
 
         $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
+        $importLogs = self::importLogs();
 
         return [200, [], render_template('layout.php', [
             'title' => 'Prüfungen importieren',
