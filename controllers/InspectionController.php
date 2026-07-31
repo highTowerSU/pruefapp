@@ -68,7 +68,7 @@ final class InspectionController
             $inspection->next_due_date = date('Y-m-d', strtotime((string) $inspection->test_date . ' +1 year'));
         }
         $error = null;
-        $correctionMode = current_user_is_superadmin();
+        $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             $cableLength = (float) str_replace(',', '.', (string) ($inspection->cable_length_m ?? ''));
