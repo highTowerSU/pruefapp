@@ -50,6 +50,7 @@ $routes = [
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['GET', '/admin/pruefungen/import', fn($params, $isHx) => InspectionController::import($params, $isHx)],
     ['POST', '/admin/pruefungen/import', fn($params, $isHx) => InspectionController::import($params, $isHx)],
+    ['POST', '/admin/pruefungen/import/{id}/abbrechen', fn($params, $isHx) => InspectionController::cancelPhoenixJob($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/bericht', fn($params, $isHx) => InspectionController::report($params, $isHx)],
     ['GET', '/admin/nutzer', fn($params, $isHx) => AdminController::users($params, $isHx)],
     ['POST', '/admin/nutzer/{id}/rolle', fn($params, $isHx) => AdminController::updateUserRole($params, $isHx)],

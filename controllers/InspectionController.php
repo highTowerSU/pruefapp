@@ -67,6 +67,16 @@ final class InspectionController
         ])];
     }
 
+    public static function cancelPhoenixJob(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $id = (string) ($params['id'] ?? '');
+        if (!preg_match('/^[a-f0-9]{24}$/', $id)) return [400, [], 'Ungültige Job-ID.'];
+        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+        if (is_file($root . '/' . $id . '.status.json')) file_put_contents($root . '/' . $id . '.cancel', '1', LOCK_EX);
+        return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
+    }
+
     private static function readPhoenixJob(string $id): array
     {
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return ['state' => 'error', 'error' => 'Ungültige Job-ID.'];
