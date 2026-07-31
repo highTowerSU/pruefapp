@@ -247,7 +247,7 @@ final class ElectricalInspectionImportService
         $inspection->dedupe_key = $dedupe;
         $inspection->source_type = $sourceType;
         $inspection->source_file = basename($sourcePath);
-        $inspection->external_number = $external;
+        $inspection->external_number = $created ? $this->uniqueInspectionNumber($external) : $external;
         $inspection->legacy_number = $this->yearNumber(trim((string) ($record['legacy_number'] ?? '')), $date);
         $inspection->storage_slot = $slot;
         $inspection->test_date = $date;
@@ -468,6 +468,16 @@ final class ElectricalInspectionImportService
     {
         if (is_array($value)) foreach (['brezel_name', 'name', 'email'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key];
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private function uniqueInspectionNumber(string $base): string
+    {
+        $candidate = $base;
+        $suffix = 2;
+        while (R::count('inspection', ' external_number = ? ', [$candidate]) > 0) {
+            $candidate = $base . '-' . $suffix++;
+        }
+        return $candidate;
     }
 
     private function applyImportRules(array $record): array
