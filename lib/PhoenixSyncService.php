@@ -6,7 +6,7 @@ use RedBeanPHP\R;
 
 final class PhoenixSyncService
 {
-    public function sync(string $customerId, string $token, string $baseUrl = 'https://api.phoenix-arbeitswelt.de/phoenix'): array
+    public function sync(string $customerId, string $token, string $baseUrl = 'https://api.phoenix-arbeitswelt.de/phoenix', ?callable $progress = null): array
     {
         $baseUrl = rtrim($baseUrl, '/');
         $query = http_build_query([
@@ -20,14 +20,18 @@ final class PhoenixSyncService
         $records = []; $skipped = 0;
         $reportDir = sys_get_temp_dir() . '/phoenix-reports-' . bin2hex(random_bytes(6));
         mkdir($reportDir, 0700, true);
+        $total = count($items); $step = 0;
         foreach ($items as $item) {
+            $step++;
             if (!is_array($item) || trim((string) ($item['number'] ?? '')) === '') continue;
             $number = trim((string) $item['number']);
+            if ($progress !== null) $progress($step, $total, $number, 'Prüfung laden');
             if (R::findOne('device', ' external_number = ? OR legacy_number = ? ', [$number, $number])) { $skipped++; continue; }
             $detail = !empty($item['id']) ? $this->request($baseUrl . '/modules/audits/resources/' . (int) $item['id'], $token) : $item;
             $records[] = $this->record(is_array($detail) ? $detail : [], $item);
             if (!empty($item['id'])) $this->downloadReport($baseUrl . '/webhook/good-parrot-49/audits/' . (int) $item['id'], $number, $token, $reportDir);
         }
+        if ($progress !== null) $progress($total, $total, '', 'Lokalen Import ausführen');
         if ($records === []) { @rmdir($reportDir); return ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; }
         $tmp = tempnam(sys_get_temp_dir(), 'phoenix-sync-');
         if ($tmp === false) throw new RuntimeException('Temporäre Importdatei konnte nicht angelegt werden.');

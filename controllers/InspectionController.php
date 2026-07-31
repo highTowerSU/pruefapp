@@ -12,6 +12,8 @@ final class InspectionController
 
         $message = null;
         $stats = null;
+        $jobs = self::phoenixJobs();
+        $importLogs = self::importLogs();
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         if ($phoenixJob !== '') {
             $job = self::readPhoenixJob($phoenixJob);
@@ -42,10 +44,11 @@ final class InspectionController
                 }
             }
             if ($directory === '') {
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats])])];
+                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs()])])];
             }
             try {
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory);
+                self::saveImportLog('CSV/ODS/Datei-Import', $stats);
                 $message = ($message ? $message . ' ' : '') . sprintf('%d Prüfungen importiert, %d aktualisiert, %d Geräte neu angelegt.', $stats['imported'], $stats['updated'], $stats['devices']);
                 if (!empty($stats['errors'])) $message .= ' Hinweis: ' . implode(' | ', array_slice($stats['errors'], 0, 3));
             } catch (Throwable $exception) {
@@ -58,6 +61,8 @@ final class InspectionController
             'content' => render_template('inspection_import.php', [
                 'message' => $message,
                 'stats' => $stats,
+                'jobs' => $jobs,
+                'importLogs' => $importLogs,
             ]),
         ])];
     }
@@ -67,6 +72,31 @@ final class InspectionController
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return ['state' => 'error', 'error' => 'Ungültige Job-ID.'];
         $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
         return is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: ['state' => 'running']) : ['state' => 'running'];
+    }
+
+    private static function phoenixJobs(): array
+    {
+        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; $jobs = [];
+        foreach (glob($root . '/*.status.json') ?: [] as $path) {
+            $job = json_decode((string) file_get_contents($path), true);
+            if (is_array($job)) { $job['id'] ??= basename($path, '.status.json'); $jobs[] = $job; }
+        }
+        usort($jobs, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+        return array_slice($jobs, 0, 20);
+    }
+
+    private static function importLogs(): array
+    {
+        $root = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/import-logs'; $logs = [];
+        foreach (array_reverse(glob($root . '/*.json') ?: []) as $path) { $log = json_decode((string) file_get_contents($path), true); if (is_array($log)) $logs[] = $log; if (count($logs) >= 20) break; }
+        return $logs;
+    }
+
+    private static function saveImportLog(string $type, array $stats): void
+    {
+        $root = dirname(__DIR__) . '/data/' . app_storage_namespace() . '/import-logs';
+        if (!is_dir($root)) mkdir($root, 0770, true);
+        file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => $type, 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
     }
 
     private static function savePairUpload(array $csv, array $ods): string
