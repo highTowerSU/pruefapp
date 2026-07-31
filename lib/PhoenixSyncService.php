@@ -75,6 +75,16 @@ final class PhoenixSyncService
             } elseif (isset($c['ok']) && is_bool($c['ok'])) {
                 $result = $c['ok'] ? 'ja' : 'nein';
             }
+            // Phoenix often stores the expected answer in `criterion` and
+            // omits a separate answer for passed historical audits. Those
+            // checks were completed successfully; retain explicit negatives
+            // but mark otherwise unanswered checks as positive.
+            if ($result === null || (is_string($result) && trim($result) === '')) {
+                $criterionText = is_scalar($criterion) ? trim((string) $criterion) : '';
+                $result = preg_match('/^nein(?:\b|\s*,)/iu', $criterionText)
+                    ? 'nein'
+                    : ((bool) ($s['audit_ok'] ?? true) ? 'ja' : 'nein');
+            }
             $normalizedChecks[] = ['step' => $step, 'criterion' => $criterion, 'result' => $result, 'cost_plus' => $c['cost_plus'] ?? null];
             $r['step' . $i] = $step; $r['criterion' . $i] = $criterion; $r['result' . $i] = $result; $r['cost_plus' . $i] = $c['cost_plus'] ?? null;
             $stepText = is_scalar($step) ? (string) $step : '';
