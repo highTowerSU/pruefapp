@@ -49,6 +49,8 @@ final class InspectionController
             }
             try {
                 $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? ''))];
+                $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true);
+                if (is_array($rules)) $defaults['import_rules'] = $rules;
                 $defaults = array_filter($defaults, static fn(string $value): bool => $value !== '');
                 $stats = (new ElectricalInspectionImportService())->importDirectory($directory, null, $defaults);
                 self::saveImportLog('CSV/ODS/Datei-Import', $stats);

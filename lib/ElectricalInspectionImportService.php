@@ -221,6 +221,7 @@ final class ElectricalInspectionImportService
     /** @return array{imported:int,updated:int,devices:int,reports:int} */
     private function importRecord(array $record, string $sourceType, string $sourcePath, string $root): array
     {
+        $record = $this->applyImportRules($record);
         $rawExternal = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
         $date = $this->normalizeDate((string) ($record['test_date'] ?? $record['date'] ?? ''));
@@ -436,6 +437,27 @@ final class ElectricalInspectionImportService
     {
         if (is_array($value)) foreach (['brezel_name', 'name', 'email'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key];
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private function applyImportRules(array $record): array
+    {
+        $rules = is_array($record['import_rules'] ?? null) ? $record['import_rules'] : [];
+        $best = null; $bestScore = -1;
+        $number = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
+        $room = mb_strtolower(trim((string) ($record['room_snapshot'] ?? $record['room'] ?? '')));
+        $device = mb_strtolower(trim((string) ($record['device_type'] ?? $record['device_model'] ?? '')));
+        foreach ($rules as $rule) {
+            if (!is_array($rule)) continue;
+            $score = 0; $matches = true;
+            foreach ([['number', $number], ['room', $room], ['device', $device]] as [$key, $actual]) {
+                $expected = mb_strtolower(trim((string) ($rule[$key] ?? '')));
+                if ($expected !== '') { if ($expected !== $actual) { $matches = false; break; } $score++; }
+            }
+            if ($matches && $score > $bestScore) { $best = $rule; $bestScore = $score; }
+        }
+        if (is_array($best)) foreach (['inspection_type', 'examiner', 'next_due_date'] as $field) if (trim((string) ($best[$field] ?? '')) !== '') $record[$field] = $best[$field];
+        unset($record['import_rules']);
+        return $record;
     }
 
     private function isProtectionClass(string $value): bool
