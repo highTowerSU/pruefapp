@@ -251,7 +251,7 @@ final class InspectionController
 
     public static function delete(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         if ((string) $inspection->result_status !== 'ausstehend') return [409, [], 'Nur Prüfungen mit ausstehendem Ergebnis können gelöscht werden.'];
