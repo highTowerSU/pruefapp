@@ -36,16 +36,19 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
   const siteLabels = <?= json_encode($safeSiteLabels, JSON_UNESCAPED_UNICODE) ?>;
   const buildingLabels = <?= json_encode($safeBuildingLabels, JSON_UNESCAPED_UNICODE) ?>;
   const customerLabels = <?= json_encode(array_reduce($customers, static function (array $out, $customer): array { $code = is_scalar($customer->code ?? null) ? (string) $customer->code : ''; $name = is_scalar($customer->name ?? null) ? (string) $customer->name : ''; $out[(int) $customer->id] = $code !== '' ? $code . ' · ' . $name : $name; return $out; }, []), JSON_UNESCAPED_UNICODE) ?>;
+  const manufacturerOptions = <?= json_encode(array_values($manufacturerOptions), JSON_UNESCAPED_UNICODE) ?>;
   const modelOptionsByManufacturer = <?= json_encode($modelOptionsByManufacturer, JSON_UNESCAPED_UNICODE) ?>;
   const normalizedModelOptions = Object.fromEntries(Object.entries(modelOptionsByManufacturer).map(([key, values]) => [key.trim().toLocaleLowerCase(), values]));
   document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
     const manufacturer = form.querySelector('[name="manufacturer"]');
     const model = form.querySelector('[name="device_model"]');
     const modelList = model ? document.getElementById(model.getAttribute('list')) : null;
-    if (manufacturer && modelList) {
-      const refreshModels = () => { const typed = manufacturer.value.trim().toLocaleLowerCase(); const values = [...new Set(Object.entries(normalizedModelOptions).filter(([key]) => typed === '' || key === typed || key.startsWith(typed)).flatMap(([, models]) => Array.isArray(models) ? models : []).filter(value => typeof value === 'string' || typeof value === 'number').map(value => String(value)))].sort((a, b) => String(a).localeCompare(String(b), undefined, {numeric: true, sensitivity: 'base'})); modelList.replaceChildren(...values.map(value => { const option = document.createElement('option'); option.value = value; return option; })); };
-      manufacturer.addEventListener('input', refreshModels);
-      manufacturer.addEventListener('change', refreshModels);
+    if (manufacturer && model && typeof window.TomSelect === 'function' && !manufacturer.tomselect) {
+      const manufacturerSelect = new window.TomSelect(manufacturer, {options: manufacturerOptions.map(value => ({value: String(value), text: String(value)})), create: true, createOnBlur: true, maxItems: 1, maxOptions: null, openOnFocus: true, selectOnTab: true, closeAfterSelect: true, placeholder: 'Hersteller suchen oder neu eingeben'});
+      const modelSelect = new window.TomSelect(model, {create: true, createOnBlur: true, maxItems: 1, maxOptions: null, openOnFocus: true, selectOnTab: true, closeAfterSelect: true, placeholder: 'Modell suchen oder neu eingeben'});
+      const refreshModels = () => { const typed = String(manufacturerSelect.getValue() || '').trim().toLocaleLowerCase(); const values = [...new Set(Object.entries(normalizedModelOptions).filter(([key]) => typed === '' || key === typed || key.startsWith(typed)).flatMap(([, models]) => Array.isArray(models) ? models : []).filter(value => typeof value === 'string' || typeof value === 'number').map(value => String(value)))].sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})); modelSelect.clearOptions(); modelSelect.addOptions(values.map(value => ({value, text: value}))); modelSelect.refreshOptions(false); };
+      manufacturerSelect.on('change', refreshModels);
+      manufacturerSelect.on('type', refreshModels);
       refreshModels();
     }
     const submitBlock = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
