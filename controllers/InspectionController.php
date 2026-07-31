@@ -97,6 +97,29 @@ final class InspectionController
         $canChooseOtherExaminer = current_user_has_role('admin');
         return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer'))])];
     }
+    private static function pendingMeasurementsByDate(): array
+    {
+        $pending = [];
+        $inspections = R::findAll('inspection', " (result_status = ? OR status IN ('draft', 'measurement_pending')) ORDER BY test_date ASC, id ASC ", ['ausstehend']);
+        foreach ($inspections as $inspection) {
+            $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
+            if (is_array($measurements) && $measurements !== []) continue;
+            $device = R::load('device', (int) $inspection->device_id);
+            if (!$device->id) continue;
+            $date = trim((string) ($inspection->test_date ?? '')) ?: 'ohne Datum';
+            $pending[$date][] = [
+                'inspection_id' => (int) $inspection->id,
+                'device_id' => (int) $device->id,
+                'number' => trim((string) ($device->external_number ?? '')) ?: trim((string) ($inspection->external_number ?? '')),
+                'name' => trim((string) ($device->name ?? '')),
+                'inspection_number' => trim((string) ($inspection->external_number ?? '')),
+                'storage_slot' => trim((string) ($inspection->storage_slot ?? '')),
+            ];
+        }
+        ksort($pending, SORT_NATURAL);
+        return $pending;
+    }
+
     public static function import(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();
@@ -106,6 +129,7 @@ final class InspectionController
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
         $cron = self::cronStatus();
+        $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
         $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) . (trim((string) ($user->email ?? '')) !== '' ? ' · ' . trim((string) $user->email) : ''), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         if ($phoenixJob !== '') {
@@ -136,7 +160,7 @@ final class InspectionController
                 }
             }
             if ($directory === '') {
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers])])];
+                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers, 'pendingMeasurementsByDate' => self::pendingMeasurementsByDate()])])];
             }
             try {
                 $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0)];
@@ -151,6 +175,8 @@ final class InspectionController
             }
         }
 
+        $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
+
         return [200, [], render_template('layout.php', [
             'title' => 'Prüfungen importieren',
             'content' => render_template('inspection_import.php', [
@@ -160,6 +186,7 @@ final class InspectionController
                 'importLogs' => $importLogs,
                 'cron' => $cron,
                 'examinerUsers' => $examinerUsers,
+                'pendingMeasurementsByDate' => $pendingMeasurementsByDate,
             ]),
         ])];
     }

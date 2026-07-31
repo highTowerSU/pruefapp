@@ -47,6 +47,7 @@ class DeviceController
         $roomId = (int) ($_GET['room_id'] ?? 0);
         $deviceId = (int) ($_GET['device_id'] ?? 0);
         $newNumber = trim((string) ($_GET['new_number'] ?? ''));
+        $inspectionStatus = trim((string) ($_GET['inspection_status'] ?? ''));
         $sort = (string) ($_GET['sort'] ?? 'name');
         $orderBy = ['room' => 'd.room_id, d.name', 'id' => 'd.id', 'name' => 'd.name'][$sort] ?? 'd.name';
         $where = [];
@@ -62,6 +63,11 @@ class DeviceController
         if ($roomId > 0) { $where[] = 'r.id = ?'; $paramsQuery[] = $roomId; }
         if ($deviceId > 0) { $where[] = 'd.id = ?'; $paramsQuery[] = $deviceId; }
         if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
+        if ($inspectionStatus === 'failed') {
+            $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
+        } elseif ($inspectionStatus === 'pending') {
+            $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        }
         $dateWhere = [];
         if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $paramsQuery[] = $year . '-01-01'; $paramsQuery[] = ((int) $year + 1) . '-01-01'; }
         if ($from !== '') { $dateWhere[] = 'i.test_date >= ?'; $paramsQuery[] = $from; }
@@ -143,7 +149,7 @@ class DeviceController
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
-                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'per_page' => $perPage, 'sort' => $sort],
+                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'per_page' => $perPage, 'sort' => $sort],
                 'newNumber' => $newNumber,
             ]),
         ])];
