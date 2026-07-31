@@ -27,16 +27,16 @@
 .protection-plug-image{height:112px}
 .plug-variant-mini-item img{width:92px;height:58px}
 @media(max-width:767.98px){.protection-plug-image{height:96px}.plug-variant-mini-item{width:92px}.plug-variant-mini-item img{width:92px;height:56px}}
-.protection-choice{display:grid!important;grid-template-rows:auto 300px auto 120px auto;align-items:start;min-height:620px}
+.protection-choice{display:grid!important;grid-template-rows:auto minmax(300px,auto) auto minmax(160px,auto) auto;align-items:start;min-height:660px;gap:.75rem}
 .protection-choice[data-sk="SK Kabel"]:before{display:none!important}
-.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;align-content:start;height:300px;overflow:auto}
-.connector-example{display:grid;grid-template-rows:78px auto;align-items:center;text-align:center;margin:0;padding:.25rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
-.connector-example img{width:100%;height:74px;object-fit:contain;background:transparent}
-.connector-example figcaption{font-size:.7rem;line-height:1.15;color:var(--bs-secondary-color)}
+.connector-grid{grid-row:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;align-content:start;min-height:300px}
+.connector-example{display:grid;grid-template-rows:88px auto;align-items:center;text-align:center;margin:0;padding:.6rem;border:1px solid var(--bs-border-color);border-radius:.5rem;background:var(--bs-tertiary-bg)}
+.connector-example img{width:100%;height:84px;object-fit:contain;background:transparent}
+.connector-example figcaption{font-size:.72rem;line-height:1.2;color:var(--bs-secondary-color);padding-top:.35rem}
 .connector-empty{grid-column:1/-1;min-height:220px;display:grid;place-items:center;text-align:center;color:var(--bs-secondary-color);border:1px dashed var(--bs-border-color);border-radius:.5rem}
 .connector-title{grid-row:3;display:flex;align-items:center;gap:.5rem;margin-top:.5rem}.connector-title i{margin:0!important}.connector-title strong{font-size:1.05rem}
-.connector-description{grid-row:4;margin-top:.35rem}.connector-badge{grid-row:5;justify-self:start}
-@media(max-width:575.98px){.protection-choice{grid-template-rows:auto 270px auto 140px auto;min-height:590px}.connector-grid{height:270px}.connector-example{grid-template-rows:68px auto}.connector-example img{height:64px}.connector-empty{min-height:200px}}
+.connector-description{grid-row:4;min-height:160px;margin-top:.35rem}.connector-badge{grid-row:5;justify-self:start;margin-top:.25rem}
+@media(max-width:575.98px){.protection-choice{grid-template-rows:auto minmax(260px,auto) auto minmax(150px,auto) auto;min-height:620px}.connector-grid{min-height:260px;gap:.6rem}.connector-example{grid-template-rows:72px auto;padding:.45rem}.connector-example img{height:68px}.connector-empty{min-height:200px}}
 </style>
 <script>
 (() => {
