@@ -19,6 +19,7 @@ final class InspectionController
             $job = self::readPhoenixJob($phoenixJob);
             if (($job['state'] ?? '') === 'done') { $stats = $job['stats'] ?? null; $message = 'Phoenix-Sync abgeschlossen.'; }
             elseif (($job['state'] ?? '') === 'error') $message = 'Phoenix-Sync fehlgeschlagen: ' . (string) ($job['error'] ?? 'Unbekannter Fehler');
+            elseif (($job['state'] ?? '') === 'cancelled' || ($job['state'] ?? '') === 'cancel_requested') $message = 'Phoenix-Sync wurde abgebrochen.';
             else $message = 'Phoenix-Sync läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -71,7 +72,15 @@ final class InspectionController
         $id = (string) ($params['id'] ?? '');
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return [400, [], 'Ungültige Job-ID.'];
         $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-        if (is_file($root . '/' . $id . '.status.json')) file_put_contents($root . '/' . $id . '.cancel', '1', LOCK_EX);
+        $statusPath = $root . '/' . $id . '.status.json';
+        if (is_file($statusPath)) {
+            $status = json_decode((string) file_get_contents($statusPath), true) ?: [];
+            $state = (string) ($status['state'] ?? 'queued');
+            $status['state'] = $state === 'queued' ? 'cancelled' : 'cancel_requested';
+            $status['finished_at'] = $state === 'queued' ? date(DATE_ATOM) : ($status['finished_at'] ?? null);
+            file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
+            file_put_contents($root . '/' . $id . '.cancel', '1', LOCK_EX);
+        }
         return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
     }
 
