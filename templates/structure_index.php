@@ -367,9 +367,17 @@ $section = static function (string $title, string $type, array $items) use ($for
   Für diese Filterkombination wurden keine Struktureinträge gefunden.
 </div>
 
+<style>
+.structure-form{--bs-gutter-y:1rem}.structure-form .form-label{font-weight:600}.structure-form .form-control,.structure-form .form-select,.structure-form .ts-control{min-height:44px}.structure-form textarea.form-control{min-height:88px}.structure-filter-item>summary,.structure-filter-group>div>h3{cursor:pointer}.structure-filter-item>summary:focus-visible{outline:3px solid var(--bs-primary);outline-offset:3px}.structure-filter-item .d-flex.justify-content-end{flex-wrap:wrap}.structure-filter-item .d-flex.justify-content-end form{margin:0}.structure-filter-item .btn,.structure-filter-item .form-select{min-height:42px}
+@media(max-width:991.98px){.structure-form .row>[class*="col-md-"]{width:50%}.structure-form .row>.col-12{width:100%}}
+@media(max-width:767.98px){.structure-filter-item,.structure-filter-group section{border-radius:.65rem}.structure-form{--bs-gutter-y:1.25rem}.structure-form .row>[class*="col-md-"]{width:100%}.structure-form .form-control,.structure-form .form-select,.structure-form .ts-control{min-height:48px;font-size:1rem}.structure-form .btn{min-height:48px}.structure-filter-item .d-flex.justify-content-end form,.structure-filter-item .d-flex.justify-content-end .btn{width:100%}.structure-filter-item .border.rounded.p-2.mt-3{padding:1rem!important}.structure-filter-item .border.rounded.p-2.mt-3 .btn{width:100%}.card-header{padding:1rem}.row.g-4{--bs-gutter-y:1.5rem}.structure-filter-group .vstack{gap:.75rem!important}.structure-filter-item>summary{padding:.35rem}.structure-filter-item>summary .badge{margin-bottom:.25rem}.table-responsive{overflow-x:auto}}
+@media(max-width:575.98px){.structure-form .form-label{margin-bottom:.4rem}.structure-form .form-text{font-size:.8rem}.structure-filter-item>summary{line-height:1.45}.structure-filter-item .small{font-size:.82rem}.structure-filter-item .d-flex.justify-content-end{gap:.5rem!important}.structure-filter-item .btn{font-size:1rem}.card-body{padding:1rem}}
+</style>
+
 <script>
 (() => {
   'use strict';
+  document.querySelectorAll('form[action*="/struktur/"]').forEach(form => { form.classList.add('structure-form'); form.classList.remove('g-2'); form.classList.add('g-3'); });
   const controls = {
     search: document.getElementById('structureSearch'),
     customer: document.getElementById('structureCustomer'),
