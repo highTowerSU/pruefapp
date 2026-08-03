@@ -96,6 +96,7 @@ final class ElectricalInspectionImportService
             $inspection = $inspectionsBySlot[$slotKey] ?? null;
             if (!$inspection) { $skipped++; continue; }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
             $measurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
             $failed = false; $unclear = false;
@@ -395,6 +396,7 @@ final class ElectricalInspectionImportService
         $inspection->device_model = (string) ($record['device_model'] ?? '');
         $inspection->room_snapshot = (string) ($record['room_snapshot'] ?? $record['room'] ?? '');
         $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $importMeasurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
         foreach ($importMeasurements as $measurement) {
             if (!is_array($measurement) || !in_array(strtoupper(trim((string) ($measurement['name'] ?? ''))), ['RSL', 'RPE'], true)) continue;
