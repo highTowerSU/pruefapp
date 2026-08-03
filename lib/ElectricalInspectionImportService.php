@@ -97,8 +97,9 @@ final class ElectricalInspectionImportService
             if (!$inspection) { $skipped++; continue; }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
-            $inspection->status = 'measurement_pending';
-            $inspection->result_status = 'ausstehend';
+            $passed = strtolower(trim((string) ($record['result_status'] ?? ''))) === 'bestanden';
+            $inspection->status = $passed ? 'completed' : 'measurement_pending';
+            $inspection->result_status = $passed ? 'bestanden' : 'ausstehend';
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
         }
