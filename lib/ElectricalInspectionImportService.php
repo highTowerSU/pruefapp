@@ -106,15 +106,24 @@ final class ElectricalInspectionImportService
                 if (in_array($measurementStatus, ['nicht bestanden', 'failed', 'fail', 'nein', 'nicht_ok', 'nok'], true)) { $failed = true; break; }
                 if ($measurementStatus === '' && trim((string) ($measurement['value'] ?? '')) !== '') $unclear = true;
                 elseif ($measurementStatus !== '' && !in_array($measurementStatus, ['bestanden', 'ok', 'passed', 'ja', 'gut'], true)) $unclear = true;
+                $name = strtoupper(trim((string) ($measurement['name'] ?? '')));
+                $numeric = $this->measurementNumber((string) ($measurement['value'] ?? ''));
+                if ($numeric === null) continue;
+                if (in_array($name, ['RPE', 'RSL'], true)) {
+                    $limit = (float) ($inspection->rsl_limit_ohm ?? 0.3);
+                    if ($numeric > $limit) $failed = true;
+                } elseif ($name === 'IPE' && $numeric > 3.5) $failed = true;
+                elseif ($name === 'RISO') {
+                    $device = R::load('device', (int) ($inspection->device_id ?? 0));
+                    $minimum = ((int) ($device->warming_device ?? 0) === 1) ? 0.3 : 1.0;
+                    if ($numeric < $minimum) $failed = true;
+                }
             }
             $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true);
             if (is_array($checklist) && $checklist !== []) {
                 if (in_array('nein', array_map(static fn($value): string => strtolower(trim((string) $value)), $checklist), true)) $failed = true;
                 if (in_array('', $checklist, true)) $unclear = true;
             }
-            $overall = strtolower(trim((string) ($record['result_status'] ?? '')));
-            if (in_array($overall, ['nicht bestanden', 'failed', 'nein', 'nicht_ok'], true)) $failed = true;
-            elseif (!in_array($overall, ['bestanden', 'ok', 'passed', 'ja'], true)) $unclear = true;
             $inspection->status = $failed ? 'completed' : ($unclear ? 'measurement_pending' : 'completed');
             $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
             $inspection->updated_at = date(DATE_ATOM);
@@ -285,6 +294,12 @@ final class ElectricalInspectionImportService
             if (!$merged) break;
         }
         return $row;
+    }
+
+    private function measurementNumber(string $value): ?float
+    {
+        if (preg_match('/([<>]?\s*\d+(?:[.,]\d+)?)/', trim($value), $match) !== 1) return null;
+        return (float) str_replace(',', '.', preg_replace('/\s+/', '', $match[1]));
     }
 
     /** @return array<string, string> */
