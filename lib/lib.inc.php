@@ -660,6 +660,12 @@ function current_user_role(): ?string
     }
 
     $role = (string) ($user->role ?? '');
+    // Keep the emergency/bootstrap superadmin available even if an older
+    // deployment accidentally stored the account as a plain admin.
+    $configured = config_value('APP_SUPERADMIN_EMAILS') ?? '';
+    $superadminEmails = array_filter(array_map('strtolower', array_map('trim', explode(',', $configured))));
+    $email = strtolower(trim((string) ($user->email ?? '')));
+    if ($email !== '' && in_array($email, $superadminEmails, true)) return 'superadmin';
 
     return $role !== '' ? $role : null;
 }
