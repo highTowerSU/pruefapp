@@ -375,6 +375,12 @@ final class InspectionController
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
+        foreach ($measurements as &$measurement) {
+            if (!is_array($measurement)) continue;
+            $name = strtoupper(trim((string) ($measurement['name'] ?? '')));
+            $measurement['limit'] = in_array($name, ['RPE', 'RSL'], true) ? '≤ ' . rtrim(rtrim(number_format((float) ($inspection->rsl_limit_ohm ?: 0.3), 2, '.', ''), '0'), '.') . ' Ω' : ($name === 'IPE' ? '≤ 3,5 mA' : ($name === 'RISO' ? '≥ ' . (((int) ($device->warming_device ?? 0) === 1) ? '0,3' : '1') . ' MΩ' : ''));
+        }
+        unset($measurement);
         if ((string) ($inspection->source_type ?? '') === 'manual' && $measurements !== []) {
             $negative = false; $open = false;
             foreach ($measurements as $measurement) {
