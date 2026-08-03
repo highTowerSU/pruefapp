@@ -545,13 +545,15 @@ function oidc_userinfo_to_array($userInfo): array
 
 function determine_default_role(array $userData): string
 {
+    $superadminEmails = array_filter(array_map('strtolower', array_map('trim', explode(',', (string) (config_value('APP_SUPERADMIN_EMAILS') ?? '')))));
+    $email = strtolower((string) ($userData['email'] ?? ''));
+    if ($email !== '' && in_array($email, $superadminEmails, true)) return 'superadmin';
     $configuredEmails = config_value('APP_ADMIN_EMAILS') ?? '';
     $emailCandidates = array_filter(array_map('trim', explode(',', $configuredEmails)), static function ($value) {
         return $value !== '';
     });
     $emailCandidates = array_map('strtolower', $emailCandidates);
 
-    $email = strtolower((string) ($userData['email'] ?? ''));
     if ($email !== '' && in_array($email, $emailCandidates, true)) {
         return 'admin';
     }
