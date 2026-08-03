@@ -97,9 +97,26 @@ final class ElectricalInspectionImportService
             if (!$inspection) { $skipped++; continue; }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
-            $passed = strtolower(trim((string) ($record['result_status'] ?? ''))) === 'bestanden';
-            $inspection->status = $passed ? 'completed' : 'measurement_pending';
-            $inspection->result_status = $passed ? 'bestanden' : 'ausstehend';
+            $measurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
+            $failed = false; $unclear = false;
+            if ($measurements === []) $unclear = true;
+            if (str_contains(strtolower((string) ($record['device_type'] ?? '')), 'kabel') && trim((string) ($record['cable_length_m'] ?? '')) === '') $unclear = true;
+            foreach ($measurements as $measurement) {
+                $measurementStatus = strtolower(trim((string) ($measurement['result'] ?? '')));
+                if (in_array($measurementStatus, ['nicht bestanden', 'failed', 'fail', 'nein', 'nicht_ok', 'nok'], true)) { $failed = true; break; }
+                if ($measurementStatus === '' && trim((string) ($measurement['value'] ?? '')) !== '') $unclear = true;
+                elseif ($measurementStatus !== '' && !in_array($measurementStatus, ['bestanden', 'ok', 'passed', 'ja', 'gut'], true)) $unclear = true;
+            }
+            $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true);
+            if (is_array($checklist) && $checklist !== []) {
+                if (in_array('nein', array_map(static fn($value): string => strtolower(trim((string) $value)), $checklist), true)) $failed = true;
+                if (in_array('', $checklist, true)) $unclear = true;
+            }
+            $overall = strtolower(trim((string) ($record['result_status'] ?? '')));
+            if (in_array($overall, ['nicht bestanden', 'failed', 'nein', 'nicht_ok'], true)) $failed = true;
+            elseif (!in_array($overall, ['bestanden', 'ok', 'passed', 'ja'], true)) $unclear = true;
+            $inspection->status = $failed ? 'completed' : ($unclear ? 'measurement_pending' : 'completed');
+            $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
         }
