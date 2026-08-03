@@ -62,11 +62,40 @@ final class ElectricalInspectionImportService
         return $stats;
     }
 
+    /** Import only measurement columns into already existing inspections. */
+    public function importPendingMeasurements(string $csvPath, string $date): array
+    {
+        $contents = str_replace("\0", '', (string) file_get_contents($csvPath));
+        if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
+        $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
+        $stream = fopen('php://memory', 'r+'); fwrite($stream, $contents); rewind($stream);
+        $header = $this->uniqueHeaders(fgetcsv($stream, 0, $delimiter) ?: []);
+        $updated = 0; $skipped = 0;
+        while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
+            if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
+            $record = $this->csvRecord($header, $row);
+            $slot = trim((string) ($record['storage_slot'] ?? ''));
+            if ($slot === '') { $skipped++; continue; }
+            $inspection = R::findOne('inspection', ' storage_slot = ? AND test_date = ? ORDER BY id DESC ', [$slot, $date]);
+            if (!$inspection) { $skipped++; continue; }
+            $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $inspection->storage_slot = $slot;
+            $inspection->status = 'measurement_pending';
+            $inspection->result_status = 'ausstehend';
+            $inspection->updated_at = date(DATE_ATOM);
+            R::store($inspection); $updated++;
+        }
+        fclose($stream);
+        $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
+        $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
+        return $stats;
+    }
+
     private function persistImportLog(array $stats): void
     {
         $root = app_data_root() . '/import-logs';
         if (!is_dir($root)) @mkdir($root, 0770, true);
-        if (is_dir($root)) @file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => 'Import', 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        if (is_dir($root)) @file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => (string) ($stats['type'] ?? 'Import'), 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
     }
 
     /** @return array{imported:int,updated:int,devices:int,reports:int,skipped:int} */
