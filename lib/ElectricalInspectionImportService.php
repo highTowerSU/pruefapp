@@ -65,18 +65,27 @@ final class ElectricalInspectionImportService
     /** Import only measurement columns into already existing inspections. */
     public function importPendingMeasurements(string $csvPath, string $date): array
     {
+        $date = $this->normalizeDate($date);
         $contents = str_replace("\0", '', (string) file_get_contents($csvPath));
         if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
         $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
         $stream = fopen('php://memory', 'r+'); fwrite($stream, $contents); rewind($stream);
         $header = $this->uniqueHeaders(fgetcsv($stream, 0, $delimiter) ?: []);
         $updated = 0; $skipped = 0;
+        $inspectionsBySlot = [];
+        foreach (R::findAll('inspection', ' test_date = ? ORDER BY id DESC ', [$date]) as $candidate) {
+            $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
+            if ($candidateSlot === '') continue;
+            $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
+            if (!isset($inspectionsBySlot[$key])) $inspectionsBySlot[$key] = $candidate;
+        }
         while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
             if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
             $record = $this->csvRecord($header, $row);
             $slot = trim((string) ($record['storage_slot'] ?? ''));
             if ($slot === '') { $skipped++; continue; }
-            $inspection = R::findOne('inspection', ' storage_slot = ? AND test_date = ? ORDER BY id DESC ', [$slot, $date]);
+            $slotKey = preg_match('/^\d+$/', $slot) ? (string) ((int) $slot) : $slot;
+            $inspection = $inspectionsBySlot[$slotKey] ?? null;
             if (!$inspection) { $skipped++; continue; }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
