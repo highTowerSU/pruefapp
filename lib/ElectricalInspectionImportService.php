@@ -123,7 +123,8 @@ final class ElectricalInspectionImportService
                 elseif ($name === 'RISO') {
                     $device = R::load('device', (int) ($inspection->device_id ?? 0));
                     $minimum = ((int) ($device->warming_device ?? 0) === 1) ? 0.3 : 1.0;
-                    if ($numeric < $minimum) { $failed = true; $evaluationReasons[] = 'RISO-Grenzwert unterschritten'; }
+                    $rawMeasurementValue = trim((string) ($measurement['value'] ?? ''));
+                    if (!str_starts_with($rawMeasurementValue, '>') && $numeric < $minimum) { $failed = true; $evaluationReasons[] = 'RISO-Grenzwert unterschritten'; }
                 }
             }
             $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true);
