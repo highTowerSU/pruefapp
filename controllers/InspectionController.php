@@ -108,7 +108,10 @@ final class InspectionController
                 $inspection->result_status = $complete ? (in_array('nein', $checklist, true) ? 'durchgefallen' : 'bestanden') : 'ausstehend';
                 $inspection->updated_at = date(DATE_ATOM);
                 R::store($inspection);
-                return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id . '/bearbeiten')], ''];
+                $target = $complete
+                    ? 'admin/pruefungen/' . (int) $inspection->id
+                    : 'admin/pruefungen/' . (int) $inspection->id . '/bearbeiten';
+                return [303, ['Location' => url_for($target)], ''];
             }
         }
         $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
