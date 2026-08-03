@@ -18,6 +18,7 @@ $primaryRgb = strlen($primaryHex) === 6
 <head>
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($title ?? 'Seite') ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= htmlspecialchars(url_for('public/favicon.svg'), ENT_QUOTES) ?>">
     <script>
         (() => {
             'use strict';
