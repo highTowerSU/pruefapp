@@ -89,7 +89,7 @@ final class ElectricalInspectionImportService
             if (!isset($inspectionsBySlot[$key])) $inspectionsBySlot[$key] = $candidate;
         }
         foreach ($rows as $row) {
-            $record = $this->csvRecord($header, $row);
+            $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
             $slot = trim((string) ($record['storage_slot'] ?? ''));
             if ($slot === '') { $skipped++; continue; }
             $slotKey = preg_match('/^\d+$/', $slot) ? (string) ((int) $slot) : $slot;
@@ -220,7 +220,7 @@ final class ElectricalInspectionImportService
             $row = $rows !== null ? array_shift($rows) : fgetcsv($stream, 0, $delimiter);
             if ($row === null || $row === false) break;
             if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
-            $record = $this->csvRecord($header, $row);
+                $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
             if (trim((string) ($defaults['test_date'] ?? '')) !== '') $record['test_date'] = (string) $defaults['test_date'];
             $slot = trim((string) ($record['storage_slot'] ?? ''));
             $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
@@ -261,6 +261,30 @@ final class ElectricalInspectionImportService
         fclose($stream);
 
         return $result;
+    }
+
+    /** Recombine decimal values exported as two semicolon-separated fields. */
+    private function repairDecimalColumns(array $header, array $row): array
+    {
+        $valueColumns = [];
+        foreach ($header as $index => $name) {
+            if (str_contains(strtolower((string) $name), 'wert')) $valueColumns[] = (int) $index;
+        }
+        while (count($row) > count($header)) {
+            $merged = false;
+            foreach ($valueColumns as $index) {
+                $left = trim((string) ($row[$index] ?? ''));
+                $right = trim((string) ($row[$index + 1] ?? ''));
+                if (preg_match('/^[<>]?\d+$/', $left) && preg_match('/^\d{1,2}$/', $right)) {
+                    $row[$index] = $left . '.' . $right;
+                    array_splice($row, $index + 1, 1);
+                    $merged = true;
+                    break;
+                }
+            }
+            if (!$merged) break;
+        }
+        return $row;
     }
 
     /** @return array<string, string> */
