@@ -70,14 +70,14 @@ final class InspectionController
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
-            if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;
-            if (R::count('inspection', ' external_number = ? AND id != ? ', [$submittedNumber, (int) $inspection->id]) > 0) {
-                $error = 'Diese Prüfnummer ist bereits vergeben.';
-            }
-            $inspection->external_number = $submittedNumber;
-            $inspection->legacy_number = trim((string) ($_POST['legacy_number'] ?? $inspection->legacy_number ?? ''));
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
+            $submittedNumber = (string) (preg_replace('/-(?:\d{2}|20\d{2})$/', '', $submittedNumber) ?: $submittedNumber);
+            if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;
+            $testYear = $inspection->test_date !== '' ? date('y', strtotime((string) $inspection->test_date)) : date('y');
+            $numberWithYear = $submittedNumber . '-' . $testYear;
+            if (R::count('inspection', ' external_number = ? AND id != ? ', [$numberWithYear, (int) $inspection->id]) > 0) $error = 'Diese Prüfnummer ist bereits vergeben.';
+            $inspection->external_number = $numberWithYear;
             $cableLength = (float) str_replace(',', '.', (string) ($inspection->cable_length_m ?? ''));
             $inspection->rsl_limit_ohm = $cableLength > 0 ? min(1, 0.3 + max(0, (int) ceil(($cableLength - 5) / 7.5)) * 0.1) : 0.3;
             $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III', 'Kabel' => 'Kabelprüfung'][$inspection->protection_class] ?? $inspection->inspection_type;
