@@ -99,8 +99,8 @@ final class ElectricalInspectionImportService
             $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
             $measurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
-            $failed = false; $unclear = false;
-            if ($measurements === []) $unclear = true;
+            $failed = false; $unclear = false; $evaluationReasons = [];
+            if ($measurements === []) { $unclear = true; $evaluationReasons[] = 'keine Messwerte'; }
             if (str_contains(strtolower((string) ($record['device_type'] ?? '')), 'kabel') && trim((string) ($record['cable_length_m'] ?? '')) === '') $unclear = true;
             foreach ($measurements as $measurement) {
                 $measurementStatus = strtolower(trim((string) ($measurement['result'] ?? '')));
@@ -113,17 +113,17 @@ final class ElectricalInspectionImportService
                 if (in_array($name, ['RPE', 'RSL'], true)) {
                     $lengthRaw = trim((string) ($record['cable_length_m'] ?? $inspection->cable_length_m ?? ''));
                     if ($lengthRaw === '' && $numeric > 0.3) {
-                        $unclear = true; $needsCableLength++;
+                        $unclear = true; $needsCableLength++; $evaluationReasons[] = 'Kabellänge fehlt für RPE-Grenzwert';
                     } else {
                         $length = (float) str_replace(',', '.', $lengthRaw);
                         $limit = $length > 0 ? min(1, 0.3 + max(0, (int) ceil(($length - 5) / 7.5)) * 0.1) : 0.3;
-                        if ($numeric > $limit) $failed = true;
+                        if ($numeric > $limit) { $failed = true; $evaluationReasons[] = 'RPE-Grenzwert überschritten'; }
                     }
-                } elseif ($name === 'IPE' && $numeric > 3.5) $failed = true;
+                } elseif ($name === 'IPE' && $numeric > 3.5) { $failed = true; $evaluationReasons[] = 'IPE-Grenzwert überschritten'; }
                 elseif ($name === 'RISO') {
                     $device = R::load('device', (int) ($inspection->device_id ?? 0));
                     $minimum = ((int) ($device->warming_device ?? 0) === 1) ? 0.3 : 1.0;
-                    if ($numeric < $minimum) $failed = true;
+                    if ($numeric < $minimum) { $failed = true; $evaluationReasons[] = 'RISO-Grenzwert unterschritten'; }
                 }
             }
             $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true);
@@ -135,7 +135,7 @@ final class ElectricalInspectionImportService
             $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
-            $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status];
+            $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status, 'evaluation_reasons' => $evaluationReasons];
         }
         $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'cable_length_required' => $needsCableLength, 'updated_inspections' => $updatedInspections, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
         $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
