@@ -224,7 +224,12 @@ function initialize_database(): void
         $dbCandidates[] = $configuredDatabasePath;
     }
 
-    $dbCandidates = array_merge($dbCandidates, [
+    // The PrüfApp uses one shared database. Keep this path ahead of the
+    // legacy tenant/namespace candidates so a changed tenant setting cannot
+    // silently boot an empty database.
+    $sharedDatabasePath = app_data_root() . '/db.sqlite';
+    $sharedCandidates = is_file($sharedDatabasePath) ? [$sharedDatabasePath] : [];
+    $dbCandidates = array_merge($dbCandidates, $sharedCandidates, [
         $baseDir . '/../../data/' . $storageNamespace . '/db.sqlite',
         $baseDir . '/data/' . $storageNamespace . '/db.sqlite',
         dirname($baseDir) . '/data/' . $storageNamespace . '/db.sqlite',
@@ -236,10 +241,14 @@ function initialize_database(): void
 
     $dbPath = null;
     foreach ($dbCandidates as $candidate) {
-        $dir = dirname($candidate);
-        if (file_exists($candidate) || is_dir($dir)) {
+        if (is_file($candidate) && (int) @filesize($candidate) > 0) {
             $dbPath = $candidate;
             break;
+        }
+    }
+    if ($dbPath === null) {
+        foreach ($dbCandidates as $candidate) {
+            if (is_file($candidate)) { $dbPath = $candidate; break; }
         }
     }
 
