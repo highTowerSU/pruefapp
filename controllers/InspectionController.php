@@ -147,6 +147,16 @@ final class InspectionController
         $stats = null;
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
+        foreach ($importLogs as &$historyLog) {
+            foreach (($historyLog['stats']['updated_inspections'] ?? []) as &$historyInspection) {
+                $current = R::load('inspection', (int) ($historyInspection['id'] ?? 0));
+                if ($current->id) {
+                    $historyInspection['number'] = (string) ($current->external_number ?? $historyInspection['number'] ?? '');
+                    $historyInspection['status'] = (string) ($current->result_status ?? $historyInspection['status'] ?? 'ausstehend');
+                }
+            }
+        }
+        unset($historyLog, $historyInspection);
         $cron = self::cronStatus();
         $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
         $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) . (trim((string) ($user->email ?? '')) !== '' ? ' · ' . trim((string) $user->email) : ''), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
