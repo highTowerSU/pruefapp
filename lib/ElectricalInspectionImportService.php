@@ -158,6 +158,7 @@ final class ElectricalInspectionImportService
             if ($row === null || $row === false) break;
             if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
             $record = $this->csvRecord($header, $row);
+            if (trim((string) ($defaults['test_date'] ?? '')) !== '') $record['test_date'] = (string) $defaults['test_date'];
             $slot = trim((string) ($record['storage_slot'] ?? ''));
             $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
             if ($odsPath !== null && !is_array($odsRow)) {
