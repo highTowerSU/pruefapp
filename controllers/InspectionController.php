@@ -344,6 +344,12 @@ final class InspectionController
         self::normalizeManualResult($inspection);
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
+        if ((int) ($device->room_id ?? 0) > 0) {
+            $room = R::load('room', (int) $device->room_id);
+            $floor = R::load('floor', (int) ($room->floor_id ?? 0));
+            $area = R::load('area', (int) ($room->area_id ?? 0));
+            if ($room->id) $inspection->room_snapshot = class_exists('StructureController') ? StructureController::roomIdentifier($room, $floor, $area) : (string) ($room->name ?: $room->number);
+        }
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
