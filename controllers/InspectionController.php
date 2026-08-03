@@ -365,6 +365,25 @@ final class InspectionController
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
+        if ((string) ($inspection->source_type ?? '') === 'manual' && $measurements !== []) {
+            $negative = false; $open = false;
+            foreach ($measurements as $measurement) {
+                if (!is_array($measurement)) continue;
+                $result = strtolower(trim((string) ($measurement['result'] ?? '')));
+                if (in_array($result, ['nicht bestanden', 'nein', 'failed', 'nok'], true)) $negative = true;
+            }
+            foreach ($checklist as $step) {
+                $result = strtolower(trim((string) (is_array($step) ? ($step['result'] ?? '') : $step)));
+                if ($result === 'nein') $negative = true;
+                elseif ($result === '' || $result === 'offen') $open = true;
+            }
+            if (!$negative && !$open && (string) $inspection->result_status === 'durchgefallen') {
+                $inspection->result_status = 'bestanden';
+                $inspection->status = 'completed';
+                $inspection->updated_at = date(DATE_ATOM);
+                R::store($inspection);
+            }
+        }
         return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist'))])];
     }
 
