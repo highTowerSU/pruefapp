@@ -70,6 +70,13 @@ final class InspectionController
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
+            if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;
+            if (R::count('inspection', ' external_number = ? AND id != ? ', [$submittedNumber, (int) $inspection->id]) > 0) {
+                $error = 'Diese Prüfnummer ist bereits vergeben.';
+            }
+            $inspection->external_number = $submittedNumber;
+            $inspection->legacy_number = trim((string) ($_POST['legacy_number'] ?? $inspection->legacy_number ?? ''));
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             $cableLength = (float) str_replace(',', '.', (string) ($inspection->cable_length_m ?? ''));
             $inspection->rsl_limit_ohm = $cableLength > 0 ? min(1, 0.3 + max(0, (int) ceil(($cableLength - 5) / 7.5)) * 0.1) : 0.3;
@@ -82,7 +89,9 @@ final class InspectionController
             $checklist = is_array($_POST['checklist'] ?? null) ? array_map(static fn($value): string => in_array((string) $value, ['ja', 'ok', 'nein'], true) ? ((string) $value === 'ok' ? 'ja' : (string) $value) : '', $_POST['checklist']) : [];
             $inspection->checklist_json = json_encode($checklist, JSON_UNESCAPED_UNICODE);
             $complete = ($_POST['complete'] ?? '') === '1';
-            if ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '')) {
+            if ($error !== null) {
+                // Keep submitted values visible in the correction form.
+            } elseif ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '')) {
                 $error = 'Für den Abschluss fehlen Schutzklasse oder Prüfer.';
             } elseif ($complete && count($checklist) < 5 || ($complete && in_array('', $checklist, true))) {
                 $error = 'Bitte alle Sicht- und Funktionsprüfungen mit Ja oder Nein beantworten.';
