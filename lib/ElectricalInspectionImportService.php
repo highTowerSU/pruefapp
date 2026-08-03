@@ -65,12 +65,21 @@ final class ElectricalInspectionImportService
     /** Import only measurement columns into already existing inspections. */
     public function importPendingMeasurements(string $csvPath, string $date): array
     {
-        $date = $this->normalizeDate($date);
         $contents = str_replace("\0", '', (string) file_get_contents($csvPath));
         if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
         $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
         $stream = fopen('php://memory', 'r+'); fwrite($stream, $contents); rewind($stream);
         $header = $this->uniqueHeaders(fgetcsv($stream, 0, $delimiter) ?: []);
+        $rows = [];
+        while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
+            if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) > 0) $rows[] = $row;
+        }
+        fclose($stream);
+        $date = $this->normalizeDate($date);
+        if ($date === '' && isset($rows[0])) {
+            $date = $this->csvRecord($header, $rows[0])['test_date'] ?? '';
+        }
+        if ($date === '') throw new InvalidArgumentException('Die CSV enthält kein Prüfdatum.');
         $updated = 0; $skipped = 0;
         $inspectionsBySlot = [];
         foreach (R::findAll('inspection', ' test_date = ? ORDER BY id DESC ', [$date]) as $candidate) {
@@ -79,8 +88,7 @@ final class ElectricalInspectionImportService
             $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
             if (!isset($inspectionsBySlot[$key])) $inspectionsBySlot[$key] = $candidate;
         }
-        while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
-            if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
+        foreach ($rows as $row) {
             $record = $this->csvRecord($header, $row);
             $slot = trim((string) ($record['storage_slot'] ?? ''));
             if ($slot === '') { $skipped++; continue; }
@@ -94,7 +102,6 @@ final class ElectricalInspectionImportService
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
         }
-        fclose($stream);
         $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
         $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
         return $stats;

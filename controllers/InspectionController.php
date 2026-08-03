@@ -160,7 +160,6 @@ final class InspectionController
             if (($_POST['action'] ?? '') === 'pending_measurement_import' && isset($_FILES['measurement_csv']) && is_array($_FILES['measurement_csv'])) {
                 try {
                     $date = trim((string) ($_POST['measurement_date'] ?? ''));
-                    if ($date === '') throw new InvalidArgumentException('Prüfdatum fehlt.');
                     $tmp = (string) ($_FILES['measurement_csv']['tmp_name'] ?? '');
                     if ($tmp === '' || !is_uploaded_file($tmp)) throw new InvalidArgumentException('CSV-Datei fehlt.');
                     $stats = (new ElectricalInspectionImportService())->importPendingMeasurements($tmp, $date);
