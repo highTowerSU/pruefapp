@@ -82,6 +82,7 @@ class SettingsController
             'effectiveKeycloakAdminUrl' => keycloak_admin_console_base_url(),
             'keycloakAccountFileOverride' => config_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL'),
             'keycloakAdminFileOverride' => config_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL'),
+            'databasePath' => app_database_path(),
         ]);
 
         if ($isHx) {

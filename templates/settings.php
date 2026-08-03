@@ -46,6 +46,7 @@
   <div class="card-body">
     <p class="mb-2"><strong>Keycloak-Konto:</strong> <?= $effectiveKeycloakAccountUrl ? htmlspecialchars($effectiveKeycloakAccountUrl, ENT_QUOTES) : '–' ?></p>
     <p class="mb-0"><strong>Keycloak-Admin:</strong> <?= $effectiveKeycloakAdminUrl ? htmlspecialchars($effectiveKeycloakAdminUrl, ENT_QUOTES) : '–' ?></p>
+    <p class="mb-0 mt-2"><strong>Aktive Datenbank:</strong> <code><?= htmlspecialchars((string) ($databasePath ?? '–'), ENT_QUOTES) ?></code></p>
   </div>
 </div>
 

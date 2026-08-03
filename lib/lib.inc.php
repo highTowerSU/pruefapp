@@ -261,6 +261,7 @@ function initialize_database(): void
     }
 
     R::setup('sqlite:' . $dbPath);
+    $GLOBALS['pruefapp_database_path'] = $dbPath;
     R::freeze(false);
     ensure_structure_schema();
 
@@ -283,6 +284,11 @@ function initialize_database(): void
     );
 
     $initialized = true;
+}
+
+function app_database_path(): string
+{
+    return (string) ($GLOBALS['pruefapp_database_path'] ?? '');
 }
 
 
