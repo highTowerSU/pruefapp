@@ -20,7 +20,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
     <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
     <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
-    <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-outline-primary btn-sm" name="save_only" value="1">Speichern</button><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1">Speichern und neue Prüfung</button></div>
+    <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-outline-primary btn-sm" name="save_only" value="1">Speichern</button><?php if ((int) ($device->id ?? 0) > 0): ?><a class="btn btn-primary btn-sm" href="<?= htmlspecialchars(url_for('geraete/' . (int) $device->id . '/pruefungen/neu'), ENT_QUOTES) ?>">Neue Prüfung anlegen</a><?php else: ?><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1">Speichern und neue Prüfung</button><?php endif; ?></div>
   </form>
 <?php }; ?>
 
