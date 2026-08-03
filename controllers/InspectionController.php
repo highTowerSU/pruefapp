@@ -167,6 +167,7 @@ final class InspectionController
                     if ($tmp === '' || !is_uploaded_file($tmp)) throw new InvalidArgumentException('CSV-Datei fehlt.');
                     $stats = (new ElectricalInspectionImportService())->importPendingMeasurements($tmp, $date);
                     $message = (int) $stats['updated'] . ' bestehende Prüfung(en) mit Messdaten aktualisiert; ' . (int) $stats['skipped'] . ' Zeile(n) ohne passende Prüfung übersprungen.';
+                    if ((int) ($stats['cable_length_required'] ?? 0) > 0) $message .= ' Bei ' . (int) $stats['cable_length_required'] . ' Messung(en) wird wegen des Schutzleitergrenzwerts noch die Kabellänge benötigt.';
                 } catch (Throwable $exception) { $message = 'Messdatenimport nicht möglich: ' . $exception->getMessage(); }
             }
             if (($_POST['action'] ?? '') === 'directory_import_job') {

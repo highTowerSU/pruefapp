@@ -80,7 +80,7 @@ final class ElectricalInspectionImportService
             $date = $this->csvRecord($header, $rows[0])['test_date'] ?? '';
         }
         if ($date === '') throw new InvalidArgumentException('Die CSV enthält kein Prüfdatum.');
-        $updated = 0; $skipped = 0;
+        $updated = 0; $skipped = 0; $needsCableLength = 0;
         $inspectionsBySlot = [];
         foreach (R::findAll('inspection', ' test_date = ? ORDER BY id DESC ', [$date]) as $candidate) {
             $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
@@ -110,8 +110,14 @@ final class ElectricalInspectionImportService
                 $numeric = $this->measurementNumber((string) ($measurement['value'] ?? ''));
                 if ($numeric === null) continue;
                 if (in_array($name, ['RPE', 'RSL'], true)) {
-                    $limit = (float) ($inspection->rsl_limit_ohm ?? 0.3);
-                    if ($numeric > $limit) $failed = true;
+                    $lengthRaw = trim((string) ($record['cable_length_m'] ?? $inspection->cable_length_m ?? ''));
+                    if ($lengthRaw === '' && $numeric > 0.3) {
+                        $unclear = true; $needsCableLength++;
+                    } else {
+                        $length = (float) str_replace(',', '.', $lengthRaw);
+                        $limit = $length > 0 ? min(1, 0.3 + max(0, (int) ceil(($length - 5) / 7.5)) * 0.1) : 0.3;
+                        if ($numeric > $limit) $failed = true;
+                    }
                 } elseif ($name === 'IPE' && $numeric > 3.5) $failed = true;
                 elseif ($name === 'RISO') {
                     $device = R::load('device', (int) ($inspection->device_id ?? 0));
@@ -129,7 +135,7 @@ final class ElectricalInspectionImportService
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
         }
-        $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
+        $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'cable_length_required' => $needsCableLength, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
         $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
         return $stats;
     }
