@@ -103,11 +103,12 @@ final class ElectricalInspectionImportService
             if ($measurements === []) { $unclear = true; $evaluationReasons[] = 'keine Messwerte'; }
             if (str_contains(strtolower((string) ($record['device_type'] ?? '')), 'kabel') && trim((string) ($record['cable_length_m'] ?? '')) === '') $unclear = true;
             foreach ($measurements as $measurement) {
+                $name = strtoupper(trim((string) ($measurement['name'] ?? '')));
+                if (!in_array($name, ['RPE', 'RSL', 'IPE', 'IBER', 'IEA', 'RISO', 'FI/RCD', 'SICHTPRÜFUNG', 'KABEL'], true)) continue;
                 $measurementStatus = strtolower(trim((string) ($measurement['result'] ?? '')));
                 if (in_array($measurementStatus, ['nicht bestanden', 'failed', 'fail', 'nein', 'nicht_ok', 'nok'], true)) { $failed = true; break; }
-                if ($measurementStatus === '' && trim((string) ($measurement['value'] ?? '')) !== '') $unclear = true;
-                elseif ($measurementStatus !== '' && !in_array($measurementStatus, ['bestanden', 'ok', 'passed', 'ja', 'gut'], true)) $unclear = true;
-                $name = strtoupper(trim((string) ($measurement['name'] ?? '')));
+                if ($measurementStatus === '' && trim((string) ($measurement['value'] ?? '')) !== '') { $unclear = true; $evaluationReasons[] = $name . '-Ergebnis fehlt'; }
+                elseif ($measurementStatus !== '' && !in_array($measurementStatus, ['bestanden', 'ok', 'passed', 'ja', 'gut'], true)) { $unclear = true; $evaluationReasons[] = $name . '-Ergebnis unklar'; }
                 $numeric = $this->measurementNumber((string) ($measurement['value'] ?? ''));
                 if ($numeric === null) continue;
                 if (in_array($name, ['RPE', 'RSL'], true)) {
