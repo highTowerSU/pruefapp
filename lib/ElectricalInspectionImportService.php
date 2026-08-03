@@ -80,7 +80,7 @@ final class ElectricalInspectionImportService
             $date = $this->csvRecord($header, $rows[0])['test_date'] ?? '';
         }
         if ($date === '') throw new InvalidArgumentException('Die CSV enthält kein Prüfdatum.');
-        $updated = 0; $skipped = 0; $needsCableLength = 0;
+        $updated = 0; $skipped = 0; $needsCableLength = 0; $updatedInspections = [];
         $inspectionsBySlot = [];
         foreach (R::findAll('inspection', ' test_date = ? ORDER BY id DESC ', [$date]) as $candidate) {
             $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
@@ -135,8 +135,9 @@ final class ElectricalInspectionImportService
             $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
+            $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status];
         }
-        $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'cable_length_required' => $needsCableLength, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
+        $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'cable_length_required' => $needsCableLength, 'updated_inspections' => $updatedInspections, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
         $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
         return $stats;
     }

@@ -123,8 +123,6 @@ final class InspectionController
         $pending = [];
         $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.measurements_json, d.external_number AS device_number, d.name AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE (i.result_status = ? OR i.status IN ('draft', 'measurement_pending')) ORDER BY i.test_date ASC, i.id ASC", ['ausstehend']);
         foreach ($inspections as $inspection) {
-            $measurements = json_decode((string) ($inspection['measurements_json'] ?? ''), true);
-            if (is_array($measurements) && $measurements !== []) continue;
             if ((int) ($inspection['device_id'] ?? 0) <= 0) continue;
             $date = trim((string) ($inspection['test_date'] ?? '')) ?: 'ohne Datum';
             $pending[$date][] = [
@@ -134,6 +132,7 @@ final class InspectionController
                 'name' => trim((string) ($inspection['device_name'] ?? '')),
                 'inspection_number' => trim((string) ($inspection['inspection_number'] ?? '')),
                 'storage_slot' => trim((string) ($inspection['storage_slot'] ?? '')),
+                'result_status' => trim((string) ($inspection['result_status'] ?? 'ausstehend')),
             ];
         }
         ksort($pending, SORT_NATURAL);
