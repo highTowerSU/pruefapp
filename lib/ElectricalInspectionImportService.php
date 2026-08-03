@@ -133,6 +133,7 @@ final class ElectricalInspectionImportService
                 if (in_array('nein', array_map(static fn($value): string => strtolower(trim((string) $value)), $checklist), true)) $failed = true;
                 if (in_array('', $checklist, true)) $unclear = true;
             }
+            $unclear = $evaluationReasons !== [];
             $inspection->status = $failed ? 'completed' : ($unclear ? 'measurement_pending' : 'completed');
             $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
             $inspection->updated_at = date(DATE_ATOM);
