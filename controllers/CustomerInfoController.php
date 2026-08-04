@@ -10,7 +10,7 @@ final class CustomerInfoController
     {
         $customer = self::customer($params);
         if ($customer === null || !current_user_can_access_customer((int) $customer->id)) return [404, [], 'Kunde nicht gefunden'];
-        $infos = array_values(R::findAll('customer_info', ' customer_id = ? ORDER BY updated_at DESC, title ', [(int) $customer->id]));
+        $infos = array_values(R::findAll('customerinfo', ' customer_id = ? ORDER BY updated_at DESC, title ', [(int) $customer->id]));
         return self::page('Kundeninfos – ' . (string) $customer->name, render_template('customer_info_index.php', [
             'customer' => $customer,
             'infos' => $infos,
@@ -22,14 +22,14 @@ final class CustomerInfoController
     {
         if (!current_user_has_role('admin')) return forbidden_response();
         $customer = self::customer($params);
-        $info = R::load('customer_info', (int) ($params['infoId'] ?? 0));
+        $info = R::load('customerinfo', (int) ($params['infoId'] ?? 0));
         if ($customer === null || !$info->id || (int) $info->customer_id !== (int) $customer->id) return [404, [], 'Kundeninfo nicht gefunden'];
         return self::page('Kundeninfo bearbeiten', render_template('customer_info_edit.php', ['customer' => $customer, 'info' => $info]));
     }
 
     public static function view(array $params, bool $isHx): array
     {
-        $info = R::load('customer_info', (int) ($params['id'] ?? 0));
+        $info = R::load('customerinfo', (int) ($params['id'] ?? 0));
         if (!$info->id) return [404, [], 'Kundeninfo nicht gefunden'];
         $customer = R::load('customer', (int) $info->customer_id);
         if (!$customer->id || !current_user_can_access_customer((int) $customer->id)) return [404, [], 'Kundeninfo nicht gefunden'];
@@ -47,7 +47,7 @@ final class CustomerInfoController
         $customer = self::customer($params);
         if ($customer === null) return [404, [], 'Kunde nicht gefunden'];
         $id = (int) ($_POST['id'] ?? 0);
-        $info = $id > 0 ? R::load('customer_info', $id) : R::dispense('customer_info');
+        $info = $id > 0 ? R::load('customerinfo', $id) : R::dispense('customerinfo');
         if ($id > 0 && (!$info->id || (int) $info->customer_id !== (int) $customer->id)) return [404, [], 'Kundeninfo nicht gefunden'];
         $title = trim((string) ($_POST['title'] ?? ''));
         if ($title === '') return [422, [], 'Bitte einen Titel angeben.'];
@@ -84,7 +84,7 @@ final class CustomerInfoController
                 try {
                     $upload = self::upload($file, (int) $customer->id);
                     if ($upload === null) throw new \RuntimeException('Datei wurde nicht übertragen.');
-                    $info = R::dispense('customer_info');
+                    $info = R::dispense('customerinfo');
                     $info->customer_id = (int) $customer->id;
                     $info->title = pathinfo((string) $originalName, PATHINFO_FILENAME);
                     $info->slug = self::slug((string) $info->title);
@@ -102,7 +102,7 @@ final class CustomerInfoController
                 }
             }
         }
-        $infos = array_values(R::findAll('customer_info', ' customer_id = ? ORDER BY updated_at DESC, title ', [(int) $customer->id]));
+        $infos = array_values(R::findAll('customerinfo', ' customer_id = ? ORDER BY updated_at DESC, title ', [(int) $customer->id]));
         $message = $created > 0 ? $created . ' Datei(en) hochgeladen.' : 'Keine Datei ausgewählt.';
         if ($errors !== []) $message .= ' ' . implode(' ', $errors);
         return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('customer_info_cards.php', ['customer' => $customer, 'infos' => $infos, 'canManage' => true, 'uploadMessage' => $message])];
@@ -112,7 +112,7 @@ final class CustomerInfoController
     {
         if (!current_user_has_role('admin')) return forbidden_response();
         $customer = self::customer($params);
-        $info = R::load('customer_info', (int) ($params['infoId'] ?? 0));
+        $info = R::load('customerinfo', (int) ($params['infoId'] ?? 0));
         if ($customer === null || !$info->id || (int) $info->customer_id !== (int) $customer->id) return [404, [], 'Kundeninfo nicht gefunden'];
         self::removeFile((string) ($info->file_path ?? ''));
         R::trash($info);
@@ -122,7 +122,7 @@ final class CustomerInfoController
 
     public static function file(array $params, bool $isHx): array
     {
-        $info = R::load('customer_info', (int) ($params['id'] ?? 0));
+        $info = R::load('customerinfo', (int) ($params['id'] ?? 0));
         $customer = $info->id ? R::load('customer', (int) $info->customer_id) : null;
         if (!$info->id || !$customer || !$customer->id || !current_user_can_access_customer((int) $customer->id)) return [404, [], 'Datei nicht gefunden'];
         $root = realpath(self::storageRoot());
