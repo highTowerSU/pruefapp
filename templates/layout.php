@@ -361,6 +361,54 @@ $assetVersion = app_asset_version();
             migrateConfirmForms();
             new MutationObserver(migrateConfirmForms).observe(document.body, {childList: true, subtree: true});
 
+            // Einheitliche Aktionssymbole auf allen Seiten. Bereits vorhandene
+            // Font-Awesome-Icons bleiben unangetastet; das gilt auch für
+            // Inhalte, die später per HTMX in die Seite eingesetzt werden.
+            const enhanceActionButtons = (root = document) => {
+                const icons = [
+                    [/^(zurück|abbrechen|zur übersicht)/i, 'fa-arrow-left'],
+                    [/löschen|entfernen|archivieren/i, 'fa-trash-can'],
+                    [/speichern|übernehmen/i, 'fa-floppy-disk'],
+                    [/import/i, 'fa-file-import'],
+                    [/export|csv|ods|xlsx|json/i, 'fa-file-export'],
+                    [/pdf/i, 'fa-file-pdf'],
+                    [/zip/i, 'fa-file-zipper'],
+                    [/hochladen|upload/i, 'fa-cloud-arrow-up'],
+                    [/download|herunterladen/i, 'fa-file-arrow-down'],
+                    [/senden|übermitteln/i, 'fa-paper-plane'],
+                    [/link/i, 'fa-link'],
+                    [/drucken|druckansicht/i, 'fa-print'],
+                    [/suchen|filtern/i, 'fa-magnifying-glass'],
+                    [/zurücksetzen|reset/i, 'fa-rotate-left'],
+                    [/aktualisieren|synchronisieren/i, 'fa-arrows-rotate'],
+                    [/bearbeiten|edit/i, 'fa-pen-to-square'],
+                    [/öffnen|anzeigen/i, 'fa-eye'],
+                    [/verschieben/i, 'fa-arrows-up-down-left-right'],
+                    [/markieren|auswählen/i, 'fa-check'],
+                    [/starten|erstellen|anlegen|neu/i, 'fa-plus'],
+                    [/abbrechen/i, 'fa-xmark']
+                ];
+                const candidates = [];
+                if (root.matches?.('button.btn, a.btn')) candidates.push(root);
+                root.querySelectorAll?.('button.btn, a.btn').forEach(button => candidates.push(button));
+                candidates.forEach(button => {
+                    if (button.dataset.actionIconBound === '1' || button.querySelector('i.fa-solid, i.fas, i.far, i.fab')) return;
+                    const label = button.textContent.trim();
+                    if (!label) return;
+                    const match = icons.find(([pattern]) => pattern.test(label));
+                    if (!match) return;
+                    const icon = document.createElement('i');
+                    icon.className = `fa-solid ${match[1]} me-1`;
+                    icon.setAttribute('aria-hidden', 'true');
+                    button.prepend(icon);
+                    button.dataset.actionIconBound = '1';
+                });
+            };
+            enhanceActionButtons();
+            new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) enhanceActionButtons(node);
+            }))).observe(document.body, {childList: true, subtree: true});
+
             document.body.addEventListener('htmx:beforeSwap', (event) => {
                 const detail = event.detail;
 
