@@ -86,7 +86,7 @@
       <div class="col-lg-6"><label class="form-label" for="sevdesk_api_url">SevDesk-API-URL</label><input type="url" class="form-control" id="sevdesk_api_url" name="sevdesk_api_url" value="<?= htmlspecialchars($company['sevdesk_api_url'] ?? 'https://my.sevdesk.de/api/v1') ?>"></div>
       <div class="col-lg-6"><label class="form-label" for="sevdesk_api_token">SevDesk-API-Token</label><input type="password" autocomplete="new-password" class="form-control" id="sevdesk_api_token" name="sevdesk_api_token" value=""><div class="form-text">Leer lassen, um den vorhandenen Token beizubehalten.</div></div>
       <div class="col-md-6"><label class="form-label" for="sevdesk_inspection_rate">Prüfungspreis netto (€)</label><input type="number" min="0" step="0.01" class="form-control" id="sevdesk_inspection_rate" name="sevdesk_inspection_rate" value="<?= htmlspecialchars((string) ($company['sevdesk_inspection_rate'] ?? 0)) ?>"></div>
-      <div class="col-md-6"><label class="form-label" for="sevdesk_regie_rate">Regiepreis pro Minute netto (€)</label><input type="number" min="0" step="0.01" class="form-control" id="sevdesk_regie_rate" name="sevdesk_regie_rate" value="<?= htmlspecialchars((string) ($company['sevdesk_regie_rate'] ?? 0)) ?>"></div>
+      <div class="col-md-6"><label class="form-label" for="sevdesk_regie_rate">Regiepreis pro Stunde netto (€)</label><input type="number" min="0" step="0.01" class="form-control" id="sevdesk_regie_rate" name="sevdesk_regie_rate" value="<?= htmlspecialchars((string) ($company['sevdesk_regie_rate'] ?? 0)) ?>"><div class="form-text">Regiezeiten werden aus Minuten in abrechenbare Stunden umgerechnet.</div></div>
     </div>
 
     <hr>
