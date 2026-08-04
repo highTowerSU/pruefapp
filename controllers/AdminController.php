@@ -129,6 +129,24 @@ class AdminController
         }
         usort($cronPendingJobs, static fn(array $a, array $b): int => strcmp((string) ($a['created_at'] ?? ''), (string) ($b['created_at'] ?? '')));
         $cronMissingReports = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND TRIM(COALESCE(report_path, '')) = ''");
+        $cronPdfMigrationState = [];
+        $cronPdfMigrationPending = false;
+        $cronPdfMigrationRemaining = 0;
+        try {
+            $cronPdfMigrationMarker = app_data_root() . '/migration/inspection-reports-v2.json';
+        } catch (Throwable) {
+            // The audit view must remain available even while a legacy
+            // installation is still creating its appconfig table.
+            $cronPdfMigrationMarker = '/var/www/data/pruefapp/migration/inspection-reports-v2.json';
+        }
+        if (is_file($cronPdfMigrationMarker)) {
+            $decodedPdfMigrationState = json_decode((string) @file_get_contents($cronPdfMigrationMarker), true);
+            $cronPdfMigrationState = is_array($decodedPdfMigrationState) ? $decodedPdfMigrationState : [];
+            $cronPdfMigrationPending = ($cronPdfMigrationState['completed'] ?? false) !== true;
+            if ($cronPdfMigrationPending) {
+                $cronPdfMigrationRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id > ? AND result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')", [(int) ($cronPdfMigrationState['last_id'] ?? 0)]);
+            }
+        }
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
@@ -143,6 +161,9 @@ class AdminController
             'cronHealthy' => $cronHealthy,
             'cronPendingJobs' => $cronPendingJobs,
             'cronMissingReports' => $cronMissingReports,
+            'cronPdfMigrationPending' => $cronPdfMigrationPending,
+            'cronPdfMigrationRemaining' => $cronPdfMigrationRemaining,
+            'cronPdfMigrationState' => $cronPdfMigrationState,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,
