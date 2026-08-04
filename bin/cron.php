@@ -30,14 +30,28 @@ $timeLeft = static fn(): float => max(0.0, $cronDeadline - microtime(true));
 $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
 $log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); $isProblem = in_array(strtolower($level), ['warning', 'error', 'critical'], true); if ($debug || $isProblem) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { R::exec('INSERT INTO cron_log (run_at, level, message) VALUES (?, ?, ?)', [$timestamp, strtolower($level), $message]); } catch (Throwable $exception) { if ($debug || $isProblem) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
-$log('Cron gestartet, PID ' . getmypid() . ', Zeitbudget 120 Sekunden');
-if ($debug) $log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden');
-file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
     if ($debug) fwrite(STDERR, '[cron debug] Ein anderer Cron-Lauf ist noch aktiv; keine parallele Iteration gestartet.' . PHP_EOL);
     exit(0);
 }
+$log('Cron gestartet, PID ' . getmypid() . ', Zeitbudget 120 Sekunden');
+if ($debug) $log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden');
+file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
+$generatedReports = 0;
+$reportErrors = [];
+$missingReportCount = 0;
+$jobsStarted = 0;
+$jobsRemaining = 0;
+$cronFinished = false;
+register_shutdown_function(static function () use (&$cronFinished, $log, $cronStartedAt, &$generatedReports, &$reportErrors, &$jobsStarted, &$jobsRemaining): void {
+    if ($cronFinished) return;
+    $lastError = error_get_last();
+    if (is_array($lastError) && in_array((int) ($lastError['type'] ?? 0), [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        $log('Cron unerwartet beendet: ' . (string) ($lastError['message'] ?? 'unbekannter fataler Fehler'), 'error');
+    }
+    $log('Cron beendet (Shutdown), Dauer ' . number_format(microtime(true) - $cronStartedAt, 1, ',', '.') . ' Sekunden; Berichte ' . $generatedReports . ', Jobs gestartet ' . $jobsStarted . ', Jobs offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors), 'warning');
+});
 
 // Optional one-time repair/reimport for Benning CSV/ODS data. Set the
 // directory only for the migration run; the marker prevents repeated imports.
@@ -76,9 +90,6 @@ if (!is_file($migrationMarker)) {
 
 // Abgeschlossene Prüfungen bekommen auch dann automatisch einen Bericht,
 // wenn sie nicht über das Webformular abgeschlossen wurden (z. B. Import).
-$generatedReports = 0;
-$reportErrors = [];
-$missingReportCount = 0;
 $reportDir = app_data_root() . '/reports/current';
 if (!is_dir($reportDir)) mkdir($reportDir, 0770, true);
 try {
@@ -136,11 +147,8 @@ file_put_contents($root . '/report-heartbeat.json', json_encode([
     'errors' => $reportErrors,
 ], JSON_UNESCAPED_UNICODE), LOCK_EX);
 
-$jobsStarted = 0;
-$jobsDeferred = 0;
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     $candidate = json_decode((string) @file_get_contents($statusPath), true);
-    if (is_array($candidate) && ($candidate['state'] ?? '') === 'queued') $jobsDeferred++;
     if ($timeLeft() <= 8) { $log('Weitere Hintergrundjobs wegen Zeitbudget auf nächste Cron-Iteration verschoben.', 'warning'); break; }
     $status = json_decode((string) file_get_contents($statusPath), true);
     if (!is_array($status) || ($status['state'] ?? '') !== 'queued') continue;
@@ -166,5 +174,6 @@ if ($debug) {
     }
 }
 $log('Cron beendet, Dauer ' . number_format(microtime(true) - $cronStartedAt, 1, ',', '.') . ' Sekunden');
+$cronFinished = true;
 flock($lock, LOCK_UN);
 fclose($lock);
