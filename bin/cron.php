@@ -91,7 +91,7 @@ if (!is_file($migrationMarker)) {
 // Einmalige PDF-Migration: alle bereits abgeschlossenen Prüfungen werden mit
 // dem aktuellen Einzelbericht-Layout neu gerendert. Der Cursor macht den Lauf
 // über mehrere Cron-Iterationen hinweg sicher und wiederholbar.
-$phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v1.json';
+$phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v2.json';
 if (!is_file($phoenixRestoreMarker)) {
     $phoenixRestored = 0;
     try {
@@ -111,6 +111,26 @@ if (!is_file($phoenixRestoreMarker)) {
             if ($source === '') {
                 $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
                 foreach (glob(app_data_root() . '/reports/' . $number . '-*.pdf') ?: [] as $candidate) { if (is_file($candidate)) { $source = $candidate; break; } }
+            }
+            // Phoenix originals are also kept in the legacy report store. The
+            // current-layout migration must never replace those PDFs.
+            if ($source === '') {
+                $legacyRoot = realpath('/var/www/berichte');
+                $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
+                if ($legacyRoot !== false && $number !== '') {
+                    $legacyCandidates = [$legacyRoot . '/' . $number . '.pdf', $legacyRoot . '/' . $number . '-24.pdf', $legacyRoot . '/' . $number . '-25.pdf'];
+                    foreach ($legacyCandidates as $candidate) {
+                        if (is_file($candidate) && str_starts_with((string) @file_get_contents($candidate, false, null, 0, 4), '%PDF')) { $source = $candidate; break; }
+                    }
+                    if ($source === '') {
+                        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($legacyRoot, FilesystemIterator::SKIP_DOTS));
+                        foreach ($iterator as $candidateInfo) {
+                            if (!$candidateInfo->isFile() || strtolower($candidateInfo->getExtension()) !== 'pdf') continue;
+                            $candidateName = $candidateInfo->getFilename();
+                            if (($candidateName === $number . '.pdf' || str_starts_with($candidateName, $number . '-')) && str_starts_with((string) @file_get_contents($candidateInfo->getPathname(), false, null, 0, 4), '%PDF')) { $source = $candidateInfo->getPathname(); break; }
+                        }
+                    }
+                }
             }
             if ($source !== '' && $source !== $target) {
                 if (!is_dir(dirname($target))) @mkdir(dirname($target), 0770, true);
