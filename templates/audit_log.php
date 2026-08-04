@@ -31,7 +31,9 @@ $nextUrl = $pagination['has_next']
     werden direkt aus den von ReBean erzeugten Revisionstabellen gelesen.
 </div>
 
-<h2 class="h4 mt-4">Ereignisprotokoll</h2>
+<details class="card mb-4" open>
+<summary class="card-header fw-semibold">Ereignisprotokoll</summary>
+<div class="card-body">
 <?php if (empty($entries)): ?>
     <p class="text-body-secondary">Es wurden noch keine Aktionen protokolliert.</p>
 <?php else: ?>
@@ -116,7 +118,9 @@ $nextUrl = $pagination['has_next']
                                     return;
                                 }
 
-                                echo '<ul class="list-unstyled mb-0">';
+                                $collapse = count($value) > 5;
+                                if ($collapse) echo '<details class="border rounded p-2"><summary class="small">' . count($value) . ' Einträge anzeigen</summary>';
+                                echo '<ul class="list-unstyled mb-0' . ($collapse ? ' mt-2' : '') . '">';
                                 foreach ($value as $key => $item) {
                                     echo '<li class="mb-2">';
                                     echo '<div class="small fw-semibold text-body-secondary">' . htmlspecialchars((string) $key) . '</div>';
@@ -126,6 +130,7 @@ $nextUrl = $pagination['has_next']
                                     echo '</li>';
                                 }
                                 echo '</ul>';
+                                if ($collapse) echo '</details>';
                                 return;
                             }
 
@@ -158,20 +163,29 @@ $nextUrl = $pagination['has_next']
         </table>
     </div>
 <?php endif; ?>
+</div>
+</details>
 
-<h2 class="h4 mt-5">Prüfapp-Cron</h2>
+<details class="card mb-4" open>
+<summary class="card-header fw-semibold">Prüfapp-Cron</summary>
+<div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
 <?php if (empty($cronLog)): ?>
     <div class="alert alert-warning">Noch kein Prüfapp-Cron-Lauf protokolliert.</div>
 <?php else: ?>
-    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): ?><tr><td class="text-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string) $line['run_at']))->format('d.m.Y H:i:s') ) ?></td><td><span class="badge text-bg-<?= ($line['level'] ?? 'info') === 'error' ? 'danger' : 'secondary' ?>"><?= htmlspecialchars(strtoupper((string) ($line['level'] ?? 'info'))) ?></span></td><td><?= htmlspecialchars((string) $line['message']) ?></td></tr><?php endforeach; ?></tbody></table></div>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): $message = (string) ($line['message'] ?? ''); ?><tr><td class="text-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string) $line['run_at']))->format('d.m.Y H:i:s') ) ?></td><td><span class="badge text-bg-<?= ($line['level'] ?? 'info') === 'error' ? 'danger' : 'secondary' ?>"><?= htmlspecialchars(strtoupper((string) ($line['level'] ?? 'info'))) ?></span></td><td class="text-break"><?php if (mb_strlen($message) > 220): ?><details><summary><?= htmlspecialchars(mb_substr($message, 0, 220) . ' …') ?></summary><pre class="small mt-2 mb-0 text-wrap"><?= htmlspecialchars($message) ?></pre></details><?php else: ?><?= htmlspecialchars($message) ?><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div>
     <?php if (($cronPages ?? 1) > 1): ?><nav aria-label="Cron-Log-Seiten"><ul class="pagination pagination-sm"><?php for ($p = 1; $p <= $cronPages; $p++): ?><li class="page-item<?= $p === $cronPage ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('admin/audit-log?cron_page=' . $p), ENT_QUOTES) ?>"><?= $p ?></a></li><?php endfor; ?></ul></nav><?php endif; ?>
 <?php endif; ?>
+</div>
+</details>
 
-<h2 class="h4 mt-5">Datenrevisionen (ReBean)</h2>
+<details class="card mb-4">
+<summary class="card-header fw-semibold">Datenrevisionen (ReBean)</summary>
+<div class="card-body">
 <?php if (empty($revisions)): ?>
     <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>
 <?php else: ?>
+    <div class="small text-body-secondary mb-2">Einträge <?= $revisionTotal > 0 ? (($revisionPage - 1) * 50 + 1) : 0 ?>–<?= min($revisionPage * 50, $revisionTotal) ?> von <?= (int) $revisionTotal ?></div>
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
@@ -206,4 +220,7 @@ $nextUrl = $pagination['has_next']
             </tbody>
         </table>
     </div>
+    <?php if (($revisionPages ?? 1) > 1): ?><nav aria-label="Paginierung der Datenrevisionen"><ul class="pagination pagination-sm mt-3"><?php for ($p = 1; $p <= $revisionPages; $p++): ?><li class="page-item<?= $p === $revisionPage ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('admin/audit-log?revision_page=' . $p), ENT_QUOTES) ?>"><?= $p ?></a></li><?php endfor; ?></ul></nav><?php endif; ?>
 <?php endif; ?>
+</div>
+</details>

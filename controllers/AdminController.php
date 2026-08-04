@@ -88,12 +88,17 @@ class AdminController
     {
         $requestedPage = isset($_GET['page']) ? (int) $_GET['page'] : 1;
         $events = (new AuditTrailRepository())->paginateEvents($requestedPage, 50);
-        $revisions = array_merge(
+        $revisionPage = max(1, (int) ($_GET['revision_page'] ?? 1));
+        $revisionPerPage = 50;
+        $allRevisions = array_merge(
             (new RevisionHistory())->latest(RevisionSupport::enabledTables(), 100),
             (new TenantRepository())->latestRevisions(100)
         );
-        usort($revisions, static fn(array $a, array $b): int => strcmp($b['timestamp'], $a['timestamp']));
-        $revisions = array_slice($revisions, 0, 100);
+        usort($allRevisions, static fn(array $a, array $b): int => strcmp($b['timestamp'], $a['timestamp']));
+        $revisionTotal = count($allRevisions);
+        $revisionPages = max(1, (int) ceil($revisionTotal / $revisionPerPage));
+        $revisionPage = min($revisionPage, $revisionPages);
+        $revisions = array_slice($allRevisions, ($revisionPage - 1) * $revisionPerPage, $revisionPerPage);
         $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
         $cronPerPage = 50;
         $cronTotal = (int) R::count('cron_log');
@@ -111,6 +116,9 @@ class AdminController
             'cronLog' => $cronLog,
             'cronPage' => $cronPage,
             'cronPages' => $cronPages,
+            'revisionPage' => $revisionPage,
+            'revisionPages' => $revisionPages,
+            'revisionTotal' => $revisionTotal,
         ]);
 
         $body = render_template('layout.php', [
