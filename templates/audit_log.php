@@ -159,6 +159,14 @@ $nextUrl = $pagination['has_next']
     </div>
 <?php endif; ?>
 
+<h2 class="h4 mt-5">Prüfapp-Cron</h2>
+<p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
+<?php if (empty($cronLog)): ?>
+    <div class="alert alert-warning">Noch kein Prüfapp-Cron-Lauf protokolliert.</div>
+<?php else: ?>
+    <pre class="bg-body-tertiary border rounded p-3 small" style="max-height:24rem;overflow:auto;white-space:pre-wrap;"><?= htmlspecialchars(implode("\n", $cronLog)) ?></pre>
+<?php endif; ?>
+
 <h2 class="h4 mt-5">Datenrevisionen (ReBean)</h2>
 <?php if (empty($revisions)): ?>
     <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>

@@ -94,11 +94,14 @@ class AdminController
         );
         usort($revisions, static fn(array $a, array $b): int => strcmp($b['timestamp'], $a['timestamp']));
         $revisions = array_slice($revisions, 0, 100);
+        $cronLogPath = app_data_root() . '/logs/cron.log';
+        $cronLog = is_file($cronLogPath) ? array_slice(file($cronLogPath, FILE_IGNORE_NEW_LINES) ?: [], -200) : [];
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
             'pagination' => $events['pagination'],
             'revisions' => $revisions,
+            'cronLog' => $cronLog,
         ]);
 
         $body = render_template('layout.php', [
