@@ -16,7 +16,7 @@ final class ReportController
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['device_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         if ($scope === 'page') $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['page_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         if ($scope === 'all') $ids = self::filteredIds((string) ($_POST['filter_query'] ?? ''));
-        if (in_array($format, ['zip_latest', 'zip_all'], true)) return self::queuePdfZip($format === 'zip_all', $ids, (string) ($_POST['filter_query'] ?? ''));
+        if (in_array($format, ['zip_latest', 'zip_all'], true)) return self::queuePdfZip($format === 'zip_all', $ids, (string) ($_POST['filter_query'] ?? ''), isset($_POST['zip_index_csv']), isset($_POST['zip_index_pdf']), isset($_POST['zip_index_ods']));
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $devices = self::devices($ids);
         if ($reportType === 'daily') $rows = self::dailyRows($ids, trim((string) ($_POST['daily_date'] ?? '')), trim((string) ($_POST['daily_examiner'] ?? '')), (int) ($_POST['daily_customer_id'] ?? 0));
@@ -29,15 +29,26 @@ final class ReportController
         return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv'));
     }
 
-    private static function queuePdfZip(bool $allReports, array $ids, string $filterQuery): array
+    private static function queuePdfZip(bool $allReports, array $ids, string $filterQuery, bool $indexCsv, bool $indexPdf, bool $indexOds): array
     {
         if ($ids === []) $ids = self::filteredIds($filterQuery);
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
         $id = bin2hex(random_bytes(12));
-        file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports, 'index_csv' => $indexCsv, 'index_pdf' => $indexPdf, 'index_ods' => $indexOds], JSON_UNESCAPED_UNICODE), LOCK_EX);
         file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'ZIP-Export wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
+    }
+
+    public static function renderOds(array $rows, string $title): string { return (string) (self::ods($rows, $title)[2] ?? ''); }
+    public static function renderPdf(array $rows, string $title): string { return (string) (self::pdf($rows, $title)[2] ?? ''); }
+    public static function inspectionPdfRows(RedBeanPHPOODBBean $inspection, RedBeanPHPOODBBean $device): array
+    {
+        $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
+        $rows = [['Prüfung', 'Wert']];
+        foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfer', $inspection->examiner], ['Gerät', $device->external_number . ' · ' . $device->name], ['Ergebnis', $inspection->result_status], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, (string) $value];
+        foreach ($measurements as $measurement) if (is_array($measurement)) $rows[] = [(string) ($measurement['name'] ?? 'Messung'), trim((string) ($measurement['value'] ?? '') . ' ' . (string) ($measurement['unit'] ?? '') . ' · ' . (string) ($measurement['result'] ?? ''))];
+        return $rows;
     }
 
     public static function zipStatus(array $params, bool $isHx): array
