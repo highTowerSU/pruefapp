@@ -65,7 +65,7 @@ final class ReportController
         $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
         $id = bin2hex(random_bytes(12));
         file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports, 'index_csv' => $indexCsv, 'index_pdf' => $indexPdf, 'index_ods' => $indexOds], JSON_UNESCAPED_UNICODE), LOCK_EX);
-        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'ZIP-Export wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Der ZIP-Export wird vorbereitet und startet automatisch im Hintergrund.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
@@ -77,7 +77,7 @@ final class ReportController
         $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
         $id = bin2hex(random_bytes(12));
         file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_bundle', 'device_ids' => $ids, 'invoice_id' => $invoiceId, 'max_pages' => max(10, min(5000, $maxPages ?: 500))], JSON_UNESCAPED_UNICODE), LOCK_EX);
-        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Sammel-PDF wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Das Sammel-PDF wird vorbereitet und startet automatisch im Hintergrund.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
