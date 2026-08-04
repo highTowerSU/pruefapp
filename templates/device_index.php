@@ -30,7 +30,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <style>
 .device-form{--bs-gutter-y:1.25rem}.device-form-heading{margin-top:.5rem}.device-form .form-label{font-weight:600}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:44px}.device-form [data-copy-device-name]{font-size:.78rem;text-decoration:none}.device-form [data-copy-device-name]:hover{text-decoration:underline}.device-form .ts-wrapper{width:100%}.device-form .ts-control{padding:.65rem .75rem}.device-form textarea.form-control{min-height:90px}.device-form .col-12.text-end{padding-top:.5rem}.device-form .col-12.text-end .btn{min-height:44px}.vstack.gap-3>.card>summary{cursor:pointer}.vstack.gap-3>.card>summary:focus-visible{outline:3px solid var(--bs-primary);outline-offset:-3px}
 .device-option-card{display:flex;align-items:center;gap:.65rem;padding:.7rem .8rem;border:1px solid var(--bs-border-color);border-radius:.65rem;background:var(--bs-tertiary-bg);min-height:44px}.device-option-card .form-check-input{float:none;margin:0}.device-option-card .form-check-label{cursor:pointer;flex:1}.device-option-icon{width:2rem;height:2rem;background:var(--bs-warning-bg-subtle);color:var(--bs-warning-text-emphasis)}
-.device-export-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.65rem 1rem;padding:.35rem 0}.device-export-toolbar + .device-export-toolbar{border-top:1px solid var(--bs-border-color);margin-top:.5rem;padding-top:.85rem}.device-export-toolbar .btn{white-space:nowrap}.device-export-toolbar .btn-group-label{font-weight:600;color:var(--bs-secondary-color)}
+.device-export-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.65rem 1rem;padding:.35rem 0}.device-export-toolbar + .device-export-toolbar{border-top:1px solid var(--bs-border-color);margin-top:.5rem;padding-top:.85rem}.device-export-toolbar .btn{white-space:nowrap}.device-export-toolbar .btn-group-label{font-weight:600;color:var(--bs-secondary-color)}
 .device-page-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}.device-new-inspection{flex:0 1 26rem;min-width:min(100%,20rem)}.device-new-inspection .input-group{max-width:26rem}
 details.card>summary.card-header{user-select:none;-webkit-user-select:none}.device-card-summary{min-height:3rem}.device-card>summary strong{font-size:1rem}.device-new-caption{margin-left:auto}.device-due-badge{margin-left:auto}.device-inspection-status{width:1.8rem;text-align:center}
 @media(min-width:992px){.device-filter-form .row>.col-md-1.d-flex{width:auto;flex:0 0 auto;flex-wrap:wrap}}
@@ -233,7 +233,9 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   const groups = [document.createElement('div'), document.createElement('div'), document.createElement('div')];
   groups.forEach(group => group.className = 'device-export-toolbar');
   [...toolbar.children].forEach((node, index) => {
-    const target = index < 4 || node.querySelector?.('[name="zip_index_csv"]') ? groups[0] : (node.querySelector?.('#device-mark-page, #device-unmark-page, #device-mark-all, #device-unmark-all, [name="bundle_max_pages"]') ? groups[1] : groups[2]);
+    const isMarkButton = node.matches?.('#device-mark-page, #device-unmark-page, #device-mark-all, #device-unmark-all');
+    const isPageLimit = node.querySelector?.('[name="bundle_max_pages"]');
+    const target = index < 4 || node.querySelector?.('[name="zip_index_csv"]') ? groups[0] : (isMarkButton || isPageLimit ? groups[1] : groups[2]);
     target.append(node);
   });
   toolbar.replaceChildren(...groups.filter(group => group.children.length));
