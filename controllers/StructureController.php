@@ -264,7 +264,13 @@ class StructureController
     {
         try {
             if (!$tenant || trim((string) ($tenant->sevdesk_api_token ?? '')) === '') return [];
-            return (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) $tenant->sevdesk_api_token))->contacts();
+            $contacts = (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) $tenant->sevdesk_api_token))->contacts();
+            usort($contacts, static function (array $left, array $right): int {
+                $leftName = trim((string) ($left['name'] ?? (($left['familyname'] ?? '') . ' ' . ($left['firstname'] ?? ''))));
+                $rightName = trim((string) ($right['name'] ?? (($right['familyname'] ?? '') . ' ' . ($right['firstname'] ?? ''))));
+                return [mb_strtolower($leftName), (string) ($left['customerNumber'] ?? $left['customer_number'] ?? '')] <=> [mb_strtolower($rightName), (string) ($right['customerNumber'] ?? $right['customer_number'] ?? '')];
+            });
+            return $contacts;
         } catch (Throwable) {
             return [];
         }
