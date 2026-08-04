@@ -304,6 +304,8 @@ function ensure_structure_schema(): void
         'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS inspection (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, dedupe_key TEXT NOT NULL UNIQUE, source_type TEXT NOT NULL, source_file TEXT NULL, external_number TEXT NULL, storage_slot TEXT NULL, test_date TEXT NULL, next_due_date TEXT NULL, result_status TEXT NULL, device_type TEXT NULL, manufacturer TEXT NULL, device_model TEXT NULL, room_snapshot TEXT NULL, measurements_json TEXT NULL, checklist_json TEXT NULL, raw_json TEXT NULL, report_path TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         "CREATE TABLE IF NOT EXISTS customerinfo (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', slug TEXT NOT NULL DEFAULT '', markdown TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', file_mime TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS billing_invoice (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', invoice_number TEXT NOT NULL DEFAULT '', invoice_date TEXT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', created_at TEXT NULL)",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_building_site ON building (site_id)',
@@ -337,6 +339,8 @@ function ensure_structure_schema(): void
             'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''",
         ],
         'customerinfo' => ['customer_id' => 'INTEGER NOT NULL DEFAULT 0', 'title' => "TEXT NOT NULL DEFAULT ''", 'slug' => "TEXT NOT NULL DEFAULT ''", 'markdown' => "TEXT NOT NULL DEFAULT ''", 'file_path' => "TEXT NOT NULL DEFAULT ''", 'file_name' => "TEXT NOT NULL DEFAULT ''", 'file_mime' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
+        'billing_invoice' => ['customer_id' => 'INTEGER NULL', 'sevdesk_invoice_id' => "TEXT NOT NULL DEFAULT ''", 'invoice_number' => "TEXT NOT NULL DEFAULT ''", 'invoice_date' => 'TEXT NULL', 'status' => "TEXT NOT NULL DEFAULT 'draft'", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
+        'billing_invoice_item' => ['invoice_id' => 'INTEGER NOT NULL', 'inspection_id' => 'INTEGER NOT NULL', 'device_id' => 'INTEGER NOT NULL', 'quantity' => 'REAL NOT NULL DEFAULT 1', 'description' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL'],
     ];
     foreach ($columns as $table => $definitions) {
         $existing = R::getColumns($table);

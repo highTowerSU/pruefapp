@@ -95,6 +95,7 @@ $routes = [
     ['GET', '/geraete/zip/{id}/status', fn($params, $isHx) => ReportController::zipStatus($params, $isHx)],
     ['GET', '/geraete/zip/{id}/download', fn($params, $isHx) => ReportController::zipDownload($params, $isHx)],
     ['GET', '/admin/abrechnung', fn($params, $isHx) => BillingController::index($params, $isHx)],
+    ['GET', '/admin/abrechnung/rechnung/{id}', fn($params, $isHx) => BillingController::invoice($params, $isHx)],
     ['POST', '/admin/abrechnung/export', fn($params, $isHx) => BillingController::export($params, $isHx)],
     ['GET', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],
     ['POST', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],

@@ -382,6 +382,7 @@ final class InspectionController
             if ($room->id) $inspection->room_snapshot = class_exists('StructureController') ? StructureController::roomIdentifier($room, $floor, $area) : (string) ($room->name ?: $room->number);
         }
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
+        $billingInvoice = R::getRow('SELECT bi.invoice_id, bi.quantity, inv.sevdesk_invoice_id, inv.invoice_number, inv.invoice_date, inv.status FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? ORDER BY inv.id DESC LIMIT 1', [(int) $inspection->id]);
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
         foreach ($measurements as &$measurement) {
@@ -410,7 +411,7 @@ final class InspectionController
                 R::store($inspection);
             }
         }
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist'))])];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'billingInvoice'))])];
     }
 
     public static function delete(array $params, bool $isHx): array
