@@ -34,7 +34,10 @@ $log('Cron gestartet, PID ' . getmypid() . ', Zeitbudget 120 Sekunden');
 if ($debug) $log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden');
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
-if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
+if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+    if ($debug) fwrite(STDERR, '[cron debug] Ein anderer Cron-Lauf ist noch aktiv; keine parallele Iteration gestartet.' . PHP_EOL);
+    exit(0);
+}
 
 // Optional one-time repair/reimport for Benning CSV/ODS data. Set the
 // directory only for the migration run; the marker prevents repeated imports.
@@ -75,6 +78,7 @@ if (!is_file($migrationMarker)) {
 // wenn sie nicht über das Webformular abgeschlossen wurden (z. B. Import).
 $generatedReports = 0;
 $reportErrors = [];
+$missingReportCount = 0;
 $reportDir = app_data_root() . '/reports/current';
 if (!is_dir($reportDir)) mkdir($reportDir, 0770, true);
 try {
@@ -91,6 +95,7 @@ try {
         ORDER BY i.id ASC
         LIMIT 500");
     $reportTotal = count($missingReports);
+    $missingReportCount = $reportTotal;
     if ($debug) $log('Debug: ' . $reportTotal . ' fehlende Prüfberichte gefunden.');
     foreach ($missingReports as $row) {
         if ($timeLeft() <= 3) { $log('Berichtserzeugung wegen Zeitbudget auf nächste Iteration verschoben.', 'warning'); break; }
@@ -131,17 +136,34 @@ file_put_contents($root . '/report-heartbeat.json', json_encode([
     'errors' => $reportErrors,
 ], JSON_UNESCAPED_UNICODE), LOCK_EX);
 
+$jobsStarted = 0;
+$jobsDeferred = 0;
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
+    $candidate = json_decode((string) @file_get_contents($statusPath), true);
+    if (is_array($candidate) && ($candidate['state'] ?? '') === 'queued') $jobsDeferred++;
     if ($timeLeft() <= 8) { $log('Weitere Hintergrundjobs wegen Zeitbudget auf nächste Cron-Iteration verschoben.', 'warning'); break; }
     $status = json_decode((string) file_get_contents($statusPath), true);
     if (!is_array($status) || ($status['state'] ?? '') !== 'queued') continue;
     $id = (string) ($status['id'] ?? basename($statusPath, '.status.json'));
     if (!preg_match('/^[a-f0-9]{24}$/', $id) || !is_file($root . '/' . $id . '.json')) continue;
     $log('Job gestartet: ' . $id . ' (verbleibend ' . number_format($timeLeft(), 1, ',', '.') . ' s)');
+    $jobsStarted++;
     $workerDeadline = (string) (microtime(true) + max(10.0, min(105.0, $timeLeft() - 3.0)));
     $workerDebug = $debug ? ' PRUEFAPP_CRON_DEBUG=1' : '';
     passthru('PRUEFAPP_CRON_DEADLINE=' . escapeshellarg($workerDeadline) . $workerDebug . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
     $log('Job beendet: ' . $id . ' (verbleibend ' . number_format($timeLeft(), 1, ',', '.') . ' s)');
+}
+$jobsRemaining = 0;
+foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
+    $status = json_decode((string) @file_get_contents($statusPath), true);
+    if (is_array($status) && ($status['state'] ?? '') === 'queued') $jobsRemaining++;
+}
+if ($debug) {
+    if ($generatedReports === 0 && $reportErrors === [] && $missingReportCount === 0 && $jobsStarted === 0 && $jobsRemaining === 0 && is_file($migrationMarker)) {
+        fwrite(STDERR, '[cron debug] Keine offenen Aufgaben: keine fehlenden Prüfberichte, keine wartenden Hintergrundjobs, keine Nachmigration.' . PHP_EOL);
+    } else {
+        fwrite(STDERR, '[cron debug] Zusammenfassung: Berichte ' . $generatedReports . '/' . $missingReportCount . ', Jobs gestartet ' . $jobsStarted . ', Jobs noch offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors) . '.' . PHP_EOL);
+    }
 }
 $log('Cron beendet, Dauer ' . number_format(microtime(true) - $cronStartedAt, 1, ',', '.') . ' Sekunden');
 flock($lock, LOCK_UN);
