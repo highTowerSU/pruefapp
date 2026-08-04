@@ -544,6 +544,18 @@ $section = static function (string $title, string $type, array $items) use ($for
 })();
 </script>
 <?php if ($canManage): ?><script>
+(() => {
+  const boxes = [...document.querySelectorAll('.structure-check')];
+  let last = -1;
+  boxes.forEach((box, index) => box.addEventListener('click', event => {
+    if (event.shiftKey && last >= 0) {
+      event.preventDefault();
+      const start = Math.min(last, index), end = Math.max(last, index);
+      boxes.slice(start, end + 1).forEach(item => { item.checked = box.checked; });
+    }
+    last = index;
+  }));
+})();
 document.getElementById('structure-bulk-form')?.addEventListener('submit', function(event) {
   const selected = [...document.querySelectorAll('.structure-check:checked')];
   const types = [...new Set(selected.map(input => input.dataset.structureType))];
