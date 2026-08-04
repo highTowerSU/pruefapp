@@ -33,11 +33,11 @@ if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 
 // Optional one-time repair/reimport for Benning CSV/ODS data. Set the
 // directory only for the migration run; the marker prevents repeated imports.
-$migrationDirectory = trim((string) (getenv('PRUEFAPP_BENNING_REIMPORT_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REIMPORT_DIRECTORY') ?: '') : '')));
+$migrationDirectory = trim((string) (getenv('PRUEFAPP_BENNING_REIMPORT_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REIMPORT_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reimport_directory', '') ?: '') : '')));
 $migrationMarker = app_data_root() . '/migration/benning-measurements-v2.done';
 if ($migrationDirectory !== '' && !is_file($migrationMarker) && is_dir($migrationDirectory)) {
     try {
-        $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '')));
+        $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
         $stats = (new ElectricalInspectionImportService())->importDirectory($migrationDirectory, $migrationReports !== '' ? $migrationReports : null);
         if (!is_dir(dirname($migrationMarker))) @mkdir(dirname($migrationMarker), 0770, true);
         file_put_contents($migrationMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);

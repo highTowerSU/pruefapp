@@ -19,10 +19,19 @@ class SettingsController
         $values = [
             'keycloak_account_console_base_url' => $storedKeycloakAccountUrl,
             'keycloak_admin_console_base_url' => $storedKeycloakAdminUrl,
+            'benning_reimport_directory' => trim((string) (get_app_config('benning_reimport_directory', '') ?? '')),
+            'benning_reports_directory' => trim((string) (get_app_config('benning_reports_directory', '') ?? '')),
         ];
         $errors = [];
         $databaseWizard = null;
         $updateResult = null;
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            try {
+                $updateResult = Updater::updateIfNeeded(dirname(__DIR__), true);
+            } catch (Throwable $exception) {
+                $updateResult = ['ok' => [], 'skipped' => [], 'errors' => ['Automatische Aktualisierung: ' . $exception->getMessage()]];
+            }
+        }
         $skipGeneralSave = false;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -83,6 +92,8 @@ class SettingsController
             } else {
             $values['keycloak_account_console_base_url'] = trim((string) ($_POST['keycloak_account_console_base_url'] ?? ''));
             $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
+            $values['benning_reimport_directory'] = trim((string) ($_POST['benning_reimport_directory'] ?? ''));
+            $values['benning_reports_directory'] = trim((string) ($_POST['benning_reports_directory'] ?? ''));
 
             if ($values['keycloak_account_console_base_url'] !== ''
                 && filter_var($values['keycloak_account_console_base_url'], FILTER_VALIDATE_URL) === false
@@ -105,6 +116,8 @@ class SettingsController
                     'keycloak_admin_console_base_url',
                     $values['keycloak_admin_console_base_url'] === '' ? null : $values['keycloak_admin_console_base_url']
                 );
+                set_app_config('benning_reimport_directory', $values['benning_reimport_directory'] === '' ? null : $values['benning_reimport_directory']);
+                set_app_config('benning_reports_directory', $values['benning_reports_directory'] === '' ? null : $values['benning_reports_directory']);
 
                 $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
 

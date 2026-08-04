@@ -37,6 +37,13 @@
     <?php if (!empty($keycloakAccountFileOverride) || !empty($keycloakAdminFileOverride)): ?>
       <div class="alert alert-warning mb-0">Hinweis: Werte aus der externen Konfigurationsdatei überschreiben gespeicherte Werte.</div>
     <?php endif; ?>
+    <hr>
+    <h3 class="h6">Einmalige Benning-Nachmigration</h3>
+    <p class="small text-body-secondary">Der Cron importiert das Verzeichnis genau einmal und korrigiert dabei ältere Messwertspalten automatisch.</p>
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label" for="benning_reimport_directory">CSV/ODS-Importverzeichnis</label><input class="form-control" id="benning_reimport_directory" name="benning_reimport_directory" value="<?= htmlspecialchars($values['benning_reimport_directory'] ?? '', ENT_QUOTES) ?>" placeholder="/var/www/import/2026"></div>
+      <div class="col-md-6"><label class="form-label" for="benning_reports_directory">Berichtsverzeichnis</label><input class="form-control" id="benning_reports_directory" name="benning_reports_directory" value="<?= htmlspecialchars($values['benning_reports_directory'] ?? '', ENT_QUOTES) ?>" placeholder="/var/www/berichte"></div>
+    </div>
   </div>
   <div class="card-footer text-end">
     <button type="submit" class="btn btn-primary">Speichern</button>
