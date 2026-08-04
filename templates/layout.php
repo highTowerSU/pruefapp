@@ -213,7 +213,7 @@ $assetVersion = app_asset_version();
 </div>
 </main>
 
-<?php $versionDisplay = app_version_display_data(); ?>
+<?php $versionDisplay = app_version_display_data(); $baseVersionDisplay = ceneos_base_version_display_data(); ?>
 <footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
   <div class="container">
     <div class="row align-items-center gy-3">
@@ -235,6 +235,12 @@ $assetVersion = app_asset_version();
               <time datetime="<?= htmlspecialchars($versionDisplay['build_date_iso'], ENT_QUOTES) ?>">
                 <?= htmlspecialchars($versionDisplay['build_date_human']) ?>
               </time>
+            <?php endif; ?>
+          </span>
+          <span class="d-block small text-body-tertiary mt-1">
+            CENEOS Base <?= htmlspecialchars($baseVersionDisplay['version']) ?>
+            <?php if (!empty($baseVersionDisplay['commit'])): ?>
+              <span class="mx-1">·</span><span class="font-monospace">#<?= htmlspecialchars($baseVersionDisplay['commit']) ?></span>
             <?php endif; ?>
           </span>
         </div>

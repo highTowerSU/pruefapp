@@ -64,6 +64,19 @@ function app_version_display_data(): array
     ];
 }
 
+function ceneos_base_version_display_data(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    $baseDir = dirname(__DIR__) . '/vendor/ceneos/php-base';
+    $version = detect_app_version_from_json($baseDir . '/composer.json') ?? 'dev';
+    $commit = detect_git_commit_in($baseDir);
+    return $cache = [
+        'version' => $version,
+        'commit' => $commit !== null ? substr($commit, 0, 12) : null,
+    ];
+}
+
 function detect_app_version_from_json(string $path): ?string
 {
     if (!is_file($path)) {
@@ -92,7 +105,11 @@ function detect_app_version_from_json(string $path): ?string
 
 function detect_git_commit(): ?string
 {
-    $baseDir = dirname(__DIR__);
+    return detect_git_commit_in(dirname(__DIR__));
+}
+
+function detect_git_commit_in(string $baseDir): ?string
+{
     $gitDir = $baseDir . DIRECTORY_SEPARATOR . '.git';
 
     if (!is_dir($gitDir)) {
