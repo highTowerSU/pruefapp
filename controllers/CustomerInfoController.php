@@ -69,6 +69,36 @@ final class CustomerInfoController
         return [303, ['Location' => url_for('kunden/' . (int) $customer->id . '/infos')], ''];
     }
 
+    public static function uploadMultiple(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $customer = self::customer($params);
+        if ($customer === null) return [404, [], 'Kunde nicht gefunden'];
+        $files = $_FILES['attachments'] ?? null;
+        $created = 0;
+        if (is_array($files) && is_array($files['name'] ?? null)) {
+            foreach ($files['name'] as $index => $originalName) {
+                $file = ['name' => $originalName, 'type' => $files['type'][$index] ?? '', 'tmp_name' => $files['tmp_name'][$index] ?? '', 'error' => $files['error'][$index] ?? UPLOAD_ERR_NO_FILE, 'size' => $files['size'][$index] ?? 0];
+                if ((int) $file['error'] === UPLOAD_ERR_NO_FILE) continue;
+                $upload = self::upload($file, (int) $customer->id);
+                $info = R::dispense('customer_info');
+                $info->customer_id = (int) $customer->id;
+                $info->title = pathinfo((string) $originalName, PATHINFO_FILENAME);
+                $info->slug = self::slug((string) $info->title);
+                $info->markdown = '';
+                $info->file_path = $upload['path'];
+                $info->file_name = $upload['name'];
+                $info->file_mime = $upload['mime'];
+                $info->created_at = $info->updated_at = date('c');
+                R::store($info);
+                audit_log('kundeninfo_datei_hochgeladen', ['id' => (int) $info->id, 'customer_id' => (int) $customer->id, 'file_name' => (string) $info->file_name]);
+                $created++;
+            }
+        }
+        $infos = array_values(R::findAll('customer_info', ' customer_id = ? ORDER BY updated_at DESC, title ', [(int) $customer->id]));
+        return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('customer_info_cards.php', ['customer' => $customer, 'infos' => $infos, 'canManage' => true, 'uploadMessage' => $created > 0 ? $created . ' Datei(en) hochgeladen.' : 'Keine Datei ausgewählt.'])];
+    }
+
     public static function delete(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();

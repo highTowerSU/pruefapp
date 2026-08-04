@@ -69,6 +69,7 @@ $routes = [
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
     ['GET', '/kunden/{id}/infos', fn($params, $isHx) => CustomerInfoController::index($params, $isHx)],
     ['POST', '/kunden/{id}/infos', fn($params, $isHx) => CustomerInfoController::save($params, $isHx)],
+    ['POST', '/kunden/{id}/infos/upload', fn($params, $isHx) => CustomerInfoController::uploadMultiple($params, $isHx)],
     ['GET', '/kunden/{id}/infos/{infoId}/bearbeiten', fn($params, $isHx) => CustomerInfoController::edit($params, $isHx)],
     ['POST', '/kunden/{id}/infos/{infoId}/loeschen', fn($params, $isHx) => CustomerInfoController::delete($params, $isHx)],
     ['GET', '/kundeninfos/{id}', fn($params, $isHx) => CustomerInfoController::view($params, $isHx)],
