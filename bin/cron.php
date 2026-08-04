@@ -6,11 +6,23 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
 
+$debug = in_array('--debug', $argv ?? [], true) || in_array('-d', $argv ?? [], true);
+if ($debug) {
+    ini_set('display_errors', '1');
+    error_reporting(E_ALL);
+    fwrite(STDERR, '[cron debug] Datenbank: ' . (function_exists('app_database_path') ? app_database_path() : 'unbekannt') . PHP_EOL);
+}
+try {
+    R::exec("CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')");
+} catch (Throwable $exception) {
+    if ($debug) fwrite(STDERR, '[cron debug] cron_log konnte nicht angelegt werden: ' . $exception->getMessage() . PHP_EOL);
+}
+
 $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
 if (!is_dir($root)) mkdir($root, 0700, true);
 $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
-$log = static function (string $message, string $level = 'info') use ($logPath): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); if (PHP_SAPI === 'cli') fwrite(STDERR, $line); try { $entry = R::dispense('cron_log'); $entry->run_at = $timestamp; $entry->level = $level; $entry->message = $message; R::store($entry); } catch (Throwable $exception) { if (PHP_SAPI === 'cli') fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
+$log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); if (PHP_SAPI === 'cli' || $debug) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { $entry = R::dispense('cron_log'); $entry->run_at = $timestamp; $entry->level = $level; $entry->message = $message; R::store($entry); } catch (Throwable $exception) { if (PHP_SAPI === 'cli' || $debug) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
 $log('Cron gestartet, PID ' . getmypid());
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
