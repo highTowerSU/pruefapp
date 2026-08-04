@@ -162,6 +162,26 @@ $assetVersion = app_asset_version();
             --bs-btn-active-border-color: color-mix(in srgb, var(--app-primary), black 18%);
             --bs-btn-active-color: var(--app-primary-text);
         }
+        /* Gemeinsame Bootstrap-Oberflächen für alle Verwaltungsseiten. */
+        .card > summary.card-header,
+        details.card > summary.card-header { cursor: pointer; list-style: none; }
+        details.card > summary.card-header::-webkit-details-marker { display: none; }
+        details.card > summary.card-header::before { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: .55rem; color: var(--app-primary); transition: transform .15s ease; }
+        details.card[open] > summary.card-header::before { transform: rotate(180deg); }
+        .table > thead { --bs-table-bg: color-mix(in srgb, var(--app-primary), transparent 88%); }
+        .table > thead th { color: var(--bs-emphasis-color); font-weight: 700; border-bottom-width: 2px; }
+        .table-hover > tbody > tr:hover { --bs-table-hover-bg: color-mix(in srgb, var(--app-primary), transparent 92%); }
+        .badge { letter-spacing: .01em; }
+        .status-badge { min-width: 5.5rem; text-align: center; }
+        .structure-filter-item > details,
+        .structure-filter-item > details > summary { transition: border-color .15s ease, box-shadow .15s ease; }
+        .structure-filter-item > details[open] { border-color: var(--app-primary) !important; box-shadow: 0 .2rem .65rem color-mix(in srgb, var(--app-primary), transparent 82%); }
+        .alert, .card, .table-responsive { border-radius: .65rem; }
+        @media (max-width: 575.98px) {
+            .card-body { padding: .85rem; }
+            .table { font-size: .875rem; }
+            details.card > summary.card-header { padding: .7rem .85rem; }
+        }
         [data-bs-theme="light"] .brand-panel { background: var(--app-theme-light); color: var(--bs-body-color); }
         [data-bs-theme="dark"] .brand-panel { background: var(--app-theme-dark); color: var(--bs-body-color); }
         .brand-logo-for-dark { display: none; }
