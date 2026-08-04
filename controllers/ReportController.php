@@ -16,6 +16,7 @@ final class ReportController
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['device_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         if ($scope === 'page') $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['page_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         if ($scope === 'all') $ids = self::filteredIds((string) ($_POST['filter_query'] ?? ''));
+        if (in_array($format, ['zip_latest', 'zip_all'], true)) return self::queuePdfZip($format === 'zip_all', $ids, (string) ($_POST['filter_query'] ?? ''));
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $devices = self::devices($ids);
         if ($reportType === 'daily') $rows = self::dailyRows($ids, trim((string) ($_POST['daily_date'] ?? '')), trim((string) ($_POST['daily_examiner'] ?? '')), (int) ($_POST['daily_customer_id'] ?? 0));
@@ -26,6 +27,37 @@ final class ReportController
         if ($format === 'ods') return self::ods($rows, $name);
         if ($format === 'pdf') return self::pdf($rows, $name);
         return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv'));
+    }
+
+    private static function queuePdfZip(bool $allReports, array $ids, string $filterQuery): array
+    {
+        if ($ids === []) $ids = self::filteredIds($filterQuery);
+        if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
+        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
+        $id = bin2hex(random_bytes(12));
+        file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'ZIP-Export wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
+    }
+
+    public static function zipStatus(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return [403, ['Content-Type' => 'application/json'], '{}'];
+        $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
+        $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
+        $status = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : ['state' => 'error', 'error' => 'Job nicht gefunden'];
+        return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode($status, JSON_UNESCAPED_UNICODE)];
+    }
+
+    public static function zipDownload(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
+        $statusPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
+        $status = is_file($statusPath) ? (json_decode((string) file_get_contents($statusPath), true) ?: []) : [];
+        $file = (string) ($status['output'] ?? '');
+        if (($status['state'] ?? '') !== 'done' || $file === '' || !is_file($file)) return [404, [], 'ZIP ist noch nicht verfügbar.'];
+        return [200, ['Content-Type' => 'application/zip', 'Content-Disposition' => 'attachment; filename="' . basename($file) . '"'], file_get_contents($file)];
     }
 
     private static function filteredIds(string $query): array

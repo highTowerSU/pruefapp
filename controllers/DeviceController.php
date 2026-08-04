@@ -151,6 +151,12 @@ class DeviceController
             if (preg_match('/^\d+$/', $candidate)) { $suggestedDeviceNumber = (string) ((int) $candidate + 1); break; }
         }
         $selectedDeviceIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_SESSION['device_selection'] ?? [])), static fn(int $id): bool => $id > 0)));
+        $zipJob = trim((string) ($_GET['zip_job'] ?? ''));
+        $zipJobStatus = null;
+        if (preg_match('/^[a-f0-9]{24}$/', $zipJob)) {
+            $zipStatusPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $zipJob . '.status.json';
+            if (is_file($zipStatusPath)) $zipJobStatus = json_decode((string) file_get_contents($zipStatusPath), true) ?: null;
+        }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'showCompanySubtitle' => false,
@@ -184,6 +190,8 @@ class DeviceController
                 'newNumber' => $newNumber,
                 'suggestedDeviceNumber' => $suggestedDeviceNumber,
                 'selectedDeviceIds' => $selectedDeviceIds,
+                'zipJob' => $zipJob,
+                'zipJobStatus' => $zipJobStatus,
             ]),
         ])];
     }
