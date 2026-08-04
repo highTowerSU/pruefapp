@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 declare(strict_types=1);
+
+use RedBeanPHP\R as R;
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
 

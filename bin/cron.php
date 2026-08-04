@@ -2,6 +2,8 @@
 <?php
 declare(strict_types=1);
 
+use RedBeanPHP\R as R;
+
 // Run from cron as the same user that owns the application data (usually www-data).
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
