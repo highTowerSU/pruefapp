@@ -48,6 +48,7 @@ class DeviceController
         $deviceId = (int) ($_GET['device_id'] ?? 0);
         $newNumber = trim((string) ($_GET['new_number'] ?? ''));
         $inspectionStatus = trim((string) ($_GET['inspection_status'] ?? ''));
+        $showArchived = current_user_is_superadmin() && ($_GET['show_archived'] ?? '') === '1';
         $sort = (string) ($_GET['sort'] ?? 'name');
         $orderBy = [
             'room' => 'd.room_id, d.name',
@@ -60,6 +61,7 @@ class DeviceController
         ][$sort] ?? 'LOWER(d.name), d.id';
         $where = [];
         $paramsQuery = [];
+        if (!$showArchived) $where[] = "(d.archived_at IS NULL OR TRIM(d.archived_at) = '')";
         if (!current_user_has_role('admin')) {
             if ($allowedCustomers === []) $where[] = '1 = 0';
             else { $where[] = 'c.id IN (' . implode(',', array_fill(0, count($allowedCustomers), '?')) . ')'; array_push($paramsQuery, ...$allowedCustomers); }
@@ -164,6 +166,8 @@ class DeviceController
                 'floorBuildingIds' => $floorBuildingIds,
                 'roomFloorIds' => $roomFloorIds,
                 'canManage' => current_user_has_role('admin'),
+                'canBulkManage' => current_user_is_superadmin(),
+                'showArchived' => $showArchived,
                 'manufacturerOptions' => $manufacturerOptions,
                 'modelOptionsByManufacturer' => $modelOptionsByManufacturer,
                 'nameOptionsByManufacturerModel' => array_map(static fn(array $names): array => array_keys($names), $nameOptionsByManufacturerModel),
@@ -222,6 +226,29 @@ class DeviceController
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
         if (isset($_POST['save_and_inspect'])) return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], ''];
         $_SESSION['meldung'] = 'Gerät gespeichert.';
+        return [303, ['Location' => url_for('geraete')], ''];
+    }
+
+    public static function bulkAction(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['device_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
+        $action = trim((string) ($_POST['bulk_action'] ?? ''));
+        if ($ids === [] || !in_array($action, ['archive', 'delete'], true)) {
+            $_SESSION['fehlermeldung'] = 'Bitte mindestens ein Gerät und eine gültige Aktion auswählen.';
+            return [303, ['Location' => url_for('geraete')], ''];
+        }
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        if ($action === 'archive') {
+            R::exec("UPDATE device SET archived_at = ?, updated_at = ? WHERE id IN ($marks)", array_merge([date(DATE_ATOM), date(DATE_ATOM)], $ids));
+            audit_log('geraete_archiviert', ['ids' => $ids]);
+            $_SESSION['meldung'] = count($ids) . ' Gerät(e) archiviert.';
+        } else {
+            R::exec("DELETE FROM inspection WHERE device_id IN ($marks)", $ids);
+            R::exec("DELETE FROM device WHERE id IN ($marks)", $ids);
+            audit_log('geraete_geloescht', ['ids' => $ids]);
+            $_SESSION['meldung'] = count($ids) . ' Gerät(e) und zugehörige Prüfungen gelöscht.';
+        }
         return [303, ['Location' => url_for('geraete')], ''];
     }
 

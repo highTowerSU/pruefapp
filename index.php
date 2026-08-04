@@ -84,6 +84,7 @@ $routes = [
     ['POST', '/struktur/raeume/{id}/geraete-verschieben', fn($params, $isHx) => StructureController::moveDevices($params, $isHx)],
     ['POST', '/struktur/{type}/{id}/loeschen', fn($params, $isHx) => StructureController::delete($params, $isHx)],
     ['GET', '/geraete', fn($params, $isHx) => DeviceController::index($params, $isHx)],
+    ['POST', '/geraete/massenaktion', fn($params, $isHx) => DeviceController::bulkAction($params, $isHx)],
     ['GET', '/geraete/suche', fn($params, $isHx) => DeviceController::lookup($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['GET', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],
