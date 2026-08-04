@@ -241,14 +241,14 @@ $hierarchyBadges = static function (string $type, $item) use (
 };
 
 $form = static function (string $type, $entity = null) use (
-    $customers, $sites, $buildings, $floors, $areas, $optionLabel
+    $customers, $sites, $buildings, $floors, $areas, $optionLabel, $sevdeskContacts
 ): void {
     $entity ??= (object) [
         'id' => 0, 'name' => '', 'description' => '', 'comment' => '', 'metadata_json' => '{}',
         'parent_customer_id' => 0, 'customer_id' => 0, 'site_id' => 0,
         'building_id' => 0, 'floor_id' => 0, 'area_id' => 0,
         'code' => '', 'sort_order' => '', 'number' => '',
-        'room_code_pattern' => '',
+        'room_code_pattern' => '', 'sevdesk_customer_id' => '', 'sevdesk_customer_number' => '',
     ];
     $config = [
         'customer' => ['route' => 'struktur/kunden', 'parent' => 'parent_customer_id', 'parents' => $customers, 'prompt' => 'Kein Unterkunde', 'parent_type' => 'customer', 'parent_label' => 'Übergeordneter Kunde'],
@@ -281,7 +281,7 @@ $form = static function (string $type, $entity = null) use (
     <?php $codeLabel = ['customer' => 'Kundenkürzel', 'site' => 'Standortkürzel', 'building' => 'Gebäudekürzel', 'floor' => 'Etagenkürzel', 'area' => 'Bereichskürzel'][$type]; ?>
     <div class="col-md-6"><label class="form-label"><?= $codeLabel ?></label><input class="form-control text-uppercase" name="code"<?= in_array($type, ['building', 'floor', 'area'], true) ? ' required' : '' ?> placeholder="<?= $type === 'building' ? 'z. B. AB' : ($type === 'floor' ? 'U, E, 0, 1 …' : ($type === 'area' ? 'E, F …' : 'optional')) ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
   <?php endif; ?>
-  <?php if ($type === 'customer'): ?><div class="col-md-6"><label class="form-label">SevDesk-Kunden-ID</label><input class="form-control" name="sevdesk_customer_id" value="<?= htmlspecialchars((string) ($entity->sevdesk_customer_id ?? '')) ?>" placeholder="z. B. 123456"></div><?php endif; ?>
+  <?php if ($type === 'customer'): ?><div class="col-md-6"><label class="form-label">SevDesk-Kundennummer</label><?php if ($sevdeskContacts !== []): ?><select class="form-select" name="sevdesk_customer_id" data-sevdesk-contact><option value="">Keine Zuordnung</option><?php foreach ($sevdeskContacts as $contact): $contactId = (string) ($contact['id'] ?? ''); $contactNumber = (string) ($contact['customerNumber'] ?? $contact['customer_number'] ?? ''); $contactName = trim((string) ($contact['name'] ?? (($contact['familyname'] ?? '') . ' ' . ($contact['firstname'] ?? '')))); if ($contactId === '') continue; ?><option value="<?= htmlspecialchars($contactId, ENT_QUOTES) ?>" data-customer-number="<?= htmlspecialchars($contactNumber, ENT_QUOTES) ?>"<?= (string) ($entity->sevdesk_customer_id ?? '') === $contactId ? ' selected' : '' ?>><?= htmlspecialchars(($contactNumber !== '' ? $contactNumber . ' · ' : '') . ($contactName ?: 'SevDesk-Kunde ' . $contactId)) ?></option><?php endforeach; ?></select><input type="hidden" name="sevdesk_customer_number" value="<?= htmlspecialchars((string) ($entity->sevdesk_customer_number ?? ''), ENT_QUOTES) ?>"><div class="form-text">Aus dem SevDesk-Konto des aktuellen Mandanten.</div><?php else: ?><input class="form-control" name="sevdesk_customer_number" value="<?= htmlspecialchars((string) ($entity->sevdesk_customer_number ?? $entity->sevdesk_customer_id ?? '')) ?>" placeholder="z. B. 123456"><input type="hidden" name="sevdesk_customer_id" value="<?= htmlspecialchars((string) ($entity->sevdesk_customer_id ?? '')) ?>"><div class="form-text">Keine SevDesk-Kontaktliste verfügbar; Kundennummer manuell eintragen.</div><?php endif; ?></div><?php endif; ?>
   <?php if ($type === 'floor'): ?>
     <div class="col-md-6"><label class="form-label">Sortierreihenfolge</label><input type="number" class="form-control" name="sort_order" placeholder="U automatisch vor E" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
   <?php elseif ($type === 'room'): ?>
@@ -300,6 +300,7 @@ $form = static function (string $type, $entity = null) use (
   <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
   <div class="col-12 text-end"><button class="btn btn-primary btn-sm">Speichern</button></div>
 </form>
+<?php if ($type === 'customer' && $sevdeskContacts !== []): ?><script>document.querySelectorAll('[data-sevdesk-contact]').forEach(function(select){const sync=()=>{const option=select.options[select.selectedIndex];const number=select.form.querySelector('[name="sevdesk_customer_number"]');if(number)number.value=option?.dataset.customerNumber||'';};select.addEventListener('change',sync);sync();});</script><?php endif; ?>
 <?php };
 
 $section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel, $hierarchyBadges, $rooms, $cascadeCounts): void {

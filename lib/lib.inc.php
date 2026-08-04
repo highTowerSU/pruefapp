@@ -336,7 +336,7 @@ function ensure_structure_schema(): void
         ],
         'customer' => [
             'code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL',
-            'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''",
+            'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_customer_number' => "TEXT NOT NULL DEFAULT ''",
         ],
         'customerinfo' => ['customer_id' => 'INTEGER NOT NULL DEFAULT 0', 'title' => "TEXT NOT NULL DEFAULT ''", 'slug' => "TEXT NOT NULL DEFAULT ''", 'markdown' => "TEXT NOT NULL DEFAULT ''", 'file_path' => "TEXT NOT NULL DEFAULT ''", 'file_name' => "TEXT NOT NULL DEFAULT ''", 'file_mime' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
         'billing_invoice' => ['customer_id' => 'INTEGER NULL', 'sevdesk_invoice_id' => "TEXT NOT NULL DEFAULT ''", 'invoice_number' => "TEXT NOT NULL DEFAULT ''", 'invoice_date' => 'TEXT NULL', 'status' => "TEXT NOT NULL DEFAULT 'draft'", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],

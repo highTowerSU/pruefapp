@@ -8,6 +8,14 @@ final class SevDeskClient
 
     public function configured(): bool { return trim($this->baseUrl) !== '' && trim($this->token) !== ''; }
 
+    /** @return list<array<string,mixed>> */
+    public function contacts(): array
+    {
+        $response = $this->request('GET', '/Contact?limit=1000');
+        $objects = $response['objects'] ?? $response['data'] ?? [];
+        return is_array($objects) ? array_values(array_filter($objects, 'is_array')) : [];
+    }
+
     /** @return array<string,mixed> */
     public function request(string $method, string $path, ?array $payload = null): array
     {

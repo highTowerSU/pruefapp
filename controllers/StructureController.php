@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use RedBeanPHP\OODBBean;
 use RedBeanPHP\R;
+use Ceneos\PhpBase\Tenant\TenantRepository;
 
 class StructureController
 {
@@ -54,6 +55,7 @@ class StructureController
             return [$buildingOrder[(int) $a->building_id] ?? PHP_INT_MAX, (int) ($a->sort_order ?? 0), mb_strtolower((string) $a->name)] <=> [$buildingOrder[(int) $b->building_id] ?? PHP_INT_MAX, (int) ($b->sort_order ?? 0), mb_strtolower((string) $b->name)];
         });
         $data['canManage'] = current_user_has_role('admin');
+        $data['sevdeskContacts'] = self::sevdeskContacts();
 
         $content = render_template('structure_index.php', $data);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
@@ -175,7 +177,10 @@ class StructureController
         }
 
         $entity->name = $name;
-        if ($type === 'customer') $entity->sevdesk_customer_id = trim((string) ($_POST['sevdesk_customer_id'] ?? ''));
+        if ($type === 'customer') {
+            $entity->sevdesk_customer_id = trim((string) ($_POST['sevdesk_customer_id'] ?? ''));
+            $entity->sevdesk_customer_number = trim((string) ($_POST['sevdesk_customer_number'] ?? ''));
+        }
         $entity->{$definition['parent']} = $parentId > 0 ? $parentId : null;
         $description = trim((string) ($_POST['description'] ?? ''));
         if (mb_strlen($description) > 240) return self::redirectWithError('Die Kurzbeschreibung darf maximal 240 Zeichen enthalten.');
@@ -222,6 +227,17 @@ class StructureController
         audit_log('struktur_' . $type . '_gespeichert', ['id' => (int) $entity->id, 'name' => $name]);
         $_SESSION['meldung'] = $definition['label'] . ' gespeichert.';
         return [303, ['Location' => url_for('struktur')], ''];
+    }
+
+    private static function sevdeskContacts(): array
+    {
+        try {
+            $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
+            if (!$tenant || trim((string) ($tenant->sevdesk_api_token ?? '')) === '') return [];
+            return (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) $tenant->sevdesk_api_token))->contacts();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     public static function floorIdentifier(OODBBean $floor, ?OODBBean $building = null): string
