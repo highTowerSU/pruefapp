@@ -382,9 +382,13 @@ final class ReportController
             $inspectionPdf = self::inspectionPdf($rows, $title, $branding);
             if ($inspectionPdf !== null) return $inspectionPdf;
         }
+        // Chromium applies the CSS page width reliably for the generic table
+        // export. The LibreOffice route remains as a fallback for servers
+        // without Chromium.
+        $preferChromium = is_executable('/usr/bin/chromium') && $rows !== [];
         // LibreOffice rendert die bereits formatierte Tabellenstruktur zuverlässig
         // und vermeidet die leeren/abgeschnittenen Browser-PDFs.
-        if ($rows !== [] && class_exists('ZipArchive') && (is_executable('/usr/bin/libreoffice') || is_executable('/usr/bin/soffice'))) {
+        if (!$preferChromium && $rows !== [] && class_exists('ZipArchive') && (is_executable('/usr/bin/libreoffice') || is_executable('/usr/bin/soffice'))) {
             $odsResponse = self::ods($rows, $title, $branding);
             $odsBody = $odsResponse[2] ?? '';
             if (is_string($odsBody) && $odsBody !== '') {
