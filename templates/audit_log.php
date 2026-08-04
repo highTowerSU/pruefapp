@@ -200,6 +200,7 @@ $nextUrl = $pagination['has_next']
   const restorePanelState = () => { try { if (panel && sessionStorage.getItem('pruefapp-audit-cron-open') === '1') panel.open = true; } catch (_) {} };
   const enable = () => {
     if (!panel || !toggle.checked) return;
+    panel.open = true;
     savePanelState();
     if (window.htmx) {
       panel.setAttribute('hx-get', window.location.href);
