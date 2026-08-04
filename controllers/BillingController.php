@@ -36,7 +36,7 @@ final class BillingController
             foreach ($rows as $row) $byCustomer[(string) $row['sevdesk_customer_id']][] = $row;
             foreach ($byCustomer as $customerId => $items) {
                 if ($customerId === '') throw new RuntimeException('Kundenverknüpfung zu SevDesk fehlt: ' . $items[0]['customer_name']);
-                $response = $client->createDraftInvoice($customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items);
+                $response = $client->createDraftInvoice($customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0));
                 $exportId = (string) ($response['objects']['id'] ?? $response['id'] ?? 'sevdesk');
                 foreach ($items as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ? WHERE id = ?', [date(DATE_ATOM), $exportId, $row['id']]);
             }

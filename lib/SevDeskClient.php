@@ -26,13 +26,13 @@ final class SevDeskClient
     }
 
     /** Erstellt einen Entwurf; Positionen werden als Prüfungen/Regiezeit dokumentiert. */
-    public function createDraftInvoice(string $customerId, string $invoiceNumber, string $date, array $items): array
+    public function createDraftInvoice(string $customerId, string $invoiceNumber, string $date, array $items, float $inspectionRate = 0, float $regieRate = 0): array
     {
         $positions = [];
         $positionNumber = 0;
         foreach ($items as $item) {
-            $positions[] = ['id' => null, 'objectName' => 'InvoicePos', 'mapAll' => true, 'quantity' => 1, 'price' => 0, 'name' => (string) ($item['description'] ?? 'Prüfung'), 'unity' => ['id' => 1, 'objectName' => 'Unity'], 'positionNumber' => $positionNumber++, 'text' => (string) ($item['details'] ?? ''), 'taxRate' => 0];
-            if ((int) ($item['regie_minutes'] ?? 0) > 0) $positions[] = ['id' => null, 'objectName' => 'InvoicePos', 'mapAll' => true, 'quantity' => (int) $item['regie_minutes'], 'price' => 0, 'name' => 'Regiezeit zur Prüfung', 'unity' => ['id' => 1, 'objectName' => 'Unity'], 'positionNumber' => $positionNumber++, 'taxRate' => 0];
+            $positions[] = ['id' => null, 'objectName' => 'InvoicePos', 'mapAll' => true, 'quantity' => 1, 'price' => $inspectionRate, 'name' => (string) ($item['description'] ?? 'Prüfung'), 'unity' => ['id' => 1, 'objectName' => 'Unity'], 'positionNumber' => $positionNumber++, 'text' => (string) ($item['details'] ?? ''), 'taxRate' => 0];
+            if ((int) ($item['regie_minutes'] ?? 0) > 0) $positions[] = ['id' => null, 'objectName' => 'InvoicePos', 'mapAll' => true, 'quantity' => (int) $item['regie_minutes'], 'price' => $regieRate, 'name' => 'Regiezeit zur Prüfung', 'unity' => ['id' => 1, 'objectName' => 'Unity'], 'positionNumber' => $positionNumber++, 'taxRate' => 0];
         }
         return $this->request('POST', '/Invoice/Factory/saveInvoice', ['invoice' => ['id' => null, 'objectName' => 'Invoice', 'mapAll' => true, 'invoiceNumber' => $invoiceNumber, 'contact' => ['id' => (int) $customerId, 'objectName' => 'Contact'], 'invoiceDate' => date('d.m.Y', strtotime($date)), 'status' => 100, 'invoiceType' => 'RE', 'currency' => 'EUR', 'showNet' => 1, 'taxRate' => 0, 'mapAll' => true], 'invoicePosSave' => $positions, 'invoicePosDelete' => null, 'discountSave' => [], 'discountDelete' => null]);
     }

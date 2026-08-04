@@ -208,6 +208,8 @@ class TenantController
                     $company->nav_text_color = $data['nav_text_color'];
                     $company->sevdesk_api_url = $data['sevdesk_api_url'];
                     if ($data['sevdesk_api_token'] !== '') $company->sevdesk_api_token = $data['sevdesk_api_token'];
+                    $company->sevdesk_inspection_rate = $data['sevdesk_inspection_rate'];
+                    $company->sevdesk_regie_rate = $data['sevdesk_regie_rate'];
                     $company->legal_impressum_label = $data['legal_impressum_label'];
                     $company->legal_impressum_url = $data['legal_impressum_url'];
                     $company->legal_privacy_label = $data['legal_privacy_label'];
@@ -274,6 +276,8 @@ class TenantController
             $companyData['nav_text_color'] = $data['nav_text_color'];
             $companyData['sevdesk_api_url'] = $data['sevdesk_api_url'];
             $companyData['sevdesk_api_token'] = '';
+            $companyData['sevdesk_inspection_rate'] = $data['sevdesk_inspection_rate'];
+            $companyData['sevdesk_regie_rate'] = $data['sevdesk_regie_rate'];
             $companyData['legal_impressum_label'] = $data['legal_impressum_label'];
             $companyData['legal_impressum_url'] = $data['legal_impressum_url'];
             $companyData['legal_privacy_label'] = $data['legal_privacy_label'];
@@ -319,6 +323,8 @@ class TenantController
         $data['nav_text_color'] = self::sanitizeColor((string) ($input['nav_text_color'] ?? ''));
         $data['sevdesk_api_url'] = trim((string) ($input['sevdesk_api_url'] ?? 'https://my.sevdesk.de/api/v1')) ?: 'https://my.sevdesk.de/api/v1';
         $data['sevdesk_api_token'] = trim((string) ($input['sevdesk_api_token'] ?? ''));
+        $data['sevdesk_inspection_rate'] = max(0, (float) str_replace(',', '.', (string) ($input['sevdesk_inspection_rate'] ?? '0')));
+        $data['sevdesk_regie_rate'] = max(0, (float) str_replace(',', '.', (string) ($input['sevdesk_regie_rate'] ?? '0')));
         foreach (['primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
             $data[$field] = self::sanitizeColor((string) ($input[$field] ?? ''));
         }
@@ -424,6 +430,8 @@ class TenantController
             'nav_text_color' => $navText,
             'sevdesk_api_url' => (string) ($company->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'),
             'sevdesk_api_token' => '',
+            'sevdesk_inspection_rate' => (float) ($company->sevdesk_inspection_rate ?? 0),
+            'sevdesk_regie_rate' => (float) ($company->sevdesk_regie_rate ?? 0),
             'legal_impressum_label' => (string) ($company->legal_impressum_label ?? ''),
             'legal_impressum_url' => (string) ($company->legal_impressum_url ?? ''),
             'legal_privacy_label' => (string) ($company->legal_privacy_label ?? ''),
