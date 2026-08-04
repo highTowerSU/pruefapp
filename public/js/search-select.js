@@ -6,7 +6,10 @@
       return;
     }
 
-    root.querySelectorAll('select[data-search-select], select[name="tenant_id"], select[name="sevdesk_customer_id"]').forEach(select => {
+    // Alle normalen Bootstrap-Auswahllisten erhalten dieselbe touch- und
+    // tastaturfreundliche Suche; data-search-select bleibt als explizite
+    // Markierung für Sonderfälle bestehen.
+    root.querySelectorAll('select.form-select, select[data-search-select], select[name="tenant_id"], select[name="sevdesk_customer_id"]').forEach(select => {
       if (select.tomselect) {
         return;
       }
