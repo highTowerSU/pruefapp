@@ -128,6 +128,7 @@ class AdminController
             $cronPendingJobs[] = $job;
         }
         usort($cronPendingJobs, static fn(array $a, array $b): int => strcmp((string) ($a['created_at'] ?? ''), (string) ($b['created_at'] ?? '')));
+        $cronMissingReports = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND TRIM(COALESCE(report_path, '')) = ''");
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
@@ -141,6 +142,7 @@ class AdminController
             'cronAge' => $cronAge,
             'cronHealthy' => $cronHealthy,
             'cronPendingJobs' => $cronPendingJobs,
+            'cronMissingReports' => $cronMissingReports,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,
