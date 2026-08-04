@@ -213,6 +213,21 @@ function initialize_database(): void
     $storageNamespace = app_storage_namespace();
     $legacyNamespace = 'pruefapp';
 
+    $configuredDsn = trim((string) (config_value('APP_DATABASE_DSN') ?? ''));
+    if ($configuredDsn !== '') {
+        $dbUser = (string) (config_value('APP_DATABASE_USER') ?? '');
+        $dbPassword = (string) (config_value('APP_DATABASE_PASSWORD') ?? '');
+        R::setup($configuredDsn, $dbUser, $dbPassword);
+        $GLOBALS['pruefapp_database_path'] = $configuredDsn;
+        R::freeze(false);
+        ensure_structure_schema();
+        RevisionSupport::enableFor(
+            ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'customer', 'site', 'building', 'floor', 'area', 'room', 'device', 'inspection', 'customerinfo']
+        );
+        $initialized = true;
+        return;
+    }
+
     $dbCandidates = [];
     $configuredDatabasePath = config_value('APP_DATABASE_PATH');
     if ($configuredDatabasePath !== null) {
@@ -293,6 +308,7 @@ function app_database_path(): string
 
 function ensure_structure_schema(): void
 {
+    $isMysql = str_starts_with(strtolower((string) ($GLOBALS['pruefapp_database_path'] ?? '')), 'mysql:') || str_starts_with(strtolower((string) ($GLOBALS['pruefapp_database_path'] ?? '')), 'mariadb:');
     $statements = [
         'CREATE TABLE IF NOT EXISTS customer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, parent_customer_id INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS oauthuser_customer (id INTEGER PRIMARY KEY AUTOINCREMENT, oauthuser_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, created_at TEXT NULL, UNIQUE(oauthuser_id, customer_id))',
@@ -319,8 +335,19 @@ function ensure_structure_schema(): void
     ];
 
     foreach ($statements as $statement) {
+        if ($isMysql) {
+            $statement = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INTEGER PRIMARY KEY AUTO_INCREMENT', $statement);
+            // MySQL does not support SQLite's IF NOT EXISTS syntax for indexes.
+            if (str_starts_with(strtoupper(trim($statement)), 'CREATE INDEX IF NOT EXISTS')) continue;
+        }
         R::exec($statement);
     }
+
+    if (!$isMysql) R::exec('CREATE TABLE IF NOT EXISTS schema_migration (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
+    else R::exec('CREATE TABLE IF NOT EXISTS schema_migration (version INT PRIMARY KEY, applied_at VARCHAR(64) NOT NULL)');
+    $migrationVersion = 1;
+    $existingMigration = R::getCell('SELECT version FROM schema_migration WHERE version = ?', [$migrationVersion]);
+    if (!$existingMigration) R::exec('INSERT INTO schema_migration (version, applied_at) VALUES (?, ?)', [$migrationVersion, date(DATE_ATOM)]);
 
     $columns = [
         'site' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
