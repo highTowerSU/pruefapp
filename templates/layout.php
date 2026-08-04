@@ -392,7 +392,7 @@ $assetVersion = app_asset_version();
                 if (root.matches?.('button.btn, a.btn')) candidates.push(root);
                 root.querySelectorAll?.('button.btn, a.btn').forEach(button => candidates.push(button));
                 candidates.forEach(button => {
-                    if (button.dataset.actionIconBound === '1' || button.querySelector('i.fa-solid, i.fas, i.far, i.fab')) return;
+                    if (button.dataset.actionIconBound === '1' || button.matches('#themeCycleButton, [data-bs-theme-value], .dropdown-toggle') || button.querySelector('i.fa-solid, i.fas, i.far, i.fab')) return;
                     const label = button.textContent.trim();
                     if (!label) return;
                     const match = icons.find(([pattern]) => pattern.test(label));
