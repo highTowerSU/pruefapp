@@ -94,14 +94,16 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     <div class="d-flex align-items-center ms-auto gap-4 flex-wrap justify-content-end">
       <?php $authUser = current_user(); ?>
       <?php if ($authUser !== null): ?>
-        <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
-          <a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $structureActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Struktur</a>
-          <a href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $devicesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Geräte</a>
-        </div>
-        <?php if ($authUser !== null): ?>
+        <ul class="navbar-nav align-items-lg-center gap-lg-2 flex-wrap justify-content-end">
+          <li class="nav-item"><a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link<?= $structureActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-sitemap me-1" aria-hidden="true"></i>Struktur</a></li>
+          <li class="nav-item"><a href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>" class="nav-link<?= $devicesActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Geräte</a></li>
+          <?php if (current_user_has_role('admin')): ?>
+            <li class="nav-item"><a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link<?= $inspectionImportActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-file-import me-1" aria-hidden="true"></i>Import</a></li>
+            <li class="nav-item"><a href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>" class="nav-link<?= $billingActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-coins me-1" aria-hidden="true"></i>Abrechnung</a></li>
+          <?php endif; ?>
           <?php $adminMenuId = 'adminNavigationDropdown'; ?>
-          <div class="dropdown">
-            <button class="nav-link dropdown-toggle px-0 border-0 bg-transparent<?= $adminMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="<?= $adminMenuId ?>" data-bs-toggle="dropdown" aria-expanded="false">
+          <li class="nav-item dropdown">
+            <button class="nav-link dropdown-toggle border-0 bg-transparent<?= $adminMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="<?= $adminMenuId ?>" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="fa-solid fa-screwdriver-wrench me-1" aria-hidden="true"></i>Verwaltung
             </button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= $adminMenuId ?>">
@@ -116,13 +118,9 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <li><a class="dropdown-item" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Konfiguration</a></li>
               <?php endif; ?>
             </ul>
-          </div>
-        <?php endif; ?>
-        <?php if (current_user_has_role('admin')): ?>
-          <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $inspectionImportActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-file-import me-1" aria-hidden="true"></i>Import</a>
-          <a href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $billingActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-file-invoice-dollar me-1" aria-hidden="true"></i>Abrechnung</a>
-        <?php endif; ?>
-        <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0 ms-2<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a>
+          </li>
+          <li class="nav-item"><a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link<?= $helpActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a></li>
+        </ul>
       <?php else: ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
