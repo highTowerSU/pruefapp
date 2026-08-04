@@ -69,7 +69,7 @@ function ceneos_base_version_display_data(): array
     static $cache = null;
     if ($cache !== null) return $cache;
     $baseDir = dirname(__DIR__) . '/vendor/ceneos/php-base';
-    $version = detect_app_version_from_json($baseDir . '/composer.json') ?? 'dev';
+    $version = detect_app_version_from_json($baseDir . '/composer.json') ?? 'v1';
     $commit = detect_git_commit_in($baseDir);
     return $cache = [
         'version' => $version,
