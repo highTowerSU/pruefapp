@@ -101,7 +101,10 @@ class AdminController
         $revisions = array_slice($allRevisions, ($revisionPage - 1) * $revisionPerPage, $revisionPerPage);
         $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
         $cronPerPage = 50;
-        $cronTotal = (int) R::count('cron_log');
+        // `cron_log` is intentionally an underscored SQL table name. RedBean
+        // bean types cannot contain underscores, so do not call R::count()
+        // with it as a bean type.
+        $cronTotal = (int) R::getCell('SELECT COUNT(*) FROM cron_log');
         $cronPages = max(1, (int) ceil($cronTotal / $cronPerPage));
         $cronPage = min($cronPage, $cronPages);
         $cronOffset = ($cronPage - 1) * $cronPerPage;
