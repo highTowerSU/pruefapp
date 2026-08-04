@@ -32,7 +32,7 @@ $nextUrl = $pagination['has_next']
 </div>
 
 <details class="card mb-4" open>
-<summary class="card-header fw-semibold">Ereignisprotokoll</summary>
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Ereignisprotokoll</span><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></summary>
 <div class="card-body">
 <?php if (empty($entries)): ?>
     <p class="text-body-secondary">Es wurden noch keine Aktionen protokolliert.</p>
@@ -107,7 +107,8 @@ $nextUrl = $pagination['has_next']
                         <?php endif; ?>
                     </td>
                     <td class="text-nowrap">
-                        <?= htmlspecialchars($entry['aktion']) ?>
+                        <?php $action = strtolower((string) $entry['aktion']); $actionClass = str_contains($action, 'lösch') || str_contains($action, 'delete') ? 'danger' : (str_contains($action, 'neu') || str_contains($action, 'create') ? 'success' : (str_contains($action, 'änder') || str_contains($action, 'update') ? 'warning text-dark' : 'secondary')); ?>
+                        <span class="badge text-bg-<?= $actionClass ?>"><?= htmlspecialchars($entry['aktion']) ?></span>
                     </td>
                     <td class="text-break">
                         <?php
@@ -170,20 +171,20 @@ $nextUrl = $pagination['has_next']
 </details>
 
 <details class="card mb-4" open>
-<summary class="card-header fw-semibold">Prüfapp-Cron</summary>
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Prüfapp-Cron</span><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></summary>
 <div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
 <?php if (empty($cronLog)): ?>
     <div class="alert alert-warning">Noch kein Prüfapp-Cron-Lauf protokolliert.</div>
 <?php else: ?>
-    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): $message = (string) ($line['message'] ?? ''); ?><tr><td class="text-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string) $line['run_at']))->format('d.m.Y H:i:s') ) ?></td><td><span class="badge text-bg-<?= ($line['level'] ?? 'info') === 'error' ? 'danger' : 'secondary' ?>"><?= htmlspecialchars(strtoupper((string) ($line['level'] ?? 'info'))) ?></span></td><td class="text-break"><?php if (mb_strlen($message) > 220): ?><details><summary><?= htmlspecialchars(mb_substr($message, 0, 220) . ' …') ?></summary><pre class="small mt-2 mb-0 text-wrap"><?= htmlspecialchars($message) ?></pre></details><?php else: ?><?= htmlspecialchars($message) ?><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): $message = (string) ($line['message'] ?? ''); $level = strtolower((string) ($line['level'] ?? 'info')); $levelClass = $level === 'error' ? 'danger' : ($level === 'warning' ? 'warning text-dark' : 'info'); ?><tr><td class="text-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string) $line['run_at']))->format('d.m.Y H:i:s') ) ?></td><td><span class="badge text-bg-<?= $levelClass ?>"><?= htmlspecialchars(strtoupper($level)) ?></span></td><td class="text-break"><?php if (mb_strlen($message) > 220): ?><details><summary><?= htmlspecialchars(mb_substr($message, 0, 220) . ' …') ?></summary><pre class="small mt-2 mb-0 text-wrap"><?= htmlspecialchars($message) ?></pre></details><?php else: ?><?= htmlspecialchars($message) ?><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div>
     <?php if (($cronPages ?? 1) > 1): ?><nav aria-label="Cron-Log-Seiten"><ul class="pagination pagination-sm"><?php for ($p = 1; $p <= $cronPages; $p++): ?><li class="page-item<?= $p === $cronPage ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('admin/audit-log?cron_page=' . $p), ENT_QUOTES) ?>"><?= $p ?></a></li><?php endfor; ?></ul></nav><?php endif; ?>
 <?php endif; ?>
 </div>
 </details>
 
 <details class="card mb-4">
-<summary class="card-header fw-semibold">Datenrevisionen (ReBean)</summary>
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Datenrevisionen (ReBean)</span><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></summary>
 <div class="card-body">
 <?php if (empty($revisions)): ?>
     <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>
@@ -205,7 +206,7 @@ $nextUrl = $pagination['has_next']
                 <tr>
                     <td class="text-nowrap"><?= htmlspecialchars((string) $revision['timestamp']) ?></td>
                     <td><code><?= htmlspecialchars((string) $revision['table']) ?></code></td>
-                    <td><span class="badge text-bg-secondary"><?= htmlspecialchars((string) $revision['action']) ?></span></td>
+                    <td><?php $revisionAction = strtolower((string) $revision['action']); $revisionClass = str_contains($revisionAction, 'delete') || str_contains($revisionAction, 'lösch') ? 'danger' : (str_contains($revisionAction, 'create') || str_contains($revisionAction, 'neu') ? 'success' : 'warning text-dark'); ?><span class="badge text-bg-<?= $revisionClass ?>"><?= htmlspecialchars((string) $revision['action']) ?></span></td>
                     <td>#<?= (int) $revision['original_id'] ?></td>
                     <td>
                         <details>

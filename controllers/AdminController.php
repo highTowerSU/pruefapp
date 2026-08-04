@@ -114,6 +114,7 @@ class AdminController
             'pagination' => $events['pagination'],
             'revisions' => $revisions,
             'cronLog' => $cronLog,
+            'cronTotal' => $cronTotal,
             'cronPage' => $cronPage,
             'cronPages' => $cronPages,
             'revisionPage' => $revisionPage,
