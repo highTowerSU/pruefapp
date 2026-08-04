@@ -6,6 +6,7 @@
 /** @var string|null $keycloakAccountFileOverride */
 /** @var string|null $keycloakAdminFileOverride */
 /** @var array<string, mixed>|null $databaseWizard */
+/** @var array<string, list<string>>|null $updateResult */
 ?>
 
 <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
@@ -41,6 +42,18 @@
     <button type="submit" class="btn btn-primary">Speichern</button>
   </div>
 </form>
+
+<details class="card shadow-sm mt-4">
+  <summary class="card-header fw-semibold"><i class="fa-solid fa-arrows-rotate me-1" aria-hidden="true"></i>Anwendung aktualisieren</summary>
+  <div class="card-body">
+    <p class="text-body-secondary small">Aktualisiert Composer- und JavaScript-Abhängigkeiten sowie vorhandene Frontend-Builds. Nur für Superadministratoren.</p>
+    <?php if (!empty($updateResult)): ?><div class="alert alert-<?= !empty($updateResult['errors']) ? 'danger' : 'success' ?>"><strong><?= !empty($updateResult['errors']) ? 'Aktualisierung mit Fehlern' : 'Aktualisierung abgeschlossen' ?></strong><ul class="mb-0 mt-2"><?php foreach (['ok', 'skipped', 'errors'] as $group): foreach (($updateResult[$group] ?? []) as $message): ?><li><?= htmlspecialchars((string) $message, ENT_QUOTES) ?></li><?php endforeach; endforeach; ?></ul></div><?php endif; ?>
+    <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" onsubmit="return confirm('Abhängigkeiten und Frontend wirklich aktualisieren?');">
+      <input type="hidden" name="action" value="update_app">
+      <button class="btn btn-outline-primary" type="submit"><i class="fa-solid fa-cloud-arrow-down me-1" aria-hidden="true"></i>Jetzt aktualisieren</button>
+    </form>
+  </div>
+</details>
 
 <div class="card shadow-sm">
   <div class="card-header"><h2 class="h5 mb-0">Aktive Konfiguration</h2></div>

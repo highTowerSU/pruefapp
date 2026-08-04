@@ -205,7 +205,7 @@ final class ReportController
         foreach ($rows as $row) fputcsv($stream, $row, ';');
         rewind($stream);
         $body = "\xEF\xBB\xBF" . stream_get_contents($stream);
-        return [200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $filename . '"'], $body];
+        return [200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $filename . '"'], $body];
     }
 
     private static function ods(array $rows, string $title, array $branding = []): array
@@ -248,13 +248,13 @@ final class ReportController
         $quoteStyles = ''; foreach ($quoteColors as $index => $color) $quoteStyles .= '<style:style style:name="Q' . ($index + 1) . '" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $color . '"/></style:style>';
         $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles>' . $columnStyles . '<style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $primary . '"/><style:text-properties fo:color="' . $primaryText . '" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style>' . $quoteStyles . '</office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export">' . $columns . '<table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range-address="Export.A1:' . $lastColumn . count($rows) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
         $zip->addFromString('content.xml', $content);
-        $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:styles/></office:document-styles>');
-        $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:meta/></office:document-meta>');
+        $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles><style:page-layout style:name="Landscape"><style:page-layout-properties fo:page-width="29.7cm" fo:page-height="21cm" fo:margin="0.5cm" style:print-orientation="landscape"/></style:page-layout></office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="Landscape"/></office:master-styles><office:styles/></office:document-styles>');
+        $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:meta><dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">' . self::exportLanguage() . '</dc:language></office:meta></office:document-meta>');
         $zip->addFromString('settings.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-settings xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:settings/></office:document-settings>');
         $zip->addFromString('META-INF/manifest.xml', '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.spreadsheet" manifest:full-path="/"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="styles.xml"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="meta.xml"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="settings.xml"/></manifest:manifest>');
         $zip->close();
         $body = file_get_contents($tmp); @unlink($tmp);
-        return [200, ['Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet', 'Content-Disposition' => 'attachment; filename="' . $title . '.ods"'], $body];
+        return [200, ['Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $title . '.ods"'], $body];
     }
 
     private static function xlsx(array $rows, string $title): array
@@ -288,9 +288,9 @@ final class ReportController
         $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' . $esc(mb_substr($title, 0, 31)) . '" sheetId="1" r:id="rId1"/></sheets></workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
         $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8D7DA"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="4"><xf/><xf fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" wrapText="1"/></xf><xf fillId="2" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf><xf fillId="3" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf></cellXfs></styleSheet>');
-        $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' . $cols . '</cols><sheetData>' . $sheet . '</sheetData><autoFilter ref="A1:' . $lastColumn . $lastRow . '"/></worksheet>');
+        $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' . $cols . '</cols><sheetData>' . $sheet . '</sheetData><autoFilter ref="A1:' . $lastColumn . $lastRow . '"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>');
         $zip->close(); $body = file_get_contents($tmp); @unlink($tmp);
-        return [200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition' => 'attachment; filename="' . $title . '.xlsx"'], $body];
+        return [200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $title . '.xlsx"'], $body];
     }
 
     private static function pdf(array $rows, string $title, array $branding = []): array
@@ -334,6 +334,11 @@ final class ReportController
         $pdf = self::buildPdf($streams); return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"'], $pdf];
     }
 
+    private static function exportLanguage(): string
+    {
+        $header = strtolower((string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
+        return $header === '' || str_starts_with($header, 'de') ? 'de-DE' : (str_contains($header, 'en') ? 'en-US' : 'de-DE');
+    }
     private static function pdfText(string $value): string { return function_exists('iconv') ? (string) iconv('UTF-8', 'CP1252//TRANSLIT//IGNORE', $value) : $value; }
     private static function brandColor(array $branding, string $key, string $fallback): string
     {

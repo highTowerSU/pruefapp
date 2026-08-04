@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use RedBeanPHP\R;
+use Ceneos\PhpBase\Update\Updater;
 
 class SettingsController
 {
@@ -21,9 +22,18 @@ class SettingsController
         ];
         $errors = [];
         $databaseWizard = null;
+        $updateResult = null;
         $skipGeneralSave = false;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'update_app') {
+                $skipGeneralSave = true;
+                try {
+                    $updateResult = Updater::update(dirname(__DIR__), true);
+                } catch (Throwable $exception) {
+                    $updateResult = ['ok' => [], 'skipped' => [], 'errors' => [$exception->getMessage()]];
+                }
+            }
             if (($_POST['action'] ?? '') === 'db_wizard') {
                 $skipGeneralSave = true;
                 try {
@@ -112,6 +122,7 @@ class SettingsController
             'keycloakAdminFileOverride' => config_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL'),
             'databasePath' => app_database_path(),
             'databaseWizard' => $databaseWizard,
+            'updateResult' => $updateResult,
         ]);
 
         if ($isHx) {
