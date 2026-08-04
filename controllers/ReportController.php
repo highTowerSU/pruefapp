@@ -53,7 +53,7 @@ final class ReportController
         }
         $branding = function_exists('get_branding') ? get_branding() : [];
         if ($format === 'ods') return self::ods($rows, $name, $branding);
-        if ($format === 'xlsx') return self::xlsx($rows, $name);
+        if ($format === 'xlsx') return self::xlsx($rows, $name, $branding);
         if ($format === 'pdf') return self::pdf($rows, $name, $branding);
         return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($reportType === 'weekly' ? 'wochenreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv')));
     }
@@ -316,13 +316,33 @@ final class ReportController
         return [200, ['Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $title . '.ods"'], $body];
     }
 
-    private static function xlsx(array $rows, string $title): array
+    private static function xlsx(array $rows, string $title, array $branding = []): array
     {
         if (!class_exists('ZipArchive')) return [500, [], 'XLSX-Export ist auf diesem Server nicht verfügbar.'];
+        // LibreOffice übernimmt hier denselben gebrandeten Tabellenaufbau wie
+        // beim ODS-Export, inklusive Logo in A:B und Titel ab C.
+        $office = is_executable('/usr/bin/libreoffice') ? '/usr/bin/libreoffice' : (is_executable('/usr/bin/soffice') ? '/usr/bin/soffice' : '');
+        if ($office !== '') {
+            $odsResponse = self::ods($rows, $title, $branding);
+            $odsBody = $odsResponse[2] ?? '';
+            if (is_string($odsBody) && $odsBody !== '') {
+                $dir = sys_get_temp_dir() . '/pruefapp-xlsx'; if (!is_dir($dir)) mkdir($dir, 0700, true);
+                $token = bin2hex(random_bytes(8)); $odsPath = $dir . '/' . $token . '.ods'; $outDir = $dir . '/' . $token;
+                if (!is_dir($outDir)) mkdir($outDir, 0700, true); $profile = $dir . '/profile-' . $token;
+                file_put_contents($odsPath, $odsBody, LOCK_EX);
+                $cmd = 'timeout 30s ' . escapeshellarg($office) . ' -env:UserInstallation=' . escapeshellarg('file://' . $profile) . ' --headless --convert-to xlsx --outdir ' . escapeshellarg($outDir) . ' ' . escapeshellarg($odsPath) . ' 2>/dev/null';
+                shell_exec($cmd); $converted = glob($outDir . '/*.xlsx') ?: []; $xlsxPath = $converted[0] ?? '';
+                $body = $xlsxPath !== '' && is_file($xlsxPath) ? file_get_contents($xlsxPath) : false;
+                @unlink($odsPath); if ($xlsxPath !== '') @unlink($xlsxPath); @rmdir($outDir); @rmdir($profile);
+                if (is_string($body) && $body !== '') return [200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $title . '.xlsx"'], $body];
+            }
+        }
         $tmp = tempnam(sys_get_temp_dir(), 'xlsx-');
         $zip = new ZipArchive();
         if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) return [500, [], 'XLSX-Datei konnte nicht erstellt werden.'];
         $esc = static fn($value): string => htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $primary = self::brandColor($branding, 'primary', '#1F4E78');
+        $primaryRgb = 'FF' . ltrim($primary, '#');
         $col = static function (int $index): string { $name = ''; do { $name = chr(65 + ($index % 26)) . $name; $index = intdiv($index, 26) - 1; } while ($index >= 0); return $name; };
         $headers = $rows[0] ?? [];
         $sheet = '';
@@ -346,7 +366,7 @@ final class ReportController
         $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
         $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' . $esc(mb_substr($title, 0, 31)) . '" sheetId="1" r:id="rId1"/></sheets></workbook>');
         $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
-        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8D7DA"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="4"><xf/><xf fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" wrapText="1"/></xf><xf fillId="2" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf><xf fillId="3" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf></cellXfs></styleSheet>');
+        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="' . $primaryRgb . '"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8D7DA"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="4"><xf/><xf fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" wrapText="1"/></xf><xf fillId="2" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf><xf fillId="3" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf></cellXfs></styleSheet>');
         $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' . $cols . '</cols><sheetData>' . $sheet . '</sheetData><autoFilter ref="A1:' . $lastColumn . $lastRow . '"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>');
         $zip->close(); $body = file_get_contents($tmp); @unlink($tmp);
         return [200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $title . '.xlsx"'], $body];
