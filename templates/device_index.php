@@ -237,6 +237,14 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     target.append(node);
   });
   toolbar.replaceChildren(...groups.filter(group => group.children.length));
+  toolbar.querySelectorAll(':scope > .device-export-toolbar').forEach((bar, index) => {
+    const buttons = [...bar.querySelectorAll(':scope > button')];
+    if (buttons.length < 2) return;
+    const group = document.createElement('div');
+    group.className = 'btn-group'; group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', index === 1 ? 'Seitenauswahl' : 'Exportformate');
+    buttons[0].before(group); buttons.forEach(button => group.append(button));
+  });
 })();
 </script>
 <?php if ($pages > 1): ?><?php $pageQuery = array_filter($filters ?? [], static fn($value): bool => trim((string) $value) !== ''); ?><nav aria-label="Geräteseiten" class="mt-4"><ul class="pagination justify-content-center flex-wrap"><li class="page-item<?= $page <= 1 ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => max(1, $page - 1)]))), ENT_QUOTES) ?>">Zurück</a></li><?php for ($number = 1; $number <= $pages; $number++): ?><?php if ($number === 1 || $number === $pages || abs($number - $page) <= 2): ?><li class="page-item<?= $number === $page ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => $number]))), ENT_QUOTES) ?>"><?= $number ?></a></li><?php elseif ($number === 2 || $number === $pages - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?><?php endfor; ?><li class="page-item<?= $page >= $pages ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => min($pages, $page + 1)]))), ENT_QUOTES) ?>">Weiter</a></li></ul></nav><?php endif; ?>
