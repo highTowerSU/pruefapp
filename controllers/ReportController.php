@@ -282,10 +282,14 @@ final class ReportController
         $headerXml = $render($headers, true);
         $titleText = htmlspecialchars($companyName . ' · ' . $title, ENT_XML1 | ENT_QUOTES, 'UTF-8');
         $titleCell = '<table:table-cell table:number-columns-spanned="' . $columnCount . '" table:style-name="Title"><text:p>' . $titleText . '</text:p></table:table-cell>';
-        if ($logoData !== '') {
-            $titleCell = '<table:table-cell table:number-columns-spanned="' . $columnCount . '" table:style-name="Title"><draw:frame draw:name="Logo" svg:width="3cm" svg:height="1cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame><text:p>' . $titleText . '</text:p></table:table-cell>';
+        if ($logoData !== '' && $columnCount >= 3) {
+            $titleSpan = $columnCount - 2;
+            $logoCell = '<table:table-cell table:number-columns-spanned="2" table:style-name="Title"><draw:frame draw:name="Logo" svg:width="3cm" svg:height="1cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame></table:table-cell>';
+            $titleCell = '<table:table-cell table:number-columns-spanned="' . $titleSpan . '" table:style-name="Title"><text:p>' . $titleText . '</text:p></table:table-cell>';
+            $titleXml = '<table:table-row>' . $logoCell . $titleCell . '</table:table-row>';
+        } else {
+            $titleXml = '<table:table-row>' . $titleCell . '</table:table-row>';
         }
-        $titleXml = '<table:table-row>' . $titleCell . '</table:table-row>';
         $subtitle = htmlspecialchars('Erstellt am ' . (new DateTimeImmutable())->format('d.m.Y H:i') . ' · ' . max(0, count($rows) - 1) . ' Datensätze · Filter und Sortierung aus der aktuellen Ansicht', ENT_XML1 | ENT_QUOTES, 'UTF-8');
         $subtitleXml = '<table:table-row><table:table-cell table:number-columns-spanned="' . $columnCount . '" table:style-name="Subtitle"><text:p>' . $subtitle . '</text:p></table:table-cell></table:table-row>';
         $bodyXml = '';
