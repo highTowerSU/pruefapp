@@ -155,17 +155,18 @@
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle.active {
   color: var(--navbar-color, var(--bs-emphasis-color));
   background-color: color-mix(in srgb, var(--navbar-color, var(--bs-emphasis-color)) 16%, transparent);
-  border-radius: var(--bs-border-radius);
+  border-radius: 0;
   box-shadow: inset 0 -2px 0 currentColor;
 }
 
 [data-bs-theme="light"] .navbar-themed .nav-link i,
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle i {
-  color: #6b5200;
+  color: currentColor;
+  opacity: .9;
 }
 
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle::after {
-  border-top-color: #6b5200;
+  border-top-color: currentColor;
 }
 
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle.active::after {
@@ -175,6 +176,10 @@
 [data-bs-theme="light"] .navbar-themed .nav-link.active i,
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle.active i {
   color: currentColor;
+}
+
+[data-bs-theme="light"] .device-card-summary > .fa-plus-circle {
+  color: var(--bs-emphasis-color) !important;
 }
 
 .navbar-themed .btn-outline-navbar {
