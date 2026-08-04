@@ -91,6 +91,41 @@ if (!is_file($migrationMarker)) {
 // Einmalige PDF-Migration: alle bereits abgeschlossenen Prüfungen werden mit
 // dem aktuellen Einzelbericht-Layout neu gerendert. Der Cursor macht den Lauf
 // über mehrere Cron-Iterationen hinweg sicher und wiederholbar.
+$phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v1.json';
+if (!is_file($phoenixRestoreMarker)) {
+    $phoenixRestored = 0;
+    try {
+        $phoenixRows = R::getAll("SELECT id, external_number, report_path FROM inspection
+            WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
+              AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'
+            ORDER BY id ASC");
+        foreach ($phoenixRows as $row) {
+            if ($timeLeft() <= 4) { $log('Phoenix-PDF-Wiederherstellung wegen Zeitbudget auf nächste Iteration verschoben.', 'warning'); break; }
+            $target = app_data_root() . '/reports/current/' . (int) $row['id'] . '.pdf';
+            $source = '';
+            $relative = trim((string) ($row['report_path'] ?? ''));
+            if ($relative !== '' && str_starts_with($relative, 'reports/') && !str_starts_with($relative, 'reports/current/')) {
+                $candidate = app_data_root() . '/' . $relative;
+                if (is_file($candidate)) $source = $candidate;
+            }
+            if ($source === '') {
+                $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
+                foreach (glob(app_data_root() . '/reports/' . $number . '-*.pdf') ?: [] as $candidate) { if (is_file($candidate)) { $source = $candidate; break; } }
+            }
+            if ($source !== '' && $source !== $target) {
+                if (!is_dir(dirname($target))) @mkdir(dirname($target), 0770, true);
+                if (@copy($source, $target)) $phoenixRestored++;
+            }
+        }
+        if ($timeLeft() > 4) {
+            if (!is_dir(dirname($phoenixRestoreMarker))) @mkdir(dirname($phoenixRestoreMarker), 0770, true);
+            file_put_contents($phoenixRestoreMarker, json_encode(['completed_at' => date(DATE_ATOM), 'restored' => $phoenixRestored], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+            if ($phoenixRestored > 0) $log('Phoenix-PDFs wiederhergestellt: ' . $phoenixRestored);
+        }
+    } catch (Throwable $exception) {
+        $log('Phoenix-PDF-Wiederherstellung fehlgeschlagen: ' . $exception->getMessage(), 'error');
+    }
+}
 $reportMigrationMarker = app_data_root() . '/migration/inspection-reports-v2.json';
 if (!is_file($reportMigrationMarker) || (($reportMigrationState = json_decode((string) @file_get_contents($reportMigrationMarker), true))['completed'] ?? false) !== true) {
     try {
@@ -105,6 +140,7 @@ if (!is_file($reportMigrationMarker) || (($reportMigrationState = json_decode((s
             LEFT JOIN site s ON s.id = b.site_id
             LEFT JOIN customer c ON c.id = s.customer_id
             WHERE i.id > ? AND i.result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
+              AND NOT (COALESCE(i.source_type, '') = 'json' AND COALESCE(i.raw_json, '') LIKE '%phoenix-sync%')
             ORDER BY i.id ASC LIMIT 250", [$lastMigrationId]);
         $migrationProcessed = 0;
         foreach ($migrationRows as $row) {

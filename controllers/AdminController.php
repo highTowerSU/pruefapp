@@ -144,7 +144,7 @@ class AdminController
             $cronPdfMigrationState = is_array($decodedPdfMigrationState) ? $decodedPdfMigrationState : [];
             $cronPdfMigrationPending = ($cronPdfMigrationState['completed'] ?? false) !== true;
             if ($cronPdfMigrationPending) {
-                $cronPdfMigrationRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id > ? AND result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')", [(int) ($cronPdfMigrationState['last_id'] ?? 0)]);
+                $cronPdfMigrationRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id > ? AND result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')", [(int) ($cronPdfMigrationState['last_id'] ?? 0)]);
             }
         }
 
