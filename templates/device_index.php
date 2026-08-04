@@ -29,6 +29,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <?php if ($canManage): ?><details class="card mb-4"><summary class="card-header"><strong>Neues Gerät</strong></summary><div class="card-body"><?php $form(null, (string) ($newNumber ?? '')); ?></div></details><?php endif; ?>
 <style>
 .device-form{--bs-gutter-y:1.25rem}.device-form-heading{margin-top:.5rem}.device-form .form-label{font-weight:600}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:44px}.device-form [data-copy-device-name]{font-size:.78rem;text-decoration:none}.device-form [data-copy-device-name]:hover{text-decoration:underline}.device-form .ts-wrapper{width:100%}.device-form .ts-control{padding:.65rem .75rem}.device-form textarea.form-control{min-height:90px}.device-form .col-12.text-end{padding-top:.5rem}.device-form .col-12.text-end .btn{min-height:44px}.vstack.gap-3>.card>summary{cursor:pointer}.vstack.gap-3>.card>summary:focus-visible{outline:3px solid var(--bs-primary);outline-offset:-3px}
+.device-page-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}.device-new-inspection{flex:0 1 26rem;min-width:min(100%,20rem)}.device-new-inspection .input-group{max-width:26rem}
 @media(max-width:991.98px){.device-filter-form .row>[class*="col-"]{width:50%}.device-filter-form .row>.col-md-3:first-child{width:100%}.device-filter-form .row>.col-md-1.d-flex{width:100%}}
 @media(max-width:767.98px){.device-filter-form,.device-status-filter{padding:1rem!important}.device-filter-form .row>[class*="col-"],.device-status-filter .row>[class*="col-"]{width:100%}.device-filter-form .row{--bs-gutter-y:.75rem}.device-filter-form .btn,.device-status-filter .btn{min-height:48px}.device-form .row>[class*="col-md-"]{width:100%}.device-form .device-form-heading{margin-top:1rem}.device-form .col-12.text-end{display:flex;flex-direction:column;gap:.5rem}.device-form .col-12.text-end .btn{width:100%}.device-form .form-check{margin-top:0!important;padding:1rem;border:1px solid var(--bs-border-color);border-radius:.5rem}.card-header{padding:1rem}.vstack.gap-3>.card{border-radius:.65rem}.table-responsive{margin-inline:-.25rem}.table-responsive table{min-width:680px}.ts-dropdown{max-height:50vh}.ts-dropdown-content{max-height:50vh}}
 @media(max-width:575.98px){.device-filter-form .row,.device-status-filter .row{--bs-gutter-x:.65rem;--bs-gutter-y:.65rem}.device-form .device-form-heading h2{font-size:1.05rem}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:48px;font-size:1rem}.device-form .form-text{font-size:.8rem}.device-form [data-copy-device-name]{font-size:.72rem}.device-form .form-check{width:100%;margin-left:0!important}.device-form .col-12.text-end .btn{font-size:1rem}.device-status-filter{margin-bottom:1rem!important}}
@@ -84,10 +85,11 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
   window.addEventListener('DOMContentLoaded', initializeDeviceShortcuts, {once: true});
   const filterForm = document.querySelector('form[method="get"]');
   if (<?= $canManage ? 'true' : 'false' ?> && filterForm) {
-    const panel = document.createElement('details');
-    panel.className = 'card mb-4';
-    panel.innerHTML = '<summary class="card-header"><strong><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Neue Prüfung</strong></summary><div class="card-body"><label class="form-label" for="inspection-device-number">Gerät suchen oder Barcode scannen</label><div class="input-group"><input class="form-control" id="inspection-device-number" inputmode="text" autocomplete="off" placeholder="Gerätenummer eingeben oder scannen"><button class="btn btn-primary" type="button" id="inspection-device-lookup">Suchen</button></div><div id="inspection-device-result" class="small mt-2" aria-live="polite"></div></div>';
-    filterForm.before(panel);
+    const panel = document.createElement('div');
+    panel.className = 'device-new-inspection border rounded p-2 bg-body-tertiary';
+    panel.innerHTML = '<div class="small fw-semibold mb-1"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Neue Prüfung</div><div class="input-group input-group-sm"><label class="visually-hidden" for="inspection-device-number">Gerät suchen oder Barcode scannen</label><input class="form-control" id="inspection-device-number" inputmode="text" autocomplete="off" placeholder="Gerätenummer oder Barcode"><button class="btn btn-primary" type="button" id="inspection-device-lookup">Suchen</button></div><div id="inspection-device-result" class="small mt-2" aria-live="polite"></div>';
+    const pageHeader = document.querySelector('.page-header');
+    if (pageHeader) { pageHeader.classList.add('device-page-header'); pageHeader.append(panel); } else filterForm.before(panel);
     const numberInput = panel.querySelector('#inspection-device-number');
     const result = panel.querySelector('#inspection-device-result');
     const lookup = async () => {
@@ -105,6 +107,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     panel.querySelector('#inspection-device-lookup').addEventListener('click', lookup);
     numberInput.addEventListener('input', () => { clearTimeout(numberInput._lookupTimer); numberInput._lookupTimer = setTimeout(lookup, 250); });
     numberInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); lookup(); } });
+    numberInput.focus({preventScroll: true});
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');
   if (newNumber) { const newDeviceDetails = [...document.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent.includes('Neues Gerät')); const field = newDeviceDetails?.querySelector('[name="external_number"]'); if (newDeviceDetails && field) { newDeviceDetails.open = true; field.value = newNumber; field.readOnly = true; newDeviceDetails.scrollIntoView({behavior:'smooth', block:'start'}); } }
