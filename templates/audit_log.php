@@ -31,7 +31,7 @@ $nextUrl = $pagination['has_next']
     werden direkt aus den von ReBean erzeugten Revisionstabellen gelesen.
 </div>
 
-<details class="card mb-4" id="audit-cron-panel">
+<details class="card mb-4" id="audit-events-panel">
 <summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Ereignisprotokoll</span><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></summary>
 <div class="card-body">
 <?php if (empty($entries)): ?>
@@ -170,7 +170,7 @@ $nextUrl = $pagination['has_next']
 </div>
 </details>
 
-<details class="card mb-4">
+<details class="card mb-4" id="audit-cron-panel">
 <summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Prüfapp-Cron</span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></span></summary>
 <div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
