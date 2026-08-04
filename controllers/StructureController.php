@@ -55,7 +55,9 @@ class StructureController
             return [$buildingOrder[(int) $a->building_id] ?? PHP_INT_MAX, (int) ($a->sort_order ?? 0), mb_strtolower((string) $a->name)] <=> [$buildingOrder[(int) $b->building_id] ?? PHP_INT_MAX, (int) ($b->sort_order ?? 0), mb_strtolower((string) $b->name)];
         });
         $data['canManage'] = current_user_has_role('admin');
-        $data['sevdeskContacts'] = self::sevdeskContacts();
+        $data['tenants'] = (new TenantRepository())->all();
+        $data['sevdeskContactsByTenant'] = [];
+        foreach ($data['tenants'] as $tenant) $data['sevdeskContactsByTenant'][(int) $tenant->id] = self::sevdeskContacts($tenant);
 
         $content = render_template('structure_index.php', $data);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
@@ -178,6 +180,8 @@ class StructureController
 
         $entity->name = $name;
         if ($type === 'customer') {
+            $entity->tenant_id = (int) ($_POST['tenant_id'] ?? 0);
+            if ($entity->tenant_id <= 0) return self::redirectWithError('Bitte dem Kunden einen Mandanten zuordnen.');
             $entity->sevdesk_customer_id = trim((string) ($_POST['sevdesk_customer_id'] ?? ''));
             $entity->sevdesk_customer_number = trim((string) ($_POST['sevdesk_customer_number'] ?? ''));
         }
@@ -229,10 +233,9 @@ class StructureController
         return [303, ['Location' => url_for('struktur')], ''];
     }
 
-    private static function sevdeskContacts(): array
+    private static function sevdeskContacts($tenant): array
     {
         try {
-            $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
             if (!$tenant || trim((string) ($tenant->sevdesk_api_token ?? '')) === '') return [];
             return (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) $tenant->sevdesk_api_token))->contacts();
         } catch (Throwable) {
