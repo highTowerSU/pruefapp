@@ -16,6 +16,7 @@ final class ReportController
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['device_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         if ($scope === 'page') $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['page_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         if ($scope === 'all') $ids = self::filteredIds((string) ($_POST['filter_query'] ?? ''));
+        if ($format === 'bundle_pdf') return self::queuePdfBundle($ids, (string) ($_POST['filter_query'] ?? ''), (int) ($_POST['invoice_id'] ?? 0), max(0, (int) ($_POST['bundle_max_pages'] ?? 500)));
         if (in_array($format, ['zip_latest', 'zip_all'], true)) return self::queuePdfZip($format === 'zip_all', $ids, (string) ($_POST['filter_query'] ?? ''), isset($_POST['zip_index_csv']), isset($_POST['zip_index_pdf']), isset($_POST['zip_index_ods']));
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $devices = self::devices($ids);
@@ -42,6 +43,18 @@ final class ReportController
         $id = bin2hex(random_bytes(12));
         file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports, 'index_csv' => $indexCsv, 'index_pdf' => $indexPdf, 'index_ods' => $indexOds], JSON_UNESCAPED_UNICODE), LOCK_EX);
         file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'ZIP-Export wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
+    }
+
+    private static function queuePdfBundle(array $ids, string $filterQuery, int $invoiceId, int $maxPages): array
+    {
+        if ($invoiceId > 0) $ids = array_map('intval', R::getCol('SELECT DISTINCT device_id FROM billing_invoice_item WHERE invoice_id = ?', [$invoiceId]));
+        if ($ids === []) $ids = self::filteredIds($filterQuery);
+        if ($ids === []) return [422, [], 'Keine Geräte für die Sammel-PDF gefunden.'];
+        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
+        $id = bin2hex(random_bytes(12));
+        file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_bundle', 'device_ids' => $ids, 'invoice_id' => $invoiceId, 'max_pages' => max(10, min(5000, $maxPages ?: 500))], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Sammel-PDF wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 

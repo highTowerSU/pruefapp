@@ -20,7 +20,32 @@ try {
         if (is_file($cancelPath)) throw new RuntimeException('Job wurde abgebrochen.');
         $writeStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
     };
-    if (($payload['type'] ?? '') === 'pdf_zip') {
+    if (($payload['type'] ?? '') === 'pdf_bundle') {
+        if (!function_exists('shell_exec')) throw new RuntimeException('PDF-Zusammenführung ist auf diesem Server nicht verfügbar.');
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
+        if ($ids === []) throw new RuntimeException('Keine Geräte für die Sammel-PDF.');
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, d.external_number AS device_number, d.name AS device_name, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.device_id IN ($marks) AND i.result_status IN ('bestanden','durchgefallen','nicht bestanden') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $ids);
+        $files = [];
+        foreach ($rows as $row) {
+            $source = (string) $row['report_path']; $source = is_file($source) ? $source : (is_file('/var/www/berichte/' . basename($source)) ? '/var/www/berichte/' . basename($source) : $source);
+            if (!is_file($source)) { $inspection = R::load('inspection', (int) $row['id']); $device = R::load('device', (int) $row['device_id']); $relative = 'reports/current/' . (int) $inspection->id . '.pdf'; $source = app_data_root() . '/' . $relative; if (!is_dir(dirname($source))) mkdir(dirname($source), 0770, true); file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number)); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); }
+            if (!is_file($source)) continue;
+            $info = shell_exec('pdfinfo ' . escapeshellarg($source) . ' 2>/dev/null'); preg_match('/^Pages:\s+(\d+)/mi', (string) $info, $match); $pages = max(1, (int) ($match[1] ?? 1)); $row['pages'] = $pages; $row['source'] = $source; $files[] = $row;
+        }
+        if ($files === []) throw new RuntimeException('Keine fertigen Prüfberichte gefunden.');
+        $maxPages = max(10, (int) ($payload['max_pages'] ?? 500)); $parts = []; $current = []; $currentPages = 0;
+        foreach ($files as $row) { if ($current !== [] && $currentPages + (int) $row['pages'] + 2 > $maxPages) { $parts[] = $current; $current = []; $currentPages = 0; } $current[] = $row; $currentPages += (int) $row['pages']; }
+        if ($current !== []) $parts[] = $current;
+        $outDir = app_data_root() . '/exports/sammelpdf-' . date('Ymd-His') . '-' . $id; if (!is_dir($outDir)) mkdir($outDir, 0770, true); $outputs = [];
+        foreach ($parts as $partIndex => $part) {
+            $toc = [['Inhaltsverzeichnis', 'Seite', 'Raum', 'Gerät', 'Prüfung']]; $page = 3;
+            foreach ($part as $row) { $room = trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: 'ohne Raum'; $toc[] = [$room, (string) $page, (string) $row['device_number'] . ' · ' . (string) $row['device_name'], (string) $row['external_number'], (string) $row['test_date']]; $page += (int) $row['pages']; }
+            $cover = $outDir . '/cover-' . $partIndex . '.pdf'; $tocPdf = $outDir . '/toc-' . $partIndex . '.pdf'; file_put_contents($cover, ReportController::renderPdf([['Sammelbericht', 'Wert'], ['Erstellt', date('d.m.Y H:i')], ['Teil', ($partIndex + 1) . ' von ' . count($parts)]], 'Sammelbericht Prüfungen')); file_put_contents($tocPdf, ReportController::renderPdf($toc, 'Inhaltsverzeichnis Prüfberichte'));
+            $output = $outDir . '/Pruefberichte-' . sprintf('%03d', $partIndex + 1) . '.pdf'; $inputs = [$cover, $tocPdf]; foreach ($part as $row) $inputs[] = $row['source']; $command = 'pdfunite ' . implode(' ', array_map('escapeshellarg', $inputs)) . ' ' . escapeshellarg($output) . ' 2>&1'; $result = shell_exec($command); if (!is_file($output)) throw new RuntimeException('Sammel-PDF konnte nicht erstellt werden: ' . trim((string) $result)); $outputs[] = $output; @unlink($cover); @unlink($tocPdf); $progress($partIndex + 1, count($parts), (string) ($part[0]['device_number'] ?? ''), 'Sammel-PDF erstellt');
+        }
+        $zipPath = $outDir . '/Sammelberichte.zip'; $zip = new ZipArchive(); if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Sammel-PDF-ZIP konnte nicht erstellt werden.'); foreach ($outputs as $output) $zip->addFile($output, 'Pruefberichte/' . basename($output)); $zip->close(); file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'done', 'finished_at' => date(DATE_ATOM), 'stats' => ['parts' => count($outputs), 'reports' => count($files), 'max_pages' => $maxPages], 'output' => $zipPath, 'outputs' => $outputs], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); exit(0);
+    } elseif (($payload['type'] ?? '') === 'pdf_zip') {
         if (!class_exists('ZipArchive')) throw new RuntimeException('ZipArchive ist nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         $marks = implode(',', array_fill(0, count($ids), '?'));
