@@ -39,6 +39,7 @@ require_once __DIR__ . '/controllers/HelpController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
+require_once __DIR__ . '/controllers/CustomerInfoController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
@@ -66,6 +67,12 @@ $routes = [
     ['GET', '/hilfe', fn($params, $isHx) => HelpController::index($params, $isHx)],
     ['GET', '/hilfe/dokument/{file}', fn($params, $isHx) => HelpController::document($params, $isHx)],
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
+    ['GET', '/kunden/{id}/infos', fn($params, $isHx) => CustomerInfoController::index($params, $isHx)],
+    ['POST', '/kunden/{id}/infos', fn($params, $isHx) => CustomerInfoController::save($params, $isHx)],
+    ['GET', '/kunden/{id}/infos/{infoId}/bearbeiten', fn($params, $isHx) => CustomerInfoController::edit($params, $isHx)],
+    ['POST', '/kunden/{id}/infos/{infoId}/loeschen', fn($params, $isHx) => CustomerInfoController::delete($params, $isHx)],
+    ['GET', '/kundeninfos/{id}', fn($params, $isHx) => CustomerInfoController::view($params, $isHx)],
+    ['GET', '/kundeninfos/{id}/datei', fn($params, $isHx) => CustomerInfoController::file($params, $isHx)],
     ['POST', '/struktur/kunden', fn($params, $isHx) => StructureController::createCustomer($params, $isHx)],
     ['POST', '/struktur/standorte', fn($params, $isHx) => StructureController::createSite($params, $isHx)],
     ['POST', '/struktur/gebaeude', fn($params, $isHx) => StructureController::createBuilding($params, $isHx)],
