@@ -88,6 +88,65 @@ if (!is_file($migrationMarker)) {
     }
 }
 
+// Einmalige PDF-Migration: alle bereits abgeschlossenen Prüfungen werden mit
+// dem aktuellen Einzelbericht-Layout neu gerendert. Der Cursor macht den Lauf
+// über mehrere Cron-Iterationen hinweg sicher und wiederholbar.
+$reportMigrationMarker = app_data_root() . '/migration/inspection-reports-v2.json';
+if (!is_file($reportMigrationMarker) || (($reportMigrationState = json_decode((string) @file_get_contents($reportMigrationMarker), true))['completed'] ?? false) !== true) {
+    try {
+        $reportMigrationState = is_array($reportMigrationState ?? null) ? $reportMigrationState : [];
+        $lastMigrationId = (int) ($reportMigrationState['last_id'] ?? 0);
+        $migrationRows = R::getAll("SELECT i.id, i.external_number, i.device_id, c.id AS customer_id
+            FROM inspection i
+            JOIN device d ON d.id = i.device_id
+            LEFT JOIN room r ON r.id = d.room_id
+            LEFT JOIN floor f ON f.id = r.floor_id
+            LEFT JOIN building b ON b.id = f.building_id
+            LEFT JOIN site s ON s.id = b.site_id
+            LEFT JOIN customer c ON c.id = s.customer_id
+            WHERE i.id > ? AND i.result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
+            ORDER BY i.id ASC LIMIT 250", [$lastMigrationId]);
+        $migrationProcessed = 0;
+        foreach ($migrationRows as $row) {
+            if ($timeLeft() <= 4) { $log('PDF-Migration wegen Zeitbudget auf nächste Iteration verschoben.', 'warning'); break; }
+            try {
+                $inspection = R::load('inspection', (int) $row['id']);
+                $device = R::load('device', (int) $row['device_id']);
+                if (!$inspection->id || !$device->id) throw new RuntimeException('Prüfung oder Gerät nicht gefunden.');
+                $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
+                $path = app_data_root() . '/' . $relative;
+                $pdf = ReportController::renderPdf(
+                    ReportController::inspectionPdfRows($inspection, $device),
+                    'Prüfbericht ' . (string) $inspection->external_number,
+                    function_exists('get_company_branding') ? get_company_branding((int) ($row['customer_id'] ?? 0)) : null
+                );
+                if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('PDF konnte nicht gespeichert werden.');
+                if ((string) ($inspection->report_path ?? '') !== $relative) {
+                    $inspection->report_path = $relative;
+                    R::store($inspection);
+                }
+                $lastMigrationId = (int) $row['id']; $migrationProcessed++;
+                $reportMigrationState = ['version' => 2, 'last_id' => $lastMigrationId, 'completed' => false, 'updated_at' => date(DATE_ATOM)];
+                if (!is_dir(dirname($reportMigrationMarker))) @mkdir(dirname($reportMigrationMarker), 0770, true);
+                file_put_contents($reportMigrationMarker, json_encode($reportMigrationState, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+            } catch (Throwable $exception) {
+                $log('PDF-Migration Prüfung ' . ((int) ($row['id'] ?? 0)) . ' fehlgeschlagen: ' . $exception->getMessage(), 'error');
+                break;
+            }
+        }
+        if (count($migrationRows) === 0 || ($migrationProcessed === count($migrationRows) && count($migrationRows) < 250)) {
+            $reportMigrationState = ['version' => 2, 'last_id' => $lastMigrationId, 'completed' => true, 'completed_at' => date(DATE_ATOM)];
+            if (!is_dir(dirname($reportMigrationMarker))) @mkdir(dirname($reportMigrationMarker), 0770, true);
+            file_put_contents($reportMigrationMarker, json_encode($reportMigrationState, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+            $log('PDF-Migration abgeschlossen; neu erzeugt: ' . $migrationProcessed);
+        } elseif ($migrationProcessed > 0) {
+            $log('PDF-Migration fortgesetzt; in dieser Iteration neu erzeugt: ' . $migrationProcessed);
+        }
+    } catch (Throwable $exception) {
+        $log('PDF-Migration fehlgeschlagen: ' . $exception->getMessage(), 'error');
+    }
+}
+
 // Abgeschlossene Prüfungen bekommen auch dann automatisch einen Bericht,
 // wenn sie nicht über das Webformular abgeschlossen wurden (z. B. Import).
 $reportDir = app_data_root() . '/reports/current';
