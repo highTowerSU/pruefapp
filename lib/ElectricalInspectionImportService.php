@@ -288,14 +288,16 @@ final class ElectricalInspectionImportService
     {
         $valueColumns = [];
         foreach ($header as $index => $name) {
-            if (str_contains(strtolower((string) $name), 'wert')) $valueColumns[] = (int) $index;
+            if (str_ends_with(mb_strtolower(trim((string) $name)), 'wert')) $valueColumns[] = (int) $index;
         }
+        rsort($valueColumns);
         while (count($row) > count($header)) {
             $merged = false;
             foreach ($valueColumns as $index) {
                 $left = trim((string) ($row[$index] ?? ''));
                 $right = trim((string) ($row[$index + 1] ?? ''));
-                if (preg_match('/^[<>]?\d+$/', $left) && preg_match('/^\d{1,2}$/', $right)) {
+                $unitColumn = trim((string) ($header[$index + 1] ?? ''));
+                if ($unitColumn !== '' && preg_match('/^[<>]?\d+$/', $left) && preg_match('/^\d{1,2}$/', $right)) {
                     $row[$index] = $left . '.' . $right;
                     array_splice($row, $index + 1, 1);
                     $merged = true;
@@ -327,10 +329,14 @@ final class ElectricalInspectionImportService
             $value = $this->value($values, [$prefix . ' Wert', strtolower($prefix) . ' value']);
             $unit = $this->value($values, [$prefix . ' Einheit', strtolower($prefix) . ' unit']);
             $status = $this->value($values, [$prefix . ' Ergebnis', strtolower($prefix) . ' result']);
-            if ($value !== '' || $unit !== '' || $status !== '') $measurements[] = ['name' => $prefix, 'value' => $value, 'unit' => $unit, 'result' => $status];
+            if ($value !== '' || $unit !== '' || $status !== '') {
+                $measurement = ['name' => $prefix, 'value' => $value, 'unit' => $unit, 'result' => $status];
+                if ($prefix === 'RISO') $measurement['voltage'] = $this->value($values, ['RISO Spannung', 'RISO voltage']);
+                $measurements[] = $measurement;
+            }
         }
         foreach ($values as $key => $value) {
-            if ($value === '' || in_array($key, $header, true) && (str_contains(strtolower($key), 'wert') || str_contains(strtolower($key), 'einheit') || str_contains(strtolower($key), 'ergebnis'))) continue;
+            if ($value === '' || $key === 'RISO Spannung' || in_array($key, $header, true) && (str_contains(strtolower($key), 'wert') || str_contains(strtolower($key), 'einheit') || str_contains(strtolower($key), 'ergebnis'))) continue;
             if (in_array($key, ['Speicher Nr', 'Speicherplatz', 'Prüfdatum', 'date', 'Datum', 'Prüfergebnis', 'number', 'Nummer', 'Prüfungsnr'], true)) continue;
             if (count($measurements) < 30) $measurements[] = ['name' => $key, 'value' => $value, 'unit' => '', 'result' => ''];
         }

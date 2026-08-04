@@ -394,6 +394,15 @@ final class InspectionController
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $billingInvoice = R::getRow('SELECT bi.invoice_id, bi.quantity, inv.sevdesk_invoice_id, inv.invoice_number, inv.invoice_date, inv.status FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? ORDER BY inv.id DESC LIMIT 1', [(int) $inspection->id]);
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
+        $normalizedMeasurements = self::normalizeImportedMeasurements($measurements, (string) ($inspection->result_status ?? ''));
+        if ($normalizedMeasurements !== $measurements && (string) ($inspection->source_type ?? '') === 'csv') {
+            $measurements = $normalizedMeasurements;
+            $inspection->measurements_json = json_encode($measurements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $inspection->updated_at = date(DATE_ATOM);
+            R::store($inspection);
+        } else {
+            $measurements = $normalizedMeasurements;
+        }
         $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
         foreach ($measurements as &$measurement) {
             if (!is_array($measurement)) continue;
@@ -422,6 +431,50 @@ final class InspectionController
             }
         }
         return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'billingInvoice'))])];
+    }
+
+    /** Repair legacy Benning rows created before decimal-comma columns were fixed. */
+    private static function normalizeImportedMeasurements(array $measurements, string $overallResult): array
+    {
+        $overallResult = trim($overallResult) !== '' ? $overallResult : 'bestanden';
+        $normalized = [];
+        foreach ($measurements as $measurement) {
+            if (!is_array($measurement)) { $normalized[] = $measurement; continue; }
+            $name = strtoupper(trim((string) ($measurement['name'] ?? '')));
+            $value = trim((string) ($measurement['value'] ?? ''));
+            $unit = trim((string) ($measurement['unit'] ?? ''));
+            $result = trim((string) ($measurement['result'] ?? ''));
+            if ($name === 'RPE' && preg_match('/^\d+$/', $unit) === 1 && in_array(strtolower($result), ['ohm', 'ω'], true)) {
+                $measurement['value'] = $value . '.' . $unit;
+                $measurement['unit'] = 'Ohm';
+                $measurement['result'] = $overallResult;
+            } elseif ($name === 'IEA' && preg_match('/^\d+$/', $unit) === 1 && strtolower($result) === 'ma') {
+                $measurement['value'] = $value . '.' . $unit;
+                $measurement['unit'] = 'mA';
+                $measurement['result'] = $overallResult;
+            } elseif ($name === 'IPE' && in_array(strtolower($value), ['bestanden', 'ok', 'gut'], true) && $unit === '') {
+                $measurement['value'] = '';
+                $measurement['result'] = $value;
+            } elseif ($name === 'RISO' && $unit === 'bestanden' && preg_match('/^[<>]?\d+(?:[.,]\d+)?$/', $result) === 1) {
+                $measurement['value'] = $result;
+                $measurement['unit'] = 'MOhm';
+                $measurement['result'] = $overallResult;
+            } elseif ($name === 'KABEL' && $value === 'MOhm' && $unit === 'bestanden' && preg_match('/^\d+V$/i', $result) === 1) {
+                $measurement['name'] = 'RISO Spannung';
+                $measurement['value'] = $result;
+                $measurement['unit'] = '';
+                $measurement['result'] = '';
+            }
+            if ($name === 'RISO SPANNUNG' && $normalized !== []) {
+                $last = array_key_last($normalized);
+                if (is_array($normalized[$last]) && strtoupper((string) ($normalized[$last]['name'] ?? '')) === 'RISO') {
+                    $normalized[$last]['voltage'] = $value;
+                    continue;
+                }
+            }
+            $normalized[] = $measurement;
+        }
+        return $normalized;
     }
 
     public static function delete(array $params, bool $isHx): array
