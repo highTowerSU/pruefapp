@@ -8,7 +8,8 @@ require_once dirname(__DIR__) . '/controllers/ReportController.php';
 
 $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
 if (!is_dir($root)) mkdir($root, 0700, true);
-$logPath = $root . '/cron.log';
+$logPath = app_data_root() . '/logs/cron.log';
+if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
 $log = static function (string $message) use ($logPath): void { file_put_contents($logPath, '[' . date(DATE_ATOM) . '] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX); };
 $log('Cron gestartet, PID ' . getmypid());
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
