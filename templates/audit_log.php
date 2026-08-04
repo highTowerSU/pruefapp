@@ -32,7 +32,7 @@ $nextUrl = $pagination['has_next']
 </div>
 
 <details class="card mb-4" id="audit-events-panel">
-<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Ereignisprotokoll</span><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></summary>
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Ereignisprotokoll</span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-events-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-events-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></span></summary>
 <div class="card-body">
 <?php if (empty($entries)): ?>
     <p class="text-body-secondary">Es wurden noch keine Aktionen protokolliert.</p>
@@ -171,7 +171,7 @@ $nextUrl = $pagination['has_next']
 </details>
 
 <details class="card mb-4" id="audit-cron-panel">
-<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Prüfapp-Cron</span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></span></summary>
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Prüfapp-Cron</span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-cron-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-cron-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></span></summary>
 <div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
 <?php $formatCronDate = static function ($value): string { try { return (new DateTimeImmutable((string) $value))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y H:i:s'); } catch (Throwable) { return '—'; } }; ?>
@@ -187,39 +187,31 @@ $nextUrl = $pagination['has_next']
 </details>
 <script>
 (() => {
-  const toggle = document.getElementById('audit-auto-refresh');
-  if (!toggle) return;
-  const key = 'pruefapp-audit-auto-refresh';
-  try { toggle.checked = localStorage.getItem(key) === '1'; } catch (_) {}
-  toggle.addEventListener('click', event => {
-    event.stopPropagation();
-    try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
-  });
-  const panel = document.getElementById('audit-cron-panel');
-  const savePanelState = () => { try { sessionStorage.setItem('pruefapp-audit-cron-open', panel?.open ? '1' : '0'); } catch (_) {} };
-  const restorePanelState = () => { try { if (panel && sessionStorage.getItem('pruefapp-audit-cron-open') === '1') panel.open = true; } catch (_) {} };
-  const enable = () => {
-    if (!panel || !toggle.checked) return;
-    panel.open = true;
-    savePanelState();
-    if (window.htmx) {
-      panel.setAttribute('hx-get', window.location.href);
-      panel.setAttribute('hx-trigger', 'every 30s');
-      panel.setAttribute('hx-target', '#audit-cron-panel');
-      panel.setAttribute('hx-select', '#audit-cron-panel');
-      window.htmx.process(panel);
-    } else window.setTimeout(() => { if (toggle.checked && document.visibilityState === 'visible') window.location.reload(); }, 30000);
+  const configs = [['audit-events-panel', 'audit-events-auto-refresh', 'pruefapp-audit-events-refresh'], ['audit-cron-panel', 'audit-cron-auto-refresh', 'pruefapp-audit-cron-refresh'], ['audit-revisions-panel', 'audit-revisions-auto-refresh', 'pruefapp-audit-revisions-refresh']];
+  const setup = ([panelId, toggleId, key]) => {
+    const panel = document.getElementById(panelId); const toggle = document.getElementById(toggleId);
+    if (!panel || !toggle || toggle.dataset.bound === '1') return;
+    toggle.dataset.bound = '1';
+    try { toggle.checked = localStorage.getItem(key) === '1'; } catch (_) {}
+    const stateKey = key + '-open';
+    const save = () => { try { sessionStorage.setItem(stateKey, panel.open ? '1' : '0'); } catch (_) {} };
+    const restore = () => { try { if (sessionStorage.getItem(stateKey) === '1') panel.open = true; } catch (_) {} };
+    const enable = () => {
+      try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
+      if (!toggle.checked) return;
+      panel.open = true; save();
+      if (window.htmx) { panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 30s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); window.htmx.process(panel); }
+      else window.setTimeout(() => { if (toggle.checked && document.visibilityState === 'visible') window.location.reload(); }, 30000);
+    };
+    toggle.addEventListener('change', enable); panel.addEventListener('toggle', save); restore(); enable();
   };
-  toggle.addEventListener('change', enable);
-  document.body.addEventListener('htmx:beforeRequest', savePanelState);
-  document.body.addEventListener('htmx:afterSwap', restorePanelState);
-  restorePanelState();
-  enable();
+  configs.forEach(setup);
+  document.body.addEventListener('htmx:afterSwap', () => configs.forEach(setup));
 })();
 </script>
 
-<details class="card mb-4">
-<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Datenrevisionen (ReBean)</span><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></summary>
+<details class="card mb-4" id="audit-revisions-panel">
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Datenrevisionen (ReBean)</span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-revisions-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-revisions-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></span></summary>
 <div class="card-body">
 <?php if (empty($revisions)): ?>
     <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>
