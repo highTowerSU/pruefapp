@@ -19,14 +19,18 @@ final class ReportController
         if (in_array($format, ['zip_latest', 'zip_all'], true)) return self::queuePdfZip($format === 'zip_all', $ids, (string) ($_POST['filter_query'] ?? ''), isset($_POST['zip_index_csv']), isset($_POST['zip_index_pdf']), isset($_POST['zip_index_ods']));
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $devices = self::devices($ids);
-        if ($reportType === 'daily') $rows = self::dailyRows($ids, trim((string) ($_POST['daily_date'] ?? '')), trim((string) ($_POST['daily_examiner'] ?? '')), (int) ($_POST['daily_customer_id'] ?? 0));
+        if ($reportType === 'daily' || $reportType === 'weekly') {
+            $date = trim((string) ($_POST['daily_date'] ?? '')); $toDate = '';
+            if ($reportType === 'weekly' && $date !== '') { $dateObject = new DateTimeImmutable($date); $date = $dateObject->modify('monday this week')->format('Y-m-d'); $toDate = $dateObject->modify('sunday this week')->format('Y-m-d'); }
+            $rows = self::dailyRows($ids, $date, trim((string) ($_POST['daily_examiner'] ?? '')), 0, $toDate);
+        }
         elseif ($report) $rows = self::roomRows($devices);
         else $rows = self::deviceRows($devices);
-        $name = $reportType === 'daily' ? 'Tagesreport' : ($report ? 'Raum-Ampelreport' : 'Geräteexport');
+        $name = $reportType === 'daily' ? 'Tagesreport' : ($reportType === 'weekly' ? 'Wochenreport' : ($report ? 'Raum-Ampelreport' : 'Geräteexport'));
         if ($format === 'json') return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $name . '.json"'], json_encode(['title' => $name, 'generated_at' => date(DATE_ATOM), 'rows' => $rows], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)];
         if ($format === 'ods') return self::ods($rows, $name);
         if ($format === 'pdf') return self::pdf($rows, $name);
-        return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv'));
+        return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($reportType === 'weekly' ? 'wochenreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv')));
     }
 
     private static function queuePdfZip(bool $allReports, array $ids, string $filterQuery, bool $indexCsv, bool $indexPdf, bool $indexOds): array
@@ -126,11 +130,11 @@ final class ReportController
         return $rows;
     }
 
-    private static function dailyRows(array $deviceIds, string $date, string $examiner, int $customerId): array
+    private static function dailyRows(array $deviceIds, string $date, string $examiner, int $customerId, string $toDate = ''): array
     {
         if ($deviceIds === []) return [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
         $marks = implode(',', array_fill(0, count($deviceIds), '?')); $args = $deviceIds; $where = ["i.device_id IN ($marks)"]; if ($date !== '') { $where[] = 'i.test_date = ?'; $args[] = $date; } if ($examiner !== '') { $where[] = 'LOWER(i.examiner) LIKE ?'; $args[] = '%' . strtolower($examiner) . '%'; } if ($customerId > 0) { $where[] = 'c.id = ?'; $args[] = $customerId; }
-        $rows = [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
+        if ($toDate !== '') { $where[] = 'i.test_date <= ?'; $args[] = $toDate; } $rows = [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
         foreach (R::getAll("SELECT i.external_number, i.test_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE " . implode(' AND ', $where) . ' ORDER BY c.name, i.examiner, i.test_date, i.id', $args) as $row) $rows[] = [(string) $row['external_number'], (string) $row['test_date'], (string) $row['examiner'], (string) $row['customer_name'], (string) $row['device_number'] . ' · ' . (string) $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', (string) $row['result_status'], (int) $row['regie_minutes'], (string) $row['regie_reason']];
         return $rows;
     }
