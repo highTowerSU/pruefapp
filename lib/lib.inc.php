@@ -1128,7 +1128,39 @@ function render_template($file, $vars = []) {
 
     $renderer ??= new \Ceneos\PhpBase\View\TemplateRenderer($baseDir . '/templates');
 
-    return $renderer->render((string) $file, (array) $vars);
+    $html = $renderer->render((string) $file, (array) $vars);
+    return decorate_form_label_icons($html);
+}
+
+function decorate_form_label_icons(string $html): string
+{
+    $icons = [
+        '/suche|suchen/i' => 'fa-magnifying-glass',
+        '/kunde|firma|mandant/i' => 'fa-building',
+        '/gerät|geraet/i' => 'fa-plug',
+        '/raum|standort|gebäude|etage/i' => 'fa-location-dot',
+        '/nummer|inventar|serien/i' => 'fa-hashtag',
+        '/hersteller|modell|typ/i' => 'fa-tag',
+        '/datum|jahr|prüfung/i' => 'fa-calendar-days',
+        '/status|ergebnis/i' => 'fa-circle-check',
+        '/kommentar|beschreibung|hinweis/i' => 'fa-comment',
+        '/datei|anhang|upload/i' => 'fa-paperclip',
+        '/passwort|schlüssel/i' => 'fa-key',
+        '/farbe|logo|branding/i' => 'fa-palette',
+    ];
+    return preg_replace_callback('~<label\b([^>]*)>(.*?)</label>~is', static function (array $match) use ($icons): string {
+        $attributes = $match[1];
+        if (!preg_match('/\bclass\s*=\s*["\']([^"\']*)["\']/i', $attributes, $classMatch)) return $match[0];
+        $classes = preg_split('/\s+/', trim($classMatch[1])) ?: [];
+        if (!in_array('form-label', $classes, true) && !in_array('form-check-label', $classes, true)) return $match[0];
+        if (in_array('visually-hidden', $classes, true) || preg_match('/<i\b[^>]*class\s*=\s*["\'][^"\']*(?:fa-solid|fas|far|fab)/i', $match[2])) return $match[0];
+        $text = trim(preg_replace('/\s+/', ' ', strip_tags($match[2])));
+        foreach ($icons as $pattern => $icon) {
+            if (!preg_match($pattern, $text)) continue;
+            return '<label' . $attributes . '><i class="fa-solid ' . $icon . ' me-1 text-body-secondary" aria-hidden="true"></i>' . $match[2] . '</label>';
+        }
+        return $match[0];
+    }, $html) ?? $html;
 }
 
 function forbidden_response(?string $message = null): array
