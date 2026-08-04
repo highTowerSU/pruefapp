@@ -7,6 +7,7 @@ use RedBeanPHP\R as R;
 // Run from cron as the same user that owns the application data (usually www-data).
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
+require_once dirname(__DIR__) . '/controllers/InspectionController.php';
 require_once dirname(__DIR__) . '/lib/ElectricalInspectionImportService.php';
 
 $debug = in_array('--debug', $argv ?? [], true) || in_array('-d', $argv ?? [], true);
@@ -34,14 +35,28 @@ if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 // Optional one-time repair/reimport for Benning CSV/ODS data. Set the
 // directory only for the migration run; the marker prevents repeated imports.
 $migrationDirectory = trim((string) (getenv('PRUEFAPP_BENNING_REIMPORT_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REIMPORT_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reimport_directory', '') ?: '') : '')));
-$migrationMarker = app_data_root() . '/migration/benning-measurements-v2.done';
-if ($migrationDirectory !== '' && !is_file($migrationMarker) && is_dir($migrationDirectory)) {
+$migrationMarker = app_data_root() . '/migration/benning-measurements-v3.done';
+if (!is_file($migrationMarker)) {
     try {
-        $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
-        $stats = (new ElectricalInspectionImportService())->importDirectory($migrationDirectory, $migrationReports !== '' ? $migrationReports : null);
+        $stats = ['imported' => 0, 'updated' => 0, 'repaired' => 0, 'errors' => []];
+        if ($migrationDirectory !== '' && is_dir($migrationDirectory)) {
+            $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
+            $importStats = (new ElectricalInspectionImportService())->importDirectory($migrationDirectory, $migrationReports !== '' ? $migrationReports : null);
+            $stats = array_merge($stats, ['imported' => $importStats['imported'] ?? 0, 'updated' => $importStats['updated'] ?? 0, 'errors' => $importStats['errors'] ?? []]);
+        }
+        foreach (R::findAll('inspection', " source_type = 'csv' ORDER BY id ") as $inspection) {
+            $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
+            if (!is_array($measurements) || $measurements === []) continue;
+            $normalized = InspectionController::normalizeImportedMeasurements($measurements, (string) ($inspection->result_status ?? ''));
+            if ($normalized === $measurements) continue;
+            $inspection->measurements_json = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $inspection->updated_at = date(DATE_ATOM);
+            R::store($inspection);
+            $stats['repaired']++;
+        }
         if (!is_dir(dirname($migrationMarker))) @mkdir(dirname($migrationMarker), 0770, true);
         file_put_contents($migrationMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-        $log('Benning-Messdaten-Nachmigration abgeschlossen: ' . json_encode(['imported' => $stats['imported'] ?? 0, 'updated' => $stats['updated'] ?? 0, 'errors' => $stats['errors'] ?? []], JSON_UNESCAPED_UNICODE));
+        $log('Benning-Messdaten-Nachmigration abgeschlossen: ' . json_encode($stats, JSON_UNESCAPED_UNICODE));
     } catch (Throwable $exception) {
         $log('Benning-Messdaten-Nachmigration fehlgeschlagen: ' . $exception->getMessage(), 'error');
     }

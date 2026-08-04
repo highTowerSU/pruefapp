@@ -434,7 +434,7 @@ final class InspectionController
     }
 
     /** Repair legacy Benning rows created before decimal-comma columns were fixed. */
-    private static function normalizeImportedMeasurements(array $measurements, string $overallResult): array
+    public static function normalizeImportedMeasurements(array $measurements, string $overallResult): array
     {
         $overallResult = trim($overallResult) !== '' ? $overallResult : 'bestanden';
         $normalized = [];
