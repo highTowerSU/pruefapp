@@ -197,6 +197,29 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   </details>
 <?php endforeach; ?>
 </div>
+<script>
+(() => {
+  const order = ['external_number', 'inventory_number', 'serial_number', 'manufacturer', 'device_model', 'name', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'];
+  const widths = {external_number: 'col-md-4', inventory_number: 'col-md-4', serial_number: 'col-md-4', manufacturer: 'col-md-3', device_model: 'col-md-3', name: 'col-md-6', room_id: 'col-md-8', warming_device: 'col-md-4'};
+  document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
+    if (form.classList.contains('device-form')) return;
+    const submit = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
+    const blocks = order.map(name => {
+      const block = form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]');
+      if (!block) return null;
+      if (widths[name]) block.className = block.className.replace(/\bcol-(?:sm|md|lg|xl|xxl)-\d+\b/g, '') + ' ' + widths[name];
+      return block;
+    }).filter(Boolean);
+    if (submit) blocks.forEach(block => form.insertBefore(block, submit));
+    form.classList.remove('g-2'); form.classList.add('g-3', 'device-form');
+    const heading = (before, text) => { if (!before || before.previousElementSibling?.classList.contains('device-form-heading')) return; const node = document.createElement('div'); node.className = 'col-12 device-form-heading mt-2'; node.innerHTML = `<h2 class="h5 border-bottom pb-2 mb-0">${text}</h2>`; form.insertBefore(node, before); };
+    heading(form.querySelector('[name="external_number"]')?.closest('[class*="col-"]'), 'Identifikation');
+    heading(form.querySelector('[name="manufacturer"]')?.closest('[class*="col-"]'), 'Gerätedaten');
+    heading(form.querySelector('[name="room_id"]')?.closest('[class*="col-"]'), 'Standort und Kennzeichnung');
+    heading(form.querySelector('[name="description"]')?.closest('[class*="col-"]'), 'Zusätzliche Angaben');
+  });
+})();
+</script>
 <?php if ($pages > 1): ?><?php $pageQuery = array_filter($filters ?? [], static fn($value): bool => trim((string) $value) !== ''); ?><nav aria-label="Geräteseiten" class="mt-4"><ul class="pagination justify-content-center flex-wrap"><li class="page-item<?= $page <= 1 ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => max(1, $page - 1)]))), ENT_QUOTES) ?>">Zurück</a></li><?php for ($number = 1; $number <= $pages; $number++): ?><?php if ($number === 1 || $number === $pages || abs($number - $page) <= 2): ?><li class="page-item<?= $number === $page ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => $number]))), ENT_QUOTES) ?>"><?= $number ?></a></li><?php elseif ($number === 2 || $number === $pages - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?><?php endfor; ?><li class="page-item<?= $page >= $pages ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => min($pages, $page + 1)]))), ENT_QUOTES) ?>">Weiter</a></li></ul></nav><?php endif; ?>
 <?php if (!empty($canManage)): ?><script>
 (() => {
