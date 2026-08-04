@@ -250,9 +250,10 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     buttons[0].before(group); buttons.forEach(button => group.append(button));
     if (index === 2) {
       const dropdown = document.createElement('div'); dropdown.className = 'dropdown';
-      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'btn btn-primary btn-sm dropdown-toggle'; toggle.setAttribute('data-bs-toggle', 'dropdown'); toggle.setAttribute('aria-expanded', 'false'); toggle.textContent = 'Exportieren';
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'btn btn-primary btn-sm dropdown-toggle'; toggle.setAttribute('data-bs-toggle', 'dropdown'); toggle.setAttribute('aria-expanded', 'false'); toggle.innerHTML = '<i class="fa-solid fa-file-export me-1" aria-hidden="true"></i>Exportieren';
       const menu = document.createElement('div'); menu.className = 'dropdown-menu';
-      [...group.children].forEach(button => { button.className = 'dropdown-item'; menu.append(button); });
+      const icons = {csv: 'fa-file-csv', ods: 'fa-file-lines', xlsx: 'fa-file-excel', pdf: 'fa-file-pdf', json: 'fa-file-code', zip_latest: 'fa-file-zipper', zip_all: 'fa-file-zipper', bundle_pdf: 'fa-file-pdf'};
+      [...group.children].forEach(button => { const icon = document.createElement('i'); icon.className = `fa-solid ${icons[button.value] || 'fa-file-export'} me-2`; icon.setAttribute('aria-hidden', 'true'); button.className = 'dropdown-item'; button.prepend(icon); menu.append(button); });
       dropdown.append(toggle, menu); group.replaceWith(dropdown);
     }
   });
