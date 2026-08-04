@@ -146,6 +146,7 @@ class DeviceController
         }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
+            'showCompanySubtitle' => false,
             'content' => render_template('device_index.php', [
                 'devices' => $devices,
                 'inspections' => $inspections,

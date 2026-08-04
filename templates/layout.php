@@ -174,7 +174,7 @@ $primaryRgb = strlen($primaryHex) === 6
 <div class="container py-4">
     <header class="page-header mb-4 noprint">
       <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
-      <?php if (!empty($branding['company_name'])): ?>
+      <?php if (($showCompanySubtitle ?? true) && !empty($branding['company_name'])): ?>
         <p class="mb-0 text-body-secondary">für <?= htmlspecialchars($branding['company_name']) ?></p>
       <?php endif; ?>
     </header>
