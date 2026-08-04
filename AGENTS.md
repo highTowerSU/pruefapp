@@ -11,3 +11,4 @@
 - Light-/Dark-Mode-Kontrast prüfen, besonders bei aktiven Menüpunkten, gelben Icons und sekundären Texten.
 - Gemeinsame Footer-, Versions-, Branding- und Mandantenlogik nicht duplizieren, sondern aus der Base verwenden.
 - Bei wiederkehrenden Masken denselben serverseitigen Renderer/Controller verwenden; keine parallelen, abweichenden „Neu anlegen“-Formulare bauen.
+- Massenaktionsbereiche folgen dem gemeinsamen Kartenstandard: Überschrift, gruppierte Auswahl, ikonografierte Aktionen, responsive Anordnung und erklärender Hinweis.
