@@ -6,7 +6,7 @@
       return;
     }
 
-    root.querySelectorAll('select[data-search-select]').forEach(select => {
+    root.querySelectorAll('select[data-search-select], select[name="tenant_id"], select[name="sevdesk_customer_id"]').forEach(select => {
       if (select.tomselect) {
         return;
       }

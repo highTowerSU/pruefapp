@@ -441,7 +441,12 @@ $section = static function (string $title, string $type, array $items) use ($for
 @media(max-width:575.98px){.structure-form .form-label{margin-bottom:.4rem}.structure-form .form-text{font-size:.8rem}.structure-filter-item>summary{line-height:1.45}.structure-filter-item .small{font-size:.82rem}.structure-filter-item .d-flex.justify-content-end{gap:.5rem!important}.structure-filter-item .btn{font-size:1rem}.card-body{padding:1rem}}
 </style>
 
-<script>
+  <style>
+    #structure-page summary,
+    #structure-page .structure-check,
+    #structure-bulk-form { user-select: none; }
+  </style>
+  <script>
 (() => {
   'use strict';
   document.querySelectorAll('form[action*="/struktur/"]').forEach(form => { form.classList.add('structure-form'); form.classList.remove('g-2'); form.classList.add('g-3'); });
@@ -549,9 +554,10 @@ $section = static function (string $title, string $type, array $items) use ($for
   let last = -1;
   boxes.forEach((box, index) => box.addEventListener('click', event => {
     if (event.shiftKey && last >= 0) {
-      event.preventDefault();
+      const checked = box.checked;
       const start = Math.min(last, index), end = Math.max(last, index);
-      boxes.slice(start, end + 1).forEach(item => { item.checked = box.checked; });
+      boxes.slice(start, end + 1).forEach(item => { item.checked = checked; });
+      window.getSelection?.()?.removeAllRanges();
     }
     last = index;
   }));
