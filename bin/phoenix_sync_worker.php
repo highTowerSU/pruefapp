@@ -15,12 +15,14 @@ $deadline = (float) (getenv('PRUEFAPP_CRON_DEADLINE') ?: 0);
 $debug = getenv('PRUEFAPP_CRON_DEBUG') === '1';
 if ($id === '' || !is_file($payloadPath)) exit(2);
 $payload = json_decode((string) file_get_contents($payloadPath), true);
-$writeStatus = static function (array $extra) use ($statusPath, $id, $payload): void {
-    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'state' => 'running', 'created_at' => date(DATE_ATOM), 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
+$statusInitial = is_file($statusPath) ? json_decode((string) @file_get_contents($statusPath), true) : [];
+$statusCreatedAt = is_array($statusInitial) && !empty($statusInitial['created_at']) ? (string) $statusInitial['created_at'] : date(DATE_ATOM);
+$writeStatus = static function (array $extra) use ($statusPath, $id, $payload, $statusCreatedAt): void {
+    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'state' => 'running', 'created_at' => $statusCreatedAt, 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
 };
 $writeStatus([]);
 try {
-    $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $cancelPath, $deadline): void {
+    $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $cancelPath, $deadline, $debug): void {
         if (is_file($cancelPath)) throw new RuntimeException('Job wurde abgebrochen.');
         if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
         $writeStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
@@ -60,16 +62,21 @@ try {
         $rows = $ids === [] ? [] : R::getAll($sql, $ids);
         if (!$all) { $seen = []; $rows = array_values(array_filter($rows, static function (array $row) use (&$seen): bool { $device = (int) ($row['device_id'] ?? 0); if (isset($seen[$device])) return false; $seen[$device] = true; return true; })); }
         $outDir = app_data_root() . '/exports'; if (!is_dir($outDir)) mkdir($outDir, 0770, true);
-        $zipPath = $outDir . '/pruefberichte-' . date('Ymd-His') . '-' . $id . '.zip'; $zip = new ZipArchive(); if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('ZIP-Datei konnte nicht erstellt werden.');
-        $index = [['Gerät', 'Gerätenummer', 'Prüfnummer', 'Prüfdatum', 'Kunde', 'Datei', 'Quelle']]; $step = 0; $total = count($rows);
-        foreach ($rows as $row) { $step++; $source = (string) $row['report_path']; $source = is_file($source) ? $source : (is_file('/var/www/berichte/' . basename($source)) ? '/var/www/berichte/' . basename($source) : $source); if (!is_file($source)) { $inspection = R::load('inspection', (int) $row['id']); $device = R::load('device', (int) $row['device_id']); if ($inspection->id && $device->id) { $relative = 'reports/current/' . (int) $inspection->id . '.pdf'; $generatedPath = app_data_root() . '/' . $relative; if (!is_dir(dirname($generatedPath))) mkdir(dirname($generatedPath), 0770, true); file_put_contents($generatedPath, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_company_branding') ? get_company_branding((int) ($row['customer_id'] ?? 0)) : null)); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); $source = $generatedPath; } } if (!is_file($source)) continue; $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $row['device_number'] . '-' . (string) $row['external_number'] . '.pdf'); $zip->addFile($source, 'berichte/' . $name); $index[] = [(string) $row['device_name'], (string) $row['device_number'], (string) $row['external_number'], (string) $row['test_date'], (string) $row['customer_name'], 'berichte/' . $name, $source]; $progress($step, $total, (string) $row['device_number'], 'PDF wird gepackt'); }
+        $workPath = $root . '/' . $id . '.pdfzip.work.json';
+        $work = is_file($workPath) ? json_decode((string) @file_get_contents($workPath), true) : [];
+        $resume = is_array($work) && !empty($work['zip_path']) && is_file((string) $work['zip_path']) && (int) ($work['step'] ?? 0) <= count($rows);
+        $zipPath = $resume ? (string) $work['zip_path'] : $outDir . '/pruefberichte-' . date('Ymd-His') . '-' . $id . '.zip';
+        $zip = new ZipArchive(); if ($zip->open($zipPath, ZipArchive::CREATE | ($resume ? 0 : ZipArchive::OVERWRITE)) !== true) throw new RuntimeException('ZIP-Datei konnte nicht erstellt werden.');
+        $index = $resume && is_array($work['index'] ?? null) ? $work['index'] : [['Gerät', 'Gerätenummer', 'Prüfnummer', 'Prüfdatum', 'Kunde', 'Datei', 'Quelle']];
+        $step = $resume ? min((int) ($work['step'] ?? 0), count($rows)) : 0; $total = count($rows);
+        foreach (array_slice($rows, $step) as $row) { $step++; $source = (string) $row['report_path']; $source = is_file($source) ? $source : (is_file('/var/www/berichte/' . basename($source)) ? '/var/www/berichte/' . basename($source) : $source); if (!is_file($source)) { $inspection = R::load('inspection', (int) $row['id']); $device = R::load('device', (int) $row['device_id']); if ($inspection->id && $device->id) { $relative = 'reports/current/' . (int) $inspection->id . '.pdf'; $generatedPath = app_data_root() . '/' . $relative; if (!is_dir(dirname($generatedPath))) mkdir(dirname($generatedPath), 0770, true); file_put_contents($generatedPath, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_company_branding') ? get_company_branding((int) ($row['customer_id'] ?? 0)) : null)); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); $source = $generatedPath; } } if (!is_file($source)) { file_put_contents($workPath, json_encode(['zip_path' => $zipPath, 'step' => $step, 'total' => $total, 'index' => $index], JSON_UNESCAPED_UNICODE), LOCK_EX); $progress($step, $total, (string) $row['device_number'], 'Ein PDF konnte nicht gefunden werden und wurde übersprungen.'); continue; } $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $row['device_number'] . '-' . (string) $row['external_number'] . '.pdf'); $zip->addFile($source, 'berichte/' . $name); $index[] = [(string) $row['device_name'], (string) $row['device_number'], (string) $row['external_number'], (string) $row['test_date'], (string) $row['customer_name'], 'berichte/' . $name, $source]; file_put_contents($workPath, json_encode(['zip_path' => $zipPath, 'step' => $step, 'total' => $total, 'index' => $index], JSON_UNESCAPED_UNICODE), LOCK_EX); $progress($step, $total, (string) $row['device_number'], 'PDF wird gepackt'); }
         if (!empty($payload['index_csv'])) { $csv = ''; foreach ($index as $line) { $cells = []; foreach ($line as $value) $cells[] = '"' . str_replace('"', '""', (string) $value) . '"'; $csv .= implode(';', $cells) . "\r\n"; } $zip->addFromString('inhaltsverzeichnis.csv', "\xEF\xBB\xBF" . $csv); }
         if (!empty($payload['index_pdf'])) $zip->addFromString('inhaltsverzeichnis.pdf', ReportController::renderPdf($index, 'Inhaltsverzeichnis Prüfberichte'));
         if (!empty($payload['index_ods'])) $zip->addFromString('inhaltsverzeichnis.ods', ReportController::renderOds($index, 'Inhaltsverzeichnis'));
         $zip->close();
         $stats = ['files' => max(0, count($index) - 1), 'output' => $zipPath, 'all_reports' => $all];
         file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'done', 'finished_at' => date(DATE_ATOM), 'stats' => $stats, 'output' => $zipPath], JSON_UNESCAPED_UNICODE), LOCK_EX);
-        @unlink($payloadPath); @unlink($cancelPath); exit(0);
+        @unlink($workPath); @unlink($payloadPath); @unlink($cancelPath); exit(0);
     } elseif (($payload['type'] ?? '') === 'directory_import') {
         $stats = (new ElectricalInspectionImportService())->importDirectory((string) ($payload['directory'] ?? ''), trim((string) ($payload['reports_directory'] ?? '')) ?: null, is_array($payload['defaults'] ?? null) ? $payload['defaults'] : []);
     } else {
@@ -79,7 +86,14 @@ try {
 } catch (Throwable $exception) {
     $cancelled = is_file($cancelPath);
     $timeLimited = $exception->getMessage() === '__CRON_TIME_LIMIT__';
-    file_put_contents($statusPath, json_encode(['id' => $id, 'state' => $timeLimited ? 'queued' : ($cancelled ? 'cancelled' : 'error'), 'finished_at' => date(DATE_ATOM), 'message' => $timeLimited ? 'Zeitbudget erreicht; wird im nächsten Cron-Lauf fortgesetzt.' : '', 'error' => $timeLimited ? '' : $exception->getMessage()], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    $lastStatus = is_file($statusPath) ? json_decode((string) @file_get_contents($statusPath), true) : [];
+    $lastStatus = is_array($lastStatus) ? $lastStatus : [];
+    $lastStatus['id'] = $id;
+    $lastStatus['state'] = $timeLimited ? 'queued' : ($cancelled ? 'cancelled' : 'error');
+    $lastStatus['finished_at'] = date(DATE_ATOM);
+    $lastStatus['message'] = $timeLimited ? 'Der Export wird automatisch beim nächsten Hintergrundlauf fortgesetzt.' : '';
+    $lastStatus['error'] = $timeLimited ? '' : $exception->getMessage();
+    file_put_contents($statusPath, json_encode($lastStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
     if ($timeLimited) exit(0);
 }
 if (!isset($timeLimited) || !$timeLimited) @unlink($payloadPath);
