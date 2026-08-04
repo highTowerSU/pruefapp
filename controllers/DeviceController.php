@@ -52,7 +52,9 @@ class DeviceController
         $sort = (string) ($_GET['sort'] ?? 'name');
         $orderBy = [
             'room' => 'd.room_id, d.name',
-            'id' => 'd.id',
+            // „ID“ meint in der Geräteansicht die sichtbare Gerätenummer,
+            // nicht die interne Datenbank-ID. Daher natürlich numerisch sortieren.
+            'id' => "CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id",
             'name' => 'LOWER(d.name), d.id',
             'external_number' => "CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id",
             'manufacturer' => 'LOWER(COALESCE(d.manufacturer, \'\')), LOWER(d.name), d.id',
