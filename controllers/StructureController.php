@@ -82,6 +82,33 @@ class StructureController
     public static function createRoom(array $params, bool $isHx): array { return self::saveRoom($params, $isHx); }
     public static function deleteRoom(array $params, bool $isHx): array { $params['type'] = 'room'; return self::delete($params, $isHx); }
 
+    public static function bulkAction(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $type = (string) ($_POST['type'] ?? '');
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['structure_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
+        if (!isset(self::DEFINITIONS[$type]) || $ids === []) return self::redirectWithError('Bitte Einträge eines Strukturtyps auswählen.');
+        $cascade = ($_POST['cascade'] ?? '0') === '1';
+        foreach ($ids as $id) {
+            $entity = R::load($type, $id);
+            if (!$entity->id) continue;
+            $descendants = self::descendants($type, $id);
+            $roomIds = $descendants['room'] ?? [];
+            if ($type === 'room') $roomIds[] = $id;
+            $hasChildren = $descendants !== [] || ($type === 'room' && (int) R::count('device', 'room_id = ?', [$id]) > 0);
+            if ($hasChildren && !$cascade) return self::redirectWithError('Mindestens ein Eintrag enthält Unterstruktur. Bitte „mit Unterstruktur“ bestätigen.');
+            if ($cascade && $roomIds !== []) {
+                $marks = implode(',', array_fill(0, count($roomIds), '?'));
+                R::exec('DELETE FROM inspection WHERE device_id IN (SELECT id FROM device WHERE room_id IN (' . $marks . '))', $roomIds);
+                R::exec('DELETE FROM device WHERE room_id IN (' . $marks . ')', $roomIds);
+            }
+            if ($cascade) foreach (['room', 'area', 'floor', 'building', 'site', 'customer'] as $table) foreach ($descendants[$table] ?? [] as $childId) R::exec("DELETE FROM {$table} WHERE id = ?", [$childId]);
+            R::trash($entity);
+        }
+        $_SESSION['meldung'] = count($ids) . ' Struktur-Eintrag(e) gelöscht.';
+        return [303, ['Location' => url_for('struktur')], ''];
+    }
+
     public static function moveDevices(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();

@@ -70,6 +70,7 @@ $routes = [
     ['GET', '/hilfe', fn($params, $isHx) => HelpController::index($params, $isHx)],
     ['GET', '/hilfe/dokument/{file}', fn($params, $isHx) => HelpController::document($params, $isHx)],
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
+    ['POST', '/struktur/massenaktion', fn($params, $isHx) => StructureController::bulkAction($params, $isHx)],
     ['GET', '/kunden/{id}/infos', fn($params, $isHx) => CustomerInfoController::index($params, $isHx)],
     ['POST', '/kunden/{id}/infos', fn($params, $isHx) => CustomerInfoController::save($params, $isHx)],
     ['POST', '/kunden/{id}/infos/upload', fn($params, $isHx) => CustomerInfoController::uploadMultiple($params, $isHx)],
