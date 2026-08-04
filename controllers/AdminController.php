@@ -132,6 +132,8 @@ class AdminController
         $cronPdfMigrationState = [];
         $cronPdfMigrationPending = false;
         $cronPdfMigrationRemaining = 0;
+        $cronPhoenixRestorePending = false;
+        $cronPhoenixRestoreRemaining = 0;
         try {
             $cronPdfMigrationMarker = app_data_root() . '/migration/inspection-reports-v2.json';
         } catch (Throwable) {
@@ -146,6 +148,16 @@ class AdminController
             if ($cronPdfMigrationPending) {
                 $cronPdfMigrationRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id > ? AND result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')", [(int) ($cronPdfMigrationState['last_id'] ?? 0)]);
             }
+        }
+        try {
+            $cronPhoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v3.json';
+        } catch (Throwable) {
+            $cronPhoenixRestoreMarker = '/var/www/data/pruefapp/migration/inspection-reports-phoenix-restore-v3.json';
+        }
+        $cronPhoenixRestorePending = !is_file($cronPhoenixRestoreMarker);
+        if ($cronPhoenixRestorePending) {
+            $cronPhoenixRestoreRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'");
+            if ($cronPhoenixRestoreRemaining === 0) $cronPhoenixRestorePending = false;
         }
 
         $content = render_template('audit_log.php', [
@@ -164,6 +176,8 @@ class AdminController
             'cronPdfMigrationPending' => $cronPdfMigrationPending,
             'cronPdfMigrationRemaining' => $cronPdfMigrationRemaining,
             'cronPdfMigrationState' => $cronPdfMigrationState,
+            'cronPhoenixRestorePending' => $cronPhoenixRestorePending,
+            'cronPhoenixRestoreRemaining' => $cronPhoenixRestoreRemaining,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,
