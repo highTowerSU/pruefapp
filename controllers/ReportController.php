@@ -47,9 +47,10 @@ final class ReportController
             }
             return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $name . '.json"'], json_encode(['title' => $name, 'generated_at' => date(DATE_ATOM), 'rows' => $rows, 'devices' => $full], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)];
         }
-        if ($format === 'ods') return self::ods($rows, $name);
+        $branding = function_exists('get_branding') ? get_branding() : [];
+        if ($format === 'ods') return self::ods($rows, $name, $branding);
         if ($format === 'xlsx') return self::xlsx($rows, $name);
-        if ($format === 'pdf') return self::pdf($rows, $name);
+        if ($format === 'pdf') return self::pdf($rows, $name, $branding);
         return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($reportType === 'weekly' ? 'wochenreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv')));
     }
 
@@ -76,8 +77,8 @@ final class ReportController
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
-    public static function renderOds(array $rows, string $title): string { return (string) (self::ods($rows, $title)[2] ?? ''); }
-    public static function renderPdf(array $rows, string $title): string { return (string) (self::pdf($rows, $title)[2] ?? ''); }
+    public static function renderOds(array $rows, string $title, ?array $branding = null): string { return (string) (self::ods($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }
+    public static function renderPdf(array $rows, string $title, ?array $branding = null): string { return (string) (self::pdf($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }
     public static function inspectionPdfRows(RedBeanPHPOODBBean $inspection, RedBeanPHPOODBBean $device): array
     {
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
@@ -207,9 +208,11 @@ final class ReportController
         return [200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $filename . '"'], $body];
     }
 
-    private static function ods(array $rows, string $title): array
+    private static function ods(array $rows, string $title, array $branding = []): array
     {
         if (!class_exists('ZipArchive')) return [500, [], 'ODS-Export ist auf diesem Server nicht verfügbar.'];
+        $primary = self::brandColor($branding, 'primary', '#1F4E78');
+        $primaryText = self::brandColor($branding, 'primary_text', '#FFFFFF');
         $tmp = tempnam(sys_get_temp_dir(), 'ods-');
         $zip = new ZipArchive();
         if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) return [500, [], 'ODS-Datei konnte nicht erstellt werden.'];
@@ -243,7 +246,7 @@ final class ReportController
         $columnStyles = ''; foreach (array_slice($widths, 0, $columnCount) as $index => $width) $columnStyles .= '<style:style style:name="Col' . ($index + 1) . '" style:family="table-column"><style:table-column-properties style:column-width="' . $width . '"/></style:style>';
         $quoteColors = ['#d1e7dd', '#b7e4c7', '#fff3cd', '#ffe69c', '#ffda6a', '#ffb86b'];
         $quoteStyles = ''; foreach ($quoteColors as $index => $color) $quoteStyles .= '<style:style style:name="Q' . ($index + 1) . '" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $color . '"/></style:style>';
-        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles>' . $columnStyles . '<style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="#1f4e78"/><style:text-properties fo:color="#ffffff" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style>' . $quoteStyles . '</office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export">' . $columns . '<table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range-address="Export.A1:' . $lastColumn . count($rows) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
+        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles>' . $columnStyles . '<style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $primary . '"/><style:text-properties fo:color="' . $primaryText . '" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style>' . $quoteStyles . '</office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export">' . $columns . '<table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range-address="Export.A1:' . $lastColumn . count($rows) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
         $zip->addFromString('content.xml', $content);
         $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:styles/></office:document-styles>');
         $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:meta/></office:document-meta>');
@@ -290,12 +293,12 @@ final class ReportController
         return [200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition' => 'attachment; filename="' . $title . '.xlsx"'], $body];
     }
 
-    private static function pdf(array $rows, string $title): array
+    private static function pdf(array $rows, string $title, array $branding = []): array
     {
         // LibreOffice rendert die bereits formatierte Tabellenstruktur zuverlässig
         // und vermeidet die leeren/abgeschnittenen Browser-PDFs.
         if ($rows !== [] && class_exists('ZipArchive') && (is_executable('/usr/bin/libreoffice') || is_executable('/usr/bin/soffice'))) {
-            $odsResponse = self::ods($rows, $title);
+            $odsResponse = self::ods($rows, $title, $branding);
             $odsBody = $odsResponse[2] ?? '';
             if (is_string($odsBody) && $odsBody !== '') {
                 $dir = sys_get_temp_dir() . '/pruefapp-pdf'; if (!is_dir($dir)) mkdir($dir, 0700, true); $token = bin2hex(random_bytes(8)); $odsPath = $dir . '/' . $token . '.ods'; $outDir = $dir . '/' . $token; if (!is_dir($outDir)) mkdir($outDir, 0700, true); $pdfPath = $outDir . '/' . $title . '.pdf'; file_put_contents($odsPath, $odsBody, LOCK_EX); $binary = is_executable('/usr/bin/libreoffice') ? '/usr/bin/libreoffice' : '/usr/bin/soffice'; $profile = $dir . '/profile-' . $token; $cmd = 'timeout 30s ' . escapeshellarg($binary) . ' -env:UserInstallation=' . escapeshellarg('file://' . $profile) . ' --headless --convert-to pdf --outdir ' . escapeshellarg($outDir) . ' ' . escapeshellarg($odsPath) . ' 2>/dev/null'; shell_exec($cmd); $converted = glob($outDir . '/*.pdf') ?: []; $pdfPath = $converted[0] ?? $pdfPath; $body = is_file($pdfPath) ? file_get_contents($pdfPath) : false; $text = is_file($pdfPath) && function_exists('shell_exec') ? trim((string) shell_exec('pdftotext ' . escapeshellarg($pdfPath) . ' - 2>/dev/null')) : ''; @unlink($odsPath); if (is_file($pdfPath)) @unlink($pdfPath); @rmdir($outDir); if (is_dir($profile)) { foreach (glob($profile . '/*') ?: [] as $child) if (is_file($child)) @unlink($child); @rmdir($profile); } if (is_string($body) && $body !== '' && $text !== '') return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"'], $body];
@@ -303,8 +306,8 @@ final class ReportController
         }
         // Chromium provides the branded UTF-8 fallback if LibreOffice is not installed.
         if (is_executable('/usr/bin/chromium') && $rows !== []) {
-            $logo = is_file(dirname(__DIR__) . '/public/img/ceneos-logo.svg') ? 'data:image/svg+xml;base64,' . base64_encode((string) file_get_contents(dirname(__DIR__) . '/public/img/ceneos-logo.svg')) : '';
-            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f5c242;padding-bottom:8px;margin-bottom:12px}header img{max-width:150px;max-height:42px}h1{font-size:18px;margin:0;color:#1f4e78}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:#1f4e78;color:#fff;text-align:left;padding:6px;font-size:8px}td{border:1px solid #ccd2d8;padding:5px;vertical-align:top;overflow-wrap:anywhere}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}.muted{color:#6c757d;font-size:8px}</style><header><h1>' . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1>' . ($logo !== '' ? '<img src="' . $logo . '" alt="CENEOS">' : '') . '</header><div class="muted">Erstellt am ' . htmlspecialchars((new DateTimeImmutable())->format('d.m.Y H:i'), ENT_QUOTES) . '</div><table><thead><tr>';
+            $primary = self::brandColor($branding, 'primary', '#1F4E78'); $nav = self::brandColor($branding, 'nav', '#F5C242'); $primaryText = self::brandColor($branding, 'primary_text', '#FFFFFF'); $companyName = (string) ($branding['company_name'] ?? 'CENEOS'); $logoPath = (string) (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? '')); if ($logoPath !== '' && !preg_match('#^/#', $logoPath)) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/'); $logo = is_file($logoPath) ? 'data:' . (str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png') . ';base64,' . base64_encode((string) file_get_contents($logoPath)) : '';
+            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ' . $nav . ';padding-bottom:8px;margin-bottom:12px}header img{max-width:150px;max-height:42px}h1{font-size:18px;margin:0;color:' . $primary . '}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:' . $primary . ';color:' . $primaryText . ';text-align:left;padding:6px;font-size:8px}td{border:1px solid #ccd2d8;padding:5px;vertical-align:top;overflow-wrap:anywhere}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}.muted{color:#6c757d;font-size:8px}</style><header><h1>' . htmlspecialchars($companyName . ' - ' . $title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1>' . ($logo !== '' ? '<img src="' . $logo . '" alt="' . htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' : '') . '</header><div class="muted">Erstellt am ' . htmlspecialchars((new DateTimeImmutable())->format('d.m.Y H:i'), ENT_QUOTES) . '</div><table><thead><tr>';
             foreach (($rows[0] ?? []) as $header) $html .= '<th>' . htmlspecialchars((string) $header, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</th>';
             $html .= '</tr></thead><tbody>';
             foreach (array_slice($rows, 1) as $row) { $html .= '<tr>'; foreach (($rows[0] ?? []) as $index => $_) $html .= '<td>' . nl2br(htmlspecialchars((string) ($row[$index] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')) . '</td>'; $html .= '</tr>'; }
@@ -315,8 +318,9 @@ final class ReportController
         $headers = $rows[0] ?? []; $count = max(1, count($headers)); $widths = $count === 14 ? [62, 75, 65, 65, 65, 65, 65, 58, 58, 70, 64, 58, 58, 64] : ($count === 9 ? [76, 76, 76, 62, 62, 84, 48, 68, 68] : array_fill(0, $count, 794 / $count));
         $left = 24; $top = 565; $rowHeight = 19; $headerHeight = 28; $pageRows = 25; $streams = []; $stream = '';
         $page = static function (string &$stream) use (&$streams): void { $streams[] = $stream; $stream = ''; };
-        $drawPageHeader = static function (string &$stream) use ($title, $left, $top, $headers, $widths, $headerHeight): float {
-            $stream .= "0.12 0.30 0.48 rg {$left} " . ($top - 30) . " 794 30 re f\n1.00 0.76 0.20 rg {$left} " . ($top - 4) . " 794 4 re f\nBT /F1 16 Tf 1 1 1 rg {$left} " . ($top - 20) . " Td (CENEOS - " . self::pdfEscape(self::pdfText($title)) . ") Tj ET\n";
+        $brandPrimary = self::brandColor($branding, 'primary', '#1F4E78'); $brandNav = self::brandColor($branding, 'nav', '#F5C242'); $brandText = self::brandColor($branding, 'primary_text', '#FFFFFF'); $brandName = (string) ($branding['company_name'] ?? 'CENEOS'); $hexRgb = static function (string $hex): array { return [hexdec(substr($hex, 1, 2)) / 255, hexdec(substr($hex, 3, 2)) / 255, hexdec(substr($hex, 5, 2)) / 255]; }; [$pr, $pg, $pb] = $hexRgb($brandPrimary); [$nr, $ng, $nb] = $hexRgb($brandNav); [$tr, $tg, $tb] = $hexRgb($brandText);
+        $drawPageHeader = static function (string &$stream) use ($title, $brandName, $left, $top, $headers, $widths, $headerHeight, $pr, $pg, $pb, $nr, $ng, $nb, $tr, $tg, $tb): float {
+            $stream .= sprintf("%.3f %.3f %.3f rg %d %d 794 30 re f\n%.3f %.3f %.3f rg %d %d 794 4 re f\nBT /F1 16 Tf %.3f %.3f %.3f rg %d %d Td (%s - %s) Tj ET\n", $pr, $pg, $pb, $left, $top - 30, $nr, $ng, $nb, $left, $top - 4, $tr, $tg, $tb, $left, $top - 20, self::pdfEscape(self::pdfText($brandName)), self::pdfEscape(self::pdfText($title)));
             $x = $left; $y = $top - 58; foreach ($headers as $i => $header) { $w = $widths[$i]; $stream .= "0.20 0.23 0.27 rg {$x} {$y} {$w} {$headerHeight} re f\nBT /F1 7 Tf 1 1 1 rg " . ($x + 3) . ' ' . ($y + 9) . " Td (" . self::pdfEscape(self::pdfText(mb_strimwidth((string) $header, 0, 24, '…'))) . ") Tj ET\n"; $x += $w; } return $y - $headerHeight;
         };
         $y = $drawPageHeader($stream); $rowIndex = 0; $quoteIndex = array_search('Quote', $headers, true);
@@ -331,6 +335,13 @@ final class ReportController
     }
 
     private static function pdfText(string $value): string { return function_exists('iconv') ? (string) iconv('UTF-8', 'CP1252//TRANSLIT//IGNORE', $value) : $value; }
+    private static function brandColor(array $branding, string $key, string $fallback): string
+    {
+        $value = $key === 'nav' ? ($branding['nav_colors']['background'] ?? '') : ($branding['theme_colors'][$key] ?? '');
+        $value = strtoupper(trim((string) $value));
+        if ($value !== '' && $value[0] !== '#') $value = '#' . $value;
+        return preg_match('/^#[0-9A-F]{6}$/', $value) ? $value : $fallback;
+    }
     private static function pdfEscape(string $value): string { return str_replace(['\\', '(', ')', "\r", "\n"], ['\\\\', '\\(', '\\)', '', ''], $value); }
     private static function buildPdf(array $streams): string { $objects = ['1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj', '2 0 obj<< /Type /Pages /Kids [' . implode(' ', array_map(static fn($i): string => (string) (4 + $i) . ' 0 R', array_keys($streams))) . '] /Count ' . count($streams) . '>>endobj', '3 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>endobj']; foreach ($streams as $i => $body) $objects[] = (4 + $i) . ' 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources<< /Font<< /F1 3 0 R>>>> /Contents ' . (4 + count($streams) + $i) . ' 0 R>>endobj'; foreach ($streams as $i => $body) $objects[] = (4 + count($streams) + $i) . ' 0 obj<< /Length ' . strlen($body) . ">>stream\n" . $body . "endstream endobj"; $pdf = "%PDF-1.4\n"; $offsets = []; foreach ($objects as $object) { $offsets[] = strlen($pdf); $pdf .= $object . "\n"; } $xref = strlen($pdf); $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n"; foreach ($offsets as $offset) $pdf .= sprintf("%010d 00000 n \n", $offset); return $pdf . "trailer<< /Size " . (count($objects) + 1) . " /Root 1 0 R>>\nstartxref\n" . $xref . "\n%%EOF"; }
     private static function quoteRgb(float $value): array { return $value <= 10 ? [209, 231, 221] : ($value <= 20 ? [183, 228, 199] : ($value <= 40 ? [255, 243, 205] : ($value <= 60 ? [255, 230, 156] : ($value <= 80 ? [255, 218, 106] : [255, 184, 107])))); }

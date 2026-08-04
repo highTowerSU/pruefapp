@@ -23,9 +23,14 @@ $reportErrors = [];
 $reportDir = app_data_root() . '/reports/current';
 if (!is_dir($reportDir)) mkdir($reportDir, 0770, true);
 try {
-    $missingReports = R::getAll("SELECT i.id, i.external_number, d.id AS device_id
+    $missingReports = R::getAll("SELECT i.id, i.external_number, d.id AS device_id, c.id AS customer_id
         FROM inspection i
         JOIN device d ON d.id = i.device_id
+        LEFT JOIN room r ON r.id = d.room_id
+        LEFT JOIN floor f ON f.id = r.floor_id
+        LEFT JOIN building b ON b.id = f.building_id
+        LEFT JOIN site s ON s.id = b.site_id
+        LEFT JOIN customer c ON c.id = s.customer_id
         WHERE i.result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
           AND TRIM(COALESCE(i.report_path, '')) = ''
         ORDER BY i.id ASC
@@ -40,7 +45,8 @@ try {
             if (!is_file($path)) {
                 $pdf = ReportController::renderPdf(
                     ReportController::inspectionPdfRows($inspection, $device),
-                    'Prüfbericht ' . (string) $inspection->external_number
+                    'Prüfbericht ' . (string) $inspection->external_number,
+                    function_exists('get_company_branding') ? get_company_branding((int) ($row['customer_id'] ?? 0)) : null
                 );
                 if (file_put_contents($path, $pdf, LOCK_EX) === false) {
                     throw new RuntimeException('PDF konnte nicht gespeichert werden.');
