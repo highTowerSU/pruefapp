@@ -20,8 +20,32 @@ class SettingsController
             'keycloak_admin_console_base_url' => $storedKeycloakAdminUrl,
         ];
         $errors = [];
+        $databaseWizard = null;
+        $skipGeneralSave = false;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'db_wizard') {
+                $skipGeneralSave = true;
+                try {
+                    $adminDsn = trim((string) ($_POST['admin_dsn'] ?? ''));
+                    $adminUser = trim((string) ($_POST['admin_user'] ?? ''));
+                    $adminPassword = (string) ($_POST['admin_password'] ?? '');
+                    $databaseName = trim((string) ($_POST['database_name'] ?? 'pruefapp'));
+                    $appUser = trim((string) ($_POST['app_user'] ?? 'pruefapp'));
+                    if (!preg_match('/^mysql:\s*/i', $adminDsn) || $adminUser === '' || !preg_match('/^[A-Za-z0-9_]+$/', $databaseName) || !preg_match('/^[A-Za-z0-9_]+$/', $appUser)) throw new RuntimeException('Bitte MySQL-DSN, Admin-Benutzer sowie gültige Datenbank- und Benutzernamen angeben.');
+                    $pdo = new PDO($adminDsn, $adminUser, $adminPassword, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                    $quote = static fn(string $name): string => '`' . str_replace('`', '``', $name) . '`';
+                    $appPassword = bin2hex(random_bytes(24));
+                    $pdo->exec('CREATE DATABASE IF NOT EXISTS ' . $quote($databaseName) . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+                    $sqlUser = str_replace("'", "''", $appUser); $sqlPassword = str_replace("'", "''", $appPassword);
+                    $pdo->exec("CREATE USER IF NOT EXISTS '{$sqlUser}'@'localhost' IDENTIFIED BY '{$sqlPassword}'");
+                    $pdo->exec("GRANT ALL PRIVILEGES ON {$quote($databaseName)}.* TO '{$sqlUser}'@'localhost'");
+                    $pdo->exec('FLUSH PRIVILEGES');
+                    $databaseWizard = ['success' => true, 'message' => 'MySQL-Datenbank und App-Benutzer wurden eingerichtet. Das Admin-Passwort wurde nicht gespeichert.', 'snippet' => "'APP_DATABASE_DSN' => 'mysql:host=127.0.0.1;dbname={$databaseName};charset=utf8mb4',\n'APP_DATABASE_USER' => '{$appUser}',\n'APP_DATABASE_PASSWORD' => '{$appPassword}',"];
+                } catch (Throwable $exception) {
+                    $databaseWizard = ['success' => false, 'message' => $exception->getMessage()];
+                }
+            }
             if (($_POST['action'] ?? '') === 'nuke_electrical') {
                 if (trim((string) ($_POST['confirmation'] ?? '')) !== 'NUKE ELEKTRO') {
                     $_SESSION['fehlermeldung'] = 'Bitte zur Bestätigung exakt NUKE ELEKTRO eingeben.';
@@ -44,6 +68,9 @@ class SettingsController
                 }
                 return [303, ['Location' => url_for('admin/konfiguration')], ''];
             }
+            if ($skipGeneralSave) {
+                // The database wizard renders its one-time result in place.
+            } else {
             $values['keycloak_account_console_base_url'] = trim((string) ($_POST['keycloak_account_console_base_url'] ?? ''));
             $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
 
@@ -73,6 +100,7 @@ class SettingsController
 
                 return [303, ['Location' => url_for('admin/konfiguration')], ''];
             }
+            }
         }
 
         $content = render_template('settings.php', [
@@ -83,6 +111,7 @@ class SettingsController
             'keycloakAccountFileOverride' => config_value('APP_KEYCLOAK_ACCOUNT_CONSOLE_BASE_URL'),
             'keycloakAdminFileOverride' => config_value('APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL'),
             'databasePath' => app_database_path(),
+            'databaseWizard' => $databaseWizard,
         ]);
 
         if ($isHx) {
