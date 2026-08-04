@@ -49,7 +49,15 @@ class DeviceController
         $newNumber = trim((string) ($_GET['new_number'] ?? ''));
         $inspectionStatus = trim((string) ($_GET['inspection_status'] ?? ''));
         $sort = (string) ($_GET['sort'] ?? 'name');
-        $orderBy = ['room' => 'd.room_id, d.name', 'id' => 'd.id', 'name' => 'd.name'][$sort] ?? 'd.name';
+        $orderBy = [
+            'room' => 'd.room_id, d.name',
+            'id' => 'd.id',
+            'name' => 'LOWER(d.name), d.id',
+            'external_number' => 'LOWER(d.external_number), d.id',
+            'manufacturer' => 'LOWER(COALESCE(d.manufacturer, \'\')), LOWER(d.name), d.id',
+            'inspection_newest' => '(SELECT MAX(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id) DESC, d.name',
+            'inspection_oldest' => 'COALESCE((SELECT MIN(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id), \'9999-12-31\'), d.name',
+        ][$sort] ?? 'LOWER(d.name), d.id';
         $where = [];
         $paramsQuery = [];
         if (!current_user_has_role('admin')) {
