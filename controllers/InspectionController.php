@@ -363,7 +363,17 @@ final class InspectionController
         $root = app_data_root();
         $path = $relative !== '' ? realpath($root . '/' . ltrim($relative, '/')) : false;
         $rootReal = realpath($root);
-        if (!$inspection->id || $path === false || $rootReal === false || !str_starts_with($path, $rootReal . DIRECTORY_SEPARATOR) || !is_file($path)) return [404, [], 'Bericht nicht gefunden'];
+        // Importierte Altberichte liegen bewusst außerhalb der Webanwendung.
+        // Das Verzeichnis ist ein ausdrücklich erlaubter, nicht beschreibbarer
+        // Berichtsspeicher.
+        if ($path === false && $relative !== '') {
+            $legacyRoot = realpath('/var/www/berichte');
+            $legacyPath = realpath('/var/www/berichte/' . basename($relative));
+            if ($legacyRoot !== false && $legacyPath !== false && str_starts_with($legacyPath, $legacyRoot . DIRECTORY_SEPARATOR)) $path = $legacyPath;
+        }
+        $allowedPath = $path !== false && $rootReal !== false && str_starts_with($path, $rootReal . DIRECTORY_SEPARATOR);
+        if (!$allowedPath && $path !== false) { $legacyRoot = realpath('/var/www/berichte'); $allowedPath = $legacyRoot !== false && str_starts_with($path, $legacyRoot . DIRECTORY_SEPARATOR); }
+        if (!$inspection->id || $path === false || !$allowedPath || !is_file($path)) return [404, [], 'Bericht nicht gefunden'];
         return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="' . basename($path) . '"'], (string) file_get_contents($path)];
     }
 

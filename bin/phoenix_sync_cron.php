@@ -8,6 +8,9 @@ require_once dirname(__DIR__) . '/controllers/ReportController.php';
 
 $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
 if (!is_dir($root)) mkdir($root, 0700, true);
+$logPath = $root . '/cron.log';
+$log = static function (string $message) use ($logPath): void { file_put_contents($logPath, '[' . date(DATE_ATOM) . '] ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX); };
+$log('Cron gestartet, PID ' . getmypid());
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
@@ -53,6 +56,8 @@ try {
 } catch (Throwable $exception) {
     $reportErrors[] = ['error' => $exception->getMessage()];
 }
+$log('Berichte erzeugt: ' . $generatedReports . ', Fehler: ' . count($reportErrors));
+foreach ($reportErrors as $error) $log('Berichtsfehler: ' . json_encode($error, JSON_UNESCAPED_UNICODE));
 
 file_put_contents($root . '/report-heartbeat.json', json_encode([
     'last_run' => date(DATE_ATOM),
@@ -65,7 +70,9 @@ foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     if (!is_array($status) || ($status['state'] ?? '') !== 'queued') continue;
     $id = (string) ($status['id'] ?? basename($statusPath, '.status.json'));
     if (!preg_match('/^[a-f0-9]{24}$/', $id) || !is_file($root . '/' . $id . '.json')) continue;
+    $log('Job gestartet: ' . $id);
     passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
+    $log('Job beendet: ' . $id);
 }
 flock($lock, LOCK_UN);
 fclose($lock);
