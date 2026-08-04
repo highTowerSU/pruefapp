@@ -81,7 +81,14 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
       refreshModels();
     }
     const submitBlock = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
-    const fieldBlocks = ['manufacturer', 'device_model', 'name', 'inventory_number', 'serial_number', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'].map(name => form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]')).filter(Boolean);
+    const fieldOrder = ['external_number', 'inventory_number', 'serial_number', 'manufacturer', 'device_model', 'name', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'];
+    const fieldWidths = {external_number: 'col-md-4', inventory_number: 'col-md-4', serial_number: 'col-md-4', manufacturer: 'col-md-3', device_model: 'col-md-3', name: 'col-md-6', room_id: 'col-md-8', warming_device: 'col-md-4'};
+    const fieldBlocks = fieldOrder.map(name => {
+      const block = form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]');
+      if (!block) return null;
+      Object.keys(fieldWidths).includes(name) && (block.className = block.className.replace(/\bcol-(?:sm|md|lg|xl|xxl)-\d+\b/g, '') + ' ' + fieldWidths[name]);
+      return block;
+    }).filter(Boolean);
     if (submitBlock) fieldBlocks.forEach(block => form.insertBefore(block, submitBlock));
     form.classList.remove('g-2'); form.classList.add('g-3', 'device-form');
     const addDeviceHeading = (before, text) => { if (!before || before.previousElementSibling?.classList.contains('device-form-heading')) return; const heading = document.createElement('div'); heading.className = 'col-12 device-form-heading mt-2'; heading.innerHTML = `<h2 class="h5 border-bottom pb-2 mb-0">${text}</h2>`; form.insertBefore(heading, before); };
