@@ -42,6 +42,7 @@ require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/CustomerInfoController.php';
 require_once __DIR__ . '/controllers/ReportController.php';
 require_once __DIR__ . '/controllers/BillingController.php';
+require_once __DIR__ . '/lib/SevDeskClient.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
