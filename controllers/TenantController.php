@@ -174,10 +174,12 @@ class TenantController
                 $previousLogoPath = (string) ($company->header_logo_path ?? '');
                 $previousLightLogoPath = (string) ($company->logo_light_path ?? '');
                 $previousDarkLogoPath = (string) ($company->logo_dark_path ?? '');
+                $previousLongLogoPath = (string) ($company->logo_long_path ?? '');
 
                 $uploadResult = self::handleHeaderLogoUpload($data, $errors);
                 $lightUploadResult = self::handleHeaderLogoUpload($data, $errors, 'logo_light_file', 'light');
                 $darkUploadResult = self::handleHeaderLogoUpload($data, $errors, 'logo_dark_file', 'dark');
+                $longUploadResult = self::handleHeaderLogoUpload($data, $errors, 'logo_long_file', 'long');
 
                 if ($errors === []) {
                     if ($uploadResult !== null) {
@@ -188,6 +190,7 @@ class TenantController
                     }
                     if ($lightUploadResult !== null) $data['logo_light_path'] = $lightUploadResult['path'];
                     if ($darkUploadResult !== null) $data['logo_dark_path'] = $darkUploadResult['path'];
+                    if ($longUploadResult !== null) $data['logo_long_path'] = $longUploadResult['path'];
 
                     $company->name = $data['name'];
                     $company->slug = $data['slug'];
@@ -200,6 +203,7 @@ class TenantController
                     $company->header_logo_alt = $data['header_logo_alt'] !== '' ? $data['header_logo_alt'] : $data['name'];
                     $company->logo_light_path = $data['logo_light_path'];
                     $company->logo_dark_path = $data['logo_dark_path'];
+                    $company->logo_long_path = $data['logo_long_path'];
                     $company->primary_color = $data['primary_color'];
                     $company->primary_text_color = $data['primary_text_color'];
                     $company->light_color = $data['light_color'];
@@ -254,6 +258,7 @@ class TenantController
                 self::rollbackHeaderLogoUpload($uploadResult ?? null);
                 self::rollbackHeaderLogoUpload($lightUploadResult ?? null);
                 self::rollbackHeaderLogoUpload($darkUploadResult ?? null);
+                self::rollbackHeaderLogoUpload($longUploadResult ?? null);
             }
         }
         $companyData = self::mapCompany($company);
@@ -269,7 +274,7 @@ class TenantController
             $companyData['header_logo_path'] = $data['header_logo_path'];
             $companyData['header_logo_url'] = self::resolveAssetPath($data['header_logo_path']);
             $companyData['header_logo_alt'] = $data['header_logo_alt'] ?: $data['name'];
-            foreach (['logo_light_path', 'logo_dark_path', 'primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
+            foreach (['logo_light_path', 'logo_dark_path', 'logo_long_path', 'primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
                 $companyData[$field] = $data[$field];
             }
             $companyData['nav_background_color'] = $data['nav_background_color'];
@@ -319,6 +324,7 @@ class TenantController
         $data['header_logo_alt'] = trim((string) ($input['header_logo_alt'] ?? ''));
         $data['logo_light_path'] = trim((string) ($input['logo_light_path'] ?? $data['header_logo_path']));
         $data['logo_dark_path'] = trim((string) ($input['logo_dark_path'] ?? $data['header_logo_path']));
+        $data['logo_long_path'] = trim((string) ($input['logo_long_path'] ?? $data['logo_light_path']));
         $data['nav_background_color'] = self::sanitizeColor((string) ($input['nav_background_color'] ?? ''));
         $data['nav_text_color'] = self::sanitizeColor((string) ($input['nav_text_color'] ?? ''));
         $data['sevdesk_api_url'] = trim((string) ($input['sevdesk_api_url'] ?? 'https://my.sevdesk.de/api/v1')) ?: 'https://my.sevdesk.de/api/v1';
@@ -360,7 +366,7 @@ class TenantController
         if ($data['header_logo_path'] !== '' && !self::isValidRelativeOrUrl($data['header_logo_path'])) {
             $errors[] = 'Der Pfad zum Header-Logo muss eine relative URL oder eine vollständige Adresse sein.';
         }
-        foreach (['logo_light_path', 'logo_dark_path'] as $field) {
+        foreach (['logo_light_path', 'logo_dark_path', 'logo_long_path'] as $field) {
             if ($data[$field] !== '' && !self::isValidRelativeOrUrl($data[$field])) $errors[] = 'Die Logo-Pfade sind ungültig.';
         }
 
@@ -422,6 +428,7 @@ class TenantController
             'header_logo_alt' => $headerLogoAlt,
             'logo_light_path' => (string) ($company->logo_light_path ?? '') ?: $headerLogoPath,
             'logo_dark_path' => (string) ($company->logo_dark_path ?? '') ?: $headerLogoPath,
+            'logo_long_path' => (string) ($company->logo_long_path ?? '') ?: ((string) ($company->logo_light_path ?? '') ?: $headerLogoPath),
             'primary_color' => self::sanitizeColor((string) ($company->primary_color ?? '')),
             'primary_text_color' => self::sanitizeColor((string) ($company->primary_text_color ?? '')),
             'light_color' => self::sanitizeColor((string) ($company->light_color ?? '')),

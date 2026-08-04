@@ -304,17 +304,18 @@ $form = static function (string $type, $entity = null) use (
 <?php };
 
 $section = static function (string $title, string $type, array $items) use ($form, $canManage, $filterAttributes, $summaryLabel, $hierarchyBadges, $rooms, $cascadeCounts): void {
+$icons = ['customer' => 'fa-users', 'site' => 'fa-location-dot', 'building' => 'fa-building', 'floor' => 'fa-layer-group', 'area' => 'fa-vector-square', 'room' => 'fa-door-open'];
 ?>
 <div class="card shadow-sm h-100">
-  <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><?= htmlspecialchars($title) ?></h2><span class="badge text-bg-secondary" data-structure-count="<?= $type ?>"><?= count($items) ?></span></div>
+  <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><i class="fa-solid <?= $icons[$type] ?? 'fa-sitemap' ?> text-primary me-2" aria-hidden="true"></i><?= htmlspecialchars($title) ?></h2><span class="badge text-bg-secondary" data-structure-count="<?= $type ?>"><?= count($items) ?></span></div>
   <div class="card-body">
-    <?php if ($canManage): ?><details class="border rounded p-2 mb-3"><summary class="fw-semibold">Neu anlegen</summary><div class="pt-3"><?php $form($type); ?></div></details><?php endif; ?>
+    <?php if ($canManage): ?><details class="border rounded p-2 mb-3"><summary class="fw-semibold"><i class="fa-solid fa-plus-circle text-primary me-2" aria-hidden="true"></i>Neu anlegen</summary><div class="pt-3"><?php $form($type); ?></div></details><?php endif; ?>
     <div class="vstack gap-2">
       <?php foreach ($items as $item): ?>
             <?php $cascade = $cascadeCounts($type, $item); $cascadeSummary = sprintf('%d Standort(e), %d Gebäude, %d Etage(n), %d Bereich(e), %d Raum/Räume, %d Gerät(e), %d Prüfung(en)', $cascade['sites'], $cascade['buildings'], $cascade['floors'], $cascade['areas'], $cascade['rooms'], $cascade['devices'], $cascade['inspections']); ?>
             <details class="border rounded p-2 structure-filter-item" <?= $filterAttributes($type, $item) ?>>
           <summary>
-            <?php if ($canManage): ?><input class="form-check-input me-2 structure-check" type="checkbox" form="structure-bulk-form" name="structure_ids[]" value="<?= (int) $item->id ?>" data-structure-type="<?= htmlspecialchars($type, ENT_QUOTES) ?>" onclick="event.stopPropagation()" aria-label="<?= htmlspecialchars($summaryLabel($type, $item), ENT_QUOTES) ?> auswählen"><?php endif; ?><?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building', 'room'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
+            <?php if ($canManage): ?><input class="form-check-input me-2 structure-check" type="checkbox" form="structure-bulk-form" name="structure_ids[]" value="<?= (int) $item->id ?>" data-structure-type="<?= htmlspecialchars($type, ENT_QUOTES) ?>" onclick="event.stopPropagation()" aria-label="<?= htmlspecialchars($summaryLabel($type, $item), ENT_QUOTES) ?> auswählen"><?php endif; ?><i class="fa-solid <?= $icons[$type] ?? 'fa-sitemap' ?> text-body-secondary me-2" aria-hidden="true"></i><?= $hierarchyBadges($type, $item) ?><strong><?= htmlspecialchars($summaryLabel($type, $item)) ?></strong><?php if (!in_array($type, ['customer', 'site', 'building', 'room'], true) && !empty($item->code)): ?> <span class="badge text-bg-secondary"><?= htmlspecialchars((string) $item->code) ?></span><?php endif; ?>
             <?php if (trim((string) $item->description) !== ''): ?><span class="d-block small text-body-secondary mt-1"><?= htmlspecialchars((string) $item->description) ?></span><?php endif; ?>
           </summary>
           <div class="pt-3"><?php if ($type === 'customer'): ?><a class="btn btn-sm btn-outline-primary mb-3" href="<?= htmlspecialchars(url_for('kunden/' . (int) $item->id . '/infos'), ENT_QUOTES) ?>"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i>Kundeninfos öffnen</a><?php endif; ?><?php if ($canManage): $form($type, $item); else: ?><p class="mb-0"><?= nl2br(htmlspecialchars((string) $item->comment)) ?></p><?php endif; ?>
@@ -386,9 +387,9 @@ $section = static function (string $title, string $type, array $items) use ($for
 </div>
 
 <div class="card shadow-sm mb-4">
-  <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0">Etagen nach Gebäude</h2><span class="badge text-bg-secondary" data-structure-count="floor"><?= count($floors) ?></span></div>
+  <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><i class="fa-solid fa-layer-group text-primary me-2" aria-hidden="true"></i>Etagen nach Gebäude</h2><span class="badge text-bg-secondary" data-structure-count="floor"><?= count($floors) ?></span></div>
   <div class="card-body">
-    <?php if ($canManage): ?><details class="border rounded p-2 mb-4"><summary class="fw-semibold">Neue Etage anlegen</summary><div class="pt-3"><?php $form('floor'); ?></div></details><?php endif; ?>
+    <?php if ($canManage): ?><details class="border rounded p-2 mb-4"><summary class="fw-semibold"><i class="fa-solid fa-plus-circle text-primary me-2" aria-hidden="true"></i>Neue Etage anlegen</summary><div class="pt-3"><?php $form('floor'); ?></div></details><?php endif; ?>
     <?php foreach ($buildings as $building): ?>
       <section class="mb-4 structure-filter-group" <?= $filterAttributes('building', $building) ?>>
         <div class="border-bottom pb-2 mb-2">
@@ -411,9 +412,9 @@ $section = static function (string $title, string $type, array $items) use ($for
   <div class="col-xl-5"><?php $section('Bereiche', 'area', $areas); ?></div>
   <div class="col-xl-7">
     <div class="card shadow-sm">
-      <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0">Räume nach Etage</h2><span class="badge text-bg-secondary" data-structure-count="room"><?= count($rooms) ?></span></div>
+      <div class="card-header d-flex justify-content-between"><h2 class="h5 mb-0"><i class="fa-solid fa-door-open text-primary me-2" aria-hidden="true"></i>Räume nach Etage</h2><span class="badge text-bg-secondary" data-structure-count="room"><?= count($rooms) ?></span></div>
       <div class="card-body">
-        <?php if ($canManage): ?><details class="border rounded p-2 mb-4"><summary class="fw-semibold">Neuen Raum anlegen</summary><div class="pt-3"><?php $form('room'); ?></div></details><?php endif; ?>
+        <?php if ($canManage): ?><details class="border rounded p-2 mb-4"><summary class="fw-semibold"><i class="fa-solid fa-plus-circle text-primary me-2" aria-hidden="true"></i>Neuen Raum anlegen</summary><div class="pt-3"><?php $form('room'); ?></div></details><?php endif; ?>
         <?php foreach ($floors as $floor): ?>
           <?php $building = $buildingsById[(int) $floor->building_id] ?? null; ?>
           <section class="structure-filter-group" <?= $filterAttributes('floor', $floor) ?>>

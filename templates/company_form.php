@@ -70,6 +70,12 @@
       </div>
     </div>
     <div class="mb-3">
+      <label class="form-label" for="logo_long_path">Langlogo für helle Dokumente</label>
+      <input type="text" class="form-control" id="logo_long_path" name="logo_long_path" value="<?= htmlspecialchars($company['logo_long_path'] ?? '') ?>">
+      <input type="file" class="form-control mt-2" name="logo_long_file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp">
+      <div class="form-text">Wird bevorzugt in ODS- und PDF-Exporten auf weißem Hintergrund verwendet. Ohne Angabe wird das Logo für helle Hintergründe genutzt.</div>
+    </div>
+    <div class="mb-3">
       <label class="form-label" for="home_intro">Startseiten-Intro</label>
       <textarea class="form-control" id="home_intro" name="home_intro" rows="2"><?= htmlspecialchars($company['home_intro']) ?></textarea>
     </div>

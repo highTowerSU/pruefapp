@@ -162,6 +162,7 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
         'logos' => [
             'light' => (string) ($company->logo_light_path ?? '') ?: $headerLogoPath,
             'dark' => (string) ($company->logo_dark_path ?? '') ?: $headerLogoPath,
+            'long' => (string) ($company->logo_long_path ?? '') ?: ((string) ($company->logo_light_path ?? '') ?: $headerLogoPath),
             'alt' => $headerLogoAlt,
         ],
         'theme_colors' => [
@@ -224,6 +225,7 @@ function map_static_branding(string $key, array $data): array
     $branding['logos'] = $data['logos'] ?? [
         'light' => $branding['header_logo']['path'] ?? '',
         'dark' => $branding['header_logo']['path'] ?? '',
+        'long' => $branding['header_logo']['path'] ?? '',
         'alt' => $branding['header_logo']['alt'],
     ];
     $branding['theme_colors'] = [

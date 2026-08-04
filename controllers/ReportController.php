@@ -260,7 +260,7 @@ final class ReportController
         $companyName = (string) ($branding['company_name'] ?? 'CENEOS');
         // ODS uses a light sheet background, therefore prefer the dark-text
         // logo variant intended for light surfaces.
-        $logoPath = (string) (($branding['logos']['light'] ?? '') ?: (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? '')));
+        $logoPath = (string) (($branding['logos']['long'] ?? '') ?: (($branding['logos']['light'] ?? '') ?: (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? ''))));
         if ($logoPath !== '' && !str_starts_with($logoPath, '/')) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/');
         $logoData = $logoPath !== '' && is_file($logoPath) ? (string) file_get_contents($logoPath) : '';
         $logoMime = $logoPath !== '' && str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png';
@@ -287,11 +287,11 @@ final class ReportController
         if ($logoData !== '' && $columnCount >= 3) {
             $titleSpan = $columnCount - 2;
             $covered = static fn(int $count): string => str_repeat('<table:covered-table-cell/>', max(0, $count));
-            $logoCell = '<table:table-cell table:number-columns-spanned="2" table:style-name="Title" style:vertical-align="middle"><draw:frame draw:name="Logo" text:anchor-type="as-char" svg:width="1.9cm" svg:height="0.48cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame></table:table-cell>';
+            $logoCell = '<table:table-cell table:number-columns-spanned="2" table:style-name="Title" style:vertical-align="middle"><draw:frame draw:name="Logo" text:anchor-type="as-char" svg:width="2.35cm" svg:height="0.62cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame></table:table-cell>';
             $titleCell = '<table:table-cell table:number-columns-spanned="' . $titleSpan . '" table:style-name="Title"><text:p>' . $titleText . '</text:p></table:table-cell>';
-            $titleXml = '<table:table-row>' . $logoCell . $covered(1) . $titleCell . $covered($titleSpan - 1) . '</table:table-row>';
+            $titleXml = '<table:table-row style:row-height="0.82cm" style:use-optimal-row-height="false">' . $logoCell . $covered(1) . $titleCell . $covered($titleSpan - 1) . '</table:table-row>';
         } else {
-            $titleXml = '<table:table-row>' . $titleCell . str_repeat('<table:covered-table-cell/>', max(0, $columnCount - 1)) . '</table:table-row>';
+            $titleXml = '<table:table-row style:row-height="0.82cm" style:use-optimal-row-height="false">' . $titleCell . str_repeat('<table:covered-table-cell/>', max(0, $columnCount - 1)) . '</table:table-row>';
         }
         $subtitle = htmlspecialchars('Erstellt am ' . (new DateTimeImmutable())->format('d.m.Y H:i') . ' · ' . max(0, count($rows) - 1) . ' Datensätze · Filter und Sortierung aus der aktuellen Ansicht', ENT_XML1 | ENT_QUOTES, 'UTF-8');
         $subtitleXml = '<table:table-row><table:table-cell table:number-columns-spanned="' . $columnCount . '" table:style-name="Subtitle"><text:p>' . $subtitle . '</text:p></table:table-cell></table:table-row>';
@@ -396,7 +396,7 @@ final class ReportController
         }
         // Chromium provides the branded UTF-8 fallback if LibreOffice is not installed.
         if (is_executable('/usr/bin/chromium') && $rows !== []) {
-            $primary = self::brandColor($branding, 'primary', '#1F4E78'); $nav = self::brandColor($branding, 'nav', '#F5C242'); $primaryText = self::brandColor($branding, 'primary_text', '#FFFFFF'); $companyName = (string) ($branding['company_name'] ?? 'CENEOS'); $logoPath = (string) (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? '')); if ($logoPath !== '' && !preg_match('#^/#', $logoPath)) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/'); $logo = is_file($logoPath) ? 'data:' . (str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png') . ';base64,' . base64_encode((string) file_get_contents($logoPath)) : '';
+            $primary = self::brandColor($branding, 'primary', '#1F4E78'); $nav = self::brandColor($branding, 'nav', '#F5C242'); $primaryText = self::brandColor($branding, 'primary_text', '#FFFFFF'); $companyName = (string) ($branding['company_name'] ?? 'CENEOS'); $logoPath = (string) (($branding['logos']['long'] ?? '') ?: (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? ''))); if ($logoPath !== '' && !preg_match('#^/#', $logoPath)) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/'); $logo = is_file($logoPath) ? 'data:' . (str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png') . ';base64,' . base64_encode((string) file_get_contents($logoPath)) : '';
             $subtitle = 'Erstellt am ' . (new DateTimeImmutable())->format('d.m.Y H:i') . ' · ' . max(0, count($rows) - 1) . ' Datensätze · Tabellenübersicht aus der aktuellen Filter- und Sortierauswahl';
             $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ' . $nav . ';padding-bottom:8px;margin-bottom:8px}header img{max-width:150px;max-height:42px}h1{font-size:18px;margin:0;color:' . $primary . '}table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}thead{display:table-header-group}th{background:' . $primary . ';color:' . $primaryText . ';text-align:left;padding:7px 6px;font-size:8px;line-height:1.2;overflow-wrap:anywhere}td{border:1px solid #ccd2d8;padding:5px;vertical-align:top;overflow-wrap:anywhere;line-height:1.25}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}.muted{color:#6c757d;font-size:8px}.subtitle{color:#52606d;font-size:9px;margin:0 0 5px}</style><header><h1>' . htmlspecialchars($companyName . ' - ' . $title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1>' . ($logo !== '' ? '<img src="' . $logo . '" alt="' . htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' : '') . '</header><div class="subtitle">' . htmlspecialchars($subtitle, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</div><table><thead><tr>';
             foreach (($rows[0] ?? []) as $header) $html .= '<th>' . htmlspecialchars((string) $header, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</th>';
@@ -436,7 +436,7 @@ final class ReportController
         $primary = self::brandColor($branding, 'primary', '#1F4E78');
         $nav = self::brandColor($branding, 'nav', '#F5C242');
         $company = (string) ($branding['company_name'] ?? 'CENEOS');
-        $logoPath = (string) (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? ''));
+        $logoPath = (string) (($branding['logos']['long'] ?? '') ?: (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? '')));
         if ($logoPath !== '' && !str_starts_with($logoPath, '/')) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/');
         $logo = is_file($logoPath) ? 'data:' . (str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png') . ';base64,' . base64_encode((string) file_get_contents($logoPath)) : '';
         $esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
