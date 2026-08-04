@@ -28,6 +28,10 @@ final class ReportController
         }
         elseif ($report) $rows = self::roomRows($devices);
         else $rows = self::deviceRows($devices);
+        // Tabellarische Exporte bleiben übersichtlich: redundante
+        // Hierarchieebenen werden nur ausgeblendet, wenn sie im aktuellen
+        // Ergebnis keinen zusätzlichen Informationswert liefern.
+        $rows = self::compactStructureColumns($rows);
         $name = $reportType === 'daily' ? 'Tagesreport' : ($reportType === 'weekly' ? 'Wochenreport' : ($report ? 'Raum-Ampelreport' : 'Geräteexport'));
         if ($format === 'json') {
             $full = [];
@@ -208,6 +212,40 @@ final class ReportController
         return [200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Language' => self::exportLanguage(), 'Content-Disposition' => 'attachment; filename="' . $filename . '"'], $body];
     }
 
+    private static function compactStructureColumns(array $rows): array
+    {
+        if (count($rows) < 1 || !is_array($rows[0])) return $rows;
+        $headers = array_values($rows[0]);
+        $data = array_slice($rows, 1);
+        $index = static function (string $name) use ($headers): int|false { return array_search($name, $headers, true); };
+        $values = static function (int $column) use ($data): array {
+            return array_values(array_unique(array_filter(array_map(static fn($row): string => trim((string) ($row[$column] ?? '')), $data), static fn(string $v): bool => $v !== '')));
+        };
+        $remove = [];
+        if (($i = $index('Bereich')) !== false && $values($i) === []) $remove[] = $i;
+        if (($i = $index('Kunde')) !== false && count($values($i)) <= 1) $remove[] = $i;
+        $groupHasAtMostOne = static function (int $parent, int $child) use ($data): bool {
+            $groups = [];
+            foreach ($data as $row) {
+                $p = trim((string) ($row[$parent] ?? '')); $c = trim((string) ($row[$child] ?? ''));
+                if ($p === '' || $c === '') continue;
+                $groups[$p][$c] = true;
+            }
+            return $groups !== [] && !array_filter($groups, static fn(array $items): bool => count($items) > 1);
+        };
+        $customer = $index('Kunde'); $site = $index('Standort'); $building = $index('Gebäude'); $floor = $index('Etage');
+        if ($site !== false && ($customer === false || $groupHasAtMostOne($customer, $site))) $remove[] = $site;
+        if ($building !== false && ($site === false || $groupHasAtMostOne($site, $building))) $remove[] = $building;
+        if ($floor !== false && ($building === false || $groupHasAtMostOne($building, $floor))) $remove[] = $floor;
+        $remove = array_values(array_unique($remove));
+        if ($remove === []) return $rows;
+        sort($remove);
+        $keep = array_values(array_diff(array_keys($headers), $remove));
+        $result = [array_map(static fn(int $i): string => (string) $headers[$i], $keep)];
+        foreach ($data as $row) $result[] = array_map(static fn(int $i): string => (string) ($row[$i] ?? ''), $keep);
+        return $result;
+    }
+
     private static function ods(array $rows, string $title, array $branding = []): array
     {
         if (!class_exists('ZipArchive')) return [500, [], 'ODS-Export ist auf diesem Server nicht verfügbar.'];
@@ -217,6 +255,7 @@ final class ReportController
         $zip = new ZipArchive();
         if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) return [500, [], 'ODS-Datei konnte nicht erstellt werden.'];
         $zip->addFromString('mimetype', 'application/vnd.oasis.opendocument.spreadsheet');
+        $rows = self::compactStructureColumns($rows);
         $headers = $rows[0] ?? [];
         $companyName = (string) ($branding['company_name'] ?? 'CENEOS');
         $logoPath = (string) (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? ''));
@@ -247,17 +286,20 @@ final class ReportController
             $titleCell = '<table:table-cell table:number-columns-spanned="' . $columnCount . '" table:style-name="Title"><draw:frame draw:name="Logo" svg:width="3cm" svg:height="1cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame><text:p>' . $titleText . '</text:p></table:table-cell>';
         }
         $titleXml = '<table:table-row>' . $titleCell . '</table:table-row>';
+        $subtitle = htmlspecialchars('Erstellt am ' . (new DateTimeImmutable())->format('d.m.Y H:i') . ' · ' . max(0, count($rows) - 1) . ' Datensätze · Filter und Sortierung aus der aktuellen Ansicht', ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $subtitleXml = '<table:table-row><table:table-cell table:number-columns-spanned="' . $columnCount . '" table:style-name="Subtitle"><text:p>' . $subtitle . '</text:p></table:table-cell></table:table-row>';
         $bodyXml = '';
         foreach (array_slice($rows, 1) as $row) $bodyXml .= $render($row, false);
         $lastColumn = '';
         $n = $columnCount;
         while ($n > 0) { $n--; $lastColumn = chr(65 + ($n % 26)) . $lastColumn; $n = intdiv($n, 26); }
-        $widths = ['2.8cm', '4.5cm', '3.5cm', '3.5cm', '4cm', '4cm', '4cm', '3cm', '3cm', '4cm', '3cm', '3cm', '3.5cm'];
+        $widthMap = ['Gerätenummer' => '3.0cm', 'Bezeichnung' => '4.8cm', 'Hersteller' => '3.8cm', 'Typ/Modell' => '4.2cm', 'Kunde' => '4.5cm', 'Standort' => '4.2cm', 'Gebäude' => '4.2cm', 'Etage' => '3.0cm', 'Bereich' => '3.0cm', 'Raum' => '3.5cm', 'Letzte Prüfnummer' => '3.6cm', 'Letzte Prüfung' => '3.2cm', 'Nächste Prüfung' => '3.2cm', 'Ergebnis' => '3.4cm', 'Quote' => '2.8cm'];
+        $widths = array_map(static fn($header): string => $widthMap[(string) $header] ?? '3.5cm', $headers);
         $columns = ''; foreach (array_slice($widths, 0, $columnCount) as $index => $width) $columns .= '<table:table-column table:style-name="Col' . ($index + 1) . '"/>';
         $columnStyles = ''; foreach (array_slice($widths, 0, $columnCount) as $index => $width) $columnStyles .= '<style:style style:name="Col' . ($index + 1) . '" style:family="table-column"><style:table-column-properties style:column-width="' . $width . '"/></style:style>';
         $quoteColors = ['#d1e7dd', '#b7e4c7', '#fff3cd', '#ffe69c', '#ffda6a', '#ffb86b'];
         $quoteStyles = ''; foreach ($quoteColors as $index => $color) $quoteStyles .= '<style:style style:name="Q' . ($index + 1) . '" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $color . '"/></style:style>';
-        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svg="http://www.w3.org/2000/svg" office:version="1.2"><office:automatic-styles>' . $columnStyles . '<style:style style:name="Title" style:family="table-cell"><style:table-cell-properties fo:background-color="#eef2f6"/><style:text-properties fo:font-size="16pt" fo:font-weight="bold"/></style:style><style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $primary . '"/><style:text-properties fo:color="' . $primaryText . '" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style>' . $quoteStyles . '</office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export">' . $columns . $titleXml . '<table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range-address="Export.A2:' . $lastColumn . (count($rows) + 1) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
+        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svg="http://www.w3.org/2000/svg" office:version="1.2"><office:automatic-styles>' . $columnStyles . '<style:style style:name="Title" style:family="table-cell"><style:table-cell-properties fo:background-color="#eef2f6"/><style:text-properties fo:font-size="16pt" fo:font-weight="bold"/></style:style><style:style style:name="Subtitle" style:family="table-cell"><style:table-cell-properties fo:background-color="#f7f9fb"/><style:text-properties fo:font-size="9pt" fo:color="#52606d"/></style:style><style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $primary . '"/><style:text-properties fo:color="' . $primaryText . '" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style>' . $quoteStyles . '</office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export" table:print-ranges="$Export.$A$1:$' . $lastColumn . '$' . (count($rows) + 2) . '" table:print-title-rows="1:3">' . $columns . $titleXml . $subtitleXml . '<table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range-address="Export.A3:' . $lastColumn . (count($rows) + 2) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
         $zip->addFromString('content.xml', $content);
         $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles><style:page-layout style:name="Landscape"><style:page-layout-properties fo:page-width="29.7cm" fo:page-height="21cm" fo:margin="0.5cm" style:print-orientation="landscape" style:scale-to-pages="true" style:scale-to-pages-width="1" style:scale-to-pages-height="0"/></style:page-layout></office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="Landscape"/></office:master-styles><office:styles/></office:document-styles>');
         $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:meta><dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">' . self::exportLanguage() . '</dc:language></office:meta></office:document-meta>');
@@ -308,6 +350,7 @@ final class ReportController
 
     private static function pdf(array $rows, string $title, array $branding = []): array
     {
+        $rows = self::compactStructureColumns($rows);
         // LibreOffice rendert die bereits formatierte Tabellenstruktur zuverlässig
         // und vermeidet die leeren/abgeschnittenen Browser-PDFs.
         if ($rows !== [] && class_exists('ZipArchive') && (is_executable('/usr/bin/libreoffice') || is_executable('/usr/bin/soffice'))) {
@@ -320,7 +363,8 @@ final class ReportController
         // Chromium provides the branded UTF-8 fallback if LibreOffice is not installed.
         if (is_executable('/usr/bin/chromium') && $rows !== []) {
             $primary = self::brandColor($branding, 'primary', '#1F4E78'); $nav = self::brandColor($branding, 'nav', '#F5C242'); $primaryText = self::brandColor($branding, 'primary_text', '#FFFFFF'); $companyName = (string) ($branding['company_name'] ?? 'CENEOS'); $logoPath = (string) (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? '')); if ($logoPath !== '' && !preg_match('#^/#', $logoPath)) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/'); $logo = is_file($logoPath) ? 'data:' . (str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png') . ';base64,' . base64_encode((string) file_get_contents($logoPath)) : '';
-            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ' . $nav . ';padding-bottom:8px;margin-bottom:12px}header img{max-width:150px;max-height:42px}h1{font-size:18px;margin:0;color:' . $primary . '}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:' . $primary . ';color:' . $primaryText . ';text-align:left;padding:6px;font-size:8px}td{border:1px solid #ccd2d8;padding:5px;vertical-align:top;overflow-wrap:anywhere}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}.muted{color:#6c757d;font-size:8px}</style><header><h1>' . htmlspecialchars($companyName . ' - ' . $title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1>' . ($logo !== '' ? '<img src="' . $logo . '" alt="' . htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' : '') . '</header><div class="muted">Erstellt am ' . htmlspecialchars((new DateTimeImmutable())->format('d.m.Y H:i'), ENT_QUOTES) . '</div><table><thead><tr>';
+            $subtitle = 'Erstellt am ' . (new DateTimeImmutable())->format('d.m.Y H:i') . ' · ' . max(0, count($rows) - 1) . ' Datensätze · Tabellenübersicht aus der aktuellen Filter- und Sortierauswahl';
+            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid ' . $nav . ';padding-bottom:8px;margin-bottom:8px}header img{max-width:150px;max-height:42px}h1{font-size:18px;margin:0;color:' . $primary . '}table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:8px}thead{display:table-header-group}th{background:' . $primary . ';color:' . $primaryText . ';text-align:left;padding:7px 6px;font-size:8px;line-height:1.2;overflow-wrap:anywhere}td{border:1px solid #ccd2d8;padding:5px;vertical-align:top;overflow-wrap:anywhere;line-height:1.25}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}.muted{color:#6c757d;font-size:8px}.subtitle{color:#52606d;font-size:9px;margin:0 0 5px}</style><header><h1>' . htmlspecialchars($companyName . ' - ' . $title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1>' . ($logo !== '' ? '<img src="' . $logo . '" alt="' . htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' : '') . '</header><div class="subtitle">' . htmlspecialchars($subtitle, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</div><table><thead><tr>';
             foreach (($rows[0] ?? []) as $header) $html .= '<th>' . htmlspecialchars((string) $header, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</th>';
             $html .= '</tr></thead><tbody>';
             foreach (array_slice($rows, 1) as $row) { $html .= '<tr>'; foreach (($rows[0] ?? []) as $index => $_) $html .= '<td>' . nl2br(htmlspecialchars((string) ($row[$index] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')) . '</td>'; $html .= '</tr>'; }
