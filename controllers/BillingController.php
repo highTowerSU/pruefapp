@@ -48,7 +48,7 @@ final class BillingController
     /** @return list<array<string,mixed>> */
     private static function rows(array $ids = []): array
     {
-        $where = "i.billable = 1 AND (i.billing_exported_at IS NULL OR i.billing_exported_at = '') AND i.result_status IN ('bestanden','durchgefallen')";
+        $where = "i.billable = 1 AND (i.billing_exported_at IS NULL OR i.billing_exported_at = '') AND i.result_status IN ('bestanden','durchgefallen') AND TRIM(COALESCE(i.report_path, '')) <> ''";
         $args = [];
         if ($ids !== []) { $where .= ' AND i.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'; $args = $ids; }
         return R::getAll("SELECT i.id, i.external_number, i.test_date, i.next_due_date, i.result_status, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);

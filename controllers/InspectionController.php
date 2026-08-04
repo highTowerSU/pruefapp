@@ -109,6 +109,14 @@ final class InspectionController
                 $inspection->result_status = $complete ? (in_array('nein', $checklist, true) ? 'durchgefallen' : 'bestanden') : 'ausstehend';
                 $inspection->updated_at = date(DATE_ATOM);
                 R::store($inspection);
+                if ($complete && class_exists('ReportController')) {
+                    $relativeReport = 'reports/current/' . (int) $inspection->id . '.pdf';
+                    $reportPath = app_data_root() . '/' . $relativeReport;
+                    if (!is_dir(dirname($reportPath))) mkdir(dirname($reportPath), 0770, true);
+                    file_put_contents($reportPath, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number));
+                    $inspection->report_path = $relativeReport;
+                    R::store($inspection);
+                }
                 $target = $complete
                     ? 'admin/pruefungen/' . (int) $inspection->id
                     : 'admin/pruefungen/' . (int) $inspection->id . '/bearbeiten';
