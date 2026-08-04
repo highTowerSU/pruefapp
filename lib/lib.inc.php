@@ -3,6 +3,7 @@
 use \RedBeanPHP\R as R;
 use Ceneos\PhpBase\Config\Config;
 use Ceneos\PhpBase\Database\RevisionSupport;
+use Ceneos\PhpBase\Database\Migrator;
 use Ceneos\PhpBase\Http\BootstrapErrorPage;
 
 $baseDir = dirname(__DIR__);
@@ -343,11 +344,7 @@ function ensure_structure_schema(): void
         R::exec($statement);
     }
 
-    if (!$isMysql) R::exec('CREATE TABLE IF NOT EXISTS schema_migration (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
-    else R::exec('CREATE TABLE IF NOT EXISTS schema_migration (version INT PRIMARY KEY, applied_at VARCHAR(64) NOT NULL)');
-    $migrationVersion = 1;
-    $existingMigration = R::getCell('SELECT version FROM schema_migration WHERE version = ?', [$migrationVersion]);
-    if (!$existingMigration) R::exec('INSERT INTO schema_migration (version, applied_at) VALUES (?, ?)', [$migrationVersion, date(DATE_ATOM)]);
+    Migrator::mark('schema_migration', 1);
 
     $columns = [
         'site' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
