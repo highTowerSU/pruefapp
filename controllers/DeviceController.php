@@ -150,6 +150,7 @@ class DeviceController
             $candidate = trim((string) ($row['external_number'] ?? ''));
             if (preg_match('/^\d+$/', $candidate)) { $suggestedDeviceNumber = (string) ((int) $candidate + 1); break; }
         }
+        $selectedDeviceIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_SESSION['device_selection'] ?? [])), static fn(int $id): bool => $id > 0)));
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',
             'showCompanySubtitle' => false,
@@ -182,8 +183,20 @@ class DeviceController
                 'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'per_page' => $perPage, 'sort' => $sort],
                 'newNumber' => $newNumber,
                 'suggestedDeviceNumber' => $suggestedDeviceNumber,
+                'selectedDeviceIds' => $selectedDeviceIds,
             ]),
         ])];
+    }
+
+    public static function selection(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return [403, ['Content-Type' => 'application/json'], json_encode(['ok' => false])];
+        $action = (string) ($_POST['action'] ?? 'set');
+        $current = array_values(array_unique(array_filter(array_map('intval', (array) ($_SESSION['device_selection'] ?? [])), static fn(int $id): bool => $id > 0)));
+        if ($action === 'clear') $current = [];
+        else { $id = (int) ($_POST['id'] ?? 0); if ($id > 0 && $action === 'remove') $current = array_values(array_diff($current, [$id])); elseif ($id > 0 && $action === 'add' && !in_array($id, $current, true)) $current[] = $id; }
+        $_SESSION['device_selection'] = $current;
+        return [200, ['Content-Type' => 'application/json'], json_encode(['ok' => true, 'ids' => $current])];
     }
 
     public static function save(array $params, bool $isHx): array
