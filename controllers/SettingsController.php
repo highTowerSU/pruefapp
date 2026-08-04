@@ -21,11 +21,12 @@ class SettingsController
             'keycloak_admin_console_base_url' => $storedKeycloakAdminUrl,
             'benning_reimport_directory' => trim((string) (get_app_config('benning_reimport_directory', '') ?? '')),
             'benning_reports_directory' => trim((string) (get_app_config('benning_reports_directory', '') ?? '')),
+            'auto_update_enabled' => get_app_config('auto_update_enabled', '1') === '1' ? '1' : '0',
         ];
         $errors = [];
         $databaseWizard = null;
         $updateResult = null;
-        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && $values['auto_update_enabled'] === '1') {
             try {
                 $updateResult = Updater::updateIfNeeded(dirname(__DIR__), true);
             } catch (Throwable $exception) {
@@ -94,6 +95,7 @@ class SettingsController
             $values['keycloak_admin_console_base_url'] = trim((string) ($_POST['keycloak_admin_console_base_url'] ?? ''));
             $values['benning_reimport_directory'] = trim((string) ($_POST['benning_reimport_directory'] ?? ''));
             $values['benning_reports_directory'] = trim((string) ($_POST['benning_reports_directory'] ?? ''));
+            $values['auto_update_enabled'] = isset($_POST['auto_update_enabled']) ? '1' : '0';
 
             if ($values['keycloak_account_console_base_url'] !== ''
                 && filter_var($values['keycloak_account_console_base_url'], FILTER_VALIDATE_URL) === false
@@ -118,6 +120,7 @@ class SettingsController
                 );
                 set_app_config('benning_reimport_directory', $values['benning_reimport_directory'] === '' ? null : $values['benning_reimport_directory']);
                 set_app_config('benning_reports_directory', $values['benning_reports_directory'] === '' ? null : $values['benning_reports_directory']);
+                set_app_config('auto_update_enabled', $values['auto_update_enabled']);
 
                 $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
 
@@ -136,6 +139,7 @@ class SettingsController
             'databasePath' => app_database_path(),
             'databaseWizard' => $databaseWizard,
             'updateResult' => $updateResult,
+            'migrationStatus' => self::migrationStatus(),
         ]);
 
         if ($isHx) {
@@ -148,6 +152,14 @@ class SettingsController
         ]);
 
         return [200, [], $body];
+    }
+
+    private static function migrationStatus(): ?array
+    {
+        $path = app_data_root() . '/migration/benning-measurements-v3.done';
+        if (!is_file($path)) return null;
+        $data = json_decode((string) file_get_contents($path), true);
+        return is_array($data) ? $data : null;
     }
 
     private static function removeDirectoryContents(string $directory): void

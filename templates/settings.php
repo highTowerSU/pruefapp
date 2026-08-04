@@ -7,6 +7,7 @@
 /** @var string|null $keycloakAdminFileOverride */
 /** @var array<string, mixed>|null $databaseWizard */
 /** @var array<string, list<string>>|null $updateResult */
+/** @var array<string, mixed>|null $migrationStatus */
 ?>
 
 <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
@@ -44,6 +45,8 @@
       <div class="col-md-6"><label class="form-label" for="benning_reimport_directory">CSV/ODS-Importverzeichnis</label><input class="form-control" id="benning_reimport_directory" name="benning_reimport_directory" value="<?= htmlspecialchars($values['benning_reimport_directory'] ?? '', ENT_QUOTES) ?>" placeholder="/var/www/import/2026"></div>
       <div class="col-md-6"><label class="form-label" for="benning_reports_directory">Berichtsverzeichnis</label><input class="form-control" id="benning_reports_directory" name="benning_reports_directory" value="<?= htmlspecialchars($values['benning_reports_directory'] ?? '', ENT_QUOTES) ?>" placeholder="/var/www/berichte"></div>
     </div>
+    <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" role="switch" id="auto_update_enabled" name="auto_update_enabled" value="1"<?= ($values['auto_update_enabled'] ?? '1') === '1' ? ' checked' : '' ?>><label class="form-check-label" for="auto_update_enabled">Automatische Abhängigkeitsupdates bei neuer Git-Version</label></div>
+    <?php if (!empty($migrationStatus)): ?><div class="alert alert-success mt-3 mb-0"><strong>Nachmigration erledigt</strong><?php if (!empty($migrationStatus['completed_at'])): ?> · <?= htmlspecialchars((new DateTimeImmutable((string) $migrationStatus['completed_at']))->format('d.m.Y H:i')) ?><?php endif; ?><?php $migrationStats = $migrationStatus['stats'] ?? []; ?><div class="small mt-1">Repariert: <?= (int) ($migrationStats['repaired'] ?? 0) ?> · Importiert: <?= (int) ($migrationStats['imported'] ?? 0) ?> · Aktualisiert: <?= (int) ($migrationStats['updated'] ?? 0) ?></div></div><?php else: ?><div class="alert alert-secondary mt-3 mb-0">Die Nachmigration wird beim nächsten Cron-Lauf automatisch ausgeführt.</div><?php endif; ?>
   </div>
   <div class="card-footer text-end">
     <button type="submit" class="btn btn-primary">Speichern</button>
