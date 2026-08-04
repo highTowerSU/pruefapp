@@ -715,6 +715,22 @@ function current_user(): ?\RedBeanPHP\OODBBean
     return $user;
 }
 
+/** Return a readable examiner name while keeping email values as fallback. */
+function display_examiner_name(string $value): string
+{
+    static $cache = [];
+    $value = trim($value);
+    if ($value === '' || !filter_var($value, FILTER_VALIDATE_EMAIL)) return $value;
+    if (array_key_exists($value, $cache)) return $cache[$value];
+    try {
+        $user = R::findOne('oauthuser', ' LOWER(email) = LOWER(?) ', [$value]);
+        $name = trim((string) ($user->name ?? ''));
+        return $cache[$value] = $name !== '' ? $name : $value;
+    } catch (Throwable) {
+        return $cache[$value] = $value;
+    }
+}
+
 function current_user_role(): ?string
 {
     $user = current_user();

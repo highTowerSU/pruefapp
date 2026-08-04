@@ -168,7 +168,7 @@ final class InspectionController
         unset($historyLog, $historyInspection);
         $cron = self::cronStatus();
         $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
-        $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) . (trim((string) ($user->email ?? '')) !== '' ? ' · ' . trim((string) $user->email) : ''), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
+        $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) !== '' ? trim((string) $user->name) : trim((string) ($user->email ?? '')), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         if ($phoenixJob !== '') {
             $job = self::readPhoenixJob($phoenixJob);
