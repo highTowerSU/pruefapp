@@ -325,6 +325,7 @@ $section = static function (string $title, string $type, array $items) use ($for
 </div>
 <?php }; ?>
 
+<div id="structure-page" hx-boost="true" hx-target="#structure-page" hx-swap="outerHTML" hx-push-url="true">
 <div class="d-flex justify-content-between align-items-center mb-4">
   <p class="text-body-secondary mb-0">Hierarchie, Kürzel, Kommentare und frei ergänzbare JSON-Metadaten.</p>
   <a class="btn btn-outline-primary" href="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>">Geräte separat verwalten</a>
@@ -539,3 +540,4 @@ $section = static function (string $title, string $type, array $items) use ($for
   applyFilters();
 })();
 </script>
+</div>

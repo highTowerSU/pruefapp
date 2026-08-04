@@ -55,9 +55,11 @@ class StructureController
         });
         $data['canManage'] = current_user_has_role('admin');
 
+        $content = render_template('structure_index.php', $data);
+        if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', [
             'title' => 'Struktur',
-            'content' => render_template('structure_index.php', $data),
+            'content' => $content,
         ])];
     }
 
