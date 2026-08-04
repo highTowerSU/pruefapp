@@ -168,10 +168,12 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
 <form id="device-bulk-form" method="post" action="<?= htmlspecialchars(url_for('geraete/massenaktion'), ENT_QUOTES) ?>" class="card card-body mb-3">
   <div class="d-flex flex-wrap align-items-center gap-2">
     <strong class="me-2">Massenaktion</strong>
+    <label class="small">Auswahl <select class="form-select form-select-sm d-inline-block w-auto" name="selection_scope"><option value="all" selected>Alle gefilterten Seiten</option><option value="selection">Markierte Geräte</option><option value="page">Aktuelle Seite</option></select></label>
+    <input type="hidden" name="filter_query" value="">
     <button class="btn btn-sm btn-outline-warning" name="bulk_action" value="archive">Archivieren</button>
     <button class="btn btn-sm btn-outline-danger" name="bulk_action" value="delete">Endgültig löschen</button>
     <?php if (!empty($showArchived)): ?><a class="btn btn-sm btn-outline-secondary ms-2" href="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>">Nur aktive anzeigen</a><?php else: ?><a class="btn btn-sm btn-outline-secondary ms-2" href="<?= htmlspecialchars(url_for('geraete?show_archived=1'), ENT_QUOTES) ?>">Archivierte anzeigen</a><?php endif; ?>
-    <span class="small text-body-secondary">Geräte auf dieser Seite auswählen; mit Shift ganze Bereiche markieren.</span>
+    <span class="small text-body-secondary">Standardmäßig werden alle Geräte aus dem aktuellen Filter verarbeitet.</span>
   </div>
 </form>
 <?php endif; ?>
@@ -199,7 +201,15 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
   const persistSelection = () => { const currentIds = boxes.map(box => Number(box.value)); persisted = [...new Set([...persisted.filter(id => !currentIds.includes(id)), ...boxes.filter(box => box.checked).map(box => Number(box.value))].filter(Number.isInteger))]; try { sessionStorage.setItem(selectionKey, JSON.stringify(persisted)); } catch (_) {} boxes.forEach(box => syncServer(Number(box.value), box.checked)); };
   const bulkForm = document.getElementById('device-bulk-form');
   bulkForm?.addEventListener('submit', event => {
-    const selected = boxes.filter(box => box.checked).length;
+    const scope = bulkForm.querySelector('[name="selection_scope"]')?.value || 'all';
+    const filterInput = bulkForm.querySelector('[name="filter_query"]');
+    if (filterInput) filterInput.value = window.location.search;
+    if (scope === 'page') {
+      boxes.filter(box => box.checked).forEach(box => { const input = document.createElement('input'); input.type = 'hidden'; input.name = 'device_ids[]'; input.value = box.value; input.dataset.generatedBulkId = '1'; bulkForm.appendChild(input); });
+    } else if (scope === 'selection') {
+      [...new Set([...persisted, ...boxes.filter(box => box.checked).map(box => Number(box.value))])].forEach(id => { const input = document.createElement('input'); input.type = 'hidden'; input.name = 'device_ids[]'; input.value = id; input.dataset.generatedBulkId = '1'; bulkForm.appendChild(input); });
+    }
+    const selected = scope === 'all' ? 'alle gefilterten Geräte' : boxes.filter(box => box.checked).length;
     if (!selected) {
       event.preventDefault();
       window.alert('Bitte mindestens ein Gerät auswählen.');
@@ -210,7 +220,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
     const text = action === 'delete'
       ? selected + ' ' + noun + ' und alle zugehörigen Prüfungen endgültig löschen?'
       : selected + ' ' + noun + ' wirklich archivieren?';
-    if (!window.confirm(text)) event.preventDefault();
+    if (!window.confirm(scope === 'all' ? 'Alle gefilterten Geräte wirklich bearbeiten?' : text)) event.preventDefault();
   });
   let lastIndex = -1;
   boxes.forEach((box, index) => box.addEventListener('click', event => {

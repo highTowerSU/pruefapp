@@ -344,7 +344,15 @@ function ensure_structure_schema(): void
         R::exec($statement);
     }
 
-    Migrator::mark('schema_migration', 1);
+    if (class_exists(Migrator::class)) {
+        Migrator::mark('schema_migration', 1);
+    } else {
+        // Keep an older deployed ceneos-php-base usable during rolling
+        // deployments; the next Composer update will use the shared ledger.
+        R::exec('CREATE TABLE IF NOT EXISTS schema_migration (id INTEGER PRIMARY KEY AUTOINCREMENT, migration_key TEXT NOT NULL UNIQUE, applied_at TEXT NOT NULL)');
+        $insert = $isMysql ? 'INSERT IGNORE' : 'INSERT OR IGNORE';
+        R::exec($insert . " INTO schema_migration (migration_key, applied_at) VALUES ('schema_migration', ?)", [date(DATE_ATOM)]);
+    }
 
     $columns = [
         'site' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],

@@ -260,6 +260,9 @@ class DeviceController
     {
         if (!current_user_is_superadmin()) return forbidden_response();
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['device_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
+        if ((string) ($_POST['selection_scope'] ?? '') === 'all') {
+            $ids = self::filteredDeviceIds((string) ($_POST['filter_query'] ?? ''));
+        }
         $action = trim((string) ($_POST['bulk_action'] ?? ''));
         if ($ids === [] || !in_array($action, ['archive', 'delete'], true)) {
             $_SESSION['fehlermeldung'] = 'Bitte mindestens ein Gerät und eine gültige Aktion auswählen.';
@@ -277,6 +280,44 @@ class DeviceController
             $_SESSION['meldung'] = count($ids) . ' Gerät(e) und zugehörige Prüfungen gelöscht.';
         }
         return [303, ['Location' => url_for('geraete')], ''];
+    }
+
+    /** Resolve the complete current filter, independent of pagination. */
+    private static function filteredDeviceIds(string $queryString): array
+    {
+        parse_str(ltrim($queryString, '?'), $filters);
+        $where = [];
+        $params = [];
+        if (!(current_user_is_superadmin() && (string) ($filters['show_archived'] ?? '') === '1')) $where[] = "(d.archived_at IS NULL OR TRIM(d.archived_at) = '')";
+        $allowed = current_user_customer_ids();
+        if (!current_user_has_role('admin')) {
+            if ($allowed === []) return [];
+            $where[] = 'c.id IN (' . implode(',', array_fill(0, count($allowed), '?')) . ')';
+            array_push($params, ...$allowed);
+        }
+        foreach ([['customer_id', 'c.id'], ['site_id', 's.id'], ['building_id', 'b.id'], ['floor_id', 'f.id'], ['room_id', 'r.id']] as [$key, $column]) {
+            $value = (int) ($filters[$key] ?? 0);
+            if ($value > 0) { $where[] = $column . ' = ?'; $params[] = $value; }
+        }
+        $search = trim((string) ($filters['q'] ?? ''));
+        if ($search !== '') {
+            $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)';
+            $like = '%' . strtolower($search) . '%'; array_push($params, $like, $like, $like, $like, $like);
+        }
+        $status = trim((string) ($filters['inspection_status'] ?? ''));
+        if ($status === 'failed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
+        elseif ($status === 'passed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
+        elseif ($status === 'pending') $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        elseif ($status === 'completed') $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status, '') NOT IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        $dateWhere = [];
+        $year = trim((string) ($filters['year'] ?? ''));
+        if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $params[] = $year . '-01-01'; $params[] = ((int) $year + 1) . '-01-01'; }
+        if (trim((string) ($filters['from'] ?? '')) !== '') { $dateWhere[] = 'i.test_date >= ?'; $params[] = trim((string) $filters['from']); }
+        if (trim((string) ($filters['to'] ?? '')) !== '') { $dateWhere[] = 'i.test_date <= ?'; $params[] = trim((string) $filters['to']); }
+        $join = ' LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id ';
+        if ($dateWhere !== []) { $join .= ' JOIN inspection i ON i.device_id=d.id '; $where[] = '(' . implode(' AND ', $dateWhere) . ')'; }
+        $sql = 'SELECT DISTINCT d.id FROM device d' . $join . ($where !== [] ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY d.id';
+        return array_map('intval', R::getCol($sql, $params));
     }
 
     public static function lookup(array $params, bool $isHx): array

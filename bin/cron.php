@@ -7,6 +7,7 @@ use RedBeanPHP\R as R;
 // Run from cron as the same user that owns the application data (usually www-data).
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
+require_once dirname(__DIR__) . '/lib/ElectricalInspectionImportService.php';
 
 $debug = in_array('--debug', $argv ?? [], true) || in_array('-d', $argv ?? [], true);
 if ($debug) {
@@ -29,6 +30,22 @@ $log('Cron gestartet, PID ' . getmypid());
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
+
+// Optional one-time repair/reimport for Benning CSV/ODS data. Set the
+// directory only for the migration run; the marker prevents repeated imports.
+$migrationDirectory = trim((string) (getenv('PRUEFAPP_BENNING_REIMPORT_DIR') ?: ''));
+$migrationMarker = app_data_root() . '/migration/benning-measurements-v2.done';
+if ($migrationDirectory !== '' && !is_file($migrationMarker) && is_dir($migrationDirectory)) {
+    try {
+        $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: ''));
+        $stats = (new ElectricalInspectionImportService())->importDirectory($migrationDirectory, $migrationReports !== '' ? $migrationReports : null);
+        if (!is_dir(dirname($migrationMarker))) @mkdir(dirname($migrationMarker), 0770, true);
+        file_put_contents($migrationMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        $log('Benning-Messdaten-Nachmigration abgeschlossen: ' . json_encode(['imported' => $stats['imported'] ?? 0, 'updated' => $stats['updated'] ?? 0, 'errors' => $stats['errors'] ?? []], JSON_UNESCAPED_UNICODE));
+    } catch (Throwable $exception) {
+        $log('Benning-Messdaten-Nachmigration fehlgeschlagen: ' . $exception->getMessage(), 'error');
+    }
+}
 
 // Abgeschlossene Prüfungen bekommen auch dann automatisch einen Bericht,
 // wenn sie nicht über das Webformular abgeschlossen wurden (z. B. Import).
