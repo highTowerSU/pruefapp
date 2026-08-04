@@ -19,6 +19,7 @@ final class ReportController
         if (in_array($format, ['zip_latest', 'zip_all'], true)) return self::queuePdfZip($format === 'zip_all', $ids, (string) ($_POST['filter_query'] ?? ''), isset($_POST['zip_index_csv']), isset($_POST['zip_index_pdf']), isset($_POST['zip_index_ods']));
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $devices = self::devices($ids);
+        if ($devices === []) return [422, [], 'Keine Datensätze für den gewählten Filter gefunden. Bitte Filter und Auswahl prüfen.'];
         if ($reportType === 'daily' || $reportType === 'weekly') {
             $date = trim((string) ($_POST['daily_date'] ?? '')); $toDate = '';
             if ($reportType === 'weekly' && $date !== '') { $dateObject = new DateTimeImmutable($date); $date = $dateObject->modify('monday this week')->format('Y-m-d'); $toDate = $dateObject->modify('sunday this week')->format('Y-m-d'); }
@@ -110,7 +111,7 @@ final class ReportController
     private static function devices(array $ids): array
     {
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $rows = R::getAll("SELECT d.*, r.name AS room_name, r.number AS room_number, a.name AS area_name, f.name AS floor_name, b.name AS building_name, s.name AS site_name, c.name AS customer_name FROM device d LEFT JOIN room r ON r.id=d.room_id LEFT JOIN area a ON a.id=r.area_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE d.id IN ($marks) ORDER BY CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id");
+        $rows = R::getAll("SELECT d.*, r.name AS room_name, r.number AS room_number, a.name AS area_name, f.name AS floor_name, b.name AS building_name, s.name AS site_name, c.name AS customer_name FROM device d LEFT JOIN room r ON r.id=d.room_id LEFT JOIN area a ON a.id=r.area_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE d.id IN ($marks) ORDER BY CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id", $ids);
         $result = [];
         foreach ($rows as $row) {
             $latest = R::getRow('SELECT external_number AS inspection_number, test_date, next_due_date, result_status FROM inspection WHERE device_id = ? ORDER BY test_date DESC, id DESC LIMIT 1', [(int) $row['id']]);
