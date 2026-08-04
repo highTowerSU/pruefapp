@@ -42,6 +42,15 @@ final class ReportController
         }
         $term = trim((string) ($q['q'] ?? ''));
         if ($term !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.manufacturer) LIKE ? OR LOWER(d.description) LIKE ?)'; $like = '%' . strtolower($term) . '%'; array_push($args, $like, $like, $like, $like); }
+        $year = trim((string) ($q['year'] ?? ''));
+        if (preg_match('/^\d{4}$/', $year)) { $where[] = 'EXISTS (SELECT 1 FROM inspection iy WHERE iy.device_id=d.id AND iy.test_date >= ? AND iy.test_date < ?)'; $args[] = $year . '-01-01'; $args[] = ((int) $year + 1) . '-01-01'; }
+        if (trim((string) ($q['from'] ?? '')) !== '') { $where[] = 'EXISTS (SELECT 1 FROM inspection ifr WHERE ifr.device_id=d.id AND ifr.test_date >= ?)'; $args[] = trim((string) $q['from']); }
+        if (trim((string) ($q['to'] ?? '')) !== '') { $where[] = 'EXISTS (SELECT 1 FROM inspection ito WHERE ito.device_id=d.id AND ito.test_date <= ?)'; $args[] = trim((string) $q['to']); }
+        $inspectionStatus = trim((string) ($q['inspection_status'] ?? ''));
+        if ($inspectionStatus === 'failed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
+        if ($inspectionStatus === 'passed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
+        if ($inspectionStatus === 'pending') $where[] = "(SELECT CASE WHEN i2.result_status='ausstehend' OR i2.status IN ('draft','measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        if ($inspectionStatus === 'completed') $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status,'') NOT IN ('draft','measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
         $where[] = "(d.archived_at IS NULL OR TRIM(d.archived_at) = '')";
         $sql = 'SELECT DISTINCT d.id FROM device d' . $join . ($where ? ' WHERE ' . implode(' AND ', $where) : '');
         return array_map('intval', R::getCol($sql, $args));
@@ -110,18 +119,38 @@ final class ReportController
         if (!class_exists('ZipArchive')) return [500, [], 'ODS-Export ist auf diesem Server nicht verfügbar.'];
         $tmp = tempnam(sys_get_temp_dir(), 'ods-');
         $zip = new ZipArchive();
-        $zip->open($tmp, ZipArchive::OVERWRITE);
+        if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) return [500, [], 'ODS-Datei konnte nicht erstellt werden.'];
         $zip->addFromString('mimetype', 'application/vnd.oasis.opendocument.spreadsheet');
-        $renderRow = static fn(array $row): string => '<table:table-row>' . implode('', array_map(static fn($v): string => '<table:table-cell office:value-type="string"><text:p>' . htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</text:p></table:table-cell>', $row)) . '</table:table-row>';
-        $header = $renderRow($rows[0]);
-        $bodyRows = implode('', array_map($renderRow, array_slice($rows, 1)));
-        $columnCount = max(1, count($rows[0]));
-        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.2"><office:body><office:spreadsheet><table:table table:name="Export"><table:table-column table:number-columns-repeated="' . $columnCount . '"/><table:table-header-rows>' . $header . '</table:table-header-rows>' . $bodyRows . '<table:database-ranges><table:database-range table:target-range="Export.A1:' . chr(64 + min(26, $columnCount)) . count($rows) . '" table:display-filter-buttons="true"/></table:database-ranges></table:table></office:spreadsheet></office:body></office:document-content>';
+        $headers = $rows[0] ?? [];
+        $headerKeys = array_map(static fn($v): string => mb_strtolower((string) $v), $headers);
+        $today = new DateTimeImmutable('today');
+        $cell = static function ($value, int $index, bool $header) use ($headerKeys, $today): string {
+            $text = (string) $value; $style = $header ? 'Header' : '';
+            if (!$header && str_contains($headerKeys[$index] ?? '', 'ergebnis')) $style = str_contains(mb_strtolower($text), 'bestanden') ? 'Good' : (str_contains(mb_strtolower($text), 'nicht') || str_contains(mb_strtolower($text), 'durch') ? 'Bad' : 'Warn');
+            if (!$header && str_contains($headerKeys[$index] ?? '', 'ampel')) $style = mb_strtolower($text) === 'rot' ? 'Bad' : (mb_strtolower($text) === 'gelb' ? 'Warn' : 'Good');
+            if (!$header && str_contains($headerKeys[$index] ?? '', 'prüfung')) {
+                try { $date = new DateTimeImmutable($text); $style = $date < $today ? 'Bad' : ($date <= $today->modify('+2 months') ? 'Warn' : 'Good'); }
+                catch (Throwable) {}
+            }
+            $styleAttr = $style !== '' ? ' table:style-name="' . $style . '"' : '';
+            return '<table:table-cell' . $styleAttr . ' office:value-type="string"><text:p>' . htmlspecialchars($text, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</text:p></table:table-cell>';
+        };
+        $render = static function (array $row, bool $header) use ($cell): string {
+            return '<table:table-row>' . implode('', array_map(static fn($v, $i): string => $cell($v, $i, $header), $row, array_keys($row))) . '</table:table-row>';
+        };
+        $headerXml = $render($headers, true);
+        $bodyXml = '';
+        foreach (array_slice($rows, 1) as $row) $bodyXml .= $render($row, false);
+        $columnCount = max(1, count($headers));
+        $lastColumn = '';
+        $n = $columnCount;
+        while ($n > 0) { $n--; $lastColumn = chr(65 + ($n % 26)) . $lastColumn; $n = intdiv($n, 26); }
+        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles><style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="#1f4e78"/><style:text-properties fo:color="#ffffff" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style></office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export"><table:table-column table:number-columns-repeated="' . $columnCount . '"/><table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range="Export.A1:' . $lastColumn . count($rows) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
         $zip->addFromString('content.xml', $content);
-        $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"/>');
-        $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"/>');
-        $zip->addFromString('settings.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-settings xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"/>');
-        $zip->addFromString('META-INF/manifest.xml', '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.spreadsheet" manifest:full-path="/"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/></manifest:manifest>');
+        $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:styles/></office:document-styles>');
+        $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:meta/></office:document-meta>');
+        $zip->addFromString('settings.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-settings xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:settings/></office:document-settings>');
+        $zip->addFromString('META-INF/manifest.xml', '<?xml version="1.0" encoding="UTF-8"?><manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"><manifest:file-entry manifest:media-type="application/vnd.oasis.opendocument.spreadsheet" manifest:full-path="/"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="content.xml"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="styles.xml"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="meta.xml"/><manifest:file-entry manifest:media-type="text/xml" manifest:full-path="settings.xml"/></manifest:manifest>');
         $zip->close();
         $body = file_get_contents($tmp); @unlink($tmp);
         return [200, ['Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet', 'Content-Disposition' => 'attachment; filename="' . $title . '.ods"'], $body];
@@ -129,9 +158,18 @@ final class ReportController
 
     private static function pdf(array $rows, string $title): array
     {
-        $lines = array_map(static fn(array $row): string => implode(' | ', array_map(static fn($v): string => preg_replace('/\s+/', ' ', (string) $v), $row)), $rows);
-        $stream = "BT /F1 9 Tf 36 800 Td\n";
-        foreach (array_slice($lines, 0, 55) as $line) $stream .= '(' . str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], mb_substr($line, 0, 140)) . ") Tj 0 -13 Td\n";
+        $lines = array_map(static fn(array $row): string => implode('  ·  ', array_map(static fn($v): string => preg_replace('/\s+/', ' ', (string) $v), $row)), $rows);
+        $stream = "0.12 0.25 0.42 rg 36 805 523 24 re f\nBT /F1 14 Tf 42 812 Td 1 0 0 1 0 0 Tm ("
+            . str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $title)
+            . ") Tj ET\n";
+        $stream .= "BT /F1 8 Tf 36 780 Td\n";
+        foreach (array_slice($lines, 0, 58) as $index => $line) {
+            if ($index === 0) $stream .= "0.12 0.25 0.42 rg\n";
+            elseif (str_contains($line, 'Rot') || str_contains($line, 'durchgefallen')) $stream .= "0.75 0.10 0.10 rg\n";
+            elseif (str_contains($line, 'Gelb')) $stream .= "0.65 0.45 0.05 rg\n";
+            else $stream .= "0.10 0.10 0.10 rg\n";
+            $stream .= '(' . str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], mb_substr($line, 0, 150)) . ") Tj 0 -12 Td\n";
+        }
         $stream .= "ET";
         $objects = ["1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj", "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1>>endobj", "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources<< /Font<< /F1 4 0 R>>>> /Contents 5 0 R>>endobj", "4 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica>>endobj", "5 0 obj<< /Length " . strlen($stream) . ">>stream\n" . $stream . "\nendstream endobj"];
         $pdf = "%PDF-1.4\n"; $offsets = [];

@@ -185,6 +185,11 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
 <?php if (!empty($canManage)): ?><script>
 (() => {
   const boxes = [...document.querySelectorAll('input[name="device_ids[]"]')];
+  const selectionParams = new URLSearchParams(window.location.search); selectionParams.delete('page');
+  const selectionKey = 'pruefapp-device-selection:' + window.location.pathname + '?' + selectionParams.toString();
+  let persisted = []; try { persisted = JSON.parse(sessionStorage.getItem(selectionKey) || '[]').map(Number).filter(Number.isInteger); } catch (_) {}
+  boxes.forEach(box => { if (persisted.includes(Number(box.value))) box.checked = true; });
+  const persistSelection = () => { const currentIds = boxes.map(box => Number(box.value)); persisted = [...new Set([...persisted.filter(id => !currentIds.includes(id)), ...boxes.filter(box => box.checked).map(box => Number(box.value))].filter(Number.isInteger))]; try { sessionStorage.setItem(selectionKey, JSON.stringify(persisted)); } catch (_) {} };
   const bulkForm = document.getElementById('device-bulk-form');
   bulkForm?.addEventListener('submit', event => {
     const selected = boxes.filter(box => box.checked).length;
@@ -208,18 +213,19 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
       boxes.slice(start, end + 1).forEach(item => { item.checked = box.checked; });
     }
     lastIndex = index;
+    persistSelection();
   }));
-  document.getElementById('device-mark-page')?.addEventListener('click', () => boxes.forEach(box => { box.checked = true; }));
-  document.getElementById('device-unmark-page')?.addEventListener('click', () => boxes.forEach(box => { box.checked = false; }));
-  document.getElementById('device-mark-all')?.addEventListener('click', () => { const scope = document.getElementById('device-export-scope'); if (scope) scope.value = 'all'; boxes.forEach(box => { box.checked = true; }); });
-  document.getElementById('device-unmark-all')?.addEventListener('click', () => { const scope = document.getElementById('device-export-scope'); if (scope) scope.value = 'selection'; boxes.forEach(box => { box.checked = false; }); });
+  document.getElementById('device-mark-page')?.addEventListener('click', () => { boxes.forEach(box => { box.checked = true; }); persistSelection(); });
+  document.getElementById('device-unmark-page')?.addEventListener('click', () => { boxes.forEach(box => { box.checked = false; }); persisted = persisted.filter(id => !boxes.some(box => Number(box.value) === id)); persistSelection(); });
+  document.getElementById('device-mark-all')?.addEventListener('click', () => { const scope = document.getElementById('device-export-scope'); if (scope) scope.value = 'all'; boxes.forEach(box => { box.checked = true; }); persistSelection(); });
+  document.getElementById('device-unmark-all')?.addEventListener('click', () => { const scope = document.getElementById('device-export-scope'); if (scope) scope.value = 'selection'; boxes.forEach(box => { box.checked = false; }); persisted = []; persistSelection(); });
   const exportForm = document.getElementById('device-export-form');
   exportForm?.addEventListener('submit', event => {
     exportForm.querySelectorAll('[data-generated-export-id]').forEach(node => node.remove());
     const scope = exportForm.querySelector('[name="scope"]')?.value || 'selection';
-    if (scope !== 'all') boxes.filter(box => scope === 'page' || box.checked).forEach(box => {
+    if (scope !== 'all') [...new Set(scope === 'page' ? boxes.map(box => Number(box.value)) : [...persisted, ...boxes.filter(box => box.checked).map(box => Number(box.value))])].forEach(id => {
       const input = document.createElement('input');
-      input.type = 'hidden'; input.name = 'device_ids[]'; input.value = box.value; input.dataset.generatedExportId = '1';
+      input.type = 'hidden'; input.name = 'device_ids[]'; input.value = id; input.dataset.generatedExportId = '1';
       exportForm.appendChild(input);
     });
     const query = exportForm.querySelector('[name="filter_query"]');
