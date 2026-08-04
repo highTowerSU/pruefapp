@@ -79,7 +79,7 @@ final class ReportController
 
     public static function renderOds(array $rows, string $title, ?array $branding = null): string { return (string) (self::ods($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }
     public static function renderPdf(array $rows, string $title, ?array $branding = null): string { return (string) (self::pdf($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }
-    public static function inspectionPdfRows(RedBeanPHPOODBBean $inspection, RedBeanPHPOODBBean $device): array
+    public static function inspectionPdfRows(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
     {
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $rows = [['Prüfung', 'Wert']];
