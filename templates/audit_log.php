@@ -151,7 +151,10 @@ $nextUrl = $pagination['has_next']
                         if (!is_array($details) || $details === []): ?>
                             <span class="text-body-secondary">Keine weiteren Details</span>
                         <?php else: ?>
-                            <?php $renderDetail($details); ?>
+                            <details>
+                                <summary class="small text-primary">Details anzeigen</summary>
+                                <div class="mt-2"><?php $renderDetail($details); ?></div>
+                            </details>
                         <?php endif; ?>
                     </td>
                     <td class="text-nowrap">
