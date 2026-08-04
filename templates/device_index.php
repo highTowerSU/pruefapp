@@ -154,7 +154,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
 <?php if (!empty($canManage) || !empty($canBulkManage)): ?><details class="card mb-3"><summary class="card-header fw-semibold">Auswahl &amp; Massenaktionen</summary><div class="card-body">
 <?php if (!empty($canManage)): ?><form id="device-export-form" method="post" action="<?= htmlspecialchars(url_for('geraete/export'), ENT_QUOTES) ?>" class="card card-body mb-3">
   <div class="d-flex flex-wrap align-items-end gap-2">
-    <div><label class="form-label mb-1" for="device-export-scope">Auswahl</label><select class="form-select form-select-sm" id="device-export-scope" name="scope"><option value="selection">Markierte Geräte</option><option value="page">Ganze aktuelle Seite</option><option value="all">Alle gefilterten Seiten</option></select></div>
+    <div><label class="form-label mb-1" for="device-export-scope">Auswahl</label><select class="form-select form-select-sm" id="device-export-scope" name="scope" data-search-select data-placeholder="Export-Auswahl suchen"><option value="selection">Markierte Geräte</option><option value="page">Ganze aktuelle Seite</option><option value="all">Alle gefilterten Seiten</option></select></div>
     <div><label class="form-label mb-1" for="device-export-report">Übersicht</label><select class="form-select form-select-sm" id="device-export-report" name="report"><option value="">Geräteliste</option><option value="rooms">Raum-Ampelreport</option><option value="daily">Tagesreport</option><option value="weekly">Wochenreport</option></select></div>
     <div class="report-period-field d-none"><label class="form-label mb-1" for="daily-date">Tag/Woche</label><input class="form-control form-control-sm" type="date" id="daily-date" name="daily_date" value="<?= htmlspecialchars((string) date('Y-m-d')) ?>"></div>
     <div class="report-period-field d-none"><label class="form-label mb-1" for="daily-examiner">Prüfer</label><input class="form-control form-control-sm" type="search" id="daily-examiner" name="daily_examiner" placeholder="optional"></div>
@@ -168,7 +168,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}
 <form id="device-bulk-form" method="post" action="<?= htmlspecialchars(url_for('geraete/massenaktion'), ENT_QUOTES) ?>" class="card card-body mb-3">
   <div class="d-flex flex-wrap align-items-center gap-2">
     <strong class="me-2">Massenaktion</strong>
-    <label class="small">Auswahl <select class="form-select form-select-sm d-inline-block w-auto" name="selection_scope"><option value="all" selected>Alle gefilterten Seiten</option><option value="selection">Markierte Geräte</option><option value="page">Aktuelle Seite</option></select></label>
+    <label class="small" for="device-bulk-scope">Auswahl <select class="form-select form-select-sm d-inline-block w-auto" id="device-bulk-scope" name="selection_scope" data-search-select data-placeholder="Massenaktions-Auswahl suchen"><option value="all" selected>Alle gefilterten Seiten</option><option value="selection">Markierte Geräte</option><option value="page">Aktuelle Seite</option></select></label>
     <input type="hidden" name="filter_query" value="">
     <button class="btn btn-sm btn-outline-warning" name="bulk_action" value="archive">Archivieren</button>
     <button class="btn btn-sm btn-outline-danger" name="bulk_action" value="delete">Endgültig löschen</button>
