@@ -244,6 +244,13 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     group.className = 'btn-group'; group.setAttribute('role', 'group');
     group.setAttribute('aria-label', index === 1 ? 'Seitenauswahl' : 'Exportformate');
     buttons[0].before(group); buttons.forEach(button => group.append(button));
+    if (index === 2) {
+      const dropdown = document.createElement('div'); dropdown.className = 'dropdown';
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'btn btn-primary btn-sm dropdown-toggle'; toggle.setAttribute('data-bs-toggle', 'dropdown'); toggle.setAttribute('aria-expanded', 'false'); toggle.textContent = 'Exportieren';
+      const menu = document.createElement('div'); menu.className = 'dropdown-menu';
+      [...group.children].forEach(button => { button.className = 'dropdown-item'; menu.append(button); });
+      dropdown.append(toggle, menu); group.replaceWith(dropdown);
+    }
   });
 })();
 </script>
