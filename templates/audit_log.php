@@ -171,19 +171,36 @@ $nextUrl = $pagination['has_next']
 </details>
 
 <details class="card mb-4">
-<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Prüfapp-Cron</span><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></summary>
+<summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Prüfapp-Cron</span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></span></summary>
 <div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
+<?php $formatCronDate = static function ($value): string { try { return (new DateTimeImmutable((string) $value))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y H:i:s'); } catch (Throwable) { return '—'; } }; ?>
 <?php if (empty($cronHealthy)): ?><div class="alert alert-warning d-flex align-items-start gap-2" role="alert"><i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i><div><strong>Prüfapp-Cron läuft aktuell nicht zuverlässig.</strong><br><span><?php if (($cronAge ?? null) === null): ?>Es wurde noch kein aktueller Cron-Heartbeat gefunden.<?php else: ?>Der letzte Lauf ist <?= htmlspecialchars((string) max(1, (int) floor(((int) $cronAge) / 60))) ?> Minuten alt. Erwartet wird ein Lauf innerhalb von fünf Minuten.<?php endif; ?> Bitte Cron-Dienst und `/var/www/html/pruefapp/bin/cron.php` prüfen.</span></div></div><?php else: ?><div class="alert alert-success py-2" role="status"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Cron aktiv, letzter Heartbeat vor <?= htmlspecialchars((string) max(0, (int) floor(((int) $cronAge) / 60))) ?> Minuten.</div><?php endif; ?>
 <?php if (!empty($cronPendingJobs)): ?><div class="card border-info mb-3"><div class="card-header py-2 d-flex justify-content-between align-items-center"><strong><i class="fa-solid fa-list-check me-1" aria-hidden="true"></i>Ausstehende Cron-Todos</strong><span class="badge text-bg-info"><?= count($cronPendingJobs) ?></span></div><div class="table-responsive"><table class="table table-sm mb-0 align-middle"><thead><tr><th>Job</th><th>Status</th><th>Fortschritt</th><th>Gerät</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronPendingJobs as $job): $jobType = (string) ($job['type'] ?? 'Hintergrundjob'); $step = (int) ($job['step'] ?? 0); $total = (int) ($job['total'] ?? 0); ?><tr><td class="text-break"><code><?= htmlspecialchars(substr((string) ($job['id'] ?? ''), 0, 12)) ?></code><br><span class="small text-body-secondary"><?= htmlspecialchars($jobType) ?></span></td><td><span class="badge text-bg-<?= ($job['state'] ?? '') === 'running' ? 'primary' : 'secondary' ?>"><?= htmlspecialchars((string) ($job['state'] ?? 'unbekannt')) ?></span></td><td><?= $total > 0 ? htmlspecialchars($step . ' / ' . $total) : '—' ?></td><td><?= htmlspecialchars((string) ($job['current_device'] ?? '—')) ?></td><td class="text-break"><?= htmlspecialchars((string) ($job['message'] ?? 'Wartet auf den nächsten Cron-Lauf.')) ?></td></tr><?php endforeach; ?></tbody></table></div></div><?php else: ?><p class="small text-body-secondary"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Keine ausstehenden Cron-Todos.</p><?php endif; ?>
 <?php if (empty($cronLog)): ?>
     <div class="alert alert-warning">Noch kein Prüfapp-Cron-Lauf protokolliert.</div>
 <?php else: ?>
-    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): $message = (string) ($line['message'] ?? ''); $level = strtolower((string) ($line['level'] ?? 'info')); $levelClass = $level === 'error' ? 'danger' : ($level === 'warning' ? 'warning text-dark' : 'info'); ?><tr><td class="text-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string) $line['run_at']))->format('d.m.Y H:i:s') ) ?></td><td><span class="badge text-bg-<?= $levelClass ?>"><?= htmlspecialchars(strtoupper($level)) ?></span></td><td class="text-break"><?php if (mb_strlen($message) > 220): ?><details><summary><?= htmlspecialchars(mb_substr($message, 0, 220) . ' …') ?></summary><pre class="small mt-2 mb-0 text-wrap"><?= htmlspecialchars($message) ?></pre></details><?php else: ?><?= htmlspecialchars($message) ?><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit (lokal)</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): $message = (string) ($line['message'] ?? ''); $level = strtolower((string) ($line['level'] ?? 'info')); $levelClass = $level === 'error' ? 'danger' : ($level === 'warning' ? 'warning text-dark' : 'info'); ?><tr><td class="text-nowrap"><?= htmlspecialchars($formatCronDate($line['run_at'] ?? '')) ?></td><td><span class="badge text-bg-<?= $levelClass ?>"><?= htmlspecialchars(strtoupper($level)) ?></span></td><td class="text-break"><?php if (mb_strlen($message) > 220): ?><details><summary><?= htmlspecialchars(mb_substr($message, 0, 220) . ' …') ?></summary><pre class="small mt-2 mb-0 text-wrap"><?= htmlspecialchars($message) ?></pre></details><?php else: ?><?= htmlspecialchars($message) ?><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div>
     <?php if (($cronPages ?? 1) > 1): ?><nav aria-label="Cron-Log-Seiten"><ul class="pagination pagination-sm"><?php for ($p = 1; $p <= $cronPages; $p++): ?><li class="page-item<?= $p === $cronPage ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('admin/audit-log?cron_page=' . $p), ENT_QUOTES) ?>"><?= $p ?></a></li><?php endfor; ?></ul></nav><?php endif; ?>
 <?php endif; ?>
 </div>
 </details>
+<script>
+(() => {
+  const toggle = document.getElementById('audit-auto-refresh');
+  if (!toggle) return;
+  const key = 'pruefapp-audit-auto-refresh';
+  try { toggle.checked = localStorage.getItem(key) === '1'; } catch (_) {}
+  toggle.addEventListener('click', event => {
+    event.stopPropagation();
+    try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
+  });
+  window.setInterval(() => {
+    if (!toggle.checked || document.visibilityState !== 'visible') return;
+    window.location.reload();
+  }, 30000);
+})();
+</script>
 
 <details class="card mb-4">
 <summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Datenrevisionen (ReBean)</span><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></summary>
