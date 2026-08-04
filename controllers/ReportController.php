@@ -287,7 +287,7 @@ final class ReportController
         if ($logoData !== '' && $columnCount >= 3) {
             $titleSpan = $columnCount - 2;
             $covered = static fn(int $count): string => str_repeat('<table:covered-table-cell/>', max(0, $count));
-            $logoCell = '<table:table-cell table:number-columns-spanned="2" table:style-name="Title"><draw:frame draw:name="Logo" text:anchor-type="as-char" svg:width="2.2cm" svg:height="0.75cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame></table:table-cell>';
+            $logoCell = '<table:table-cell table:number-columns-spanned="2" table:style-name="Title" style:vertical-align="middle"><draw:frame draw:name="Logo" text:anchor-type="as-char" svg:width="1.9cm" svg:height="0.48cm"><draw:image xlink:href="Pictures/logo" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"><office:binary-data>' . base64_encode($logoData) . '</office:binary-data></draw:image></draw:frame></table:table-cell>';
             $titleCell = '<table:table-cell table:number-columns-spanned="' . $titleSpan . '" table:style-name="Title"><text:p>' . $titleText . '</text:p></table:table-cell>';
             $titleXml = '<table:table-row>' . $logoCell . $covered(1) . $titleCell . $covered($titleSpan - 1) . '</table:table-row>';
         } else {
