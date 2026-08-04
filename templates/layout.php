@@ -12,6 +12,7 @@ $primaryHex = ltrim($primaryColor, '#');
 $primaryRgb = strlen($primaryHex) === 6
     ? implode(', ', [hexdec(substr($primaryHex, 0, 2)), hexdec(substr($primaryHex, 2, 2)), hexdec(substr($primaryHex, 4, 2))])
     : '13, 110, 253';
+$assetVersion = app_asset_version();
 ?>
 <!DOCTYPE html>
 <html lang="de" data-bs-theme="auto">
@@ -125,7 +126,7 @@ $primaryRgb = strlen($primaryHex) === 6
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/tom-select/dist/css/tom-select.bootstrap5.min.css'), ENT_QUOTES) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/css/tabulator_bootstrap5.min.css'), ENT_QUOTES) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('node_modules/@fortawesome/fontawesome-free/css/all.min.css'), ENT_QUOTES) ?>">
-    <link rel="stylesheet" href="<?= htmlspecialchars(url_for('public/css/custom.css'), ENT_QUOTES) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(url_for('public/css/custom.css') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>">
     <style>
         :root {
             --app-brand-bg: <?= htmlspecialchars($brandBackground, ENT_QUOTES) ?>;
@@ -241,7 +242,7 @@ $primaryRgb = strlen($primaryHex) === 6
     <script src="<?= htmlspecialchars(url_for('node_modules/bootstrap/dist/js/bootstrap.bundle.min.js'), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/htmx.org/dist/htmx.min.js'), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/tom-select/dist/js/tom-select.complete.min.js'), ENT_QUOTES) ?>"></script>
-    <script src="<?= htmlspecialchars(url_for('public/js/search-select.js'), ENT_QUOTES) ?>"></script>
+    <script src="<?= htmlspecialchars(url_for('public/js/search-select.js') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/js/tabulator.min.js'), ENT_QUOTES) ?>"></script>
     <script>
         (() => {

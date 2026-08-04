@@ -1200,3 +1200,13 @@ function format_datetime_for_display(?string $value, string $format = 'd.m.Y H:i
 
     return $date->format($format);
 }
+
+function app_asset_version(): string
+{
+    static $version;
+    if ($version !== null) return $version;
+    $base = dirname(__DIR__);
+    $version = trim((string) @shell_exec('git -C ' . escapeshellarg($base) . ' rev-parse --short HEAD 2>/dev/null'));
+    if ($version === '') $version = (string) @filemtime($base . '/public/js/search-select.js');
+    return $version !== '' ? $version : '1';
+}
