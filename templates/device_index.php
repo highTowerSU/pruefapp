@@ -30,6 +30,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <style>
 .device-form{--bs-gutter-y:1.25rem}.device-form-heading{margin-top:.5rem}.device-form .form-label{font-weight:600}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:44px}.device-form [data-copy-device-name]{font-size:.78rem;text-decoration:none}.device-form [data-copy-device-name]:hover{text-decoration:underline}.device-form .ts-wrapper{width:100%}.device-form .ts-control{padding:.65rem .75rem}.device-form textarea.form-control{min-height:90px}.device-form .col-12.text-end{padding-top:.5rem}.device-form .col-12.text-end .btn{min-height:44px}.vstack.gap-3>.card>summary{cursor:pointer}.vstack.gap-3>.card>summary:focus-visible{outline:3px solid var(--bs-primary);outline-offset:-3px}
 .device-page-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}.device-new-inspection{flex:0 1 26rem;min-width:min(100%,20rem)}.device-new-inspection .input-group{max-width:26rem}
+@media(min-width:992px){.device-filter-form .row>.col-md-1.d-flex{width:auto;flex:0 0 auto;flex-wrap:wrap}}
 @media(max-width:991.98px){.device-filter-form .row>[class*="col-"]{width:50%}.device-filter-form .row>.col-md-3:first-child{width:100%}.device-filter-form .row>.col-md-1.d-flex{width:100%}}
 @media(max-width:767.98px){.device-filter-form,.device-status-filter{padding:1rem!important}.device-filter-form .row>[class*="col-"],.device-status-filter .row>[class*="col-"]{width:100%}.device-filter-form .row{--bs-gutter-y:.75rem}.device-filter-form .btn,.device-status-filter .btn{min-height:48px}.device-form .row>[class*="col-md-"]{width:100%}.device-form .device-form-heading{margin-top:1rem}.device-form .col-12.text-end{display:flex;flex-direction:column;gap:.5rem}.device-form .col-12.text-end .btn{width:100%}.device-form .form-check{margin-top:0!important;padding:1rem;border:1px solid var(--bs-border-color);border-radius:.5rem}.card-header{padding:1rem}.vstack.gap-3>.card{border-radius:.65rem}.table-responsive{margin-inline:-.25rem}.table-responsive table{min-width:680px}.ts-dropdown{max-height:50vh}.ts-dropdown-content{max-height:50vh}}
 @media(max-width:575.98px){.device-filter-form .row,.device-status-filter .row{--bs-gutter-x:.65rem;--bs-gutter-y:.65rem}.device-form .device-form-heading h2{font-size:1.05rem}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:48px;font-size:1rem}.device-form .form-text{font-size:.8rem}.device-form [data-copy-device-name]{font-size:.72rem}.device-form .form-check{width:100%;margin-left:0!important}.device-form .col-12.text-end .btn{font-size:1rem}.device-status-filter{margin-bottom:1rem!important}}
@@ -41,6 +42,20 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
   const deviceGetForms = document.querySelectorAll('form[method="get"]');
   deviceGetForms[0]?.classList.add('device-filter-form');
   deviceGetForms[1]?.classList.add('device-status-filter');
+  const statusForm = deviceGetForms[1];
+  const statusSelect = statusForm?.querySelector('select[name="inspection_status"]');
+  const primaryFilterForm = deviceGetForms[0];
+  if (statusForm && statusSelect && primaryFilterForm) {
+    const statusField = statusSelect.closest('[class*="col-"]');
+    const primaryRow = primaryFilterForm.querySelector('.row');
+    if (statusField && primaryRow) {
+      statusField.className = 'col-md-2';
+      primaryRow.insertBefore(statusField, primaryRow.querySelector('.col-md-1.d-flex') || null);
+      statusSelect.insertAdjacentHTML('beforeend', '<option value="passed">Letzte Prüfung bestanden</option><option value="completed">Prüfung abgeschlossen</option>');
+      statusSelect.value = <?= json_encode($filters['inspection_status'] ?? '', JSON_UNESCAPED_UNICODE) ?>;
+      statusForm.remove();
+    }
+  }
   const siteCustomer = <?= json_encode($siteCustomerIds, JSON_UNESCAPED_UNICODE) ?>;
   const buildingSite = <?= json_encode($buildingSiteIds, JSON_UNESCAPED_UNICODE) ?>;
   const floorBuilding = <?= json_encode($floorBuildingIds, JSON_UNESCAPED_UNICODE) ?>;

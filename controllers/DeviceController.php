@@ -75,8 +75,12 @@ class DeviceController
         if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
         if ($inspectionStatus === 'failed') {
             $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
+        } elseif ($inspectionStatus === 'passed') {
+            $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
         } elseif ($inspectionStatus === 'pending') {
             $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        } elseif ($inspectionStatus === 'completed') {
+            $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status, '') NOT IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
         }
         $dateWhere = [];
         if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $paramsQuery[] = $year . '-01-01'; $paramsQuery[] = ((int) $year + 1) . '-01-01'; }
