@@ -141,6 +141,31 @@
   transition: opacity 0.2s ease;
 }
 
+/* Reserve one stable icon column so labels never jump between menu items. */
+.navbar-themed .nav-link > i,
+.navbar-themed .dropdown-item > i,
+.navbar-themed .btn-outline-navbar > i,
+details.card > summary > i {
+  display: inline-block;
+  width: 1.25rem;
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+label.form-label > i,
+label.form-check-label > i {
+  display: inline-block;
+  width: 1.25rem;
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+.navbar-themed .nav-link > i,
+.navbar-themed .dropdown-item > i,
+.navbar-themed .btn-outline-navbar > i {
+  margin-right: .25rem;
+}
+
 .navbar-themed .nav-link:hover,
 .navbar-themed .nav-link:focus,
 .navbar-themed .nav-link.active {
