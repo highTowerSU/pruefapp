@@ -29,7 +29,24 @@ final class ReportController
         elseif ($report) $rows = self::roomRows($devices);
         else $rows = self::deviceRows($devices);
         $name = $reportType === 'daily' ? 'Tagesreport' : ($reportType === 'weekly' ? 'Wochenreport' : ($report ? 'Raum-Ampelreport' : 'Geräteexport'));
-        if ($format === 'json') return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $name . '.json"'], json_encode(['title' => $name, 'generated_at' => date(DATE_ATOM), 'rows' => $rows], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)];
+        if ($format === 'json') {
+            $full = [];
+            foreach ($devices as $device) {
+                $deviceData = $device;
+                $deviceData['inspections'] = [];
+                foreach (R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device['id']]) as $inspection) {
+                    $inspectionData = $inspection->export();
+                    foreach (['measurements_json' => 'measurements', 'checklist_json' => 'checklist', 'raw_json' => 'raw'] as $source => $target) {
+                        $decoded = json_decode((string) ($inspectionData[$source] ?? ''), true);
+                        $inspectionData[$target] = is_array($decoded) ? $decoded : [];
+                        unset($inspectionData[$source]);
+                    }
+                    $deviceData['inspections'][] = $inspectionData;
+                }
+                $full[] = $deviceData;
+            }
+            return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $name . '.json"'], json_encode(['title' => $name, 'generated_at' => date(DATE_ATOM), 'rows' => $rows, 'devices' => $full], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)];
+        }
         if ($format === 'ods') return self::ods($rows, $name);
         if ($format === 'pdf') return self::pdf($rows, $name);
         return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($reportType === 'weekly' ? 'wochenreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv')));
@@ -238,6 +255,17 @@ final class ReportController
 
     private static function pdf(array $rows, string $title): array
     {
+        // Chromium liefert ein robustes, UTF-8-fähiges Tabellen-PDF. Der alte
+        // Minimalrenderer bleibt als Fallback für Installationen ohne Chromium.
+        if (is_executable('/usr/bin/chromium') && $rows !== []) {
+            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}h1{font-size:18px;margin:0 0 10px}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:#1f4e78;color:#fff;text-align:left;padding:5px;font-size:8px}td{border:1px solid #ccd2d8;padding:4px;vertical-align:top;overflow-wrap:anywhere}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}</style><h1>' . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1><table><thead><tr>';
+            foreach (($rows[0] ?? []) as $header) $html .= '<th>' . htmlspecialchars((string) $header, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</th>';
+            $html .= '</tr></thead><tbody>';
+            foreach (array_slice($rows, 1) as $row) { $html .= '<tr>'; foreach (($rows[0] ?? []) as $index => $_) $html .= '<td>' . nl2br(htmlspecialchars((string) ($row[$index] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')) . '</td>'; $html .= '</tr>'; }
+            if (count($rows) <= 1) $html .= '<tr><td colspan="' . max(1, count($rows[0] ?? [])) . '">Keine Datensätze für diesen Export.</td></tr>';
+            $html .= '</tbody></table>';
+            $dir = sys_get_temp_dir() . '/pruefapp-pdf'; if (!is_dir($dir)) mkdir($dir, 0700, true); $token = bin2hex(random_bytes(8)); $htmlPath = $dir . '/' . $token . '.html'; $pdfPath = $dir . '/' . $token . '.pdf'; $profile = $dir . '/' . $token . '-profile'; file_put_contents($htmlPath, $html, LOCK_EX); $command = '/usr/bin/chromium --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --user-data-dir=' . escapeshellarg($profile) . ' --print-to-pdf=' . escapeshellarg($pdfPath) . ' ' . escapeshellarg('file://' . $htmlPath) . ' 2>/dev/null'; shell_exec($command); $body = is_file($pdfPath) ? file_get_contents($pdfPath) : false; @unlink($htmlPath); @unlink($pdfPath); if (is_dir($profile)) { foreach (glob($profile . '/*') ?: [] as $child) { if (is_file($child)) @unlink($child); } @rmdir($profile); } if (is_string($body) && $body !== '') return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"'], $body];
+        }
         $headers = $rows[0] ?? []; $count = max(1, count($headers)); $widths = $count === 14 ? [62, 75, 65, 65, 65, 65, 65, 58, 58, 70, 64, 58, 58, 64] : ($count === 9 ? [76, 76, 76, 62, 62, 84, 48, 68, 68] : array_fill(0, $count, 794 / $count));
         $left = 24; $top = 565; $rowHeight = 19; $headerHeight = 28; $pageRows = 25; $streams = []; $stream = '';
         $page = static function (string &$stream) use (&$streams): void { $streams[] = $stream; $stream = ''; };
