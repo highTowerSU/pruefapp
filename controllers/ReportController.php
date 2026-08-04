@@ -87,7 +87,7 @@ final class ReportController
     {
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $rows = [['Prüfung', 'Wert']];
-        foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfer', $inspection->examiner], ['Gerät', $device->external_number . ' · ' . $device->name], ['Ergebnis', $inspection->result_status], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, (string) $value];
+        foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfart', $inspection->inspection_type], ['Prüfer', $inspection->examiner], ['Gerät', $device->external_number . ' · ' . $device->name], ['Inventarnummer', $device->inventory_number], ['Geräteart', $device->name], ['Hersteller', $device->manufacturer], ['Typ', $device->device_model], ['Wärmegerät', !empty($device->warming_device) ? 'Ja' : 'Nein'], ['Raum-Nr.', $device->room_snapshot], ['Ergebnis', $inspection->result_status], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, (string) $value];
         foreach ($measurements as $measurement) if (is_array($measurement)) $rows[] = [(string) ($measurement['name'] ?? 'Messung'), trim((string) ($measurement['value'] ?? '') . ' ' . (string) ($measurement['unit'] ?? '') . ' · ' . (string) ($measurement['result'] ?? ''))];
         return $rows;
     }
@@ -375,6 +375,10 @@ final class ReportController
     private static function pdf(array $rows, string $title, array $branding = []): array
     {
         $rows = self::compactStructureColumns($rows);
+        if (($rows[0] ?? []) === ['Prüfung', 'Wert']) {
+            $inspectionPdf = self::inspectionPdf($rows, $title, $branding);
+            if ($inspectionPdf !== null) return $inspectionPdf;
+        }
         // LibreOffice rendert die bereits formatierte Tabellenstruktur zuverlässig
         // und vermeidet die leeren/abgeschnittenen Browser-PDFs.
         if ($rows !== [] && class_exists('ZipArchive') && (is_executable('/usr/bin/libreoffice') || is_executable('/usr/bin/soffice'))) {
@@ -413,6 +417,53 @@ final class ReportController
         }
         if ($stream !== '') $page($stream);
         $pdf = self::buildPdf($streams); return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"'], $pdf];
+    }
+
+    private static function inspectionPdf(array $rows, string $title, array $branding): ?array
+    {
+        if (!is_executable('/usr/bin/chromium')) return null;
+        $values = [];
+        foreach (array_slice($rows, 1) as $row) {
+            $key = trim((string) ($row[0] ?? ''));
+            if ($key !== '') $values[$key] = trim((string) ($row[1] ?? ''));
+        }
+        $primary = self::brandColor($branding, 'primary', '#1F4E78');
+        $nav = self::brandColor($branding, 'nav', '#F5C242');
+        $company = (string) ($branding['company_name'] ?? 'CENEOS');
+        $logoPath = (string) (($branding['logos']['dark'] ?? '') ?: ($branding['header_logo']['path'] ?? ''));
+        if ($logoPath !== '' && !str_starts_with($logoPath, '/')) $logoPath = dirname(__DIR__) . '/' . ltrim($logoPath, '/');
+        $logo = is_file($logoPath) ? 'data:' . (str_ends_with(strtolower($logoPath), '.svg') ? 'image/svg+xml' : 'image/png') . ';base64,' . base64_encode((string) file_get_contents($logoPath)) : '';
+        $esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $result = mb_strtolower($values['Ergebnis'] ?? '');
+        $resultClass = str_contains($result, 'durch') || str_contains($result, 'nicht') ? 'bad' : ($result === 'bestanden' ? 'good' : 'pending');
+        $metadata = [
+            ['Prüfungs-Nr.', $values['Prüfnummer'] ?? ''], ['Datum', $values['Datum'] ?? ''],
+            ['Art der Prüfung', $values['Prüfart'] ?? ($values['Prüfungstyp'] ?? '')], ['Prüfer', $values['Prüfer'] ?? ''],
+            ['Nächste Prüfung', $values['Nächste Prüfung'] ?? ''], ['Gerät', $values['Gerät'] ?? ''],
+            ['Inventar-Nr.', $values['Inventarnummer'] ?? ''], ['Geräteart', $values['Geräteart'] ?? ''],
+            ['Hersteller', $values['Hersteller'] ?? ''], ['Typ', $values['Typ'] ?? ''],
+            ['Wärmegerät', $values['Wärmegerät'] ?? ''], ['Liegenschaft', $values['Liegenschaft'] ?? ''],
+            ['Etage', $values['Etage'] ?? ''], ['Raum-Nr.', $values['Raum-Nr.'] ?? ''],
+        ];
+        $known = array_fill_keys(array_merge(['Prüfnummer', 'Datum', 'Prüfart', 'Prüfungstyp', 'Prüfer', 'Nächste Prüfung', 'Gerät', 'Ergebnis', 'Regiezeit', 'Regiebegründung'], array_column($metadata, 0)), true);
+        $measurements = [];
+        foreach ($values as $key => $value) if (!isset($known[$key])) $measurements[] = [$key, $value];
+        $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 portrait;margin:13mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#202124;font-size:10px;margin:0}header{display:grid;grid-template-columns:1fr 1.6fr 1fr;align-items:start;gap:18px;border-bottom:3px solid ' . $nav . ';padding-bottom:14px;margin-bottom:24px}header img{max-width:135px;max-height:58px;object-fit:contain}header .company{line-height:1.45}header .report{text-align:right;font-weight:bold}.report span{display:block;font-weight:normal;margin-top:5px}h1{font-size:19px;color:' . $primary . ';margin:0 0 3px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:7px 34px;margin-bottom:22px}.meta div{display:grid;grid-template-columns:115px 1fr;min-height:18px}.meta strong{font-weight:bold}.result{display:inline-block;padding:3px 10px;border-radius:999px;font-weight:bold}.good{background:#d1e7dd;color:#0f5132}.bad{background:#f8d7da;color:#842029}.pending{background:#fff3cd;color:#664d03}h2{font-size:13px;color:' . $primary . ';margin:15px 0 7px}.measurements{width:100%;border-collapse:collapse;table-layout:fixed}.measurements th{background:' . $primary . ';color:#fff;text-align:left;padding:7px}.measurements td{border:1px solid #aeb7c2;padding:7px;vertical-align:top;line-height:1.3}.measurements tr:nth-child(even) td{background:#f4f6f8}.footer{display:grid;grid-template-columns:1fr 1fr;margin-top:28px;gap:40px}.line{border-bottom:1px solid #666;height:30px}.muted{color:#6c757d;font-size:9px}</style><header>' . ($logo !== '' ? '<img src="' . $logo . '" alt="' . $esc($company) . '">' : '<div></div>') . '<div class="company"><h1>' . $esc($company) . '</h1><div>Prüfbericht</div></div><div class="report">Prüfberichts-Nr.:<span>' . $esc($values['Prüfnummer'] ?? '') . '</span></div></header><div class="meta">';
+        foreach ($metadata as [$label, $value]) if ($value !== '') $html .= '<div><strong>' . $esc($label) . '</strong><span>' . nl2br($esc($value)) . '</span></div>';
+        $html .= '<div><strong>Ergebnis</strong><span class="result ' . $resultClass . '">' . $esc($values['Ergebnis'] ?? 'ausstehend') . '</span></div></div>';
+        if ($measurements !== []) {
+            $html .= '<h2>Prüfergebnisse</h2><table class="measurements"><thead><tr><th style="width:34%">Messung / Prüffrage</th><th>Wert / Ergebnis</th></tr></thead><tbody>';
+            foreach ($measurements as [$label, $value]) $html .= '<tr><td>' . $esc($label) . '</td><td>' . nl2br($esc($value)) . '</td></tr>';
+            $html .= '</tbody></table>';
+        }
+        $html .= '<div class="footer"><div><strong>Regiezeit:</strong> ' . $esc($values['Regiezeit'] ?? '0 Minuten') . '<div class="muted">' . $esc($values['Regiebegründung'] ?? '') . '</div></div><div><strong>Unterschrift:</strong><div class="line"></div></div></div>';
+        $dir = sys_get_temp_dir() . '/pruefapp-inspection-pdf'; if (!is_dir($dir)) mkdir($dir, 0700, true);
+        $token = bin2hex(random_bytes(8)); $htmlPath = $dir . '/' . $token . '.html'; $pdfPath = $dir . '/' . $token . '.pdf'; $profile = $dir . '/' . $token . '-profile';
+        file_put_contents($htmlPath, $html, LOCK_EX);
+        $command = '/usr/bin/chromium --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --user-data-dir=' . escapeshellarg($profile) . ' --print-to-pdf=' . escapeshellarg($pdfPath) . ' ' . escapeshellarg('file://' . $htmlPath) . ' 2>/dev/null';
+        shell_exec($command); $body = is_file($pdfPath) ? file_get_contents($pdfPath) : false; $text = is_file($pdfPath) ? trim((string) shell_exec('pdftotext ' . escapeshellarg($pdfPath) . ' - 2>/dev/null')) : '';
+        @unlink($htmlPath); @unlink($pdfPath); if (is_dir($profile)) { foreach (glob($profile . '/*') ?: [] as $child) if (is_file($child)) @unlink($child); @rmdir($profile); }
+        return is_string($body) && $body !== '' && $text !== '' ? [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"'], $body] : null;
     }
 
     private static function exportLanguage(): string
