@@ -200,7 +200,7 @@ $nextUrl = $pagination['has_next']
       try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
       if (!toggle.checked) return;
       panel.open = true; save();
-      if (window.htmx) { panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 30s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); window.htmx.process(panel); }
+      if (window.htmx) { panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 30s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); panel.setAttribute('hx-swap', 'outerHTML'); window.htmx.process(panel); }
       else window.setTimeout(() => { if (toggle.checked && document.visibilityState === 'visible') window.location.reload(); }, 30000);
     };
     toggle.addEventListener('change', enable); panel.addEventListener('toggle', save); restore(); enable();

@@ -73,6 +73,7 @@
       panel.setAttribute('hx-trigger', 'every 30s');
       panel.setAttribute('hx-target', '#inspection-import-panel');
       panel.setAttribute('hx-select', '#inspection-import-panel');
+      panel.setAttribute('hx-swap', 'outerHTML');
       window.htmx.process(panel);
     }
   };
