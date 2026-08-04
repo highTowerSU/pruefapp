@@ -138,8 +138,8 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <form id="device-bulk-form" method="post" action="<?= htmlspecialchars(url_for('geraete/massenaktion'), ENT_QUOTES) ?>" class="card card-body mb-3">
   <div class="d-flex flex-wrap align-items-center gap-2">
     <strong class="me-2">Massenaktion</strong>
-    <button class="btn btn-sm btn-outline-warning" name="bulk_action" value="archive" onclick="return confirm('Ausgewählte Geräte wirklich archivieren?');">Archivieren</button>
-    <button class="btn btn-sm btn-outline-danger" name="bulk_action" value="delete" onclick="return confirm('Ausgewählte Geräte und alle zugehörigen Prüfungen endgültig löschen?');">Endgültig löschen</button>
+    <button class="btn btn-sm btn-outline-warning" name="bulk_action" value="archive">Archivieren</button>
+    <button class="btn btn-sm btn-outline-danger" name="bulk_action" value="delete">Endgültig löschen</button>
     <?php if (!empty($showArchived)): ?><a class="btn btn-sm btn-outline-secondary ms-2" href="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>">Nur aktive anzeigen</a><?php else: ?><a class="btn btn-sm btn-outline-secondary ms-2" href="<?= htmlspecialchars(url_for('geraete?show_archived=1'), ENT_QUOTES) ?>">Archivierte anzeigen</a><?php endif; ?>
     <span class="small text-body-secondary">Geräte auf dieser Seite auswählen; mit Shift ganze Bereiche markieren.</span>
   </div>
@@ -160,6 +160,21 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <?php if (!empty($canBulkManage)): ?><script>
 (() => {
   const boxes = [...document.querySelectorAll('input[name="device_ids[]"]')];
+  const bulkForm = document.getElementById('device-bulk-form');
+  bulkForm?.addEventListener('submit', event => {
+    const selected = boxes.filter(box => box.checked).length;
+    if (!selected) {
+      event.preventDefault();
+      window.alert('Bitte mindestens ein Gerät auswählen.');
+      return;
+    }
+    const action = event.submitter?.value || '';
+    const noun = selected === 1 ? 'Gerät' : 'Geräte';
+    const text = action === 'delete'
+      ? selected + ' ' + noun + ' und alle zugehörigen Prüfungen endgültig löschen?'
+      : selected + ' ' + noun + ' wirklich archivieren?';
+    if (!window.confirm(text)) event.preventDefault();
+  });
   let lastIndex = -1;
   boxes.forEach((box, index) => box.addEventListener('click', event => {
     if (event.shiftKey && lastIndex >= 0) {
