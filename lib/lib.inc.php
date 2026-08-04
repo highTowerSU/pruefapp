@@ -1167,6 +1167,7 @@ function decorate_form_label_icons(string $html): string
 function decorate_collapsible_icons(string $html): string
 {
     $icons = [
+        '/ereignisprotokoll/i' => 'fa-clock-rotate-left',
         '/neues gerät|gerät anlegen/i' => 'fa-plus-circle',
         '/auswahl|massenaktion/i' => 'fa-list-check',
         '/import/i' => 'fa-file-import',
