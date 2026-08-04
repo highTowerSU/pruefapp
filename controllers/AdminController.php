@@ -94,14 +94,23 @@ class AdminController
         );
         usort($revisions, static fn(array $a, array $b): int => strcmp($b['timestamp'], $a['timestamp']));
         $revisions = array_slice($revisions, 0, 100);
-        $cronLogPath = app_data_root() . '/logs/cron.log';
-        $cronLog = is_file($cronLogPath) ? array_slice(file($cronLogPath, FILE_IGNORE_NEW_LINES) ?: [], -200) : [];
+        $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
+        $cronPerPage = 50;
+        $cronTotal = (int) R::count('cron_log');
+        $cronPages = max(1, (int) ceil($cronTotal / $cronPerPage));
+        $cronPage = min($cronPage, $cronPages);
+        $cronOffset = ($cronPage - 1) * $cronPerPage;
+        // LIMIT/OFFSET are validated integers here; interpolation keeps this
+        // compatible with SQLite and the other RedBean drivers.
+        $cronLog = R::getAll("SELECT run_at, level, message FROM cron_log ORDER BY id DESC LIMIT {$cronPerPage} OFFSET {$cronOffset}");
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
             'pagination' => $events['pagination'],
             'revisions' => $revisions,
             'cronLog' => $cronLog,
+            'cronPage' => $cronPage,
+            'cronPages' => $cronPages,
         ]);
 
         $body = render_template('layout.php', [

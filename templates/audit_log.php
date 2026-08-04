@@ -164,7 +164,8 @@ $nextUrl = $pagination['has_next']
 <?php if (empty($cronLog)): ?>
     <div class="alert alert-warning">Noch kein Prüfapp-Cron-Lauf protokolliert.</div>
 <?php else: ?>
-    <pre class="bg-body-tertiary border rounded p-3 small" style="max-height:24rem;overflow:auto;white-space:pre-wrap;"><?= htmlspecialchars(implode("\n", $cronLog)) ?></pre>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Zeit</th><th>Status</th><th>Meldung</th></tr></thead><tbody><?php foreach ($cronLog as $line): ?><tr><td class="text-nowrap"><?= htmlspecialchars((new DateTimeImmutable((string) $line['run_at']))->format('d.m.Y H:i:s') ) ?></td><td><span class="badge text-bg-<?= ($line['level'] ?? 'info') === 'error' ? 'danger' : 'secondary' ?>"><?= htmlspecialchars(strtoupper((string) ($line['level'] ?? 'info'))) ?></span></td><td><?= htmlspecialchars((string) $line['message']) ?></td></tr><?php endforeach; ?></tbody></table></div>
+    <?php if (($cronPages ?? 1) > 1): ?><nav aria-label="Cron-Log-Seiten"><ul class="pagination pagination-sm"><?php for ($p = 1; $p <= $cronPages; $p++): ?><li class="page-item<?= $p === $cronPage ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('admin/audit-log?cron_page=' . $p), ENT_QUOTES) ?>"><?= $p ?></a></li><?php endfor; ?></ul></nav><?php endif; ?>
 <?php endif; ?>
 
 <h2 class="h4 mt-5">Datenrevisionen (ReBean)</h2>

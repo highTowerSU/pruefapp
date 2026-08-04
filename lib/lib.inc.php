@@ -306,6 +306,7 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS customerinfo (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', slug TEXT NOT NULL DEFAULT '', markdown TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', file_mime TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_invoice (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', invoice_number TEXT NOT NULL DEFAULT '', invoice_date TEXT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_building_site ON building (site_id)',
@@ -341,6 +342,7 @@ function ensure_structure_schema(): void
         'customerinfo' => ['customer_id' => 'INTEGER NOT NULL DEFAULT 0', 'title' => "TEXT NOT NULL DEFAULT ''", 'slug' => "TEXT NOT NULL DEFAULT ''", 'markdown' => "TEXT NOT NULL DEFAULT ''", 'file_path' => "TEXT NOT NULL DEFAULT ''", 'file_name' => "TEXT NOT NULL DEFAULT ''", 'file_mime' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
         'billing_invoice' => ['customer_id' => 'INTEGER NULL', 'sevdesk_invoice_id' => "TEXT NOT NULL DEFAULT ''", 'invoice_number' => "TEXT NOT NULL DEFAULT ''", 'invoice_date' => 'TEXT NULL', 'status' => "TEXT NOT NULL DEFAULT 'draft'", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
         'billing_invoice_item' => ['invoice_id' => 'INTEGER NOT NULL', 'inspection_id' => 'INTEGER NOT NULL', 'device_id' => 'INTEGER NOT NULL', 'quantity' => 'REAL NOT NULL DEFAULT 1', 'description' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL'],
+        'cron_log' => ['run_at' => 'TEXT NOT NULL', 'level' => "TEXT NOT NULL DEFAULT 'info'", 'message' => "TEXT NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as $table => $definitions) {
         $existing = R::getColumns($table);
