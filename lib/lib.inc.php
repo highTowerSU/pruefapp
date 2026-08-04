@@ -320,14 +320,22 @@ function ensure_structure_schema(): void
     }
 
     $columns = [
-        'customer' => ['code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'site' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'building' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'area' => ['description' => 'TEXT NULL'],
         'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''", 'room_snapshot' => "TEXT NOT NULL DEFAULT ''", 'device_model' => 'TEXT NULL', 'manufacturer' => 'TEXT NULL', 'warming_device' => 'INTEGER NOT NULL DEFAULT 0', 'archived_at' => 'TEXT NULL'],
-        'inspection' => ['legacy_number' => "TEXT NOT NULL DEFAULT ''"],
+        'inspection' => [
+            'legacy_number' => "TEXT NOT NULL DEFAULT ''",
+            'billable' => 'INTEGER NOT NULL DEFAULT 0',
+            'billing_exported_at' => 'TEXT NULL',
+            'billing_export_id' => "TEXT NOT NULL DEFAULT ''",
+        ],
+        'customer' => [
+            'code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL',
+            'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''",
+        ],
         'customerinfo' => ['customer_id' => 'INTEGER NOT NULL DEFAULT 0', 'title' => "TEXT NOT NULL DEFAULT ''", 'slug' => "TEXT NOT NULL DEFAULT ''", 'markdown' => "TEXT NOT NULL DEFAULT ''", 'file_path' => "TEXT NOT NULL DEFAULT ''", 'file_name' => "TEXT NOT NULL DEFAULT ''", 'file_mime' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
     ];
     foreach ($columns as $table => $definitions) {

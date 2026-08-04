@@ -175,6 +175,7 @@ class StructureController
         }
 
         $entity->name = $name;
+        if ($type === 'customer') $entity->sevdesk_customer_id = trim((string) ($_POST['sevdesk_customer_id'] ?? ''));
         $entity->{$definition['parent']} = $parentId > 0 ? $parentId : null;
         $description = trim((string) ($_POST['description'] ?? ''));
         if (mb_strlen($description) > 240) return self::redirectWithError('Die Kurzbeschreibung darf maximal 240 Zeichen enthalten.');

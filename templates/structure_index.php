@@ -281,6 +281,7 @@ $form = static function (string $type, $entity = null) use (
     <?php $codeLabel = ['customer' => 'Kundenkürzel', 'site' => 'Standortkürzel', 'building' => 'Gebäudekürzel', 'floor' => 'Etagenkürzel', 'area' => 'Bereichskürzel'][$type]; ?>
     <div class="col-md-6"><label class="form-label"><?= $codeLabel ?></label><input class="form-control text-uppercase" name="code"<?= in_array($type, ['building', 'floor', 'area'], true) ? ' required' : '' ?> placeholder="<?= $type === 'building' ? 'z. B. AB' : ($type === 'floor' ? 'U, E, 0, 1 …' : ($type === 'area' ? 'E, F …' : 'optional')) ?>" value="<?= htmlspecialchars((string) $entity->code) ?>"></div>
   <?php endif; ?>
+  <?php if ($type === 'customer'): ?><div class="col-md-6"><label class="form-label">SevDesk-Kunden-ID</label><input class="form-control" name="sevdesk_customer_id" value="<?= htmlspecialchars((string) ($entity->sevdesk_customer_id ?? '')) ?>" placeholder="z. B. 123456"></div><?php endif; ?>
   <?php if ($type === 'floor'): ?>
     <div class="col-md-6"><label class="form-label">Sortierreihenfolge</label><input type="number" class="form-control" name="sort_order" placeholder="U automatisch vor E" value="<?= htmlspecialchars((string) $entity->sort_order) ?>"></div>
   <?php elseif ($type === 'room'): ?>

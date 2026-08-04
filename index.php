@@ -41,6 +41,7 @@ require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/CustomerInfoController.php';
 require_once __DIR__ . '/controllers/ReportController.php';
+require_once __DIR__ . '/controllers/BillingController.php';
 
 $routes = [
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
@@ -90,6 +91,8 @@ $routes = [
     ['GET', '/geraete/suche', fn($params, $isHx) => DeviceController::lookup($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['POST', '/geraete/export', fn($params, $isHx) => ReportController::export($params, $isHx)],
+    ['GET', '/admin/abrechnung', fn($params, $isHx) => BillingController::index($params, $isHx)],
+    ['POST', '/admin/abrechnung/export', fn($params, $isHx) => BillingController::export($params, $isHx)],
     ['GET', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],
     ['POST', '/geraete/{deviceId}/pruefungen/neu', fn($params, $isHx) => InspectionController::create($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/bearbeiten', fn($params, $isHx) => InspectionController::edit($params, $isHx)],

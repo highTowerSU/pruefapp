@@ -101,6 +101,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           <?php if (current_user_has_role('admin')): ?>
             <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $userAdminActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
             <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0">Prüfungen importieren</a>
+            <a href="<?= htmlspecialchars(url_for('admin/abrechnung'), ENT_QUOTES) ?>" class="nav-link px-0">Abrechnung</a>
           <?php endif; ?>
           <?php if (current_user_is_superadmin()): ?>
             <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $companyActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Mandanten</a>

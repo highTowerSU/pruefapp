@@ -80,6 +80,15 @@
 
     <hr>
 
+    <h2 class="h5">SevDesk-Abrechnung</h2>
+    <p class="form-text">Jeder Mandant kann eine eigene SevDesk-Instanz verwenden. Der API-Token wird nur gespeichert und nie wieder angezeigt.</p>
+    <div class="row g-4 mb-4">
+      <div class="col-lg-6"><label class="form-label" for="sevdesk_api_url">SevDesk-API-URL</label><input type="url" class="form-control" id="sevdesk_api_url" name="sevdesk_api_url" value="<?= htmlspecialchars($company['sevdesk_api_url'] ?? 'https://my.sevdesk.de/api/v1') ?>"></div>
+      <div class="col-lg-6"><label class="form-label" for="sevdesk_api_token">SevDesk-API-Token</label><input type="password" autocomplete="new-password" class="form-control" id="sevdesk_api_token" name="sevdesk_api_token" value=""><div class="form-text">Leer lassen, um den vorhandenen Token beizubehalten.</div></div>
+    </div>
+
+    <hr>
+
     <div class="row g-4">
       <div class="col-lg-6">
         <div class="mb-3">
