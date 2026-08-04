@@ -120,6 +120,14 @@ class AdminController
             try { $cronAge = max(0, time() - (new DateTimeImmutable($cronLastRun))->getTimestamp()); } catch (Throwable) { $cronAge = null; }
         }
         $cronHealthy = $cronAge !== null && $cronAge <= 300;
+        $cronPendingJobs = [];
+        $jobRoot = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+        foreach (glob($jobRoot . '/*.status.json') ?: [] as $jobStatusPath) {
+            $job = json_decode((string) @file_get_contents($jobStatusPath), true);
+            if (!is_array($job) || !in_array((string) ($job['state'] ?? ''), ['queued', 'running'], true)) continue;
+            $cronPendingJobs[] = $job;
+        }
+        usort($cronPendingJobs, static fn(array $a, array $b): int => strcmp((string) ($a['created_at'] ?? ''), (string) ($b['created_at'] ?? '')));
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
@@ -132,6 +140,7 @@ class AdminController
             'cronLastRun' => $cronLastRun,
             'cronAge' => $cronAge,
             'cronHealthy' => $cronHealthy,
+            'cronPendingJobs' => $cronPendingJobs,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,
