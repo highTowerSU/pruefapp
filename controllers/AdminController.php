@@ -111,6 +111,15 @@ class AdminController
         // LIMIT/OFFSET are validated integers here; interpolation keeps this
         // compatible with SQLite and the other RedBean drivers.
         $cronLog = R::getAll("SELECT run_at, level, message FROM cron_log ORDER BY id DESC LIMIT {$cronPerPage} OFFSET {$cronOffset}");
+        $cronHeartbeat = [];
+        $heartbeatPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/cron-heartbeat.json';
+        if (is_file($heartbeatPath)) $cronHeartbeat = json_decode((string) @file_get_contents($heartbeatPath), true) ?: [];
+        $cronLastRun = trim((string) ($cronHeartbeat['last_run'] ?? ''));
+        $cronAge = null;
+        if ($cronLastRun !== '') {
+            try { $cronAge = max(0, time() - (new DateTimeImmutable($cronLastRun))->getTimestamp()); } catch (Throwable) { $cronAge = null; }
+        }
+        $cronHealthy = $cronAge !== null && $cronAge <= 300;
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
@@ -120,6 +129,9 @@ class AdminController
             'cronTotal' => $cronTotal,
             'cronPage' => $cronPage,
             'cronPages' => $cronPages,
+            'cronLastRun' => $cronLastRun,
+            'cronAge' => $cronAge,
+            'cronHealthy' => $cronHealthy,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,
