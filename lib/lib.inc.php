@@ -1129,12 +1129,13 @@ function render_template($file, $vars = []) {
     $renderer ??= new \Ceneos\PhpBase\View\TemplateRenderer($baseDir . '/templates');
 
     $html = $renderer->render((string) $file, (array) $vars);
-    return decorate_form_label_icons($html);
+    return decorate_form_label_icons(decorate_collapsible_icons($html));
 }
 
 function decorate_form_label_icons(string $html): string
 {
     $icons = [
+        '/filter|prüfstatus|auswahl/i' => 'fa-filter',
         '/suche|suchen/i' => 'fa-magnifying-glass',
         '/kunde|firma|mandant/i' => 'fa-building',
         '/gerät|geraet/i' => 'fa-plug',
@@ -1158,6 +1159,32 @@ function decorate_form_label_icons(string $html): string
         foreach ($icons as $pattern => $icon) {
             if (!preg_match($pattern, $text)) continue;
             return '<label' . $attributes . '><i class="fa-solid ' . $icon . ' me-1 text-body-secondary" aria-hidden="true"></i>' . $match[2] . '</label>';
+        }
+        return $match[0];
+    }, $html) ?? $html;
+}
+
+function decorate_collapsible_icons(string $html): string
+{
+    $icons = [
+        '/neues gerät|gerät anlegen/i' => 'fa-plus-circle',
+        '/auswahl|massenaktion/i' => 'fa-list-check',
+        '/import/i' => 'fa-file-import',
+        '/cron/i' => 'fa-clock',
+        '/audit|revision/i' => 'fa-clock-rotate-left',
+        '/filter|suche|prüfstatus/i' => 'fa-filter',
+        '/abrechnung/i' => 'fa-coins',
+        '/hilfe/i' => 'fa-circle-question',
+        '/details anzeigen|anzeigen/i' => 'fa-eye',
+        '/prüfung|prüfungen/i' => 'fa-clipboard-check',
+        '/gerät|geraet/i' => 'fa-plug',
+    ];
+    return preg_replace_callback('~<summary\b([^>]*)>(.*?)</summary>~is', static function (array $match) use ($icons): string {
+        if (preg_match('/<i\b[^>]*class\s*=\s*["\'][^"\']*(?:fa-solid|fas|far|fab)/i', $match[2])) return $match[0];
+        $text = trim(preg_replace('/\s+/', ' ', strip_tags($match[2])));
+        foreach ($icons as $pattern => $icon) {
+            if (!preg_match($pattern, $text)) continue;
+            return '<summary' . $match[1] . '><i class="fa-solid ' . $icon . ' me-2 text-body-secondary" aria-hidden="true"></i>' . $match[2] . '</summary>';
         }
         return $match[0];
     }, $html) ?? $html;
