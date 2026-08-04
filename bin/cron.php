@@ -10,7 +10,7 @@ $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
 if (!is_dir($root)) mkdir($root, 0700, true);
 $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
-$log = static function (string $message, string $level = 'info') use ($logPath): void { $timestamp = date(DATE_ATOM); file_put_contents($logPath, '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL, FILE_APPEND | LOCK_EX); try { $entry = R::dispense('cron_log'); $entry->run_at = $timestamp; $entry->level = $level; $entry->message = $message; R::store($entry); } catch (Throwable) {} };
+$log = static function (string $message, string $level = 'info') use ($logPath): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); if (PHP_SAPI === 'cli') fwrite(STDERR, $line); try { $entry = R::dispense('cron_log'); $entry->run_at = $timestamp; $entry->level = $level; $entry->message = $message; R::store($entry); } catch (Throwable $exception) { if (PHP_SAPI === 'cli') fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
 $log('Cron gestartet, PID ' . getmypid());
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
