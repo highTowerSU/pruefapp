@@ -146,6 +146,8 @@ class AdminController
             'revisionTotal' => $revisionTotal,
         ]);
 
+        if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
+
         $body = render_template('layout.php', [
             'title' => 'Audit & Revisionen',
             'content' => $content,

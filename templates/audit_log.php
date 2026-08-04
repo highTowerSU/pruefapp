@@ -31,7 +31,7 @@ $nextUrl = $pagination['has_next']
     werden direkt aus den von ReBean erzeugten Revisionstabellen gelesen.
 </div>
 
-<details class="card mb-4">
+<details class="card mb-4" id="audit-cron-panel">
 <summary class="card-header fw-semibold d-flex justify-content-between align-items-center"><span>Ereignisprotokoll</span><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></summary>
 <div class="card-body">
 <?php if (empty($entries)): ?>
@@ -195,10 +195,25 @@ $nextUrl = $pagination['has_next']
     event.stopPropagation();
     try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
   });
-  window.setInterval(() => {
-    if (!toggle.checked || document.visibilityState !== 'visible') return;
-    window.location.reload();
-  }, 30000);
+  const panel = document.getElementById('audit-cron-panel');
+  const savePanelState = () => { try { sessionStorage.setItem('pruefapp-audit-cron-open', panel?.open ? '1' : '0'); } catch (_) {} };
+  const restorePanelState = () => { try { if (panel && sessionStorage.getItem('pruefapp-audit-cron-open') === '1') panel.open = true; } catch (_) {} };
+  const enable = () => {
+    if (!panel || !toggle.checked) return;
+    savePanelState();
+    if (window.htmx) {
+      panel.setAttribute('hx-get', window.location.href);
+      panel.setAttribute('hx-trigger', 'every 30s');
+      panel.setAttribute('hx-target', '#audit-cron-panel');
+      panel.setAttribute('hx-select', '#audit-cron-panel');
+      window.htmx.process(panel);
+    } else window.setTimeout(() => { if (toggle.checked && document.visibilityState === 'visible') window.location.reload(); }, 30000);
+  };
+  toggle.addEventListener('change', enable);
+  document.body.addEventListener('htmx:beforeRequest', savePanelState);
+  document.body.addEventListener('htmx:afterSwap', restorePanelState);
+  restorePanelState();
+  enable();
 })();
 </script>
 

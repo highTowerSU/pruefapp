@@ -1,6 +1,6 @@
-<div class="card">
+<div class="card" id="inspection-import-panel">
   <div class="card-body">
-    <h1 class="h4">Elektro-Prüfungen importieren</h1>
+    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap"><h1 class="h4 mb-0">Elektro-Prüfungen importieren</h1><label class="small"><input class="form-check-input me-1" type="checkbox" id="import-auto-refresh"> Importstatus automatisch aktualisieren</label></div>
     <?php if (!empty($cron['healthy'])): ?><div class="alert alert-success py-2">Cron letzter Lauf: <?= htmlspecialchars((string) $cron['last_run']) ?></div><?php else: ?><div class="alert alert-warning py-2">Warnung: Der Phoenix-Cron wurde seit mehr als 5 Minuten nicht ausgeführt<?= !empty($cron['last_run']) ? ' (letzter Lauf: ' . htmlspecialchars((string) $cron['last_run']) . ')' : '' ?>.</div><?php endif; ?>
     <?php if (!empty($pendingMeasurementsByDate)): ?><details class="mb-3" open><summary><strong>Messdaten noch importieren</strong> (<?= array_sum(array_map('count', $pendingMeasurementsByDate)) ?> Prüfungen)</summary><div class="small text-body-secondary mt-2">Für diese manuellen Prüfungen fehlen noch Messwerte. Nach dem Import werden die Prüfungen automatisch vervollständigt.</div><?php foreach ($pendingMeasurementsByDate as $pendingDate => $pendingRows): ?><div class="d-flex justify-content-between align-items-center mt-3"><h3 class="h6 mb-0">Prüfdatum <?= htmlspecialchars((string) $pendingDate) ?></h3><a class="btn btn-sm btn-outline-primary" href="#pair-upload" data-import-date="<?= htmlspecialchars((string) $pendingDate, ENT_QUOTES) ?>">CSV/ODS für dieses Datum hochladen</a></div><div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Prüfung</th><th>Gerät</th><th>Speicherplatz</th><th></th></tr></thead><tbody><?php foreach ($pendingRows as $pending): ?><tr><td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $pending['inspection_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) ($pending['inspection_number'] ?: '—')) ?></a></td><td><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $pending['device_id']), ENT_QUOTES) ?>"><?= htmlspecialchars(trim((string) $pending['number'] . ' · ' . (string) $pending['name'])) ?></a></td><td><?= htmlspecialchars((string) ($pending['storage_slot'] ?: '—')) ?></td><td><a class="btn btn-sm btn-outline-primary" href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $pending['inspection_id'] . '/bearbeiten'), ENT_QUOTES) ?>">Prüfung öffnen</a></td></tr><?php endforeach; ?></tbody></table></div><?php endforeach; ?></details><?php endif; ?>
     <?php if (!empty($jobs)): ?><details class="mb-3" open><summary><strong>Import-Jobs</strong> (<?= count($jobs) ?>)</summary><div class="table-responsive mt-2"><table class="table table-sm"><thead><tr><th>ID</th><th>Status</th><th>Kunde</th><th>Fortschritt</th><th>Gerät</th><th>Details</th><th></th></tr></thead><tbody><?php foreach ($jobs as $job): $jobId=(string)($job['id']??''); $jobRunning=in_array(($job['state']??''), ['queued','running'], true); ?><tr data-phoenix-job="<?= htmlspecialchars($jobId, ENT_QUOTES) ?>"><td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode($jobId)), ENT_QUOTES) ?>" title="Job öffnen"><?= htmlspecialchars($jobId) ?></a></td><td class="job-state"><?= htmlspecialchars((string) ($job['state'] ?? '')) ?></td><td><?= htmlspecialchars((string) ($job['customer_id'] ?? '')) ?></td><td class="job-progress"><?php if (($job['total'] ?? 0) > 0): ?><?= (int) ($job['step'] ?? 0) ?> / <?= (int) $job['total'] ?><?php else: ?>—<?php endif; ?></td><td class="job-device"><?= htmlspecialchars((string) ($job['current_device'] ?? '')) ?></td><td><details<?= $jobRunning ? ' open' : '' ?>><summary>anzeigen</summary><div class="small text-body-secondary job-message"><?= htmlspecialchars((string) ($job['message'] ?? '')) ?></div><pre class="small mb-0 job-details"><?= htmlspecialchars((string) json_encode($job['stats'] ?? ($job['error'] ?? ''), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre></details></td><td><?php if ($jobRunning): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/pruefungen/import/' . rawurlencode($jobId) . '/abbrechen'), ENT_QUOTES) ?>" onsubmit="return confirm('Diesen Import wirklich abbrechen? Bereits importierte Datensätze bleiben erhalten.');"><button class="btn btn-sm btn-outline-danger">Abbrechen</button></form><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div></details><?php endif; ?>
@@ -55,6 +55,34 @@
 <script>document.querySelectorAll('details').forEach(function(details){const summary=details.querySelector(':scope > summary');if(summary&&summary.textContent.trim().startsWith('Nachbearbeitung aus Import'))details.open=true;});</script>
 <script>document.addEventListener('DOMContentLoaded',function(){const field=document.querySelector('form input[name="measurement_date"]');if(field&&field.type==='date'){field.required=false;field.closest('.col-md-4')?.style.setProperty('display','none');}});</script>
 <script>document.addEventListener('DOMContentLoaded',function(){const form=document.querySelector('form[name="directory-import"], form[action=""]');const directory=document.getElementById('directory');const reports=document.getElementById('reports_directory');if(!directory||!reports)return;try{if(!directory.value)directory.value=localStorage.getItem('pruefapp-import-directory')||'';if(!reports.value)reports.value=localStorage.getItem('pruefapp-reports-directory')||'';}catch(_){}const save=()=>{try{localStorage.setItem('pruefapp-import-directory',directory.value);localStorage.setItem('pruefapp-reports-directory',reports.value);}catch(_){}};directory.form?.addEventListener('submit',save);reports.form?.addEventListener('submit',save);});</script>
+<script>
+(() => {
+  const toggle = document.getElementById('import-auto-refresh');
+  const panel = document.getElementById('inspection-import-panel');
+  if (!toggle || !panel) return;
+  const key = 'pruefapp-import-auto-refresh';
+  try { toggle.checked = localStorage.getItem(key) === '1'; } catch (_) {}
+  const restoreDetails = () => { const open = JSON.parse(sessionStorage.getItem('pruefapp-import-open-details') || '[]'); panel.querySelectorAll('details').forEach((node, index) => { if (open.includes(index)) node.open = true; }); };
+  const saveDetails = () => { try { sessionStorage.setItem('pruefapp-import-open-details', JSON.stringify([...panel.querySelectorAll('details')].map((node, index) => node.open ? index : -1).filter(index => index >= 0))); } catch (_) {} };
+  const enable = () => {
+    try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
+    if (!toggle.checked) return;
+    saveDetails();
+    if (window.htmx) {
+      panel.setAttribute('hx-get', window.location.href);
+      panel.setAttribute('hx-trigger', 'every 30s');
+      panel.setAttribute('hx-target', '#inspection-import-panel');
+      panel.setAttribute('hx-select', '#inspection-import-panel');
+      window.htmx.process(panel);
+    }
+  };
+  toggle.addEventListener('change', enable);
+  document.body.addEventListener('htmx:beforeRequest', saveDetails);
+  document.body.addEventListener('htmx:afterSwap', restoreDetails);
+  restoreDetails();
+  enable();
+})();
+</script>
 <?php if (!empty($_GET['phoenix_job'])): ?><script>
 (function(){const id=<?= json_encode((string)$_GET['phoenix_job']) ?>; const url=<?= json_encode(url_for('admin/pruefungen/import/'.rawurlencode((string)$_GET['phoenix_job']).'/status')) ?>; const poll=()=>fetch(url,{credentials:'same-origin'}).then(r=>r.json()).then(j=>{const row=document.querySelector('[data-phoenix-job="'+id+'"]');if(!row)return;row.querySelector('.job-state').textContent=j.state||'';row.querySelector('.job-progress').textContent=j.total?(j.step||0)+' / '+j.total:'—';row.querySelector('.job-device').textContent=j.current_device||'';const msg=row.querySelector('.job-message');if(msg)msg.textContent=j.message||j.error||'';if(j.state==='running'||j.state==='queued')setTimeout(poll,2000);});poll();})();
 </script><?php endif; ?>

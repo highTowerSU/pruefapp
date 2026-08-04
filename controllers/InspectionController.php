@@ -222,7 +222,9 @@ final class InspectionController
                 }
             }
             if ($directory === '') {
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers, 'pendingMeasurementsByDate' => self::pendingMeasurementsByDate()])])];
+                $importContent = render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers, 'pendingMeasurementsByDate' => self::pendingMeasurementsByDate()]);
+                if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $importContent];
+                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => $importContent])];
             }
             try {
                 $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0)];
