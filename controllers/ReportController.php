@@ -48,6 +48,7 @@ final class ReportController
             return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $name . '.json"'], json_encode(['title' => $name, 'generated_at' => date(DATE_ATOM), 'rows' => $rows, 'devices' => $full], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)];
         }
         if ($format === 'ods') return self::ods($rows, $name);
+        if ($format === 'xlsx') return self::xlsx($rows, $name);
         if ($format === 'pdf') return self::pdf($rows, $name);
         return self::csv($rows, $reportType === 'daily' ? 'tagesreport.csv' : ($reportType === 'weekly' ? 'wochenreport.csv' : ($report ? 'raum-ampelreport.csv' : 'geraete-export.csv')));
     }
@@ -253,12 +254,57 @@ final class ReportController
         return [200, ['Content-Type' => 'application/vnd.oasis.opendocument.spreadsheet', 'Content-Disposition' => 'attachment; filename="' . $title . '.ods"'], $body];
     }
 
+    private static function xlsx(array $rows, string $title): array
+    {
+        if (!class_exists('ZipArchive')) return [500, [], 'XLSX-Export ist auf diesem Server nicht verfügbar.'];
+        $tmp = tempnam(sys_get_temp_dir(), 'xlsx-');
+        $zip = new ZipArchive();
+        if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) return [500, [], 'XLSX-Datei konnte nicht erstellt werden.'];
+        $esc = static fn($value): string => htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $col = static function (int $index): string { $name = ''; do { $name = chr(65 + ($index % 26)) . $name; $index = intdiv($index, 26) - 1; } while ($index >= 0); return $name; };
+        $headers = $rows[0] ?? [];
+        $sheet = '';
+        foreach ($rows as $rowIndex => $row) {
+            $sheet .= '<row r="' . ($rowIndex + 1) . '">';
+            foreach (array_values($row) as $columnIndex => $value) {
+                $text = (string) $value;
+                $style = $rowIndex === 0 ? 1 : 0;
+                $header = mb_strtolower((string) ($headers[$columnIndex] ?? ''));
+                $lower = mb_strtolower($text);
+                if ($rowIndex > 0 && str_contains($header, 'ergebnis')) $style = str_contains($lower, 'bestanden') && !str_contains($lower, 'nicht') ? 2 : (str_contains($lower, 'durch') || str_contains($lower, 'nicht') ? 3 : 0);
+                if ($rowIndex > 0 && str_contains($header, 'nächste prüfung')) { try { $style = (new DateTimeImmutable($text)) < new DateTimeImmutable('today') ? 3 : 2; } catch (Throwable) {} }
+                $sheet .= '<c r="' . $col($columnIndex) . ($rowIndex + 1) . '" t="inlineStr" s="' . $style . '"><is><t xml:space="preserve">' . $esc($text) . '</t></is></c>';
+            }
+            $sheet .= '</row>';
+        }
+        $lastColumn = $col(max(0, count($headers) - 1)); $lastRow = max(1, count($rows));
+        $widths = array_map(static fn($header): string => (string) max(12, min(34, mb_strlen((string) $header) + 5)), $headers);
+        $cols = ''; foreach ($widths as $i => $width) $cols .= '<col min="' . ($i + 1) . '" max="' . ($i + 1) . '" width="' . $width . '" customWidth="1"/>';
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');
+        $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+        $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' . $esc(mb_substr($title, 0, 31)) . '" sheetId="1" r:id="rId1"/></sheets></workbook>');
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+        $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8D7DA"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellXfs count="4"><xf/><xf fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" wrapText="1"/></xf><xf fillId="2" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf><xf fillId="3" borderId="1" applyFill="1" applyBorder="1"><alignment wrapText="1"/></xf></cellXfs></styleSheet>');
+        $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' . $cols . '</cols><sheetData>' . $sheet . '</sheetData><autoFilter ref="A1:' . $lastColumn . $lastRow . '"/></worksheet>');
+        $zip->close(); $body = file_get_contents($tmp); @unlink($tmp);
+        return [200, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition' => 'attachment; filename="' . $title . '.xlsx"'], $body];
+    }
+
     private static function pdf(array $rows, string $title): array
     {
-        // Chromium liefert ein robustes, UTF-8-fähiges Tabellen-PDF. Der alte
-        // Minimalrenderer bleibt als Fallback für Installationen ohne Chromium.
+        // LibreOffice rendert die bereits formatierte Tabellenstruktur zuverlässig
+        // und vermeidet die leeren/abgeschnittenen Browser-PDFs.
+        if ($rows !== [] && class_exists('ZipArchive') && (is_executable('/usr/bin/libreoffice') || is_executable('/usr/bin/soffice'))) {
+            $odsResponse = self::ods($rows, $title);
+            $odsBody = $odsResponse[2] ?? '';
+            if (is_string($odsBody) && $odsBody !== '') {
+                $dir = sys_get_temp_dir() . '/pruefapp-pdf'; if (!is_dir($dir)) mkdir($dir, 0700, true); $token = bin2hex(random_bytes(8)); $odsPath = $dir . '/' . $token . '.ods'; $outDir = $dir . '/' . $token; if (!is_dir($outDir)) mkdir($outDir, 0700, true); $pdfPath = $outDir . '/' . $title . '.pdf'; file_put_contents($odsPath, $odsBody, LOCK_EX); $binary = is_executable('/usr/bin/libreoffice') ? '/usr/bin/libreoffice' : '/usr/bin/soffice'; $profile = $dir . '/profile-' . $token; $cmd = 'timeout 30s ' . escapeshellarg($binary) . ' -env:UserInstallation=' . escapeshellarg('file://' . $profile) . ' --headless --convert-to pdf --outdir ' . escapeshellarg($outDir) . ' ' . escapeshellarg($odsPath) . ' 2>/dev/null'; shell_exec($cmd); $converted = glob($outDir . '/*.pdf') ?: []; $pdfPath = $converted[0] ?? $pdfPath; $body = is_file($pdfPath) ? file_get_contents($pdfPath) : false; $text = is_file($pdfPath) && function_exists('shell_exec') ? trim((string) shell_exec('pdftotext ' . escapeshellarg($pdfPath) . ' - 2>/dev/null')) : ''; @unlink($odsPath); if (is_file($pdfPath)) @unlink($pdfPath); @rmdir($outDir); if (is_dir($profile)) { foreach (glob($profile . '/*') ?: [] as $child) if (is_file($child)) @unlink($child); @rmdir($profile); } if (is_string($body) && $body !== '' && $text !== '') return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"'], $body];
+            }
+        }
+        // Chromium provides the branded UTF-8 fallback if LibreOffice is not installed.
         if (is_executable('/usr/bin/chromium') && $rows !== []) {
-            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}h1{font-size:18px;margin:0 0 10px}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:#1f4e78;color:#fff;text-align:left;padding:5px;font-size:8px}td{border:1px solid #ccd2d8;padding:4px;vertical-align:top;overflow-wrap:anywhere}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}</style><h1>' . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1><table><thead><tr>';
+            $logo = is_file(dirname(__DIR__) . '/public/img/ceneos-logo.svg') ? 'data:image/svg+xml;base64,' . base64_encode((string) file_get_contents(dirname(__DIR__) . '/public/img/ceneos-logo.svg')) : '';
+            $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#202124;font-size:9px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f5c242;padding-bottom:8px;margin-bottom:12px}header img{max-width:150px;max-height:42px}h1{font-size:18px;margin:0;color:#1f4e78}table{width:100%;border-collapse:collapse;table-layout:fixed}thead{display:table-header-group}th{background:#1f4e78;color:#fff;text-align:left;padding:6px;font-size:8px}td{border:1px solid #ccd2d8;padding:5px;vertical-align:top;overflow-wrap:anywhere}tr{break-inside:avoid}tr:nth-child(even) td{background:#f4f6f8}.muted{color:#6c757d;font-size:8px}</style><header><h1>' . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</h1>' . ($logo !== '' ? '<img src="' . $logo . '" alt="CENEOS">' : '') . '</header><div class="muted">Erstellt am ' . htmlspecialchars((new DateTimeImmutable())->format('d.m.Y H:i'), ENT_QUOTES) . '</div><table><thead><tr>';
             foreach (($rows[0] ?? []) as $header) $html .= '<th>' . htmlspecialchars((string) $header, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</th>';
             $html .= '</tr></thead><tbody>';
             foreach (array_slice($rows, 1) as $row) { $html .= '<tr>'; foreach (($rows[0] ?? []) as $index => $_) $html .= '<td>' . nl2br(htmlspecialchars((string) ($row[$index] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')) . '</td>'; $html .= '</tr>'; }
@@ -270,14 +316,14 @@ final class ReportController
         $left = 24; $top = 565; $rowHeight = 19; $headerHeight = 28; $pageRows = 25; $streams = []; $stream = '';
         $page = static function (string &$stream) use (&$streams): void { $streams[] = $stream; $stream = ''; };
         $drawPageHeader = static function (string &$stream) use ($title, $left, $top, $headers, $widths, $headerHeight): float {
-            $stream .= "0.12 0.30 0.48 rg {$left} " . ($top - 30) . " 794 30 re f\nBT /F1 16 Tf 1 1 1 rg {$left} " . ($top - 20) . " Td (" . self::pdfEscape(self::pdfText($title)) . ") Tj ET\n";
+            $stream .= "0.12 0.30 0.48 rg {$left} " . ($top - 30) . " 794 30 re f\n1.00 0.76 0.20 rg {$left} " . ($top - 4) . " 794 4 re f\nBT /F1 16 Tf 1 1 1 rg {$left} " . ($top - 20) . " Td (CENEOS - " . self::pdfEscape(self::pdfText($title)) . ") Tj ET\n";
             $x = $left; $y = $top - 58; foreach ($headers as $i => $header) { $w = $widths[$i]; $stream .= "0.20 0.23 0.27 rg {$x} {$y} {$w} {$headerHeight} re f\nBT /F1 7 Tf 1 1 1 rg " . ($x + 3) . ' ' . ($y + 9) . " Td (" . self::pdfEscape(self::pdfText(mb_strimwidth((string) $header, 0, 24, '…'))) . ") Tj ET\n"; $x += $w; } return $y - $headerHeight;
         };
         $y = $drawPageHeader($stream); $rowIndex = 0; $quoteIndex = array_search('Quote', $headers, true);
         foreach (array_slice($rows, 1) as $row) {
             if ($rowIndex > 0 && $rowIndex % $pageRows === 0) { $page($stream); $y = $drawPageHeader($stream); }
             $x = $left; $quote = $quoteIndex !== false ? (float) str_replace(',', '.', preg_replace('/[^0-9,.-]/', '', (string) ($row[$quoteIndex] ?? ''))) : 0;
-            foreach ($headers as $i => $header) { $value = self::pdfText(mb_strimwidth(preg_replace('/\s+/', ' ', (string) ($row[$i] ?? '')), 0, 28, '…')); [$r, $g, $b] = $quoteIndex === $i ? self::quoteRgb($quote) : ((str_contains(mb_strtolower((string) $header), 'ergebnis') && str_contains(mb_strtolower($value), 'durch')) ? [248, 215, 218] : [255, 255, 255]); $stream .= sprintf("%0.2f %0.2f %0.2f rg %.2f %.2f %.2f %.2f re f 0.70 0.70 0.70 RG %.2f %.2f %.2f %.2f re S\n", $r / 255, $g / 255, $b / 255, $x, $y, $widths[$i], $rowHeight, $x, $y, $widths[$i], $rowHeight); $stream .= "BT /F1 6 Tf 0.10 0.10 0.10 rg " . ($x + 3) . ' ' . ($y + 7) . " Td (" . self::pdfEscape($value) . ") Tj ET\n"; $x += $widths[$i]; }
+            foreach ($headers as $i => $header) { $rawValue = (string) ($row[$i] ?? ''); $value = self::pdfText(mb_strimwidth(preg_replace('/\s+/', ' ', $rawValue), 0, 28, '…')); $headerText = mb_strtolower((string) $header); $valueText = mb_strtolower($rawValue); [$r, $g, $b] = $quoteIndex === $i ? self::quoteRgb($quote) : [255, 255, 255]; if ($quoteIndex !== $i && str_contains($headerText, 'ergebnis')) { if (str_contains($valueText, 'durch') || str_contains($valueText, 'nicht')) [$r, $g, $b] = [248, 215, 218]; elseif (str_contains($valueText, 'bestanden')) [$r, $g, $b] = [209, 231, 221]; } if ($quoteIndex !== $i && str_contains($headerText, 'nächste prüfung')) { try { $due = new DateTimeImmutable($rawValue); [$r, $g, $b] = $due < new DateTimeImmutable('today') ? [248, 215, 218] : ($due <= (new DateTimeImmutable('today'))->modify('+2 months') ? [255, 243, 205] : [209, 231, 221]); } catch (Throwable) {} } $stream .= sprintf("%0.2f %0.2f %0.2f rg %.2f %.2f %.2f %.2f re f 0.70 0.70 0.70 RG %.2f %.2f %.2f %.2f re S\n", $r / 255, $g / 255, $b / 255, $x, $y, $widths[$i], $rowHeight, $x, $y, $widths[$i], $rowHeight); $stream .= "BT /F1 6 Tf 0.10 0.10 0.10 rg " . ($x + 3) . ' ' . ($y + 7) . " Td (" . self::pdfEscape($value) . ") Tj ET\n"; $x += $widths[$i]; }
             $y -= $rowHeight; $rowIndex++;
         }
         if ($stream !== '') $page($stream);
@@ -286,6 +332,6 @@ final class ReportController
 
     private static function pdfText(string $value): string { return function_exists('iconv') ? (string) iconv('UTF-8', 'CP1252//TRANSLIT//IGNORE', $value) : $value; }
     private static function pdfEscape(string $value): string { return str_replace(['\\', '(', ')', "\r", "\n"], ['\\\\', '\\(', '\\)', '', ''], $value); }
-    private static function buildPdf(array $streams): string { $objects = ['1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj', '2 0 obj<< /Type /Pages /Kids [' . implode(' ', array_map(static fn($i): string => (string) (4 + $i) . ' 0 R', array_keys($streams))) . '] /Count ' . count($streams) . '>>endobj', '3 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>endobj']; foreach ($streams as $i => $body) $objects[] = (4 + $i) . ' 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources<< /Font<< /F1 3 0 R>>>> /Contents ' . (4 + count($streams) + $i) . ' 0 R>>endobj'; foreach ($streams as $i => $body) $objects[] = (4 + count($streams) + $i) . ' 0 obj<< /Length ' . strlen($body) . '>>stream\n' . $body . 'endstream endobj'; $pdf = "%PDF-1.4\n"; $offsets = []; foreach ($objects as $object) { $offsets[] = strlen($pdf); $pdf .= $object . "\n"; } $xref = strlen($pdf); $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n"; foreach ($offsets as $offset) $pdf .= sprintf("%010d 00000 n \n", $offset); return $pdf . "trailer<< /Size " . (count($objects) + 1) . " /Root 1 0 R>>\nstartxref\n" . $xref . "\n%%EOF"; }
+    private static function buildPdf(array $streams): string { $objects = ['1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj', '2 0 obj<< /Type /Pages /Kids [' . implode(' ', array_map(static fn($i): string => (string) (4 + $i) . ' 0 R', array_keys($streams))) . '] /Count ' . count($streams) . '>>endobj', '3 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>endobj']; foreach ($streams as $i => $body) $objects[] = (4 + $i) . ' 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources<< /Font<< /F1 3 0 R>>>> /Contents ' . (4 + count($streams) + $i) . ' 0 R>>endobj'; foreach ($streams as $i => $body) $objects[] = (4 + count($streams) + $i) . ' 0 obj<< /Length ' . strlen($body) . ">>stream\n" . $body . "endstream endobj"; $pdf = "%PDF-1.4\n"; $offsets = []; foreach ($objects as $object) { $offsets[] = strlen($pdf); $pdf .= $object . "\n"; } $xref = strlen($pdf); $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n"; foreach ($offsets as $offset) $pdf .= sprintf("%010d 00000 n \n", $offset); return $pdf . "trailer<< /Size " . (count($objects) + 1) . " /Root 1 0 R>>\nstartxref\n" . $xref . "\n%%EOF"; }
     private static function quoteRgb(float $value): array { return $value <= 10 ? [209, 231, 221] : ($value <= 20 ? [183, 228, 199] : ($value <= 40 ? [255, 243, 205] : ($value <= 60 ? [255, 230, 156] : ($value <= 80 ? [255, 218, 106] : [255, 184, 107])))); }
 }
