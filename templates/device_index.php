@@ -141,7 +141,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     <button class="btn btn-sm btn-outline-warning" name="bulk_action" value="archive" onclick="return confirm('Ausgewählte Geräte wirklich archivieren?');">Archivieren</button>
     <button class="btn btn-sm btn-outline-danger" name="bulk_action" value="delete" onclick="return confirm('Ausgewählte Geräte und alle zugehörigen Prüfungen endgültig löschen?');">Endgültig löschen</button>
     <?php if (!empty($showArchived)): ?><a class="btn btn-sm btn-outline-secondary ms-2" href="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>">Nur aktive anzeigen</a><?php else: ?><a class="btn btn-sm btn-outline-secondary ms-2" href="<?= htmlspecialchars(url_for('geraete?show_archived=1'), ENT_QUOTES) ?>">Archivierte anzeigen</a><?php endif; ?>
-    <span class="small text-body-secondary">Geräte auf dieser Seite auswählen.</span>
+    <span class="small text-body-secondary">Geräte auf dieser Seite auswählen; mit Shift ganze Bereiche markieren.</span>
   </div>
 </form>
 <?php endif; ?>
@@ -157,3 +157,17 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <?php endforeach; ?>
 </div>
 <?php if ($pages > 1): ?><?php $pageQuery = array_filter($filters ?? [], static fn($value): bool => trim((string) $value) !== ''); ?><nav aria-label="Geräteseiten" class="mt-4"><ul class="pagination justify-content-center flex-wrap"><li class="page-item<?= $page <= 1 ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => max(1, $page - 1)]))), ENT_QUOTES) ?>">Zurück</a></li><?php for ($number = 1; $number <= $pages; $number++): ?><?php if ($number === 1 || $number === $pages || abs($number - $page) <= 2): ?><li class="page-item<?= $number === $page ? ' active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => $number]))), ENT_QUOTES) ?>"><?= $number ?></a></li><?php elseif ($number === 2 || $number === $pages - 1): ?><li class="page-item disabled"><span class="page-link">…</span></li><?php endif; ?><?php endfor; ?><li class="page-item<?= $page >= $pages ? ' disabled' : '' ?>"><a class="page-link" href="<?= htmlspecialchars(url_for('geraete?' . http_build_query(array_merge($pageQuery, ['page' => min($pages, $page + 1)]))), ENT_QUOTES) ?>">Weiter</a></li></ul></nav><?php endif; ?>
+<?php if (!empty($canBulkManage)): ?><script>
+(() => {
+  const boxes = [...document.querySelectorAll('input[name="device_ids[]"]')];
+  let lastIndex = -1;
+  boxes.forEach((box, index) => box.addEventListener('click', event => {
+    if (event.shiftKey && lastIndex >= 0) {
+      const start = Math.min(lastIndex, index);
+      const end = Math.max(lastIndex, index);
+      boxes.slice(start, end + 1).forEach(item => { item.checked = box.checked; });
+    }
+    lastIndex = index;
+  }));
+})();
+</script><?php endif; ?>
