@@ -17,6 +17,13 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $structureUrl = url_for('struktur');
     $devicesUrl = url_for('geraete');
     $inspectionImportUrl = url_for('admin/pruefungen/import');
+    $billingUrl = url_for('admin/abrechnung');
+    $companyUrl = url_for('mandanten');
+
+    $pathIsActive = static function (string $url) use ($currentPath): bool {
+        $prefix = rtrim($url, '/');
+        return $prefix === '' ? ($currentPath === '/' || $currentPath === '') : ($currentPath === $url || strpos($currentPath, $prefix . '/') === 0);
+    };
 
     $coursesPrefix = rtrim($coursesUrl, '/');
     if ($coursesPrefix === '') {
@@ -59,6 +66,10 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         $structureActive = $currentPath === $structureUrl || strpos($currentPath, $structurePrefix . '/') === 0;
     }
     $devicesActive = $currentPath === $devicesUrl || strpos($currentPath, rtrim($devicesUrl, '/') . '/') === 0;
+    $inspectionImportActive = $pathIsActive($inspectionImportUrl);
+    $billingActive = $pathIsActive($billingUrl);
+    $companyActive = $pathIsActive($companyUrl);
+    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $inspectionImportActive || $billingActive || $companyActive;
 
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
@@ -83,31 +94,33 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     <div class="d-flex align-items-center ms-auto gap-4 flex-wrap justify-content-end">
       <?php $authUser = current_user(); ?>
       <?php if ($authUser !== null): ?>
-        <?php
-          $companyUrl = url_for('mandanten');
-          $companyPrefix = rtrim($companyUrl, '/');
-          $companyActive = false;
-          if ($companyPrefix === '') {
-              $companyActive = $currentPath === '/' || $currentPath === '';
-          } else {
-              $companyActive = $currentPath === $companyUrl || strpos($currentPath, $companyPrefix . '/') === 0;
-          }
-        ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $structureActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Struktur</a>
           <a href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $devicesActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Geräte</a>
-          <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
-          <a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $auditActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Audit &amp; Revisionen</a>
-          <?php if (current_user_has_role('admin')): ?>
-            <a href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $userAdminActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Nutzer</a>
-            <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0">Prüfungen importieren</a>
-            <a href="<?= htmlspecialchars(url_for('admin/abrechnung'), ENT_QUOTES) ?>" class="nav-link px-0">Abrechnung</a>
-          <?php endif; ?>
-          <?php if (current_user_is_superadmin()): ?>
-            <a href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $companyActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Mandanten</a>
-            <a href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $settingsActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Konfiguration</a>
-          <?php endif; ?>
         </div>
+        <?php if ($authUser !== null): ?>
+          <?php $adminMenuId = 'adminNavigationDropdown'; ?>
+          <div class="dropdown">
+            <button class="nav-link dropdown-toggle px-0 border-0 bg-transparent<?= $adminMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="<?= $adminMenuId ?>" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fa-solid fa-screwdriver-wrench me-1" aria-hidden="true"></i>Verwaltung
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= $adminMenuId ?>">
+              <li><h6 class="dropdown-header">Administration</h6></li>
+              <li><a class="dropdown-item" href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clock-rotate-left me-2" aria-hidden="true"></i>Audit &amp; Revisionen</a></li>
+              <?php if (current_user_has_role('admin')): ?>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzer</a></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-file-import me-2" aria-hidden="true"></i>Prüfungen importieren</a></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-file-invoice-dollar me-2" aria-hidden="true"></i>Abrechnung</a></li>
+              <?php endif; ?>
+              <?php if (current_user_is_superadmin()): ?>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-building me-2" aria-hidden="true"></i>Mandanten</a></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Konfiguration</a></li>
+              <?php endif; ?>
+            </ul>
+          </div>
+        <?php endif; ?>
+        <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0 ms-2<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a>
       <?php else: ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
