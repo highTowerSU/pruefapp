@@ -59,7 +59,7 @@ final class ReportController
     private static function devices(array $ids): array
     {
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $rows = R::getAll("SELECT d.*, r.name AS room_name, r.number AS room_number, f.name AS floor_name, b.name AS building_name, s.name AS site_name, c.name AS customer_name FROM device d LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE d.id IN ($marks) ORDER BY c.name, s.name, b.name, f.sort_order, r.name, d.name", $ids);
+        $rows = R::getAll("SELECT d.*, r.name AS room_name, r.number AS room_number, a.name AS area_name, f.name AS floor_name, b.name AS building_name, s.name AS site_name, c.name AS customer_name FROM device d LEFT JOIN room r ON r.id=d.room_id LEFT JOIN area a ON a.id=r.area_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE d.id IN ($marks) ORDER BY c.name, s.name, b.name, f.sort_order, r.name, d.name", $ids);
         $result = [];
         foreach ($rows as $row) {
             $latest = R::getRow('SELECT test_date, next_due_date, result_status FROM inspection WHERE device_id = ? ORDER BY test_date DESC, id DESC LIMIT 1', [(int) $row['id']]);
@@ -73,8 +73,8 @@ final class ReportController
 
     private static function deviceRows(array $devices): array
     {
-        $rows = [['Gerätenummer', 'Bezeichnung', 'Hersteller', 'Typ/Modell', 'Kunde', 'Standort', 'Gebäude', 'Etage', 'Raum', 'Letzte Prüfung', 'Nächste Prüfung', 'Ergebnis']];
-        foreach ($devices as $d) $rows[] = [(string) $d['external_number'], (string) $d['name'], (string) $d['manufacturer'], (string) $d['device_model'], (string) $d['customer_name'], (string) $d['site_name'], (string) $d['building_name'], (string) $d['floor_name'], (string) ($d['room_number'] ?: $d['room_name']), (string) $d['test_date'], (string) $d['next_due_date'], (string) $d['result_status']];
+        $rows = [['Gerätenummer', 'Bezeichnung', 'Hersteller', 'Typ/Modell', 'Kunde', 'Standort', 'Gebäude', 'Etage', 'Bereich', 'Raum', 'Letzte Prüfung', 'Nächste Prüfung', 'Ergebnis']];
+        foreach ($devices as $d) $rows[] = [(string) $d['external_number'], (string) $d['name'], (string) $d['manufacturer'], (string) $d['device_model'], (string) $d['customer_name'], (string) $d['site_name'], (string) $d['building_name'], (string) $d['floor_name'], (string) $d['area_name'], (string) ($d['room_number'] ?: $d['room_name']), (string) $d['test_date'], (string) $d['next_due_date'], (string) $d['result_status']];
         return $rows;
     }
 
@@ -84,10 +84,10 @@ final class ReportController
         $today = new DateTimeImmutable('today');
         $yellowLimit = $today->modify('+2 months');
         foreach ($devices as $d) {
-            $key = implode(' · ', array_filter([(string) $d['customer_name'], (string) $d['site_name'], (string) $d['building_name'], (string) ($d['room_number'] ?: $d['room_name'])]));
+            $key = implode("\x1f", [(string) $d['customer_name'], (string) $d['site_name'], (string) $d['building_name'], (string) $d['floor_name'], (string) $d['area_name'], (string) ($d['room_number'] ?: $d['room_name'])]);
             $groups[$key][] = $d;
         }
-        $rows = [['Raum', 'Geräte', 'Fällig/überfällig', 'Quote', 'Ampel']];
+        $rows = [['Kunde', 'Standort', 'Gebäude', 'Etage', 'Bereich', 'Raum', 'Geräte', 'Fällig/überfällig', 'Quote', 'Ampel']];
         foreach ($groups as $room => $items) {
             $due = 0; $overdue = 0;
             foreach ($items as $d) {
@@ -100,7 +100,8 @@ final class ReportController
             }
             $percent = count($items) > 0 ? round($due * 100 / count($items), 1) : 0;
             $color = $overdue > 0 ? 'Rot' : ($due > 0 ? 'Gelb' : 'Grün');
-            $rows[] = [$room, count($items), $due, number_format($percent, 1, ',', '') . ' %', $color];
+            $parts = explode("\x1f", $room) + ['', '', '', '', '', ''];
+            $rows[] = [$parts[0], $parts[1], $parts[2], $parts[3], $parts[4], $parts[5], count($items), $due, number_format($percent, 1, ',', '') . ' %', $color];
         }
         return $rows;
     }
@@ -126,9 +127,10 @@ final class ReportController
         $today = new DateTimeImmutable('today');
         $cell = static function ($value, int $index, bool $header) use ($headerKeys, $today): string {
             $text = (string) $value; $style = $header ? 'Header' : '';
-            if (!$header && str_contains($headerKeys[$index] ?? '', 'ergebnis')) $style = str_contains(mb_strtolower($text), 'bestanden') ? 'Good' : (str_contains(mb_strtolower($text), 'nicht') || str_contains(mb_strtolower($text), 'durch') ? 'Bad' : 'Warn');
+            if (!$header && str_contains($headerKeys[$index] ?? '', 'ergebnis')) { $lower = mb_strtolower($text); $style = str_contains($lower, 'nicht') || str_contains($lower, 'durch') ? 'Bad' : (str_contains($lower, 'bestanden') ? 'Good' : 'Warn'); }
             if (!$header && str_contains($headerKeys[$index] ?? '', 'ampel')) $style = mb_strtolower($text) === 'rot' ? 'Bad' : (mb_strtolower($text) === 'gelb' ? 'Warn' : 'Good');
-            if (!$header && str_contains($headerKeys[$index] ?? '', 'prüfung')) {
+            if (!$header && str_contains($headerKeys[$index] ?? '', 'quote')) { $percent = (float) str_replace(',', '.', preg_replace('/[^0-9,.-]/', '', $text)); $style = $percent <= 10 ? 'Q1' : ($percent <= 20 ? 'Q2' : ($percent <= 40 ? 'Q3' : ($percent <= 60 ? 'Q4' : ($percent <= 80 ? 'Q5' : 'Q6')))); }
+            if (!$header && str_contains($headerKeys[$index] ?? '', 'nächste prüfung')) {
                 try { $date = new DateTimeImmutable($text); $style = $date < $today ? 'Bad' : ($date <= $today->modify('+2 months') ? 'Warn' : 'Good'); }
                 catch (Throwable) {}
             }
@@ -145,7 +147,12 @@ final class ReportController
         $lastColumn = '';
         $n = $columnCount;
         while ($n > 0) { $n--; $lastColumn = chr(65 + ($n % 26)) . $lastColumn; $n = intdiv($n, 26); }
-        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles><style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="#1f4e78"/><style:text-properties fo:color="#ffffff" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style></office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export"><table:table-column table:number-columns-repeated="' . $columnCount . '"/><table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range="Export.A1:' . $lastColumn . count($rows) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
+        $widths = ['2.8cm', '4.5cm', '3.5cm', '3.5cm', '4cm', '4cm', '4cm', '3cm', '3cm', '4cm', '3cm', '3cm', '3.5cm'];
+        $columns = ''; foreach (array_slice($widths, 0, $columnCount) as $width) $columns .= '<table:table-column table:style-name="Col' . count(explode('<table:table-column', $columns)) . '"/>';
+        $columnStyles = ''; foreach (array_slice($widths, 0, $columnCount) as $index => $width) $columnStyles .= '<style:style style:name="Col' . ($index + 1) . '" style:family="table-column"><style:table-column-properties style:column-width="' . $width . '"/></style:style>';
+        $quoteColors = ['#d1e7dd', '#b7e4c7', '#fff3cd', '#ffe69c', '#ffda6a', '#ffb86b'];
+        $quoteStyles = ''; foreach ($quoteColors as $index => $color) $quoteStyles .= '<style:style style:name="Q' . ($index + 1) . '" style:family="table-cell"><style:table-cell-properties fo:background-color="' . $color . '"/></style:style>';
+        $content = '<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2"><office:automatic-styles>' . $columnStyles . '<style:style style:name="Header" style:family="table-cell"><style:table-cell-properties fo:background-color="#1f4e78"/><style:text-properties fo:color="#ffffff" fo:font-weight="bold"/></style:style><style:style style:name="Good" style:family="table-cell"><style:table-cell-properties fo:background-color="#d1e7dd"/></style:style><style:style style:name="Warn" style:family="table-cell"><style:table-cell-properties fo:background-color="#fff3cd"/></style:style><style:style style:name="Bad" style:family="table-cell"><style:table-cell-properties fo:background-color="#f8d7da"/></style:style>' . $quoteStyles . '</office:automatic-styles><office:body><office:spreadsheet><table:table table:name="Export">' . $columns . '<table:table-header-rows>' . $headerXml . '</table:table-header-rows>' . $bodyXml . '</table:table><table:database-ranges><table:database-range table:name="ExportFilter" table:target-range="Export.A1:' . $lastColumn . count($rows) . '" table:display-filter-buttons="true" table:contains-header="true"/></table:database-ranges></office:spreadsheet></office:body></office:document-content>';
         $zip->addFromString('content.xml', $content);
         $zip->addFromString('styles.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:styles/></office:document-styles>');
         $zip->addFromString('meta.xml', '<?xml version="1.0" encoding="UTF-8"?><office:document-meta xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" office:version="1.2"><office:meta/></office:document-meta>');
@@ -159,10 +166,10 @@ final class ReportController
     private static function pdf(array $rows, string $title): array
     {
         $lines = array_map(static fn(array $row): string => implode('  ·  ', array_map(static fn($v): string => preg_replace('/\s+/', ' ', (string) $v), $row)), $rows);
-        $stream = "0.12 0.25 0.42 rg 36 805 523 24 re f\nBT /F1 14 Tf 42 812 Td 1 0 0 1 0 0 Tm ("
+        $stream = "0.12 0.25 0.42 rg 30 560 782 24 re f\nBT /F1 14 Tf 38 568 Td 1 0 0 1 0 0 Tm ("
             . str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $title)
             . ") Tj ET\n";
-        $stream .= "BT /F1 8 Tf 36 780 Td\n";
+        $stream .= "BT /F1 7 Tf 30 540 Td\n";
         foreach (array_slice($lines, 0, 58) as $index => $line) {
             if ($index === 0) $stream .= "0.12 0.25 0.42 rg\n";
             elseif (str_contains($line, 'Rot') || str_contains($line, 'durchgefallen')) $stream .= "0.75 0.10 0.10 rg\n";
@@ -171,7 +178,7 @@ final class ReportController
             $stream .= '(' . str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], mb_substr($line, 0, 150)) . ") Tj 0 -12 Td\n";
         }
         $stream .= "ET";
-        $objects = ["1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj", "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1>>endobj", "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources<< /Font<< /F1 4 0 R>>>> /Contents 5 0 R>>endobj", "4 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica>>endobj", "5 0 obj<< /Length " . strlen($stream) . ">>stream\n" . $stream . "\nendstream endobj"];
+        $objects = ["1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj", "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1>>endobj", "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources<< /Font<< /F1 4 0 R>>>> /Contents 5 0 R>>endobj", "4 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica>>endobj", "5 0 obj<< /Length " . strlen($stream) . ">>stream\n" . $stream . "\nendstream endobj"];
         $pdf = "%PDF-1.4\n"; $offsets = [];
         foreach ($objects as $obj) { $offsets[] = strlen($pdf); $pdf .= $obj . "\n"; }
         $xref = strlen($pdf); $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n"; foreach ($offsets as $o) $pdf .= sprintf("%010d 00000 n \n", $o); $pdf .= "trailer<< /Size " . (count($objects) + 1) . " /Root 1 0 R>>\nstartxref\n$xref\n%%EOF";
