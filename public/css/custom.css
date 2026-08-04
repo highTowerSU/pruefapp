@@ -153,8 +153,8 @@
 [data-bs-theme="light"] .navbar-themed .nav-link.active:hover,
 [data-bs-theme="light"] .navbar-themed .nav-link.active:focus,
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle.active {
-  color: var(--bs-emphasis-color);
-  background-color: color-mix(in srgb, var(--bs-body-color) 10%, transparent);
+  color: var(--navbar-color, var(--bs-emphasis-color));
+  background-color: color-mix(in srgb, var(--navbar-color, var(--bs-emphasis-color)) 16%, transparent);
   border-radius: var(--bs-border-radius);
   box-shadow: inset 0 -2px 0 currentColor;
 }
@@ -166,6 +166,15 @@
 
 [data-bs-theme="light"] .navbar-themed .dropdown-toggle::after {
   border-top-color: #6b5200;
+}
+
+[data-bs-theme="light"] .navbar-themed .dropdown-toggle.active::after {
+  border-top-color: currentColor;
+}
+
+[data-bs-theme="light"] .navbar-themed .nav-link.active i,
+[data-bs-theme="light"] .navbar-themed .dropdown-toggle.active i {
+  color: currentColor;
 }
 
 .navbar-themed .btn-outline-navbar {
