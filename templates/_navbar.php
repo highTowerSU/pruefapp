@@ -69,7 +69,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $inspectionImportActive = $pathIsActive($inspectionImportUrl);
     $billingActive = $pathIsActive($billingUrl);
     $companyActive = $pathIsActive($companyUrl);
-    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $inspectionImportActive || $billingActive || $companyActive;
+    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive;
 
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
@@ -109,8 +109,6 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
               <li><a class="dropdown-item" href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clock-rotate-left me-2" aria-hidden="true"></i>Audit &amp; Revisionen</a></li>
               <?php if (current_user_has_role('admin')): ?>
                 <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzer</a></li>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-file-import me-2" aria-hidden="true"></i>Prüfungen importieren</a></li>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-file-invoice-dollar me-2" aria-hidden="true"></i>Abrechnung</a></li>
               <?php endif; ?>
               <?php if (current_user_is_superadmin()): ?>
                 <li><hr class="dropdown-divider"></li>
@@ -119,6 +117,10 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
               <?php endif; ?>
             </ul>
           </div>
+        <?php endif; ?>
+        <?php if (current_user_has_role('admin')): ?>
+          <a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $inspectionImportActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-file-import me-1" aria-hidden="true"></i>Import</a>
+          <a href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $billingActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-file-invoice-dollar me-1" aria-hidden="true"></i>Abrechnung</a>
         <?php endif; ?>
         <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0 ms-2<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a>
       <?php else: ?>

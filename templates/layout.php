@@ -409,6 +409,40 @@ $assetVersion = app_asset_version();
                 if (node.nodeType === Node.ELEMENT_NODE) enhanceActionButtons(node);
             }))).observe(document.body, {childList: true, subtree: true});
 
+            const enhanceFormLabels = (root = document) => {
+                const labelIcons = [
+                    [/suche|suchen/i, 'fa-magnifying-glass'],
+                    [/kunde|firma|mandant/i, 'fa-building'],
+                    [/gerät|geraet/i, 'fa-plug'],
+                    [/raum|standort|gebäude|etage/i, 'fa-location-dot'],
+                    [/nummer|inventar|serien/i, 'fa-hashtag'],
+                    [/hersteller|modell|typ/i, 'fa-tag'],
+                    [/datum|jahr|prüfung/i, 'fa-calendar-days'],
+                    [/status|ergebnis/i, 'fa-circle-check'],
+                    [/kommentar|beschreibung|hinweis/i, 'fa-comment'],
+                    [/datei|anhang|upload/i, 'fa-paperclip'],
+                    [/passwort|schlüssel/i, 'fa-key'],
+                    [/farbe|logo|branding/i, 'fa-palette']
+                ];
+                const labels = [];
+                if (root.matches?.('label:not(.visually-hidden)')) labels.push(root);
+                root.querySelectorAll?.('label.form-label:not(.visually-hidden), label.form-check-label:not(.visually-hidden)').forEach(label => labels.push(label));
+                labels.forEach(label => {
+                    if (label.dataset.labelIconBound === '1' || label.querySelector('i.fa-solid, i.fas, i.far, i.fab')) return;
+                    const match = labelIcons.find(([pattern]) => pattern.test(label.textContent.trim()));
+                    if (!match) return;
+                    const icon = document.createElement('i');
+                    icon.className = `fa-solid ${match[1]} me-1 text-body-secondary`;
+                    icon.setAttribute('aria-hidden', 'true');
+                    label.prepend(icon);
+                    label.dataset.labelIconBound = '1';
+                });
+            };
+            enhanceFormLabels();
+            new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) enhanceFormLabels(node);
+            }))).observe(document.body, {childList: true, subtree: true});
+
             document.body.addEventListener('htmx:beforeSwap', (event) => {
                 const detail = event.detail;
 
