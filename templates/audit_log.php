@@ -210,7 +210,7 @@ $nextUrl = $pagination['has_next']
 })();
 </script>
 <style>
-.audit-panel-summary{text-align:left}.audit-panel-summary>span:first-child{min-width:0}.audit-panel-summary>span:first-child>i{flex:0 0 auto}.audit-panel-summary label{white-space:nowrap}
+.audit-panel-summary{justify-content:flex-start!important;text-align:left!important}.audit-panel-summary>span:first-child{min-width:0;justify-content:flex-start;text-align:left}.audit-panel-summary>span:last-child{margin-left:auto}.audit-panel-summary>span:first-child>i{flex:0 0 auto}.audit-panel-summary label{white-space:nowrap}
 </style>
 
 <details class="card mb-4" id="audit-revisions-panel">
