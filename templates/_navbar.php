@@ -101,24 +101,28 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
             <li class="nav-item"><a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link<?= $inspectionImportActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-file-import me-1" aria-hidden="true"></i>Import</a></li>
             <li class="nav-item"><a href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>" class="nav-link<?= $billingActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-coins me-1" aria-hidden="true"></i>Abrechnung</a></li>
           <?php endif; ?>
-          <?php $adminMenuId = 'adminNavigationDropdown'; ?>
-          <li class="nav-item dropdown">
-            <button class="nav-link dropdown-toggle border-0 bg-transparent<?= $adminMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="<?= $adminMenuId ?>" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="fa-solid fa-screwdriver-wrench me-1" aria-hidden="true"></i>Verwaltung
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= $adminMenuId ?>">
-              <li><h6 class="dropdown-header">Administration</h6></li>
-              <li><a class="dropdown-item" href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clock-rotate-left me-2" aria-hidden="true"></i>Audit &amp; Revisionen</a></li>
-              <?php if (current_user_has_role('admin')): ?>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzer</a></li>
-              <?php endif; ?>
-              <?php if (current_user_is_superadmin()): ?>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-building me-2" aria-hidden="true"></i>Mandanten</a></li>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Konfiguration</a></li>
-              <?php endif; ?>
-            </ul>
-          </li>
+          <?php if (current_user_has_role('admin') || current_user_is_superadmin()): ?>
+            <?php $adminMenuId = 'adminNavigationDropdown'; ?>
+            <li class="nav-item dropdown">
+              <button class="nav-link dropdown-toggle border-0 bg-transparent<?= $adminMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="<?= $adminMenuId ?>" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fa-solid fa-screwdriver-wrench me-1" aria-hidden="true"></i>Verwaltung
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= $adminMenuId ?>">
+                <li><h6 class="dropdown-header">Administration</h6></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clock-rotate-left me-2" aria-hidden="true"></i>Audit &amp; Revisionen</a></li>
+                <?php if (current_user_has_role('admin')): ?>
+                  <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzer</a></li>
+                <?php endif; ?>
+                <?php if (current_user_is_superadmin()): ?>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-building me-2" aria-hidden="true"></i>Mandanten</a></li>
+                  <li><a class="dropdown-item" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Konfiguration</a></li>
+                <?php endif; ?>
+              </ul>
+            </li>
+          <?php else: ?>
+            <li class="nav-item"><a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link<?= $auditActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-clock-rotate-left me-1" aria-hidden="true"></i>Audit</a></li>
+          <?php endif; ?>
           <li class="nav-item"><a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link<?= $helpActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a></li>
         </ul>
       <?php else: ?>
