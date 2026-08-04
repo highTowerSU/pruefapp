@@ -24,11 +24,15 @@ try {
 
 $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
 if (!is_dir($root)) mkdir($root, 0700, true);
+$cronStartedAt = microtime(true);
+$cronDeadline = $cronStartedAt + 120.0;
+$timeLeft = static fn(): float => max(0.0, $cronDeadline - microtime(true));
 $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
 $log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); if (PHP_SAPI === 'cli' || $debug) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { R::exec('INSERT INTO cron_log (run_at, level, message) VALUES (?, ?, ?)', [$timestamp, strtolower($level), $message]); } catch (Throwable $exception) { if (PHP_SAPI === 'cli' || $debug) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
-$log('Cron gestartet, PID ' . getmypid());
-file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid()], JSON_UNESCAPED_UNICODE), LOCK_EX);
+$log('Cron gestartet, PID ' . getmypid() . ', Zeitbudget 120 Sekunden');
+if ($debug) $log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden');
+file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $lock = fopen($root . '/cron.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 
@@ -38,6 +42,8 @@ $migrationDirectory = trim((string) (getenv('PRUEFAPP_BENNING_REIMPORT_DIR') ?: 
 $migrationMarker = app_data_root() . '/migration/benning-measurements-v3.done';
 if (!is_file($migrationMarker)) {
     try {
+        if ($timeLeft() <= 1) throw new RuntimeException('Zeitbudget vor der Nachmigration erreicht.');
+        if ($debug) $log('Debug: starte Benning-Nachmigration.');
         $stats = ['imported' => 0, 'updated' => 0, 'repaired' => 0, 'errors' => []];
         if ($migrationDirectory !== '' && is_dir($migrationDirectory)) {
             $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
@@ -45,6 +51,7 @@ if (!is_file($migrationMarker)) {
             $stats = array_merge($stats, ['imported' => $importStats['imported'] ?? 0, 'updated' => $importStats['updated'] ?? 0, 'errors' => $importStats['errors'] ?? []]);
         }
         foreach (R::findAll('inspection', " source_type = 'csv' ORDER BY id ") as $inspection) {
+            if ($timeLeft() <= 2) { $log('Benning-Nachmigration wegen Zeitbudget auf nächste Iteration verschoben.', 'warning'); break; }
             $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
             if (!is_array($measurements) || $measurements === []) continue;
             $normalized = InspectionController::normalizeImportedMeasurements($measurements, (string) ($inspection->result_status ?? ''));
@@ -55,8 +62,10 @@ if (!is_file($migrationMarker)) {
             $stats['repaired']++;
         }
         if (!is_dir(dirname($migrationMarker))) @mkdir(dirname($migrationMarker), 0770, true);
-        file_put_contents($migrationMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-        $log('Benning-Messdaten-Nachmigration abgeschlossen: ' . json_encode($stats, JSON_UNESCAPED_UNICODE));
+        if ($timeLeft() > 2) {
+            file_put_contents($migrationMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+            $log('Benning-Messdaten-Nachmigration abgeschlossen: ' . json_encode($stats, JSON_UNESCAPED_UNICODE));
+        }
     } catch (Throwable $exception) {
         $log('Benning-Messdaten-Nachmigration fehlgeschlagen: ' . $exception->getMessage(), 'error');
     }
@@ -81,7 +90,11 @@ try {
           AND TRIM(COALESCE(i.report_path, '')) = ''
         ORDER BY i.id ASC
         LIMIT 500");
+    $reportTotal = count($missingReports);
+    if ($debug) $log('Debug: ' . $reportTotal . ' fehlende Prüfberichte gefunden.');
     foreach ($missingReports as $row) {
+        if ($timeLeft() <= 3) { $log('Berichtserzeugung wegen Zeitbudget auf nächste Iteration verschoben.', 'warning'); break; }
+        if ($debug) $log('Debug: Bericht ' . ((int) $row['id']) . ' wird verarbeitet (' . ($generatedReports + 1) . '/' . $reportTotal . ').');
         try {
             $inspection = R::load('inspection', (int) $row['id']);
             $device = R::load('device', (int) $row['device_id']);
@@ -119,13 +132,17 @@ file_put_contents($root . '/report-heartbeat.json', json_encode([
 ], JSON_UNESCAPED_UNICODE), LOCK_EX);
 
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
+    if ($timeLeft() <= 8) { $log('Weitere Hintergrundjobs wegen Zeitbudget auf nächste Cron-Iteration verschoben.', 'warning'); break; }
     $status = json_decode((string) file_get_contents($statusPath), true);
     if (!is_array($status) || ($status['state'] ?? '') !== 'queued') continue;
     $id = (string) ($status['id'] ?? basename($statusPath, '.status.json'));
     if (!preg_match('/^[a-f0-9]{24}$/', $id) || !is_file($root . '/' . $id . '.json')) continue;
-    $log('Job gestartet: ' . $id);
-    passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
-    $log('Job beendet: ' . $id);
+    $log('Job gestartet: ' . $id . ' (verbleibend ' . number_format($timeLeft(), 1, ',', '.') . ' s)');
+    $workerDeadline = (string) (microtime(true) + max(10.0, min(105.0, $timeLeft() - 3.0)));
+    $workerDebug = $debug ? ' PRUEFAPP_CRON_DEBUG=1' : '';
+    passthru('PRUEFAPP_CRON_DEADLINE=' . escapeshellarg($workerDeadline) . $workerDebug . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
+    $log('Job beendet: ' . $id . ' (verbleibend ' . number_format($timeLeft(), 1, ',', '.') . ' s)');
 }
+$log('Cron beendet, Dauer ' . number_format(microtime(true) - $cronStartedAt, 1, ',', '.') . ' Sekunden');
 flock($lock, LOCK_UN);
 fclose($lock);

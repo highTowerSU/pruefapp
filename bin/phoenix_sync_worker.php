@@ -11,6 +11,8 @@ $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
 $payloadPath = $root . '/' . $id . '.json';
 $statusPath = $root . '/' . $id . '.status.json';
 $cancelPath = $root . '/' . $id . '.cancel';
+$deadline = (float) (getenv('PRUEFAPP_CRON_DEADLINE') ?: 0);
+$debug = getenv('PRUEFAPP_CRON_DEBUG') === '1';
 if ($id === '' || !is_file($payloadPath)) exit(2);
 $payload = json_decode((string) file_get_contents($payloadPath), true);
 $writeStatus = static function (array $extra) use ($statusPath, $id, $payload): void {
@@ -18,9 +20,11 @@ $writeStatus = static function (array $extra) use ($statusPath, $id, $payload): 
 };
 $writeStatus([]);
 try {
-    $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $cancelPath): void {
+    $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $cancelPath, $deadline): void {
         if (is_file($cancelPath)) throw new RuntimeException('Job wurde abgebrochen.');
+        if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
         $writeStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
+        if ($debug) fwrite(STDERR, '[worker debug] ' . $step . '/' . $total . ' ' . ($number !== '' ? $number . ' · ' : '') . $message . PHP_EOL);
     };
     if (($payload['type'] ?? '') === 'pdf_bundle') {
         if (!function_exists('shell_exec')) throw new RuntimeException('PDF-Zusammenführung ist auf diesem Server nicht verfügbar.');
@@ -74,7 +78,9 @@ try {
     file_put_contents($statusPath, json_encode(['id' => $id, 'state' => 'done', 'finished_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
 } catch (Throwable $exception) {
     $cancelled = is_file($cancelPath);
-    file_put_contents($statusPath, json_encode(['id' => $id, 'state' => $cancelled ? 'cancelled' : 'error', 'finished_at' => date(DATE_ATOM), 'error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    $timeLimited = $exception->getMessage() === '__CRON_TIME_LIMIT__';
+    file_put_contents($statusPath, json_encode(['id' => $id, 'state' => $timeLimited ? 'queued' : ($cancelled ? 'cancelled' : 'error'), 'finished_at' => date(DATE_ATOM), 'message' => $timeLimited ? 'Zeitbudget erreicht; wird im nächsten Cron-Lauf fortgesetzt.' : '', 'error' => $timeLimited ? '' : $exception->getMessage()], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    if ($timeLimited) exit(0);
 }
-@unlink($payloadPath);
+if (!isset($timeLimited) || !$timeLimited) @unlink($payloadPath);
 @unlink($cancelPath);
