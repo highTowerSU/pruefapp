@@ -120,6 +120,23 @@ final class CustomerInfoController
         return [303, ['Location' => url_for('kunden/' . (int) $customer->id . '/infos')], ''];
     }
 
+    public static function updateTitle(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $customer = self::customer($params);
+        $info = R::load('customerinfo', (int) ($params['infoId'] ?? 0));
+        if ($customer === null || !$info->id || (int) $info->customer_id !== (int) $customer->id) return [404, [], 'Kundeninfo nicht gefunden'];
+        $title = trim((string) ($_POST['title'] ?? ''));
+        if ($title === '') return [422, [], 'Bitte einen Titel angeben.'];
+        $info->title = $title;
+        $info->slug = self::slug($title);
+        $info->updated_at = date('c');
+        R::store($info);
+        audit_log('kundeninfo_titel_geaendert', ['id' => (int) $info->id, 'customer_id' => (int) $customer->id]);
+        $infos = array_values(R::findAll('customerinfo', ' customer_id = ? ORDER BY updated_at DESC, title ', [(int) $customer->id]));
+        return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('customer_info_cards.php', ['customer' => $customer, 'infos' => $infos, 'canManage' => true])];
+    }
+
     public static function file(array $params, bool $isHx): array
     {
         $info = R::load('customerinfo', (int) ($params['id'] ?? 0));
