@@ -31,7 +31,12 @@ $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
 $log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); $isProblem = in_array(strtolower($level), ['warning', 'error', 'critical'], true); if ($debug || $isProblem) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { R::exec('INSERT INTO cron_log (run_at, level, message) VALUES (?, ?, ?)', [$timestamp, strtolower($level), $message]); } catch (Throwable $exception) { if ($debug || $isProblem) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
 $pruneOperationalLogs = static function () use ($logPath): void {
-    $maxRows = max(500, (int) (get_app_config('cron_log_max_rows', getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: '5000') ?: 5000));
+    // Older installations may not have the optional appconfig table yet.
+    // Reading GUI settings must therefore never prevent the Cron itself from
+    // starting; environment values remain the bootstrap fallback.
+    $configuredRows = null;
+    try { $configuredRows = get_app_config('cron_log_max_rows', null); } catch (Throwable) {}
+    $maxRows = max(500, (int) (($configuredRows ?? getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: '5000') ?: 5000));
     try {
         $count = (int) R::getCell('SELECT COUNT(*) FROM cron_log');
         if ($count > $maxRows) {
@@ -41,7 +46,9 @@ $pruneOperationalLogs = static function () use ($logPath): void {
     } catch (Throwable) {
         // Log retention must never interrupt the actual Cron work.
     }
-    $maxBytes = max(256 * 1024, (int) (get_app_config('cron_log_max_bytes', getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: (string) (5 * 1024 * 1024)) ?: 5 * 1024 * 1024));
+    $configuredBytes = null;
+    try { $configuredBytes = get_app_config('cron_log_max_bytes', null); } catch (Throwable) {}
+    $maxBytes = max(256 * 1024, (int) (($configuredBytes ?? getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: (string) (5 * 1024 * 1024)) ?: 5 * 1024 * 1024));
     if (is_file($logPath) && (int) @filesize($logPath) > $maxBytes) {
         $content = @file_get_contents($logPath);
         if (is_string($content)) {
@@ -350,14 +357,35 @@ foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     $id = (string) ($status['id'] ?? basename($statusPath, '.status.json'));
     if (!preg_match('/^[a-f0-9]{24}$/', $id)) { $log('Debug: Hintergrundaufgabe übersprungen, ungültige ID ' . $id . '.', 'debug'); continue; }
     if (!is_file($root . '/' . $id . '.json')) { $log('Debug: Hintergrundaufgabe ' . substr($id, 0, 12) . ' übersprungen, Payload-Datei fehlt.', 'debug'); continue; }
+    // Claim the job atomically. The Cron lock normally serializes workers,
+    // but this per-job lock also protects against manual/parallel launches.
+    $workerLockPath = $root . '/' . $id . '.worker.lock';
+    if (is_file($workerLockPath) && (time() - (int) @filemtime($workerLockPath)) > 180) {
+        @unlink($workerLockPath);
+        $log('Veraltete Worker-Sperre für Aufgabe ' . substr($id, 0, 12) . ' entfernt.', 'warning');
+    }
+    $workerLock = @fopen($workerLockPath, 'x');
+    if ($workerLock === false) {
+        $log('Debug: Aufgabe ' . substr($id, 0, 12) . ' wird bereits von einem Worker bearbeitet.', 'debug');
+        continue;
+    }
+    $status['attempts'] = (int) ($status['attempts'] ?? 0) + 1;
+    $status['started_at'] = date(DATE_ATOM);
+    $status['worker_pid'] = getmypid();
+    file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
     $log('Hintergrundaufgabe gestartet.');
     $jobsStarted++;
     // Give every queued job a slice so a large ZIP cannot monopolise the
     // complete Cron window. The worker persists its cursor and resumes later.
     $workerDeadline = (string) (microtime(true) + max(12.0, min(35.0, $timeLeft() - 3.0)));
     $workerDebug = $debug ? ' PRUEFAPP_CRON_DEBUG=1' : '';
-    passthru('PRUEFAPP_CRON_DEADLINE=' . escapeshellarg($workerDeadline) . $workerDebug . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
-    $log('Hintergrundaufgabe beendet.');
+    try {
+        passthru('PRUEFAPP_CRON_DEADLINE=' . escapeshellarg($workerDeadline) . $workerDebug . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
+        $log('Hintergrundaufgabe beendet.');
+    } finally {
+        fclose($workerLock);
+        @unlink($workerLockPath);
+    }
 }
 $jobsRemaining = 0;
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
