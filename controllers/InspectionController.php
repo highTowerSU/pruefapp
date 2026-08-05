@@ -181,7 +181,15 @@ final class InspectionController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($_POST['action'] ?? '') === 'migrate_examiner_attribution') {
                 if (!current_user_is_superadmin()) return forbidden_response();
-                $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
+                $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
+                foreach (glob($root . '/*.status.json') ?: [] as $existingPath) {
+                    $existing = json_decode((string) @file_get_contents($existingPath), true);
+                    if (is_array($existing) && ($existing['type'] ?? '') === 'examiner_migration' && in_array(($existing['state'] ?? ''), ['queued', 'running'], true)) {
+                        $message = 'Eine Prüferzuordnung läuft bereits oder wartet auf den nächsten Cron-Lauf.';
+                        return [303, ['Location' => url_for('admin/pruefungen/import')], ''];
+                    }
+                }
+                $id = bin2hex(random_bytes(12));
                 $payload = ['type' => 'examiner_migration', 'owner_user_id' => (int) (current_user()->id ?? 0)];
                 $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv')");
                 file_put_contents($root . '/' . $id . '.json', json_encode($payload, JSON_UNESCAPED_UNICODE), LOCK_EX);

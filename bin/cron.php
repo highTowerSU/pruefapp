@@ -292,7 +292,8 @@ foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     $status = json_decode((string) file_get_contents($statusPath), true);
     if (!is_array($status) || ($status['state'] ?? '') !== 'queued') continue;
     $id = (string) ($status['id'] ?? basename($statusPath, '.status.json'));
-    if (!preg_match('/^[a-f0-9]{24}$/', $id) || !is_file($root . '/' . $id . '.json')) continue;
+    if (!preg_match('/^[a-f0-9]{24}$/', $id)) { $log('Debug: Hintergrundaufgabe übersprungen, ungültige ID ' . $id . '.', 'debug'); continue; }
+    if (!is_file($root . '/' . $id . '.json')) { $log('Debug: Hintergrundaufgabe ' . substr($id, 0, 12) . ' übersprungen, Payload-Datei fehlt.', 'debug'); continue; }
     $log('Hintergrundaufgabe gestartet.');
     $jobsStarted++;
     // Give every queued job a slice so a large ZIP cannot monopolise the
