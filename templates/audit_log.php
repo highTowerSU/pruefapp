@@ -169,6 +169,7 @@ $nextUrl = $pagination['has_next']
 <?php endif; ?>
 </div>
 </details>
+<script>(()=>{document.querySelectorAll('#audit-cron-panel table tbody tr').forEach(row=>{const code=row.querySelector('code');const cells=row.querySelectorAll('td');if(!code||cells.length<5||!['Läuft','Wartet'].includes(cells[1].textContent.trim()))return;const id=code.textContent.trim();if(!/^[a-f0-9]{12,24}$/.test(id)||row.querySelector('[data-cancel-job]'))return;const form=document.createElement('form');form.method='post';form.action='<?= htmlspecialchars(url_for('admin/audit-log/job/'), ENT_QUOTES) ?>'+id+'/abbrechen';form.className='mt-1';form.dataset.cancelJob='1';const button=document.createElement('button');button.type='submit';button.className='btn btn-sm btn-outline-danger';button.innerHTML='<i class="fa-solid fa-stop me-1" aria-hidden="true"></i>Abbrechen';form.appendChild(button);cells[4].appendChild(form);});})();</script>
 
 <details class="card mb-4" id="audit-cron-panel">
 <summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock text-body-secondary" aria-hidden="true"></i><span>Prüfapp-Cron</span></span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-cron-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-cron-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></span></summary>

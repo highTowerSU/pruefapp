@@ -64,8 +64,10 @@ final class ReportController
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
         $id = bin2hex(random_bytes(12));
-        file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports, 'index_csv' => $indexCsv, 'index_pdf' => $indexPdf, 'index_ods' => $indexOds], JSON_UNESCAPED_UNICODE), LOCK_EX);
-        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Der ZIP-Export wird vorbereitet und startet automatisch im Hintergrund.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $user = current_user(); $ownerId = (int) ($user->id ?? 0);
+        $payload = ['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports, 'index_csv' => $indexCsv, 'index_pdf' => $indexPdf, 'index_ods' => $indexOds, 'owner_user_id' => $ownerId];
+        file_put_contents($root . '/' . $id . '.json', json_encode($payload, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'owner_user_id' => $ownerId, 'created_at' => date(DATE_ATOM), 'message' => 'Der ZIP-Export wird vorbereitet und startet automatisch im Hintergrund.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
@@ -94,19 +96,39 @@ final class ReportController
 
     public static function zipStatus(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return [403, ['Content-Type' => 'application/json'], '{}'];
         $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
         $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
         $status = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : ['state' => 'error', 'error' => 'Job nicht gefunden'];
+        $user = current_user(); $allowed = current_user_has_role('admin') || ((int) ($status['owner_user_id'] ?? 0) > 0 && (int) ($status['owner_user_id'] ?? 0) === (int) ($user->id ?? 0));
+        if (!$allowed) return [403, ['Content-Type' => 'application/json'], '{}'];
+        $status['can_cancel'] = in_array((string) ($status['state'] ?? ''), ['queued', 'running'], true);
         return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode($status, JSON_UNESCAPED_UNICODE)];
+    }
+
+    public static function cancelPdfJob(array $params, bool $isHx): array
+    {
+        $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
+        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; $statusPath = $root . '/' . $id . '.status.json';
+        if (strlen($id) < 24) { $matches = glob($root . '/' . $id . '*.status.json') ?: []; if (count($matches) === 1) { $statusPath = $matches[0]; $id = basename($matches[0], '.status.json'); } }
+        if (!is_file($statusPath)) return [404, [], 'Exportauftrag nicht gefunden.'];
+        $status = json_decode((string) file_get_contents($statusPath), true) ?: []; $user = current_user();
+        if (!current_user_has_role('admin') && (int) ($status['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
+        if (in_array((string) ($status['state'] ?? ''), ['queued', 'running'], true)) {
+            $status['state'] = ($status['state'] ?? '') === 'queued' ? 'cancelled' : 'cancel_requested';
+            $status['message'] = 'Der Export wurde zum Abbrechen vorgemerkt.';
+            file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
+            file_put_contents($root . '/' . $id . '.cancel', '1', LOCK_EX);
+        }
+        return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
     public static function zipDownload(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
         $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
         $statusPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
         $status = is_file($statusPath) ? (json_decode((string) file_get_contents($statusPath), true) ?: []) : [];
+        $user = current_user();
+        if (!current_user_has_role('admin') && (int) ($status['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
         $file = (string) ($status['output'] ?? '');
         if (($status['state'] ?? '') !== 'done' || $file === '' || !is_file($file)) return [404, [], 'ZIP ist noch nicht verfügbar.'];
         return [200, ['Content-Type' => 'application/zip', 'Content-Disposition' => 'attachment; filename="' . basename($file) . '"'], file_get_contents($file)];
