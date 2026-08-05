@@ -175,8 +175,14 @@ final class ReportController
         $user = current_user();
         if (!current_user_is_superadmin() && !current_user_has_role('admin') && (int) ($status['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
         $file = (string) ($status['output'] ?? '');
-        if (($status['state'] ?? '') !== 'done' || $file === '' || !is_file($file)) return [404, [], 'ZIP ist noch nicht verfügbar.'];
-        return [200, ['Content-Type' => 'application/zip', 'Content-Disposition' => 'attachment; filename="' . basename($file) . '"'], file_get_contents($file)];
+        if (($status['state'] ?? '') !== 'done' || $file === '' || !is_file($file)) return [404, [], 'Der Export ist noch nicht verfügbar.'];
+        $status['downloaded_at'] = date(DATE_ATOM);
+        $status['notification_read'] = true;
+        file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $isPdf = strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'pdf';
+        $mime = $isPdf ? 'application/pdf' : 'application/zip';
+        $filename = basename($file);
+        return \Ceneos\PhpBase\Http\Response::file($file, ['Content-Type' => $mime, 'Content-Length' => (string) filesize($file), 'Content-Disposition' => 'attachment; filename="' . $filename . '"', 'Cache-Control' => 'private, no-store']);
     }
 
     private static function filteredIds(string $query): array

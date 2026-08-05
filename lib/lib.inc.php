@@ -846,6 +846,7 @@ function current_user_background_jobs(int $limit = 8): array
         $job['downloadable'] = ($job['state'] ?? '') === 'done'
             && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle'], true)
             && is_file((string) ($job['output'] ?? ''));
+        $job['notification_unread'] = empty($job['notification_read']);
         $jobs[] = $job;
     }
     usort($jobs, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));

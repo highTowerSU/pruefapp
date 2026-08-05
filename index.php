@@ -73,6 +73,7 @@ $routes = [
     ['GET', '/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
     ['POST', '/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
     ['GET', '/downloads', fn($params, $isHx) => DownloadController::index($params, $isHx)],
+    ['POST', '/downloads/{id}/gelesen', fn($params, $isHx) => DownloadController::markRead($params, $isHx)],
     ['GET', '/hilfe/dokument/{file}', fn($params, $isHx) => HelpController::document($params, $isHx)],
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
     ['POST', '/struktur/massenaktion', fn($params, $isHx) => StructureController::bulkAction($params, $isHx)],

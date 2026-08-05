@@ -203,11 +203,11 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         <?php endif; ?>
 
         <?php if ($authUser !== null): ?>
-          <?php $notifications = current_user_background_jobs(6); ?>
+          <?php $notifications = current_user_background_jobs(6); $unreadNotifications = array_filter($notifications, static fn(array $entry): bool => !empty($entry['notification_unread'])); ?>
           <div class="dropdown">
             <button class="btn btn-outline-navbar position-relative" type="button" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Benachrichtigungen" title="Benachrichtigungen">
               <i class="fa-solid fa-bell" aria-hidden="true"></i>
-              <?php if ($notifications !== []): ?><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"><?= count($notifications) ?><span class="visually-hidden"> offene oder neue Aufgaben</span></span><?php endif; ?>
+              <?php if ($unreadNotifications !== []): ?><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"><?= count($unreadNotifications) ?><span class="visually-hidden"> ungelesene Aufgaben</span></span><?php endif; ?>
             </button>
             <ul class="dropdown-menu dropdown-menu-end p-2 notification-menu" aria-labelledby="notificationsDropdown">
               <li class="dropdown-header d-flex justify-content-between align-items-center"><span><i class="fa-solid fa-bell me-1" aria-hidden="true"></i>Benachrichtigungen</span><a class="small" href="<?= htmlspecialchars($downloadsUrl, ENT_QUOTES) ?>">Alle anzeigen</a></li>

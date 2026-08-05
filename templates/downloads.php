@@ -31,6 +31,7 @@
               <td><?= $total > 0 ? htmlspecialchars($step . ' von ' . $total) : '—' ?><?php if (!empty($job['current_device'])): ?><br><span class="small text-body-secondary"><?= htmlspecialchars((string) $job['current_device']) ?></span><?php endif; ?></td>
               <td class="text-nowrap"><?= htmlspecialchars($created) ?></td>
               <td class="text-break">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
                 <?php if (!empty($job['download_url'])): ?>
                   <a class="btn btn-sm btn-success text-nowrap" href="<?= htmlspecialchars((string) $job['download_url'], ENT_QUOTES) ?>"><i class="fa-solid fa-download me-1" aria-hidden="true"></i>Herunterladen</a>
                 <?php elseif ($state === 'queued' || $state === 'running'): ?>
@@ -38,6 +39,8 @@
                 <?php else: ?>
                   <span class="small text-body-secondary"><?= htmlspecialchars((string) ($job['message'] ?? ($job['error'] ?? 'Kein Download verfügbar.'))) ?></span>
                 <?php endif; ?>
+                <?php if (!empty($job['notification_unread'])): ?><form method="post" action="<?= htmlspecialchars(url_for('downloads/' . rawurlencode((string) $job['id']) . '/gelesen'), ENT_QUOTES) ?>" class="mb-0"><button class="btn btn-sm btn-outline-secondary text-nowrap" type="submit"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Als gelesen markieren</button></form><?php else: ?><span class="small text-body-secondary text-nowrap"><i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Gelesen</span><?php endif; ?>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>
