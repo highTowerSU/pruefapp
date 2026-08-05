@@ -302,7 +302,13 @@ file_put_contents($root . '/report-heartbeat.json', json_encode([
 
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     $staleStatus = json_decode((string) @file_get_contents($statusPath), true);
-    if (is_array($staleStatus) && ($staleStatus['state'] ?? '') === 'running' && (time() - (int) @filemtime($statusPath)) > 180) {
+    if (is_array($staleStatus) && ($staleStatus['state'] ?? '') === 'cancel_requested' && (time() - (int) @filemtime($statusPath)) > 180) {
+        $staleStatus['state'] = 'cancelled';
+        $staleStatus['finished_at'] = date(DATE_ATOM);
+        $staleStatus['message'] = 'Die Aufgabe wurde abgebrochen.';
+        file_put_contents($statusPath, json_encode($staleStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $log('Abbruch der Hintergrundaufgabe ' . substr((string) ($staleStatus['id'] ?? ''), 0, 12) . ' abgeschlossen.', 'info');
+    } elseif (is_array($staleStatus) && ($staleStatus['state'] ?? '') === 'running' && (time() - (int) @filemtime($statusPath)) > 180) {
         $staleStatus['state'] = 'queued';
         $staleStatus['message'] = 'Worker war nicht mehr aktiv; Aufgabe wird fortgesetzt.';
         $staleStatus['recovered_at'] = date(DATE_ATOM);
