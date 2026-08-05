@@ -836,12 +836,14 @@ function current_user_background_jobs(int $limit = 8): array
         'directory_import' => 'Datenimport',
         'phoenix_sync' => 'Phoenix-Import',
     ];
-    foreach (glob($root . '/*.status.json') ?: [] as $path) {
+    $statusPaths = array_merge(glob($root . '/*.status.json') ?: [], glob(app_data_root() . '/logs/background-jobs/*.status.json') ?: []);
+    foreach (array_unique($statusPaths) as $path) {
         $job = json_decode((string) @file_get_contents($path), true);
         if (!is_array($job)) continue;
         $ownerId = (int) ($job['owner_user_id'] ?? 0);
         if (!$all && $ownerId !== (int) ($user->id ?? 0)) continue;
         $job['id'] = (string) ($job['id'] ?? basename($path, '.status.json'));
+        $job['historical'] = str_contains($path, '/logs/background-jobs/');
         $job['type_label'] = $labels[(string) ($job['type'] ?? '')] ?? 'Hintergrundaufgabe';
         $job['downloadable'] = ($job['state'] ?? '') === 'done'
             && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle'], true)

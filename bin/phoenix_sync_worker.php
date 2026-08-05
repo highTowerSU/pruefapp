@@ -18,6 +18,14 @@ $payload = json_decode((string) file_get_contents($payloadPath), true);
 $ownerUserId = (int) (is_array($payload) ? ($payload['owner_user_id'] ?? 0) : 0);
 $statusInitial = is_file($statusPath) ? json_decode((string) @file_get_contents($statusPath), true) : [];
 $statusCreatedAt = is_array($statusInitial) && !empty($statusInitial['created_at']) ? (string) $statusInitial['created_at'] : date(DATE_ATOM);
+$archiveStatus = static function () use ($statusPath, $id): void {
+    $status = json_decode((string) @file_get_contents($statusPath), true);
+    if (!is_array($status) || !in_array((string) ($status['state'] ?? ''), ['done', 'error', 'cancelled'], true)) return;
+    $archiveRoot = app_data_root() . '/logs/background-jobs';
+    if (!is_dir($archiveRoot)) @mkdir($archiveRoot, 0770, true);
+    @file_put_contents($archiveRoot . '/' . $id . '.status.json', json_encode($status, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+};
+register_shutdown_function($archiveStatus);
 $writeStatus = static function (array $extra) use ($statusPath, $id, $payload, $statusCreatedAt): void {
     file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'type' => (string) ($payload['type'] ?? 'background'), 'state' => 'running', 'owner_user_id' => (int) ($payload['owner_user_id'] ?? 0), 'created_at' => $statusCreatedAt, 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
 };

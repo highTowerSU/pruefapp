@@ -26,7 +26,7 @@
               $total = (int) ($job['total'] ?? 0);
             ?>
             <tr>
-              <td class="text-break"><span class="fw-semibold"><?= htmlspecialchars((string) ($job['type_label'] ?? 'Hintergrundaufgabe')) ?></span><br><span class="small text-body-secondary"><?= htmlspecialchars(substr((string) ($job['id'] ?? ''), 0, 12)) ?></span></td>
+              <td class="text-break"><span class="fw-semibold"><?= htmlspecialchars((string) ($job['type_label'] ?? 'Hintergrundaufgabe')) ?></span><?php if (!empty($job['historical'])): ?><span class="badge text-bg-light border text-body-secondary ms-1">Historie</span><?php endif; ?><br><span class="small text-body-secondary"><?= htmlspecialchars(substr((string) ($job['id'] ?? ''), 0, 12)) ?></span></td>
               <td><span class="badge text-bg-<?= $badge ?>"><?= htmlspecialchars((string) ($job['status_label'] ?? 'Unbekannt')) ?></span></td>
               <td><?= $total > 0 ? htmlspecialchars($step . ' von ' . $total) : '—' ?><?php if (!empty($job['current_device'])): ?><br><span class="small text-body-secondary"><?= htmlspecialchars((string) $job['current_device']) ?></span><?php endif; ?></td>
               <td class="text-nowrap"><?= htmlspecialchars($created) ?></td>
