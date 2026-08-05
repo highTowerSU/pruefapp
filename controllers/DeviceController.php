@@ -186,10 +186,7 @@ class DeviceController
         if (preg_match('/^[a-f0-9]{24}$/', $zipJob)) {
             $zipJobStatus = BackgroundJobService::find($zipJob);
         }
-        return [200, [], render_template('layout.php', [
-            'title' => 'Geräte',
-            'showCompanySubtitle' => false,
-            'content' => render_template('device_index.php', [
+        $content = render_template('device_index.php', [
                 'devices' => $devices,
                 'inspections' => $inspections,
                 'rooms' => $rooms,
@@ -223,7 +220,12 @@ class DeviceController
                 'zipJob' => $zipJob,
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
-            ]),
+            ]);
+        if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
+        return [200, [], render_template('layout.php', [
+            'title' => 'Geräte',
+            'showCompanySubtitle' => false,
+            'content' => $content,
         ])];
     }
 

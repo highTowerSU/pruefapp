@@ -77,6 +77,10 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - Der Einstiegspunkt befindet sich in `index.php`, der Router ist unter `lib/router.php` implementiert.
 - Business-Logik findet sich in den Controllern im Verzeichnis `controllers/` sowie in den zugehörigen Templates unter `templates/`.
 - Weitere Hilfsfunktionen liegen im Verzeichnis `lib/`.
+- Die Filter von Geräteübersicht und Abrechnung werden gemeinsam serverseitig über
+  `lib/filter_renderer.php` erzeugt. Beide Ansichten unterstützen dieselben
+  Struktur-, Zeitraum- und Abrechnungsfilter; HTMX aktualisiert nur den jeweiligen
+  Inhaltsbereich und die URL bleibt dabei synchron.
 - Frontend-Assets (Bootstrap, HTMX, Font Awesome, Tabulator) werden via npm verwaltet und liegen unter `public/`.
 
 ## Konfiguration

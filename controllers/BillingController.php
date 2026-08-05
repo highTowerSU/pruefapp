@@ -12,7 +12,12 @@ final class BillingController
         if (!current_user_has_role('admin')) return forbidden_response();
         $preselectedIds = ($_GET['preselect'] ?? '') === '1' ? array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_preselect_inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0)) : [];
         if ($preselectedIds !== []) unset($_SESSION['billing_preselect_inspection_ids']);
-        $rows = self::rows($preselectedIds, $_GET);
+        $allRows = self::rows($preselectedIds, $_GET);
+        $perPage = in_array((int) ($_GET['per_page'] ?? 50), [25, 50, 100], true) ? (int) $_GET['per_page'] : 50;
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $pages = max(1, (int) ceil(count($allRows) / $perPage));
+        $page = min($page, $pages);
+        $rows = array_slice($allRows, ($page - 1) * $perPage, $perPage);
         $customers = R::findAll('customer', ' ORDER BY name ');
         $sites = R::findAll('site', ' ORDER BY name ');
         $buildings = R::findAll('building', ' ORDER BY name ');
@@ -20,7 +25,7 @@ final class BillingController
         $rooms = R::findAll('room', ' ORDER BY name ');
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
-        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
+        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
         unset($_SESSION['billing_message']);
         return $isHx ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content] : [200, [], render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content])];
     }

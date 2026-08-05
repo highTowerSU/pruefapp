@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/lib/filter_renderer.php';
 $displayImportValue = static function ($value): string { if (is_array($value)) { foreach (['brezel_name', 'name', 'email', 'company'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key]; return implode(', ', array_map(static fn($item): string => is_scalar($item) ? (string) $item : '', $value)); } return is_scalar($value) ? (string) $value : ''; };
 $form = static function ($device = null, string $newNumber = '') use ($rooms, $roomLabels, $manufacturerOptions, $modelOptionsByManufacturer, $nameOptionsByManufacturerModel, $suggestedDeviceNumber): void {
     $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'warming_device' => 0, 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
@@ -23,6 +24,11 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-outline-primary btn-sm" name="save_only" value="1">Speichern</button><?php if ((int) ($device->id ?? 0) > 0): ?><a class="btn btn-primary btn-sm" href="<?= htmlspecialchars(url_for('geraete/' . (int) $device->id . '/pruefungen/neu'), ENT_QUOTES) ?>">Neue Prüfung anlegen</a><?php else: ?><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1">Speichern und neue Prüfung</button><?php endif; ?></div>
   </form>
 <?php }; ?>
+
+<div id="device-page">
+<!-- device-common-filter is rendered by lib/filter_renderer.php -->
+<?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms')) ?>
+<style>#device-page > form[method="get"]{display:none}.common-filter-panel{container-type:inline-size}.common-filter-panel .form-label{font-weight:600}.common-filter-panel .form-control,.common-filter-panel .form-select{min-height:2.75rem}@media(max-width:767.98px){.common-filter-panel{padding:1rem}.common-filter-panel .row{--bs-gutter-y:.75rem}}</style>
 
 <form method="get" class="card card-body mb-4"><div class="row g-2 align-items-end"><div class="col-md-3"><label class="form-label"><i class="fa-solid fa-coins me-1" aria-hidden="true"></i>Abrechenbarkeit</label><select class="form-select" name="billing_eligibility"><option value="">Alle</option><option value="billable"<?= ($filters['billing_eligibility'] ?? '') === 'billable' ? ' selected' : '' ?>>Abrechenbar</option><option value="not_billable"<?= ($filters['billing_eligibility'] ?? '') === 'not_billable' ? ' selected' : '' ?>>Nicht abrechenbar</option></select></div><div class="col-md-3"><label class="form-label"><i class="fa-solid fa-file-invoice me-1" aria-hidden="true"></i>Rechnungsstatus</label><select class="form-select" name="billing_status"><option value="">Alle</option><?php foreach (['not_exported'=>'Nicht exportiert','exported'=>'Exportiert','export_failed'=>'Export fehlgeschlagen','manually_unexported'=>'Manuell zurückgesetzt'] as $value => $label): ?><option value="<?= $value ?>"<?= ($filters['billing_status'] ?? '') === $value ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></div><div class="col-auto"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter me-1" aria-hidden="true"></i>Abrechnungsfilter</button></div></div><div class="small text-body-secondary mt-2">Nur Prüfungen ab 2025 werden berücksichtigt; alte Prüfungen bleiben außerhalb der Abrechnung.</div></form>
 
@@ -161,7 +167,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   const floorSelect = document.querySelector('select[name="floor_id"]');
   group(floorSelect, id => floorBuilding[id] || 0, id => { const building = buildingLabels[id] || 'Ohne Gebäude'; const site = siteLabels[buildingSite[id]] || 'Ohne Standort'; const customer = customerLabels[siteCustomer[buildingSite[id]]] || 'Ohne Firma'; return customer + ' · ' + site + ' · ' + building; });
 })();
-</script>
+ </script>
 <p class="small text-body-secondary"><?= (int) $total ?> Geräte · Seite <?= (int) $page ?> von <?= (int) $pages ?></p>
 <?php if (!empty($zipJob)): ?><div id="zip-job-status" class="alert alert-info" data-status-url="<?= htmlspecialchars(url_for('geraete/zip/' . $zipJob . '/status'), ENT_QUOTES) ?>" data-download-url="<?= htmlspecialchars(url_for('geraete/zip/' . $zipJob . '/download'), ENT_QUOTES) ?>" data-cancel-url="<?= htmlspecialchars(url_for('geraete/zip/' . $zipJob . '/abbrechen'), ENT_QUOTES) ?>">Der Export wird vorbereitet …</div><script>(()=>{const box=document.getElementById('zip-job-status');const poll=()=>fetch(box.dataset.statusUrl,{headers:{Accept:'application/json'}}).then(r=>r.json()).then(s=>{if(s.state==='done'){box.className='alert alert-success';box.innerHTML='<strong>ZIP-Export fertig.</strong> <a class="alert-link" href="'+box.dataset.downloadUrl+'">ZIP herunterladen</a>';}else if(s.state==='error'||s.state==='cancelled'){box.className='alert alert-danger';box.textContent=s.state==='cancelled'?'Der ZIP-Export wurde abgebrochen.':'ZIP-Export fehlgeschlagen: '+(s.error||'unbekannter Fehler');}else{const progress=s.step&&s.total?' '+s.step+' von '+s.total+' PDFs verarbeitet.':'';box.textContent=(s.message||'Der Export läuft im Hintergrund.')+progress;if(s.can_cancel){const button=document.createElement('button');button.type='button';button.className='btn btn-sm btn-outline-danger ms-2';button.innerHTML='<i class="fa-solid fa-stop me-1"></i>Abbrechen';button.onclick=()=>fetch(box.dataset.cancelUrl,{method:'POST'}).then(()=>poll());box.appendChild(button);}setTimeout(poll,1500);}}).catch(()=>setTimeout(poll,3000));poll();})();</script><?php endif; ?>
 <?php if (!empty($canManage) || !empty($canBulkManage)): ?><details id="device-actions-panel" class="card mb-3"><summary class="card-header fw-semibold">Auswahl &amp; Massenaktionen</summary><div class="card-body">
@@ -336,3 +342,12 @@ document.querySelectorAll('.device-card').forEach(card => {
   const badge = document.createElement('span'); badge.dataset.billingBadge = '1'; badge.className = 'badge text-bg-warning'; badge.title = 'Abrechnungsstatus der neuesten Prüfung'; badge.innerHTML = '<i class="fa-solid fa-euro-sign" aria-hidden="true"></i><span class="visually-hidden"> Abrechnung prüfen</span>'; summary.appendChild(badge);
 });
 </script>
+<script>
+document.addEventListener('click', event => {
+  const link = event.target.closest('#device-page .pagination a');
+  if (!link || !window.htmx) return;
+  event.preventDefault();
+  htmx.ajax('GET', link.href, {target: '#device-page', select: '#device-page', swap: 'outerHTML', pushUrl: true});
+});
+</script>
+</div>

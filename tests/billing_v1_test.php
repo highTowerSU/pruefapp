@@ -9,6 +9,7 @@ $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_detail.php');
 $devices = (string) file_get_contents(dirname(__DIR__) . '/templates/device_index.php');
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
+$renderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
 
 $checks = [
     [str_contains($schema, 'billing_eligibility') && str_contains($schema, 'billing_status'), 'Billing status fields are missing.'],
@@ -21,9 +22,11 @@ $checks = [
     [str_contains($template, 'hx-get=') && str_contains($template, 'billing-status'), 'Billing filters are not HTMX-enabled.'],
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],
     [str_contains($detail, 'Abrechnungshistorie'), 'Inspection billing history is missing.'],
-    [str_contains($routes, "'/admin/abrechnung/pruefung/{id}/export-zuruecksetzen'")],
+    [str_contains($routes, "'/admin/abrechnung/pruefung/{id}/export-zuruecksetzen'"), 'Billing reset route is missing.'],
     [str_contains($devices, 'billing_status') && str_contains($devices, 'billing_eligibility'), 'Device billing filters are missing.'],
     [str_contains($devices, 'Abrechnung vorbereiten') && str_contains($deviceController, "\$action === 'billing'"), 'Device billing bulk action is missing.'],
+    [str_contains($renderer, 'render_common_filter_panel') && str_contains($devices, 'device-common-filter') && str_contains($template, 'billing-common-filter'), 'Shared filter renderer is missing from both views.'],
+    [str_contains($deviceController, "if (\$isHx) return [200") && str_contains($renderer, "'#device-page'"), 'Device HTMX partial rendering is missing.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
