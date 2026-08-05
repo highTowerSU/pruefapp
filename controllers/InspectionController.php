@@ -399,8 +399,7 @@ final class InspectionController
         $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
         $path = app_data_root() . '/' . $relative;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
-        $customerId = device_customer_id($device);
-        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, function_exists('get_company_branding') ? get_company_branding((int) $customerId) : null);
+        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null);
         if (file_put_contents($path, $pdf, LOCK_EX) === false) return [500, [], 'PDF konnte nicht gespeichert werden.'];
         $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
         return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id)], ''];

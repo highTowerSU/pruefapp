@@ -184,7 +184,7 @@ if (!is_file($reportMigrationMarker) || (($reportMigrationState = json_decode((s
                 $pdf = ReportController::renderPdf(
                     ReportController::inspectionPdfRows($inspection, $device),
                     'Prüfbericht ' . (string) $inspection->external_number,
-                    function_exists('get_company_branding') ? get_company_branding((int) ($row['customer_id'] ?? 0)) : null
+                    function_exists('get_report_branding') ? get_report_branding() : null
                 );
                 if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('PDF konnte nicht gespeichert werden.');
                 if ((string) ($inspection->report_path ?? '') !== $relative) {
@@ -247,7 +247,7 @@ try {
                 $pdf = ReportController::renderPdf(
                     ReportController::inspectionPdfRows($inspection, $device),
                     'Prüfbericht ' . (string) $inspection->external_number,
-                    function_exists('get_company_branding') ? get_company_branding((int) ($row['customer_id'] ?? 0)) : null
+                    function_exists('get_report_branding') ? get_report_branding() : null
                 );
                 if (file_put_contents($path, $pdf, LOCK_EX) === false) {
                     throw new RuntimeException('PDF konnte nicht gespeichert werden.');

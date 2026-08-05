@@ -83,6 +83,14 @@ function get_company_branding(int $companyId): ?array
     return $company !== null ? map_company_branding($company) : null;
 }
 
+function get_report_branding(): array
+{
+    ensure_branding_seeded(default_branding_definitions());
+    ensure_company_branding_schema();
+    $company = (new TenantRepository())->findBySlug('ceneos');
+    return $company !== null ? map_company_branding($company) : map_static_branding('ceneos', default_branding_definitions()['ceneos']);
+}
+
 /**
  * @return array<int, \RedBeanPHP\OODBBean>
  */
