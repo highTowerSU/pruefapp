@@ -158,6 +158,19 @@ class DeviceController
             if (preg_match('/^\d+$/', $candidate)) { $suggestedDeviceNumber = (string) ((int) $candidate + 1); break; }
         }
         $selectedDeviceIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_SESSION['device_selection'] ?? [])), static fn(int $id): bool => $id > 0)));
+        $examinerUsers = [];
+        if (current_user_has_role('admin')) {
+            $examinerUsers = array_map(static function ($user): array {
+                $name = trim((string) ($user->name ?? ''));
+                $email = trim((string) ($user->email ?? ''));
+                return [
+                    'value' => $email !== '' ? $email : $name,
+                    'label' => $name !== '' ? $name : $email,
+                    'email' => $email,
+                ];
+            }, R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
+            $examinerUsers = array_values(array_filter($examinerUsers, static fn(array $user): bool => $user['value'] !== ''));
+        }
         $zipJob = trim((string) ($_GET['zip_job'] ?? ''));
         $zipJobStatus = null;
         if (preg_match('/^[a-f0-9]{24}$/', $zipJob)) {
@@ -196,6 +209,7 @@ class DeviceController
                 'newNumber' => $newNumber,
                 'suggestedDeviceNumber' => $suggestedDeviceNumber,
                 'selectedDeviceIds' => $selectedDeviceIds,
+                'examinerUsers' => $examinerUsers,
                 'zipJob' => $zipJob,
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
