@@ -172,15 +172,18 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php endif; ?>
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>">
+                <li>
+                  <a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil'), ENT_QUOTES) ?>"><i class="fa-solid fa-user-pen me-2" aria-hidden="true"></i>Mein Profil</a>
+                </li>
                 <?php if ($hasManagementLink): ?>
                   <li>
-                    <a class="dropdown-item" href="<?= htmlspecialchars($userManagementUrl, ENT_QUOTES) ?>">Nutzerverwaltung</a>
+                    <a class="dropdown-item" href="<?= htmlspecialchars($userManagementUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzerverwaltung</a>
                   </li>
                 <?php endif; ?>
                 <?php if ($hasKeycloakLink): ?>
                   <li>
                     <a class="dropdown-item" href="<?= htmlspecialchars($keycloakAccountUrl, ENT_QUOTES) ?>" target="_blank" rel="noopener">
-                      Mein Konto …
+                      <i class="fa-solid fa-arrow-up-right-from-square me-2" aria-hidden="true"></i>Keycloak-Konto
                     </a>
                   </li>
                 <?php endif; ?>
@@ -188,7 +191,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                   <li><hr class="dropdown-divider"></li>
                 <?php endif; ?>
                 <li>
-                  <a class="dropdown-item" href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>">Logout</a>
+                  <a class="dropdown-item" href="<?= htmlspecialchars(url_for('logout.php'), ENT_QUOTES) ?>"><i class="fa-solid fa-right-from-bracket me-2" aria-hidden="true"></i>Logout</a>
                 </li>
               </ul>
             </div>

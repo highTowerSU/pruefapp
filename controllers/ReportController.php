@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use RedBeanPHP\R;
 
+require_once dirname(__DIR__) . '/lib/InspectionReportWriter.php';
+
 final class ReportController
 {
     public static function export(array $params, bool $isHx): array
@@ -98,7 +100,15 @@ final class ReportController
         $rows = [['Prüfung', 'Wert']];
         foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfart', $inspection->inspection_type ?: ($raw['type'] ?? '')], ['Prüfer', display_examiner_name((string) ($inspection->examiner ?: ($raw['created_by'] ?? '')))], ['Gerät', $device->external_number . ' · ' . $device->name], ['Inventarnummer', $device->inventory_number], ['Geräteart', $device->name], ['Hersteller', $device->manufacturer], ['Typ', $device->device_model], ['Wärmegerät', !empty($device->warming_device) ? 'Ja' : 'Nein'], ['Auftraggeber', $customer->name ?? ''], ['Liegenschaft', $site->name ?? ''], ['Gebäude', $building->name ?? ''], ['Etage', $floor->name ?? ''], ['Raum-Nr.', $device->room_snapshot ?: ($room->number ?? '')], ['Ergebnis', $inspection->result_status], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, (string) $value];
         foreach ($measurements as $measurement) if (is_array($measurement)) $rows[] = [(string) ($measurement['name'] ?? 'Messung'), trim((string) ($measurement['value'] ?? '') . ' ' . (string) ($measurement['unit'] ?? '') . ' · ' . (string) ($measurement['result'] ?? ''))];
+        if ($measurements !== []) $rows[] = ['__measurements_json', json_encode($measurements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        if ($checklist !== []) $rows[] = ['__checklist_json', json_encode($checklist, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         if ($raw !== []) $rows[] = ['__raw_json', json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        $examiner = (string) ($inspection->examiner ?: ($raw['created_by'] ?? ''));
+        if (function_exists('examiner_signature_data_uri')) {
+            $profileSignature = examiner_signature_data_uri($examiner);
+            if ($profileSignature !== '') $rows[] = ['__profile_signature', $profileSignature];
+        }
+        $rows[] = ['Prüfungsabschluss', (string) ($raw['end_time'] ?? $inspection->updated_at ?? $inspection->test_date ?? '')];
         if ($checklist !== []) {
             $rows[] = ['Prüfschritte', ''];
             foreach ($checklist as $key => $step) {
@@ -474,6 +484,18 @@ final class ReportController
 
     private static function inspectionPdf(array $rows, string $title, array $branding): ?array
     {
+        $writerBody = InspectionReportWriter::render($rows, $title, $branding);
+        if (is_string($writerBody) && $writerBody !== '') {
+            return [
+                200,
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'attachment; filename="' . $title . '.pdf"',
+                ],
+                $writerBody,
+            ];
+        }
+
         $values = [];
         foreach (array_slice($rows, 1) as $row) {
             $key = trim((string) ($row[0] ?? ''));
@@ -490,7 +512,7 @@ final class ReportController
         $resultClass = str_contains($result, 'durch') || str_contains($result, 'nicht') ? 'bad' : ($result === 'bestanden' ? 'good' : 'pending');
         $raw = [];
         foreach (array_slice($rows, 1) as $row) { $label = (string) ($row[0] ?? ''); if ($label !== '') $raw[$label] = (string) ($row[1] ?? ''); }
-        $known = ['Prüfnummer','Datum','Prüfart','Prüfungstyp','Prüfer','Nächste Prüfung','Gerät','Ergebnis','Regiezeit','Regiebegründung','Inventarnummer','Geräteart','Hersteller','Typ','Wärmegerät','Auftraggeber','Liegenschaft','Gebäude','Etage','Raum-Nr.','__raw_json'];
+        $known = ['Prüfnummer','Datum','Prüfart','Prüfungstyp','Prüfer','Nächste Prüfung','Gerät','Ergebnis','Regiezeit','Regiebegründung','Prüfungsabschluss','Inventarnummer','Geräteart','Hersteller','Typ','Wärmegerät','Auftraggeber','Liegenschaft','Gebäude','Etage','Raum-Nr.','__raw_json','__measurements_json','__checklist_json','__profile_signature'];
         $items = [];
         foreach (array_slice($rows, 1) as $row) { $label = (string) ($row[0] ?? ''); if ($label !== '' && !in_array($label, $known, true) && $label !== 'Prüfschritte') $items[] = ['Messung', $label, (string) ($row[1] ?? ''), '', '']; }
         $rawJson = json_decode((string) ($values['__raw_json'] ?? ''), true) ?: [];

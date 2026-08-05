@@ -731,6 +731,30 @@ function display_examiner_name(string $value): string
     }
 }
 
+/** Return a safely stored PNG/JPEG signature for a report examiner as a data URI. */
+function examiner_signature_data_uri(string $value): string
+{
+    $value = trim($value);
+    if ($value === '') return '';
+    try {
+        $user = filter_var($value, FILTER_VALIDATE_EMAIL)
+            ? R::findOne('oauthuser', ' LOWER(email) = LOWER(?) ', [$value])
+            : R::findOne('oauthuser', ' LOWER(name) = LOWER(?) OR LOWER(preferred_username) = LOWER(?) ', [$value, $value]);
+        if (!$user || !$user->id) return '';
+        $path = trim((string) ($user->report_signature_path ?? ''));
+        if ($path === '' || !is_file($path)) return '';
+        $root = realpath(app_data_root() . '/user-signatures');
+        $real = realpath($path);
+        if ($root === false || $real === false || !str_starts_with($real, $root . DIRECTORY_SEPARATOR)) return '';
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($real);
+        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) return '';
+        $body = file_get_contents($real);
+        return is_string($body) && $body !== '' ? 'data:' . $mime . ';base64,' . base64_encode($body) : '';
+    } catch (Throwable) {
+        return '';
+    }
+}
+
 function current_user_role(): ?string
 {
     $user = current_user();

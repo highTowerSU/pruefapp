@@ -13,6 +13,10 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - Wiederverwendbare Datenflüsse für strukturierte Dokumentationsprozesse
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
 - Zentrale Hilfe- und Ablaufseite für den Prüfprozess
+- Prüfberichte als A4-Writer-Dokumente mit Mandantenbranding, festen
+  Tabellenbreiten, Prüfschritten, Ergebnismarkierung und Unterschriftsbereich
+- Persönliche Prüfbericht-Unterschrift im lokalen Benutzerprofil; historische
+  Phoenix-Unterschriften bleiben bei Altberichten vorrangig erhalten
 
 - Mandantenfähiges Branding inklusive Verwaltung, Logo-Upload und Impressumssteuerung
 - Individuelle Navigationsfarben pro Mandant
@@ -180,6 +184,13 @@ php tests/bootstrap_config_test.php
 
 Fachliche Änderungen sollten zusätzlich manuell über die Weboberfläche geprüft
 werden.
+
+Das Layout eines Prüfberichts lässt sich unabhängig von der Datenbank als PDF
+erzeugen und technisch sowie visuell prüfen:
+
+```bash
+php tests/inspection_report_render_test.php /tmp/pruefapp-inspection-report.pdf
+```
 
 ## Lizenz
 

@@ -36,6 +36,7 @@ require_once __DIR__ . '/controllers/AdminController.php';
 require_once __DIR__ . '/controllers/TenantController.php';
 require_once __DIR__ . '/controllers/SettingsController.php';
 require_once __DIR__ . '/controllers/HelpController.php';
+require_once __DIR__ . '/controllers/ProfileController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
@@ -68,6 +69,8 @@ $routes = [
     ['GET', '/kurse/{id}/link', fn($params, $isHx) => CourseController::linkSettings($params, $isHx)],
     ['POST', '/kurse/{id}/link', fn($params, $isHx) => CourseController::linkSettings($params, $isHx)],
     ['GET', '/hilfe', fn($params, $isHx) => HelpController::index($params, $isHx)],
+    ['GET', '/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
+    ['POST', '/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
     ['GET', '/hilfe/dokument/{file}', fn($params, $isHx) => HelpController::document($params, $isHx)],
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
     ['POST', '/struktur/massenaktion', fn($params, $isHx) => StructureController::bulkAction($params, $isHx)],
