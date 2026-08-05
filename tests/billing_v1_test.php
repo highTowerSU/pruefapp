@@ -14,6 +14,7 @@ $checks = [
     [str_contains($controller, 'idempotency_key') && str_contains($controller, "status = 'running'"), 'Export idempotency is missing.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
+    [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
     [str_contains($controller, "HX-Trigger' => 'billing-refresh'"), 'Billing status actions must refresh through HTMX.'],
     [str_contains($template, 'hx-get=') && str_contains($template, 'billing-status'), 'Billing filters are not HTMX-enabled.'],
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],

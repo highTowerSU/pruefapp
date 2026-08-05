@@ -189,7 +189,11 @@ Beispiel `php bin/import_electro.php /tmp/altbestand-import.jsonl /var/www/beric
 
 ## Tests
 
-### Abrechnung v1.1
+### Prüf-App v1.1 / Abrechnung
+
+Dieser Stand ist die Programmversion 1.1. Die Abrechnung ist ein Bestandteil
+dieser Version; Prüfungen aus 2024 und älter werden grundsätzlich nicht zur
+Abrechnung angeboten.
 
 Die Abrechnung trennt die fachliche Abrechenbarkeit (`billable`/`not_billable`) vom
 Rechnungsstatus. SevDesk-Exporte werden über eine idempotente Exporthistorie und
