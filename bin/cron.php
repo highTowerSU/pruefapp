@@ -125,9 +125,12 @@ if (!is_file($phoenixRestoreMarker)) {
             // current-layout migration must never replace those PDFs.
             if ($source === '') {
                 $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
+                $legacyNumber = preg_replace('/[-_]\d{2}$/', '', $number);
                 foreach ($legacyRoots as $legacyRoot) {
                     if ($number === '') continue;
-                    $legacyCandidates = [$legacyRoot . '/' . $number . '.pdf', $legacyRoot . '/' . $number . '-24.pdf', $legacyRoot . '/' . $number . '-25.pdf'];
+                    $legacyNames = array_values(array_unique([$number, $legacyNumber, explode('-', $number)[0]]));
+                    $legacyCandidates = [];
+                    foreach ($legacyNames as $legacyName) $legacyCandidates = array_merge($legacyCandidates, [$legacyRoot . '/' . $legacyName . '.pdf', $legacyRoot . '/' . $legacyName . '-24.pdf', $legacyRoot . '/' . $legacyName . '-25.pdf']);
                     foreach ($legacyCandidates as $candidate) {
                         if (is_file($candidate) && str_starts_with((string) @file_get_contents($candidate, false, null, 0, 4), '%PDF')) { $source = $candidate; break 2; }
                     }
@@ -135,7 +138,9 @@ if (!is_file($phoenixRestoreMarker)) {
                     foreach ($iterator as $candidateInfo) {
                         if (!$candidateInfo->isFile() || strtolower($candidateInfo->getExtension()) !== 'pdf') continue;
                         $candidateName = $candidateInfo->getFilename();
-                        if (($candidateName === $number . '.pdf' || str_starts_with($candidateName, $number . '-')) && str_starts_with((string) @file_get_contents($candidateInfo->getPathname(), false, null, 0, 4), '%PDF')) { $source = $candidateInfo->getPathname(); break 2; }
+                        $matchesLegacyName = false;
+                        foreach ($legacyNames as $legacyName) if ($candidateName === $legacyName . '.pdf' || str_starts_with($candidateName, $legacyName . '-')) { $matchesLegacyName = true; break; }
+                        if ($matchesLegacyName && str_starts_with((string) @file_get_contents($candidateInfo->getPathname(), false, null, 0, 4), '%PDF')) { $source = $candidateInfo->getPathname(); break 2; }
                     }
                 }
                 if ($source === '' && $debug && $phoenixUnresolved < 3) {
