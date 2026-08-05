@@ -4,6 +4,32 @@
   border-color: var(--bs-border-color);
 }
 
+/* Bootstrap's native select popup is browser-rendered; set explicit dark
+ * colors so options remain readable instead of black text on a grey surface. */
+:root[data-bs-theme="dark"] select,
+:root[data-bs-theme="dark"] .form-select,
+:root[data-bs-theme="dark"] select option {
+  color: var(--bs-body-color);
+  background-color: var(--bs-tertiary-bg);
+  color-scheme: dark;
+}
+:root[data-bs-theme="dark"] .dropdown-menu,
+:root[data-bs-theme="dark"] .dropdown-item,
+:root[data-bs-theme="dark"] .ts-dropdown,
+:root[data-bs-theme="dark"] .ts-dropdown .option,
+:root[data-bs-theme="dark"] .ts-wrapper .ts-control {
+  color: var(--bs-body-color);
+  background-color: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+}
+:root[data-bs-theme="dark"] .dropdown-item:hover,
+:root[data-bs-theme="dark"] .dropdown-item:focus,
+:root[data-bs-theme="dark"] .ts-dropdown .active,
+:root[data-bs-theme="dark"] .ts-dropdown .option:hover {
+  color: var(--bs-emphasis-color);
+  background-color: var(--bs-secondary-bg);
+}
+
 :root[data-bs-theme="dark"] .tabulator .tabulator-tableholder,
 :root[data-bs-theme="dark"] .tabulator .tabulator-tableholder .tabulator-table {
   background-color: var(--bs-body-bg);
