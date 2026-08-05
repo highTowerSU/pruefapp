@@ -13,7 +13,8 @@ final class BillingController
         $preselectedIds = ($_GET['preselect'] ?? '') === '1' ? array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_preselect_inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0)) : [];
         if ($preselectedIds !== []) unset($_SESSION['billing_preselect_inspection_ids']);
         $allRows = self::rows($preselectedIds, $_GET);
-        $perPage = in_array((int) ($_GET['per_page'] ?? 50), [25, 50, 100], true) ? (int) $_GET['per_page'] : 50;
+        $requestedPerPage = (int) ($_GET['per_page'] ?? 50);
+        $perPage = in_array($requestedPerPage, [25, 50, 100], true) ? $requestedPerPage : 50;
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $pages = max(1, (int) ceil(count($allRows) / $perPage));
         $page = min($page, $pages);
