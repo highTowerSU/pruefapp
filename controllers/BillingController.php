@@ -176,7 +176,6 @@ final class BillingController
         // sichtbar in Prüfungen, wird aber niemals für einen Export angeboten.
         $where = "COALESCE(i.billing_eligibility, CASE WHEN i.billable = 1 THEN 'billable' ELSE 'not_billable' END) = ? AND i.result_status IN ('bestanden','durchgefallen') AND i.test_date >= '2025-01-01'";
         $args = [$eligibilityFilter];
-        if ($eligibilityFilter === 'billable') $where .= " AND TRIM(COALESCE(i.report_path, '')) <> ''";
         if ($statusFilter !== '') { $where .= ' AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = \'\' THEN \'not_exported\' ELSE \'exported\' END) = ?'; $args[] = $statusFilter; }
         else if ($eligibilityFilter === 'billable') $where .= " AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) IN ('not_exported','manually_unexported','export_failed')";
         if ($ids !== []) { $where .= ' AND i.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'; array_push($args, ...$ids); }
