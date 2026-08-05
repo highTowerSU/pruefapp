@@ -366,6 +366,7 @@ function ensure_structure_schema(): void
             'billable' => 'INTEGER NOT NULL DEFAULT 0',
             'billing_exported_at' => 'TEXT NULL',
             'billing_export_id' => "TEXT NOT NULL DEFAULT ''",
+            'billing_exported_by' => "TEXT NOT NULL DEFAULT ''",
         ],
         'customer' => [
             'code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL',

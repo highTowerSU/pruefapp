@@ -109,7 +109,7 @@ final class ReportController
         if ($measurements !== []) $rows[] = ['__measurements_json', json_encode($measurements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         if ($checklist !== []) $rows[] = ['__checklist_json', json_encode($checklist, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         if ($raw !== []) $rows[] = ['__raw_json', json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
-        $examiner = (string) ($inspection->examiner ?: ($raw['created_by'] ?? ''));
+        $examiner = $scalar($inspection->examiner ?: ($raw['created_by'] ?? ''));
         if (function_exists('examiner_signature_data_uri')) {
             $profileSignature = examiner_signature_data_uri($examiner);
             if ($profileSignature !== '') $rows[] = ['__profile_signature', $profileSignature];

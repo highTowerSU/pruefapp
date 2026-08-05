@@ -26,9 +26,12 @@ final class BillingController
         if ($rows === []) { $_SESSION['billing_message'] = 'Bitte mindestens eine nicht exportierte, abrechenbare Prüfung auswählen.'; return [303, ['Location' => url_for('admin/abrechnung')], '']; }
         $action = (string) ($_POST['action'] ?? 'csv');
         if ($action === 'csv') return self::csv($rows);
+        $exportedByUser = current_user();
+        $exportedBy = trim((string) (($exportedByUser->name ?? '') ?: ($exportedByUser->email ?? '')));
         if ($action === 'mark') {
             $invoiceId = self::recordInvoice($rows, 'manual', 'marked');
-            foreach ($rows as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ? WHERE id = ?', [date(DATE_ATOM), 'manual', $row['id']]);
+            foreach ($rows as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ?, billing_exported_by = ? WHERE id = ?', [date(DATE_ATOM), 'manual', $exportedBy, $row['id']]);
+            audit_log('abrechnung_exportiert', ['inspection_ids' => array_column($rows, 'id'), 'exported_by' => $exportedBy, 'export_id' => 'manual']);
             $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) als exportiert markiert. Rechnung #' . $invoiceId . ' wurde angelegt.';
         } elseif ($action === 'sevdesk') {
             $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
@@ -40,7 +43,8 @@ final class BillingController
                 $response = $client->createDraftInvoice($customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0));
                 $exportId = (string) ($response['objects']['id'] ?? $response['id'] ?? 'sevdesk');
                 $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk');
-                foreach ($items as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ? WHERE id = ?', [date(DATE_ATOM), $exportId, $row['id']]);
+                foreach ($items as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ?, billing_exported_by = ? WHERE id = ?', [date(DATE_ATOM), $exportId, $exportedBy, $row['id']]);
+                audit_log('abrechnung_exportiert', ['inspection_ids' => array_column($items, 'id'), 'exported_by' => $exportedBy, 'export_id' => $exportId]);
             }
             $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) an SevDesk übertragen.';
         }
