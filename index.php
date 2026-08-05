@@ -109,6 +109,7 @@ $routes = [
     ['GET', '/geraete/zip/{id}/status', fn($params, $isHx) => ReportController::zipStatus($params, $isHx)],
     ['POST', '/geraete/zip/{id}/abbrechen', fn($params, $isHx) => ReportController::cancelPdfJob($params, $isHx)],
     ['POST', '/admin/audit-log/job/{id}/abbrechen', fn($params, $isHx) => ReportController::cancelCronJob($params, $isHx)],
+    ['POST', '/admin/audit-log/export', fn($params, $isHx) => AdminController::exportAuditRuns($params, $isHx)],
     ['GET', '/geraete/zip/{id}/download', fn($params, $isHx) => ReportController::zipDownload($params, $isHx)],
     ['GET', '/admin/abrechnung', fn($params, $isHx) => BillingController::index($params, $isHx)],
     ['GET', '/admin/abrechnung/rechnung/{id}', fn($params, $isHx) => BillingController::invoice($params, $isHx)],

@@ -146,7 +146,8 @@ final class ReportController
     public static function cancelCronJob(array $params, bool $isHx): array
     {
         $result = self::cancelBackgroundJob($params);
-        return $result[0] >= 400 ? $result : [303, ['Location' => url_for('admin/audit-log')], ''];
+        if ($result[0] >= 400) return $result;
+        return $isHx ? [200, ['HX-Trigger' => 'audit-tasks-refresh'], ''] : [303, ['Location' => url_for('admin/audit-log')], ''];
     }
 
     private static function cancelBackgroundJob(array $params): array

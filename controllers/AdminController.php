@@ -91,6 +91,7 @@ class AdminController
         foreach (['search', 'category', 'status', 'user', 'action', 'correlation_id', 'from', 'to'] as $filterKey) {
             $auditFilters[$filterKey] = trim((string) ($_GET[$filterKey] ?? ''));
         }
+        $auditFilters['correlations'] = trim((string) ($_GET['correlations'] ?? ''));
         $auditRepository = new AuditTrailRepository();
         $events = $auditRepository->paginateEvents($requestedPage, 50, $auditFilters);
         $importRuns = $auditRepository->latestCorrelations('import', 20);
@@ -106,16 +107,21 @@ class AdminController
         $revisionPage = min($revisionPage, $revisionPages);
         $revisions = array_slice($allRevisions, ($revisionPage - 1) * $revisionPerPage, $revisionPerPage);
         $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
-        $cronRunFilter = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($_GET['cron_run'] ?? ''));
+        $rawCronRuns = trim((string) ($_GET['cron_runs'] ?? ''));
+        $cronRunFilters = array_values(array_unique(array_filter(array_map(
+            static fn(string $value): string => preg_replace('/[^A-Za-z0-9_-]/', '', trim($value)),
+            $rawCronRuns !== '' ? explode(',', $rawCronRuns) : [trim((string) ($_GET['cron_run'] ?? ''))]
+        ))));
+        $cronRunFilter = $cronRunFilters[0] ?? '';
         $cronPerPage = 50;
         // `cron_log` is intentionally an underscored SQL table name. RedBean
         // bean types cannot contain underscores, so do not call R::count()
         // with it as a bean type.
         $cronColumns = R::inspect('cron_log');
         $hasCronRunId = is_array($cronColumns) && isset($cronColumns['run_id']);
-        if (!$hasCronRunId) $cronRunFilter = '';
-        $cronWhere = $cronRunFilter !== '' ? ' WHERE run_id = ?' : '';
-        $cronArguments = $cronRunFilter !== '' ? [$cronRunFilter] : [];
+        if (!$hasCronRunId) $cronRunFilters = [];
+        $cronWhere = $cronRunFilters !== [] ? ' WHERE run_id IN (' . implode(',', array_fill(0, count($cronRunFilters), '?')) . ')' : '';
+        $cronArguments = $cronRunFilters;
         $cronTotal = (int) R::getCell('SELECT COUNT(*) FROM cron_log' . $cronWhere, $cronArguments);
         $cronPages = max(1, (int) ceil($cronTotal / $cronPerPage));
         $cronPage = min($cronPage, $cronPages);
@@ -147,6 +153,7 @@ class AdminController
             'cronLog' => $cronLog,
             'cronRuns' => $cronRuns,
             'cronRunFilter' => $cronRunFilter,
+            'cronRunFilters' => $cronRunFilters,
             'cronTotal' => $cronTotal,
             'cronPage' => $cronPage,
             'cronPages' => $cronPages,
@@ -167,6 +174,41 @@ class AdminController
         ]);
 
         return [200, [], $body];
+    }
+
+    public static function exportAuditRuns(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $kind = trim((string) ($_POST['kind'] ?? 'cron'));
+        $format = strtolower(trim((string) ($_POST['format'] ?? 'json')));
+        $rawIds = $_POST['ids'] ?? '';
+        $ids = is_array($rawIds) ? $rawIds : explode(',', (string) $rawIds);
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => preg_replace('/[^A-Za-z0-9_-]/', '', trim((string) $value)),
+            $ids
+        ))));
+        if (!in_array($kind, ['cron', 'import'], true) || !in_array($format, ['csv', 'json'], true) || $ids === []) return [400, [], 'Keine gültige Lauf-Auswahl.'];
+        $ids = array_slice($ids, 0, 200);
+        if ($kind === 'cron') {
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $rows = R::getAll("SELECT run_at, level, message, run_id, context_json FROM cron_log WHERE run_id IN ({$marks}) ORDER BY id ASC", $ids);
+            $title = 'cron-laeufe';
+        } else {
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $rows = R::getAll("SELECT erstellt_am AS run_at, aktion AS action, nutzername AS user_name, anzeige_name AS display_name, status, correlation_id, details_json FROM auditlog WHERE category = 'import' AND correlation_id IN ({$marks}) ORDER BY id ASC", $ids);
+            $title = 'import-laeufe';
+        }
+        $filename = $title . '-' . date('Ymd-His') . '.' . $format;
+        if ($format === 'json') return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $filename . '"'], json_encode(['kind' => $kind, 'run_ids' => $ids, 'rows' => $rows], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}'];
+        $headers = $kind === 'cron' ? ['Zeitpunkt', 'Status', 'Meldung', 'Cron-Lauf', 'Kontext'] : ['Zeitpunkt', 'Aktion', 'Benutzer', 'Anzeigename', 'Status', 'Vorgang', 'Details'];
+        $lines = [implode(';', array_map(static fn(string $value): string => '"' . str_replace('"', '""', $value) . '"', $headers))];
+        foreach ($rows as $row) {
+            $values = $kind === 'cron'
+                ? [(string) ($row['run_at'] ?? ''), (string) ($row['level'] ?? ''), (string) ($row['message'] ?? ''), (string) ($row['run_id'] ?? ''), (string) ($row['context_json'] ?? '')]
+                : [(string) ($row['run_at'] ?? ''), (string) ($row['action'] ?? ''), (string) ($row['user_name'] ?? ''), (string) ($row['display_name'] ?? ''), (string) ($row['status'] ?? ''), (string) ($row['correlation_id'] ?? ''), (string) ($row['details_json'] ?? '')];
+            $lines[] = implode(';', array_map(static fn(string $value): string => '"' . str_replace('"', '""', $value) . '"', $values));
+        }
+        return [200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $filename . '"'], "\xEF\xBB\xBF" . implode("\r\n", $lines) . "\r\n"];
     }
 
     public static function updateUserRole(array $params, bool $isHx): array
