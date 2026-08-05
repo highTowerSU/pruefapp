@@ -46,6 +46,11 @@ class DeviceController
         $floorId = (int) ($_GET['floor_id'] ?? 0);
         $roomId = (int) ($_GET['room_id'] ?? 0);
         $deviceId = (int) ($_GET['device_id'] ?? 0);
+        if ($deviceId > 0 && !R::load('device', $deviceId)->id) {
+            $external = trim((string) ($_GET['device_id'] ?? ''));
+            $resolved = R::findOne('device', ' external_number = ? ', [$external]);
+            if ($resolved) $deviceId = (int) $resolved->id;
+        }
         $newNumber = trim((string) ($_GET['new_number'] ?? ''));
         $inspectionStatus = trim((string) ($_GET['inspection_status'] ?? ''));
         $showArchived = current_user_is_superadmin() && ($_GET['show_archived'] ?? '') === '1';
@@ -194,6 +199,7 @@ class DeviceController
                 'selectedDeviceIds' => $selectedDeviceIds,
                 'zipJob' => $zipJob,
                 'zipJobStatus' => $zipJobStatus,
+                'selectedDeviceId' => $deviceId,
             ]),
         ])];
     }
