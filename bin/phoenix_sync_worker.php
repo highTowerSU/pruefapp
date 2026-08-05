@@ -31,8 +31,8 @@ try {
     };
     if (($payload['type'] ?? '') === 'pdf_regenerate') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['inspection_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
-        $total = count($ids); $step = 0;
-        foreach ($ids as $inspectionId) {
+        $total = count($ids); $step = min((int) ($statusInitial['step'] ?? 0), $total);
+        foreach (array_slice($ids, $step) as $inspectionId) {
             $inspection = R::load('inspection', $inspectionId); $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
             if ($inspection->id && $device && $device->id) {
                 $relative = 'reports/current/' . $inspectionId . '.pdf'; $path = app_data_root() . '/' . $relative; if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
