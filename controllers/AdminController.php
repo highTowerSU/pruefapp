@@ -74,10 +74,12 @@ class AdminController
             ];
         }, array_values($beans));
 
+        $customers = array_values(R::findAll('customer', ' ORDER BY LOWER(name), id '));
         $content = render_template('admin_user_list.php', [
             'users' => $users,
             'roleOptions' => $roleOptions,
-            'customers' => R::findAll('customer', ' ORDER BY LOWER(name), id '),
+            'customers' => $customers,
+            'customerRows' => self::customerHierarchy($customers),
             'canManageUsers' => current_user_is_superadmin(),
         ]);
 
@@ -268,18 +270,115 @@ class AdminController
         if (!current_user_is_superadmin()) return forbidden_response();
         $userId = (int) ($params['id'] ?? 0); $user = R::load('oauthuser', $userId);
         if (!$user->id) return [404, [], 'Nutzer nicht gefunden'];
-        R::exec('DELETE FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);
         $descendants = is_array($_POST['include_descendants'] ?? null) ? $_POST['include_descendants'] : [];
-        foreach (array_unique(array_map('intval', (array) ($_POST['customer_ids'] ?? []))) as $customerId) {
-            if ($customerId > 0 && R::load('customer', $customerId)->id) {
+        $selectedIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['customer_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
+        $customers = array_values(R::findAll('customer'));
+        $parentById = [];
+        foreach ($customers as $customer) {
+            $customerId = (int) $customer->id;
+            $parentById[$customerId] = (int) ($customer->parent_customer_id ?? 0);
+        }
+        $assignments = self::normalizeCustomerAssignments(
+            $selectedIds,
+            array_map('intval', array_keys($descendants)),
+            $parentById
+        );
+
+        R::begin();
+        try {
+            R::exec('DELETE FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);
+            foreach ($assignments as $customerId => $includeDescendants) {
                 R::exec(
                     'INSERT OR IGNORE INTO oauthuser_customer (oauthuser_id, customer_id, include_descendants, created_at) VALUES (?, ?, ?, ?)',
-                    [$userId, $customerId, isset($descendants[$customerId]) ? 1 : 0, date('c')]
+                    [$userId, $customerId, $includeDescendants ? 1 : 0, date('c')]
                 );
             }
+            R::commit();
+        } catch (Throwable $exception) {
+            R::rollback();
+            throw $exception;
         }
-        audit_log('nutzer_kundenzuordnung_geaendert', ['oauthuser_id' => $userId]);
+        audit_log('nutzer_kundenzuordnung_geaendert', [
+            'oauthuser_id' => $userId,
+            'customer_ids' => array_map('intval', array_keys($assignments)),
+            'include_descendants' => array_map('intval', array_keys(array_filter($assignments))),
+        ]);
         $_SESSION['meldung'] = 'Kundenzuordnung aktualisiert.';
         return [303, ['Location' => url_for('admin/nutzer')], ''];
+    }
+
+    /**
+     * Removes redundant child assignments covered by an ancestor assignment.
+     *
+     * @param array<int, int> $selectedIds
+     * @param array<int, int> $includeDescendantIds
+     * @param array<int, int> $parentById
+     * @return array<int, bool>
+     */
+    public static function normalizeCustomerAssignments(
+        array $selectedIds,
+        array $includeDescendantIds,
+        array $parentById
+    ): array
+    {
+        $selectedSet = [];
+        foreach (array_unique(array_map('intval', $selectedIds)) as $customerId) {
+            if ($customerId > 0 && array_key_exists($customerId, $parentById)) $selectedSet[$customerId] = true;
+        }
+        $includeSet = [];
+        foreach (array_unique(array_map('intval', $includeDescendantIds)) as $customerId) {
+            if (isset($selectedSet[$customerId])) $includeSet[$customerId] = true;
+        }
+        $assignments = [];
+        foreach (array_keys($selectedSet) as $customerId) {
+            $parentId = $parentById[$customerId] ?? 0;
+            $visited = [];
+            $covered = false;
+            while ($parentId > 0 && !isset($visited[$parentId])) {
+                $visited[$parentId] = true;
+                if (isset($selectedSet[$parentId], $includeSet[$parentId])) {
+                    $covered = true;
+                    break;
+                }
+                $parentId = $parentById[$parentId] ?? 0;
+            }
+            if (!$covered) $assignments[$customerId] = isset($includeSet[$customerId]);
+        }
+        return $assignments;
+    }
+
+    /**
+     * @param array<int, object> $customers
+     * @return array<int, array{customer: object, id: int, parent_id: int, depth: int, has_children: bool}>
+     */
+    private static function customerHierarchy(array $customers): array
+    {
+        $byId = [];
+        $children = [];
+        foreach ($customers as $customer) $byId[(int) $customer->id] = $customer;
+        foreach ($customers as $customer) {
+            $id = (int) $customer->id;
+            $parentId = (int) ($customer->parent_customer_id ?? 0);
+            if ($parentId === $id || !isset($byId[$parentId])) $parentId = 0;
+            $children[$parentId][] = $id;
+        }
+        $rows = [];
+        $visited = [];
+        $append = static function (int $id, int $depth) use (&$append, &$rows, &$visited, $byId, $children): void {
+            if (isset($visited[$id]) || !isset($byId[$id])) return;
+            $visited[$id] = true;
+            $customer = $byId[$id];
+            $rows[] = [
+                'customer' => $customer,
+                'id' => $id,
+                'parent_id' => (int) ($customer->parent_customer_id ?? 0),
+                'depth' => $depth,
+                'has_children' => !empty($children[$id]),
+            ];
+            foreach ($children[$id] ?? [] as $childId) $append($childId, $depth + 1);
+        };
+        foreach ($children[0] ?? [] as $rootId) $append($rootId, 0);
+        foreach (array_keys($byId) as $id) $append($id, 0);
+        return $rows;
     }
 }

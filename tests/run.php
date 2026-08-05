@@ -16,6 +16,7 @@ $tests = [
     'inspection_evaluation_test.php',
     'inspection_migration_test.php',
     'device_ui_test.php',
+    'user_customer_access_test.php',
 ];
 $failed = 0;
 foreach ($tests as $test) {

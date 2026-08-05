@@ -2,6 +2,7 @@
 /** @var array<int, array<string, mixed>> $users */
 /** @var array<string, string> $roleOptions */
 /** @var array<int, object> $customers */
+/** @var array<int, array{customer: object, id: int, parent_id: int, depth: int, has_children: bool}> $customerRows */
 /** @var bool $canManageUsers */
 ?>
 <div class="card shadow-sm">
@@ -49,15 +50,16 @@
                                 <div class="small text-body-secondary mt-1">Logins: <?= htmlspecialchars((string) $user['login_count']) ?></div>
                             </td>
                             <td>
-                                <?php if ($canManageUsers): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/kunden'), ENT_QUOTES) ?>">
+                                <?php if ($canManageUsers): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/kunden'), ENT_QUOTES) ?>" class="customer-access-form">
                                     <div class="border rounded p-2 overflow-auto" style="max-height:12rem" aria-label="Kundenzugriff">
-                                        <?php foreach ($customers as $customer): $customerId = (int) $customer->id; $assigned = in_array($customerId, $user['customer_ids'] ?? [], true); ?>
-                                            <div class="mb-2">
-                                                <label class="form-check mb-1"><input class="form-check-input" type="checkbox" name="customer_ids[]" value="<?= $customerId ?>"<?= $assigned ? ' checked' : '' ?>><span class="form-check-label"><i class="fa-solid fa-building me-1" aria-hidden="true"></i><?= htmlspecialchars(($customer->code ? $customer->code . ' · ' : '') . $customer->name) ?></span></label>
-                                                <label class="form-check ms-4 small"><input class="form-check-input" type="checkbox" name="include_descendants[<?= $customerId ?>]" value="1"<?= !empty($user['customer_access'][$customerId]) ? ' checked' : '' ?>><span class="form-check-label">Unterkunden einbeziehen</span></label>
+                                        <?php foreach ($customerRows as $customerRow): $customer = $customerRow['customer']; $customerId = $customerRow['id']; $assigned = in_array($customerId, $user['customer_ids'] ?? [], true); $depth = min(5, $customerRow['depth']); ?>
+                                            <div class="mb-2 customer-access-item ms-<?= $depth ?>" data-customer-access-item data-customer-id="<?= $customerId ?>" data-parent-customer-id="<?= (int) $customerRow['parent_id'] ?>">
+                                                <label class="form-check mb-1"><input class="form-check-input" type="checkbox" name="customer_ids[]" value="<?= $customerId ?>" data-customer-select<?= $assigned ? ' checked' : '' ?>><span class="form-check-label"><i class="fa-solid <?= $depth > 0 ? 'fa-code-branch' : 'fa-building' ?> icon-slot me-1" aria-hidden="true"></i><?= htmlspecialchars(($customer->code ? $customer->code . ' · ' : '') . $customer->name) ?></span></label>
+                                                <?php if ($customerRow['has_children']): ?><label class="form-check ms-4 small"><input class="form-check-input" type="checkbox" name="include_descendants[<?= $customerId ?>]" value="1" data-include-descendants<?= !empty($user['customer_access'][$customerId]) ? ' checked' : '' ?>><span class="form-check-label">Unterkunden einbeziehen</span></label><?php endif; ?>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
+                                    <div class="form-text">Einbezogene Unterkunden werden deaktiviert, weil der Zugriff bereits über den Oberkunden gilt.</div>
                                     <button type="submit" class="btn btn-outline-primary btn-sm mt-2"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Zugriff speichern</button>
                                 </form><?php else: ?><span class="text-body-secondary small"><?php $assigned = array_values(array_filter(array_map(static fn($customer): string => ($customer->code ? $customer->code . ' · ' : '') . (string) $customer->name, $customers), static fn($label, $index): bool => in_array((int) ($customers[$index]->id ?? 0), $user['customer_ids'] ?? [], true), ARRAY_FILTER_USE_BOTH)); ?><?= htmlspecialchars($assigned === [] ? 'Keine Zuordnung' : implode(', ', $assigned)) ?></span><?php endif; ?>
                             </td>
@@ -107,3 +109,33 @@
         </div>
     </div>
 </div>
+<script>
+document.querySelectorAll('.customer-access-form').forEach(form => {
+    const items = [...form.querySelectorAll('[data-customer-access-item]')];
+    const byId = new Map(items.map(item => [item.dataset.customerId, item]));
+    const coveredByParent = item => {
+        let parentId = item.dataset.parentCustomerId || '';
+        const visited = new Set();
+        while (parentId !== '' && parentId !== '0' && !visited.has(parentId)) {
+            visited.add(parentId);
+            const parent = byId.get(parentId);
+            if (!parent) return false;
+            if (parent.querySelector('[data-customer-select]')?.checked && parent.querySelector('[data-include-descendants]')?.checked) return true;
+            parentId = parent.dataset.parentCustomerId || '';
+        }
+        return false;
+    };
+    const synchronize = () => {
+        items.forEach(item => {
+            const customer = item.querySelector('[data-customer-select]');
+            const descendants = item.querySelector('[data-include-descendants]');
+            const covered = coveredByParent(item);
+            customer.disabled = covered;
+            if (descendants) descendants.disabled = covered || !customer.checked;
+            item.classList.toggle('opacity-50', covered);
+        });
+    };
+    form.addEventListener('change', synchronize);
+    synchronize();
+});
+</script>
