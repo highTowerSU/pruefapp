@@ -292,6 +292,11 @@ final class ReportController
     {
         if (count($rows) < 1 || !is_array($rows[0])) return $rows;
         $headers = array_values($rows[0]);
+        // Periodische Prüfberichte (Tages-/Wochenreport) müssen unabhängig
+        // von der Anzahl der Treffer dasselbe Spaltenschema behalten. Sonst
+        // wird ein Wochenreport mit zwei Einträgen anders gekürzt als ein
+        // Tagesreport und wirkt im Export unnötig „kürzer“.
+        if (in_array('Prüfnummer', $headers, true)) return $rows;
         $data = array_slice($rows, 1);
         $index = static function (string $name) use ($headers): int|false { return array_search($name, $headers, true); };
         $values = static function (int $column) use ($data): array {
