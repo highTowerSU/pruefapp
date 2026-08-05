@@ -93,9 +93,10 @@ if (!is_file($migrationMarker)) {
 // Einmalige PDF-Migration: alle bereits abgeschlossenen Prüfungen werden mit
 // dem aktuellen Einzelbericht-Layout neu gerendert. Der Cursor macht den Lauf
 // über mehrere Cron-Iterationen hinweg sicher und wiederholbar.
-$phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v3.json';
+$phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v4.json';
 if (!is_file($phoenixRestoreMarker)) {
-        $phoenixRestored = 0;
+    $phoenixRestored = 0;
+    $phoenixUnresolved = 0;
     try {
         $phoenixRows = R::getAll("SELECT id, external_number, report_path FROM inspection
             WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
@@ -134,15 +135,21 @@ if (!is_file($phoenixRestoreMarker)) {
                     }
                 }
             }
-            if ($source !== '' && $source !== $target) {
+            if ($source === '') {
+                $phoenixUnresolved++;
+                continue;
+            }
+            if ($source !== $target) {
                 if (!is_dir(dirname($target))) @mkdir(dirname($target), 0770, true);
                 if (@copy($source, $target)) $phoenixRestored++;
             }
         }
-        if ($timeLeft() > 4) {
+        if ($timeLeft() > 4 && $phoenixUnresolved === 0 && count($phoenixRows) > 0) {
             if (!is_dir(dirname($phoenixRestoreMarker))) @mkdir(dirname($phoenixRestoreMarker), 0770, true);
             file_put_contents($phoenixRestoreMarker, json_encode(['completed_at' => date(DATE_ATOM), 'restored' => $phoenixRestored], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
             if ($phoenixRestored > 0) $log('Phoenix-PDFs wiederhergestellt: ' . $phoenixRestored);
+        } elseif ($phoenixUnresolved > 0) {
+            $log('Phoenix-Original-PDFs noch nicht vollständig gefunden (' . $phoenixUnresolved . ' offen); Wiederherstellung bleibt vorgemerkt.', 'warning');
         }
         $phoenixRestoredTotal += $phoenixRestored;
     } catch (Throwable $exception) {

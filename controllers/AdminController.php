@@ -150,9 +150,9 @@ class AdminController
             }
         }
         try {
-            $cronPhoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v3.json';
+            $cronPhoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v4.json';
         } catch (Throwable) {
-            $cronPhoenixRestoreMarker = '/var/www/data/pruefapp/migration/inspection-reports-phoenix-restore-v3.json';
+            $cronPhoenixRestoreMarker = '/var/www/data/pruefapp/migration/inspection-reports-phoenix-restore-v4.json';
         }
         $cronPhoenixRestorePending = !is_file($cronPhoenixRestoreMarker);
         if ($cronPhoenixRestorePending) {

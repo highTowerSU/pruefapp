@@ -18,7 +18,7 @@ $payload = json_decode((string) file_get_contents($payloadPath), true);
 $statusInitial = is_file($statusPath) ? json_decode((string) @file_get_contents($statusPath), true) : [];
 $statusCreatedAt = is_array($statusInitial) && !empty($statusInitial['created_at']) ? (string) $statusInitial['created_at'] : date(DATE_ATOM);
 $writeStatus = static function (array $extra) use ($statusPath, $id, $payload, $statusCreatedAt): void {
-    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'state' => 'running', 'created_at' => $statusCreatedAt, 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
+    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'type' => (string) ($payload['type'] ?? 'background'), 'state' => 'running', 'created_at' => $statusCreatedAt, 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
 };
 $writeStatus([]);
 try {
@@ -62,7 +62,8 @@ try {
         $rows = $ids === [] ? [] : R::getAll($sql, $ids);
         if (!$all) { $seen = []; $rows = array_values(array_filter($rows, static function (array $row) use (&$seen): bool { $device = (int) ($row['device_id'] ?? 0); if (isset($seen[$device])) return false; $seen[$device] = true; return true; })); }
         $outDir = app_data_root() . '/exports'; if (!is_dir($outDir)) mkdir($outDir, 0770, true);
-        $workPath = $root . '/' . $id . '.pdfzip.work.json';
+        $workDir = app_data_root() . '/exports'; if (!is_dir($workDir)) mkdir($workDir, 0770, true);
+        $workPath = $workDir . '/.pdfzip-' . $id . '.work.json';
         $work = is_file($workPath) ? json_decode((string) @file_get_contents($workPath), true) : [];
         $resume = is_array($work) && !empty($work['zip_path']) && is_file((string) $work['zip_path']) && (int) ($work['step'] ?? 0) <= count($rows);
         $zipPath = $resume ? (string) $work['zip_path'] : $outDir . '/pruefberichte-' . date('Ymd-His') . '-' . $id . '.zip';
