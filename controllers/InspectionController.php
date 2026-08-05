@@ -70,7 +70,10 @@ final class InspectionController
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $inspection->billable = isset($_POST['billable']) ? 1 : 0;
+            // Abrechenbarkeit wird ausschließlich in der separaten
+            // Abrechnungsansicht gepflegt; alte Werte dürfen beim Speichern
+            // einer Prüfung nicht versehentlich gelöscht werden.
+            if (array_key_exists('billable', $_POST)) $inspection->billable = isset($_POST['billable']) ? 1 : 0;
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
             $submittedNumber = (string) (preg_replace('/-(?:\d{2}|20\d{2})$/', '', $submittedNumber) ?: $submittedNumber);
