@@ -31,7 +31,7 @@ $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
 $log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); $isProblem = in_array(strtolower($level), ['warning', 'error', 'critical'], true); if ($debug || $isProblem) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { R::exec('INSERT INTO cron_log (run_at, level, message) VALUES (?, ?, ?)', [$timestamp, strtolower($level), $message]); } catch (Throwable $exception) { if ($debug || $isProblem) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
 $pruneOperationalLogs = static function () use ($logPath): void {
-    $maxRows = max(500, (int) (getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: 5000));
+    $maxRows = max(500, (int) (get_app_config('cron_log_max_rows', getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: '5000') ?: 5000));
     try {
         $count = (int) R::getCell('SELECT COUNT(*) FROM cron_log');
         if ($count > $maxRows) {
@@ -41,7 +41,7 @@ $pruneOperationalLogs = static function () use ($logPath): void {
     } catch (Throwable) {
         // Log retention must never interrupt the actual Cron work.
     }
-    $maxBytes = max(256 * 1024, (int) (getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: 5 * 1024 * 1024));
+    $maxBytes = max(256 * 1024, (int) (get_app_config('cron_log_max_bytes', getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: (string) (5 * 1024 * 1024)) ?: 5 * 1024 * 1024));
     if (is_file($logPath) && (int) @filesize($logPath) > $maxBytes) {
         $content = @file_get_contents($logPath);
         if (is_string($content)) {

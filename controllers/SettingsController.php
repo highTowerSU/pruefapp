@@ -22,6 +22,8 @@ class SettingsController
             'benning_reimport_directory' => trim((string) (get_app_config('benning_reimport_directory', '') ?? '')),
             'benning_reports_directory' => trim((string) (get_app_config('benning_reports_directory', '') ?? '')),
             'auto_update_enabled' => get_app_config('auto_update_enabled', '1') === '1' ? '1' : '0',
+            'cron_log_max_rows' => (string) max(500, (int) (get_app_config('cron_log_max_rows', '5000') ?? '5000')),
+            'cron_log_max_bytes' => (string) max(262144, (int) (get_app_config('cron_log_max_bytes', (string) (5 * 1024 * 1024)) ?? (5 * 1024 * 1024))),
         ];
         $errors = [];
         $databaseWizard = null;
@@ -96,6 +98,13 @@ class SettingsController
             $values['benning_reimport_directory'] = trim((string) ($_POST['benning_reimport_directory'] ?? ''));
             $values['benning_reports_directory'] = trim((string) ($_POST['benning_reports_directory'] ?? ''));
             $values['auto_update_enabled'] = isset($_POST['auto_update_enabled']) ? '1' : '0';
+            $values['cron_log_max_rows'] = trim((string) ($_POST['cron_log_max_rows'] ?? '5000'));
+            $values['cron_log_max_bytes'] = trim((string) ($_POST['cron_log_max_bytes'] ?? (5 * 1024 * 1024)));
+
+            $cronRows = filter_var($values['cron_log_max_rows'], FILTER_VALIDATE_INT);
+            $cronBytes = filter_var($values['cron_log_max_bytes'], FILTER_VALIDATE_INT);
+            if ($cronRows === false || $cronRows < 500 || $cronRows > 1000000) $errors['cron_log_max_rows'] = 'Bitte zwischen 500 und 1.000.000 Einträge wählen.';
+            if ($cronBytes === false || $cronBytes < 262144 || $cronBytes > 100 * 1024 * 1024) $errors['cron_log_max_bytes'] = 'Bitte zwischen 262.144 Bytes und 100 MB wählen.';
 
             if ($values['keycloak_account_console_base_url'] !== ''
                 && filter_var($values['keycloak_account_console_base_url'], FILTER_VALIDATE_URL) === false
@@ -121,6 +130,8 @@ class SettingsController
                 set_app_config('benning_reimport_directory', $values['benning_reimport_directory'] === '' ? null : $values['benning_reimport_directory']);
                 set_app_config('benning_reports_directory', $values['benning_reports_directory'] === '' ? null : $values['benning_reports_directory']);
                 set_app_config('auto_update_enabled', $values['auto_update_enabled']);
+                set_app_config('cron_log_max_rows', (string) $cronRows);
+                set_app_config('cron_log_max_bytes', (string) $cronBytes);
 
                 $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
 
