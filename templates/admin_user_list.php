@@ -82,6 +82,9 @@
                                 <?php endif; ?>
                             </td>
                             <td class="text-end">
+                                <a href="<?= htmlspecialchars(url_for('admin/nutzer/' . (int) $user['id'] . '/profil'), ENT_QUOTES) ?>" class="btn btn-outline-primary btn-sm mb-1">
+                                    <i class="fa-solid fa-id-card me-1" aria-hidden="true"></i>Profil ansehen<?= $canManageUsers ? '/bearbeiten' : '' ?>
+                                </a>
                                 <?php if (!empty($user['keycloak_url'])): ?>
                                     <a href="<?= htmlspecialchars($user['keycloak_url'], ENT_QUOTES) ?>" class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener">
                                         <i class="fa-solid fa-arrow-up-right-from-square me-1" aria-hidden="true"></i>
