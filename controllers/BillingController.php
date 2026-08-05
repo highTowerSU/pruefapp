@@ -25,9 +25,19 @@ final class BillingController
     {
         if (!current_user_has_role('admin')) return forbidden_response();
         $ids = array_values(array_filter(array_map('intval', (array) ($_POST['inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0));
+        $action = (string) ($_POST['action'] ?? 'csv');
+        if (in_array($action, ['set_billable', 'set_not_billable'], true)) {
+            if ($ids === []) { $_SESSION['billing_message'] = 'Bitte mindestens eine Prüfung auswählen.'; return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], '']; }
+            $eligibility = $action === 'set_billable' ? 'billable' : 'not_billable';
+            $reason = trim((string) ($_POST['reason'] ?? '')) ?: ($eligibility === 'not_billable' ? 'Manuell als nicht abrechenbar markiert' : '');
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            R::exec("UPDATE inspection SET billable = ?, billing_eligibility = ?, billing_not_billable_reason = ?, billing_not_billable_comment = ?, updated_at = ? WHERE id IN ($marks)", array_merge([$eligibility === 'billable' ? 1 : 0, $eligibility, $reason, $reason, date(DATE_ATOM)], $ids));
+            audit_log('abrechenbarkeit_massenaktion', ['inspection_ids' => $ids, 'new' => $eligibility, 'reason' => $reason]);
+            $_SESSION['billing_message'] = count($ids) . ' Prüfung(en) aktualisiert.';
+            return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
+        }
         $rows = self::rows($ids);
         if ($rows === []) { $_SESSION['billing_message'] = 'Bitte mindestens eine nicht exportierte, abrechenbare Prüfung auswählen.'; return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], '']; }
-        $action = (string) ($_POST['action'] ?? 'csv');
         if ($action === 'csv') return self::csv($rows);
         $exportedByUser = current_user();
         $exportedBy = trim((string) (($exportedByUser->name ?? '') ?: ($exportedByUser->email ?? '')));
