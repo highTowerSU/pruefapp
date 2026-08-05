@@ -4,8 +4,8 @@
 declare(strict_types=1);
 
 /**
- * Reassign legacy Phoenix inspections that still carry the shared importer
- * account as examiner. The command is deliberately dry-run by default.
+ * Reassign imported inspections by inspection year. The command is
+ * deliberately dry-run by default.
  *
  * Usage:
  *   php bin/migrate_examiner_attribution.php
@@ -22,7 +22,7 @@ $bea = 'bdebertshaeuser@koenigsbl.au';
 $eandro = 'edebertshaeuser@koenigsbl.au';
 
 $rows = R::getAll(
-    "SELECT id, test_date, examiner, source_type FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv') AND (LOWER(TRIM(examiner)) = LOWER(?) OR TRIM(COALESCE(examiner, '')) IN ('', '—')) ORDER BY test_date, id",
+    "SELECT id, test_date, examiner, source_type FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv') ORDER BY test_date, id",
     [$source]
 );
 
