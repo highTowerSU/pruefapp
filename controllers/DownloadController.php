@@ -7,15 +7,24 @@ final class DownloadController
     public static function markRead(array $params, bool $isHx): array
     {
         $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
-        $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
-        if ($id === '' || !is_file($path)) return [404, [], 'Aufgabe nicht gefunden.'];
-        $job = json_decode((string) @file_get_contents($path), true) ?: [];
         $user = current_user();
         if ($user === null) return [403, [], ''];
-        if (!current_user_is_superadmin() && (int) ($job['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
-        $job['notification_read'] = true;
-        $job['notification_read_at'] = date(DATE_ATOM);
-        file_put_contents($path, json_encode($job, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        if ($id === '') return [404, [], 'Aufgabe nicht gefunden.'];
+        $paths = array_merge(
+            [sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json'],
+            glob(app_data_root() . '/logs/background-jobs/' . $id . '.status.json') ?: []
+        );
+        $found = false;
+        foreach (array_unique($paths) as $path) {
+            if (!is_file($path)) continue;
+            $job = json_decode((string) @file_get_contents($path), true) ?: [];
+            if (!current_user_is_superadmin() && (int) ($job['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
+            $job['notification_read'] = true;
+            $job['notification_read_at'] = date(DATE_ATOM);
+            file_put_contents($path, json_encode($job, JSON_UNESCAPED_UNICODE), LOCK_EX);
+            $found = true;
+        }
+        if (!$found) return [404, [], 'Aufgabe nicht gefunden.'];
         return [303, ['Location' => url_for('downloads')], ''];
     }
 

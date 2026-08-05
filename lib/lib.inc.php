@@ -838,6 +838,7 @@ function current_user_background_jobs(int $limit = 8): array
         'phoenix_sync' => 'Phoenix-Import',
     ];
     $statusPaths = array_merge(glob($root . '/*.status.json') ?: [], glob(app_data_root() . '/logs/background-jobs/*.status.json') ?: []);
+    $byId = [];
     foreach (array_unique($statusPaths) as $path) {
         $job = json_decode((string) @file_get_contents($path), true);
         if (!is_array($job)) continue;
@@ -850,7 +851,18 @@ function current_user_background_jobs(int $limit = 8): array
             && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle'], true)
             && is_file((string) ($job['output'] ?? ''));
         $job['notification_unread'] = empty($job['notification_read']);
-        $jobs[] = $job;
+        $existingIndex = $byId[$job['id']] ?? null;
+        if ($existingIndex === null) {
+            $byId[$job['id']] = count($jobs);
+            $jobs[] = $job;
+        } else {
+            // A completed job is copied to the history directory. Merge the
+            // two representations instead of showing it twice; read state
+            // is kept if either copy was marked as read.
+            $notificationUnread = !empty($jobs[$existingIndex]['notification_unread']) && !empty($job['notification_unread']);
+            if (($job['historical'] ?? false) === false) $jobs[$existingIndex] = array_merge($jobs[$existingIndex], $job);
+            $jobs[$existingIndex]['notification_unread'] = $notificationUnread;
+        }
     }
     usort($jobs, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
     return array_slice($jobs, 0, max(1, $limit));
