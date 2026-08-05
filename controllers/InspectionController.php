@@ -154,6 +154,7 @@ final class InspectionController
 
         $message = null;
         $stats = null;
+        $examinerMigrationStats = null;
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
         foreach ($importLogs as &$historyLog) {
@@ -178,6 +179,27 @@ final class InspectionController
             else $message = 'Phoenix-Sync läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'migrate_examiner_attribution') {
+                if (!current_user_is_superadmin()) return forbidden_response();
+                $sourceExaminer = 'info@CENEOS.net';
+                $beaExaminer = 'bdebertshaeuser@koenigsbl.au';
+                $eandroExaminer = 'edebertshaeuser@koenigsbl.au';
+                $examinerMigrationStats = ['bea_2023_2024' => 0, 'eandro_ab_2025' => 0, 'total' => 0];
+                foreach (R::getAll('SELECT id, test_date FROM inspection WHERE LOWER(TRIM(examiner)) = LOWER(?) AND test_date IS NOT NULL', [$sourceExaminer]) as $row) {
+                    $year = (int) substr(trim((string) ($row['test_date'] ?? '')), 0, 4);
+                    $target = in_array($year, [2023, 2024], true) ? $beaExaminer : ($year >= 2025 ? $eandroExaminer : '');
+                    if ($target === '') continue;
+                    $inspection = R::load('inspection', (int) $row['id']);
+                    if (!$inspection->id) continue;
+                    $inspection->examiner = $target;
+                    $inspection->updated_at = date(DATE_ATOM);
+                    R::store($inspection);
+                    $target === $beaExaminer ? $examinerMigrationStats['bea_2023_2024']++ : $examinerMigrationStats['eandro_ab_2025']++;
+                }
+                $examinerMigrationStats['total'] = $examinerMigrationStats['bea_2023_2024'] + $examinerMigrationStats['eandro_ab_2025'];
+                audit_log('prueferzuordnung_migriert', ['quelle' => $sourceExaminer, 'bea_2023_2024' => $examinerMigrationStats['bea_2023_2024'], 'eandro_ab_2025' => $examinerMigrationStats['eandro_ab_2025']]);
+                $message = $examinerMigrationStats['total'] . ' Prüfungen wurden neu zugeordnet: ' . $examinerMigrationStats['bea_2023_2024'] . ' an Bea (2023/2024), ' . $examinerMigrationStats['eandro_ab_2025'] . ' an Eandro (ab 2025).';
+            }
             if (($_POST['action'] ?? '') === 'regenerate_new_reports') {
                 if (!current_user_is_superadmin()) return forbidden_response();
                 $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') IN ('json','csv') ORDER BY id"));
@@ -185,7 +207,7 @@ final class InspectionController
                 else {
                     $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
                     file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_regenerate', 'inspection_ids' => $ids, 'owner_user_id' => (int) (current_user()->id ?? 0)], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'total' => count($ids), 'message' => 'Neue Prüfberichte warten auf den nächsten Hintergrundlauf.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'total' => count($ids), 'message' => 'Neue Prüfberichte warten auf den nächsten Hintergrundlauf.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 }
             }
@@ -208,7 +230,7 @@ final class InspectionController
                     $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0), 'test_date' => trim((string) ($_POST['default_test_date'] ?? ''))];
                     $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true); if (is_array($rules)) $defaults['import_rules'] = $rules;
                     file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'directory_import', 'directory' => $directoryJob, 'reports_directory' => trim((string) ($_POST['reports_directory'] ?? '')), 'defaults' => $defaults], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'message' => 'Import wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'directory_import', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'message' => 'Import wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Import-Job konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
@@ -217,7 +239,7 @@ final class InspectionController
                     $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
                     if (!is_dir($root)) mkdir($root, 0700, true);
                     file_put_contents($root . '/' . $id . '.json', json_encode(['customer_id' => trim((string) ($_POST['phoenix_customer_id'] ?? '')), 'token' => trim((string) ($_POST['phoenix_token'] ?? '')), 'api_url' => trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix'], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['state' => 'queued'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'phoenix_sync', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'message' => 'Phoenix-Import wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }

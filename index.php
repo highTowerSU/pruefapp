@@ -37,6 +37,7 @@ require_once __DIR__ . '/controllers/TenantController.php';
 require_once __DIR__ . '/controllers/SettingsController.php';
 require_once __DIR__ . '/controllers/HelpController.php';
 require_once __DIR__ . '/controllers/ProfileController.php';
+require_once __DIR__ . '/controllers/DownloadController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
@@ -71,6 +72,7 @@ $routes = [
     ['GET', '/hilfe', fn($params, $isHx) => HelpController::index($params, $isHx)],
     ['GET', '/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
     ['POST', '/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
+    ['GET', '/downloads', fn($params, $isHx) => DownloadController::index($params, $isHx)],
     ['GET', '/hilfe/dokument/{file}', fn($params, $isHx) => HelpController::document($params, $isHx)],
     ['GET', '/struktur', fn($params, $isHx) => StructureController::index($params, $isHx)],
     ['POST', '/struktur/massenaktion', fn($params, $isHx) => StructureController::bulkAction($params, $isHx)],
@@ -99,7 +101,7 @@ $routes = [
     ['POST', '/geraete/export', fn($params, $isHx) => ReportController::export($params, $isHx)],
     ['GET', '/geraete/zip/{id}/status', fn($params, $isHx) => ReportController::zipStatus($params, $isHx)],
     ['POST', '/geraete/zip/{id}/abbrechen', fn($params, $isHx) => ReportController::cancelPdfJob($params, $isHx)],
-    ['POST', '/admin/audit-log/job/{id}/abbrechen', fn($params, $isHx) => ReportController::cancelPdfJob($params, $isHx)],
+    ['POST', '/admin/audit-log/job/{id}/abbrechen', fn($params, $isHx) => ReportController::cancelCronJob($params, $isHx)],
     ['GET', '/geraete/zip/{id}/download', fn($params, $isHx) => ReportController::zipDownload($params, $isHx)],
     ['GET', '/admin/abrechnung', fn($params, $isHx) => BillingController::index($params, $isHx)],
     ['GET', '/admin/abrechnung/rechnung/{id}', fn($params, $isHx) => BillingController::invoice($params, $isHx)],

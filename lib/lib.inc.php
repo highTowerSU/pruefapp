@@ -815,6 +815,43 @@ function current_user_is_superadmin(): bool
     return strtolower((string) current_user_role()) === 'superadmin';
 }
 
+/**
+ * Returns recent background jobs visible to the current user.
+ *
+ * Superadmins can see all jobs; other users only see jobs they started.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function current_user_background_jobs(int $limit = 8): array
+{
+    $user = current_user();
+    if ($user === null) return [];
+    $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+    $all = current_user_is_superadmin();
+    $jobs = [];
+    $labels = [
+        'pdf_zip' => 'PDF-ZIP-Export',
+        'pdf_bundle' => 'Sammel-PDF',
+        'pdf_regenerate' => 'Neue Prüfberichte',
+        'directory_import' => 'Datenimport',
+        'phoenix_sync' => 'Phoenix-Import',
+    ];
+    foreach (glob($root . '/*.status.json') ?: [] as $path) {
+        $job = json_decode((string) @file_get_contents($path), true);
+        if (!is_array($job)) continue;
+        $ownerId = (int) ($job['owner_user_id'] ?? 0);
+        if (!$all && $ownerId !== (int) ($user->id ?? 0)) continue;
+        $job['id'] = (string) ($job['id'] ?? basename($path, '.status.json'));
+        $job['type_label'] = $labels[(string) ($job['type'] ?? '')] ?? 'Hintergrundaufgabe';
+        $job['downloadable'] = ($job['state'] ?? '') === 'done'
+            && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle'], true)
+            && is_file((string) ($job['output'] ?? ''));
+        $jobs[] = $job;
+    }
+    usort($jobs, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+    return array_slice($jobs, 0, max(1, $limit));
+}
+
 function current_user_can_manage_courses(): bool
 {
     return current_user_has_role('admin', 'editor');

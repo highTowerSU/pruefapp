@@ -17,6 +17,12 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
   Tabellenbreiten, Prüfschritten, Ergebnismarkierung und Unterschriftsbereich
 - Persönliche Prüfbericht-Unterschrift im lokalen Benutzerprofil; historische
   Phoenix-Unterschriften bleiben bei Altberichten vorrangig erhalten
+- Erst- und Folgeunterweisungen werden im Benutzerprofil mit Datum, Thema und
+  internen Notizen dokumentiert
+- Hintergrundaufgaben können aus der Audit-Ansicht abgebrochen werden; laufende
+  Migrationen bleiben bewusst geschützt
+- Fertige Exporte stehen in einer persönlichen Downloadübersicht und im
+  Benachrichtigungsmenü der Navigation bereit
 
 - Mandantenfähiges Branding inklusive Verwaltung, Logo-Upload und Impressumssteuerung
 - Individuelle Navigationsfarben pro Mandant

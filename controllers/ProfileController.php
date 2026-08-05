@@ -13,6 +13,35 @@ final class ProfileController
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $action = trim((string) ($_POST['action'] ?? 'upload_signature'));
+            if ($action === 'save_instruction') {
+                $initialDate = self::validDate((string) ($_POST['instruction_initial_date'] ?? ''));
+                if ($initialDate === false) {
+                    $_SESSION['fehlermeldung'] = 'Das Datum der Erstunterweisung ist ungültig.';
+                    return [303, ['Location' => url_for('profil')], ''];
+                }
+                $followups = [];
+                $dates = (array) ($_POST['followup_date'] ?? []);
+                $topics = (array) ($_POST['followup_topic'] ?? []);
+                foreach ($dates as $index => $rawDate) {
+                    $date = self::validDate((string) $rawDate);
+                    $topic = trim((string) ($topics[$index] ?? ''));
+                    if ($date === '' && $topic === '') continue;
+                    if ($date === false) {
+                        $_SESSION['fehlermeldung'] = 'Mindestens ein Datum der Folgeunterweisung ist ungültig.';
+                        return [303, ['Location' => url_for('profil')], ''];
+                    }
+                    $followups[] = ['date' => $date, 'topic' => mb_substr($topic, 0, 240)];
+                    if (count($followups) >= 50) break;
+                }
+                $user->instruction_initial_date = $initialDate;
+                $user->instruction_followups_json = json_encode($followups, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $user->instruction_notes = mb_substr(trim((string) ($_POST['instruction_notes'] ?? '')), 0, 1000);
+                $user->instruction_updated_at = date(DATE_ATOM);
+                R::store($user);
+                audit_log('nutzerunterweisungen_aktualisiert', ['oauthuser_id' => (int) $user->id, 'folgeunterweisungen' => count($followups)]);
+                $_SESSION['meldung'] = 'Erst- und Folgeunterweisungen wurden gespeichert.';
+                return [303, ['Location' => url_for('profil')], ''];
+            }
             if ($action === 'delete_signature') {
                 $oldPath = trim((string) ($user->report_signature_path ?? ''));
                 $user->report_signature_path = '';
@@ -69,7 +98,19 @@ final class ProfileController
         }
 
         $signature = examiner_signature_data_uri((string) ($user->email ?: $user->name));
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature]);
+        $followups = json_decode((string) ($user->instruction_followups_json ?? ''), true);
+        $followups = is_array($followups) ? array_values(array_filter($followups, static fn($entry): bool => is_array($entry))) : [];
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups]);
         return [200, [], render_template('layout.php', ['title' => 'Mein Profil', 'content' => $content])];
+    }
+
+    private static function validDate(string $value): string|false
+    {
+        $value = trim($value);
+        if ($value === '') return '';
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        $errors = \DateTimeImmutable::getLastErrors();
+        if (!$date || ($errors !== false && ($errors['warning_count'] ?? 0) > 0) || ($errors !== false && ($errors['error_count'] ?? 0) > 0)) return false;
+        return $date->format('Y-m-d');
     }
 }

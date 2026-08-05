@@ -282,7 +282,9 @@ foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     if (!preg_match('/^[a-f0-9]{24}$/', $id) || !is_file($root . '/' . $id . '.json')) continue;
     $log('Hintergrundaufgabe gestartet.');
     $jobsStarted++;
-    $workerDeadline = (string) (microtime(true) + max(10.0, min(105.0, $timeLeft() - 3.0)));
+    // Give every queued job a slice so a large ZIP cannot monopolise the
+    // complete Cron window. The worker persists its cursor and resumes later.
+    $workerDeadline = (string) (microtime(true) + max(12.0, min(35.0, $timeLeft() - 3.0)));
     $workerDebug = $debug ? ' PRUEFAPP_CRON_DEBUG=1' : '';
     passthru('PRUEFAPP_CRON_DEADLINE=' . escapeshellarg($workerDeadline) . $workerDebug . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
     $log('Hintergrundaufgabe beendet.');

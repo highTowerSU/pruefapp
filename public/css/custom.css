@@ -222,6 +222,15 @@ label.form-check-label > i {
   border-color: var(--navbar-color, #ffffff);
 }
 
+.navbar-themed .notification-menu {
+  min-width: 22rem;
+  max-width: min(90vw, 28rem);
+}
+
+.navbar-themed .notification-menu .dropdown-item {
+  white-space: normal;
+}
+
 .stat-tile {
   display: flex;
   gap: 1rem;

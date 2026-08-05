@@ -19,6 +19,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $inspectionImportUrl = url_for('admin/pruefungen/import');
     $billingUrl = url_for('admin/abrechnung');
     $companyUrl = url_for('mandanten');
+    $downloadsUrl = url_for('downloads');
 
     $pathIsActive = static function (string $url) use ($currentPath): bool {
         $prefix = rtrim($url, '/');
@@ -175,6 +176,9 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <li>
                   <a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil'), ENT_QUOTES) ?>"><i class="fa-solid fa-user-pen me-2" aria-hidden="true"></i>Mein Profil</a>
                 </li>
+                <li>
+                  <a class="dropdown-item" href="<?= htmlspecialchars($downloadsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-download me-2" aria-hidden="true"></i>Meine Downloads</a>
+                </li>
                 <?php if ($hasManagementLink): ?>
                   <li>
                     <a class="dropdown-item" href="<?= htmlspecialchars($userManagementUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzerverwaltung</a>
@@ -195,6 +199,27 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 </li>
               </ul>
             </div>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($authUser !== null): ?>
+          <?php $notifications = current_user_background_jobs(6); ?>
+          <div class="dropdown">
+            <button class="btn btn-outline-navbar position-relative" type="button" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Benachrichtigungen" title="Benachrichtigungen">
+              <i class="fa-solid fa-bell" aria-hidden="true"></i>
+              <?php if ($notifications !== []): ?><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"><?= count($notifications) ?><span class="visually-hidden"> offene oder neue Aufgaben</span></span><?php endif; ?>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end p-2 notification-menu" aria-labelledby="notificationsDropdown">
+              <li class="dropdown-header d-flex justify-content-between align-items-center"><span><i class="fa-solid fa-bell me-1" aria-hidden="true"></i>Benachrichtigungen</span><a class="small" href="<?= htmlspecialchars($downloadsUrl, ENT_QUOTES) ?>">Alle anzeigen</a></li>
+              <?php if ($notifications === []): ?>
+                <li><span class="dropdown-item-text small text-body-secondary">Keine aktuellen Hintergrundaufgaben.</span></li>
+              <?php else: ?>
+                <?php foreach ($notifications as $notification): ?>
+                  <?php $notificationState = (string) ($notification['state'] ?? ''); $notificationIcon = $notificationState === 'done' ? 'fa-circle-check text-success' : (in_array($notificationState, ['error', 'cancelled'], true) ? 'fa-circle-exclamation text-danger' : 'fa-clock text-warning'); $notificationHref = !empty($notification['downloadable']) ? url_for('geraete/zip/' . rawurlencode((string) $notification['id']) . '/download') : $downloadsUrl; ?>
+                  <li><a class="dropdown-item small d-flex gap-2 align-items-start rounded-2" href="<?= htmlspecialchars($notificationHref, ENT_QUOTES) ?>"><i class="fa-solid <?= $notificationIcon ?> mt-1" aria-hidden="true"></i><span><strong><?= htmlspecialchars((string) ($notification['type_label'] ?? 'Hintergrundaufgabe')) ?></strong><br><span class="text-body-secondary"><?= htmlspecialchars((string) ($notification['message'] ?? ($notificationState === 'done' ? 'Download ist fertig.' : 'Wird im Hintergrund verarbeitet.'))) ?></span></span></a></li>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </ul>
           </div>
         <?php endif; ?>
 
