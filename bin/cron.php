@@ -30,6 +30,28 @@ $timeLeft = static fn(): float => max(0.0, $cronDeadline - microtime(true));
 $logPath = app_data_root() . '/logs/cron.log';
 if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
 $log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); $isProblem = in_array(strtolower($level), ['warning', 'error', 'critical'], true); if ($debug || $isProblem) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { R::exec('INSERT INTO cron_log (run_at, level, message) VALUES (?, ?, ?)', [$timestamp, strtolower($level), $message]); } catch (Throwable $exception) { if ($debug || $isProblem) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
+$pruneOperationalLogs = static function () use ($logPath): void {
+    $maxRows = max(500, (int) (getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: 5000));
+    try {
+        $count = (int) R::getCell('SELECT COUNT(*) FROM cron_log');
+        if ($count > $maxRows) {
+            $cutoff = R::getCell('SELECT id FROM cron_log ORDER BY id DESC LIMIT 1 OFFSET ?', [$maxRows]);
+            if ($cutoff !== null && $cutoff !== false) R::exec('DELETE FROM cron_log WHERE id <= ?', [(int) $cutoff]);
+        }
+    } catch (Throwable) {
+        // Log retention must never interrupt the actual Cron work.
+    }
+    $maxBytes = max(256 * 1024, (int) (getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: 5 * 1024 * 1024));
+    if (is_file($logPath) && (int) @filesize($logPath) > $maxBytes) {
+        $content = @file_get_contents($logPath);
+        if (is_string($content)) {
+            $lines = explode("\n", $content);
+            $content = implode("\n", array_slice($lines, -10000));
+            @file_put_contents($logPath, ltrim($content), LOCK_EX);
+        }
+    }
+};
+$pruneOperationalLogs();
 $lock = fopen($root . '/cron.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
     if ($debug) fwrite(STDERR, '[cron debug] Ein anderer Cron-Lauf ist noch aktiv; keine parallele Iteration gestartet.' . PHP_EOL);
