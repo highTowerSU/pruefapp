@@ -36,7 +36,7 @@ if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
     exit(0);
 }
 $log('Hintergrundlauf gestartet. Er wird automatisch innerhalb des verfügbaren Zeitfensters bearbeitet.');
-if ($debug) $log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden');
+$log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden', 'debug');
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $generatedReports = 0;
 $migrationProcessedTotal = 0;
@@ -62,7 +62,7 @@ $migrationMarker = app_data_root() . '/migration/benning-measurements-v3.done';
 if (!is_file($migrationMarker)) {
     try {
         if ($timeLeft() <= 1) throw new RuntimeException('Zeitbudget vor der Nachmigration erreicht.');
-        if ($debug) $log('Debug: starte Benning-Nachmigration.');
+        $log('Debug: starte Benning-Nachmigration.', 'debug');
         $stats = ['imported' => 0, 'updated' => 0, 'repaired' => 0, 'errors' => []];
         if ($migrationDirectory !== '' && is_dir($migrationDirectory)) {
             $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
@@ -144,7 +144,7 @@ if (!is_file($phoenixRestoreMarker)) {
                     }
                 }
                 if ($source === '' && $debug && $phoenixUnresolved < 3) {
-                    $log('Debug: kein Phoenix-Original für Prüfnummer ' . (string) ($row['external_number'] ?? '—') . ' gefunden.', 'warning');
+                    $log('Debug: kein Phoenix-Original für Prüfnummer ' . (string) ($row['external_number'] ?? '—') . ' gefunden.', 'debug');
                 }
             }
             if ($source === '') {
@@ -246,10 +246,10 @@ try {
         LIMIT 500");
     $reportTotal = count($missingReports);
     $missingReportCount = $reportTotal;
-    if ($debug) $log('Debug: ' . $reportTotal . ' fehlende Prüfberichte gefunden.');
+    $log('Debug: ' . $reportTotal . ' fehlende Prüfberichte gefunden.', 'debug');
     foreach ($missingReports as $row) {
         if ($timeLeft() <= 3) { $log('Die Erstellung weiterer Prüfberichte wird beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
-        if ($debug) $log('Debug: Bericht ' . ((int) $row['id']) . ' wird verarbeitet (' . ($generatedReports + 1) . '/' . $reportTotal . ').');
+        $log('Debug: Bericht ' . ((int) $row['id']) . ' wird verarbeitet (' . ($generatedReports + 1) . '/' . $reportTotal . ').', 'debug');
         try {
             $inspection = R::load('inspection', (int) $row['id']);
             $device = R::load('device', (int) $row['device_id']);
