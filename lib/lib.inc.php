@@ -323,8 +323,9 @@ function ensure_structure_schema(): void
         'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS inspection (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, dedupe_key TEXT NOT NULL UNIQUE, source_type TEXT NOT NULL, source_file TEXT NULL, external_number TEXT NULL, storage_slot TEXT NULL, test_date TEXT NULL, next_due_date TEXT NULL, result_status TEXT NULL, device_type TEXT NULL, manufacturer TEXT NULL, device_model TEXT NULL, room_snapshot TEXT NULL, measurements_json TEXT NULL, checklist_json TEXT NULL, raw_json TEXT NULL, report_path TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         "CREATE TABLE IF NOT EXISTS customerinfo (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', slug TEXT NOT NULL DEFAULT '', markdown TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', file_mime TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
-        "CREATE TABLE IF NOT EXISTS billing_invoice (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', invoice_number TEXT NOT NULL DEFAULT '', invoice_date TEXT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NULL, updated_at TEXT NULL)",
-        "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS billing_invoice (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NULL, tenant_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', sevdesk_invoice_number TEXT NOT NULL DEFAULT '', sevdesk_url TEXT NOT NULL DEFAULT '', invoice_number TEXT NOT NULL DEFAULT '', invoice_date TEXT NULL, status TEXT NOT NULL DEFAULT 'draft', error_details TEXT NOT NULL DEFAULT '', created_by INTEGER NULL, exported_by TEXT NOT NULL DEFAULT '', exported_at TEXT NULL, amount_net REAL NULL, amount_gross REAL NULL, created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, assigned_at TEXT NULL, deactivated_at TEXT NULL, deactivation_reason TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'sevdesk', created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS billing_export (id INTEGER PRIMARY KEY AUTOINCREMENT, idempotency_key TEXT NOT NULL UNIQUE, tenant_id INTEGER NULL, owner_user_id INTEGER NULL, status TEXT NOT NULL DEFAULT 'pending', inspection_ids_json TEXT NOT NULL DEFAULT '[]', invoice_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', sevdesk_invoice_number TEXT NOT NULL DEFAULT '', error_details TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS appconfig (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, value TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
@@ -370,14 +371,21 @@ function ensure_structure_schema(): void
             'billing_exported_at' => 'TEXT NULL',
             'billing_export_id' => "TEXT NOT NULL DEFAULT ''",
             'billing_exported_by' => "TEXT NOT NULL DEFAULT ''",
+            'billing_eligibility' => "TEXT NOT NULL DEFAULT 'not_billable'",
+            'billing_not_billable_reason' => "TEXT NOT NULL DEFAULT ''",
+            'billing_not_billable_comment' => "TEXT NOT NULL DEFAULT ''",
+            'billing_status' => "TEXT NOT NULL DEFAULT 'not_exported'",
+            'billing_active_invoice_item_id' => 'INTEGER NULL',
+            'billing_last_error' => "TEXT NOT NULL DEFAULT ''",
         ],
         'customer' => [
             'code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL',
             'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_customer_number' => "TEXT NOT NULL DEFAULT ''", 'tenant_id' => 'INTEGER NOT NULL DEFAULT 0',
         ],
         'customerinfo' => ['customer_id' => 'INTEGER NOT NULL DEFAULT 0', 'title' => "TEXT NOT NULL DEFAULT ''", 'slug' => "TEXT NOT NULL DEFAULT ''", 'markdown' => "TEXT NOT NULL DEFAULT ''", 'file_path' => "TEXT NOT NULL DEFAULT ''", 'file_name' => "TEXT NOT NULL DEFAULT ''", 'file_mime' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
-        'billing_invoice' => ['customer_id' => 'INTEGER NULL', 'sevdesk_invoice_id' => "TEXT NOT NULL DEFAULT ''", 'invoice_number' => "TEXT NOT NULL DEFAULT ''", 'invoice_date' => 'TEXT NULL', 'status' => "TEXT NOT NULL DEFAULT 'draft'", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
-        'billing_invoice_item' => ['invoice_id' => 'INTEGER NOT NULL', 'inspection_id' => 'INTEGER NOT NULL', 'device_id' => 'INTEGER NOT NULL', 'quantity' => 'REAL NOT NULL DEFAULT 1', 'description' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL'],
+        'billing_invoice' => ['customer_id' => 'INTEGER NULL', 'tenant_id' => 'INTEGER NULL', 'sevdesk_invoice_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_invoice_number' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_url' => "TEXT NOT NULL DEFAULT ''", 'invoice_number' => "TEXT NOT NULL DEFAULT ''", 'invoice_date' => 'TEXT NULL', 'status' => "TEXT NOT NULL DEFAULT 'draft'", 'error_details' => "TEXT NOT NULL DEFAULT ''", 'created_by' => 'INTEGER NULL', 'exported_by' => "TEXT NOT NULL DEFAULT ''", 'exported_at' => 'TEXT NULL', 'amount_net' => 'REAL NULL', 'amount_gross' => 'REAL NULL', 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
+        'billing_invoice_item' => ['invoice_id' => 'INTEGER NOT NULL', 'inspection_id' => 'INTEGER NOT NULL', 'device_id' => 'INTEGER NOT NULL', 'quantity' => 'REAL NOT NULL DEFAULT 1', 'description' => "TEXT NOT NULL DEFAULT ''", 'active' => 'INTEGER NOT NULL DEFAULT 1', 'assigned_at' => 'TEXT NULL', 'deactivated_at' => 'TEXT NULL', 'deactivation_reason' => "TEXT NOT NULL DEFAULT ''", 'source' => "TEXT NOT NULL DEFAULT 'sevdesk'", 'created_at' => 'TEXT NULL'],
+        'billing_export' => ['idempotency_key' => "TEXT NOT NULL DEFAULT ''", 'tenant_id' => 'INTEGER NULL', 'owner_user_id' => 'INTEGER NULL', 'status' => "TEXT NOT NULL DEFAULT 'pending'", 'inspection_ids_json' => "TEXT NOT NULL DEFAULT '[]'", 'invoice_id' => 'INTEGER NULL', 'sevdesk_invoice_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_invoice_number' => "TEXT NOT NULL DEFAULT ''", 'error_details' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],
         'cron_log' => ['run_at' => 'TEXT NOT NULL', 'level' => "TEXT NOT NULL DEFAULT 'info'", 'message' => "TEXT NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as $table => $definitions) {
@@ -390,6 +398,13 @@ function ensure_structure_schema(): void
     }
     R::exec("UPDATE room SET number = name WHERE number = ''");
     R::exec('CREATE INDEX IF NOT EXISTS idx_room_area ON room (area_id)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_billing_status ON inspection (billing_eligibility, billing_status)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_billing_invoice_item_inspection ON billing_invoice_item (inspection_id, active)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_billing_export_status ON billing_export (status, updated_at)');
+    if (get_app_config('billing_v1_initialized') !== '1') {
+        R::exec("UPDATE inspection SET billing_eligibility = CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END, billing_status = CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END WHERE billing_eligibility IS NULL OR billing_eligibility = '' OR billing_status IS NULL OR billing_status = ''");
+        set_app_config('billing_v1_initialized', '1');
+    }
 }
 
 function config_value(string $name): ?string

@@ -12,6 +12,7 @@ $tests = [
     'background_job_resume_test.php',
     'cron_queue_integration_test.php',
     'audit_htmx_test.php',
+    'billing_v1_test.php',
 ];
 $failed = 0;
 foreach ($tests as $test) {

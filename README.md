@@ -189,6 +189,21 @@ Beispiel `php bin/import_electro.php /tmp/altbestand-import.jsonl /var/www/beric
 
 ## Tests
 
+### Abrechnung v1.1
+
+Die Abrechnung trennt die fachliche Abrechenbarkeit (`billable`/`not_billable`) vom
+Rechnungsstatus. SevDesk-Exporte werden über eine idempotente Exporthistorie und
+aktive Rechnungspositionen nachvollziehbar gespeichert. Prüfungen, Geräte und
+Rechnungen sind miteinander verknüpft; ein Zurücksetzen eines erfolgreichen
+Exports ist ausschließlich für Superadministratoren möglich, verlangt eine
+Bestätigung mit Warnhinweis und deaktiviert die alte Zuordnung nicht aus der
+Historie. Die Abrechnungsübersicht nutzt Bootstrap und HTMX für Filter und
+Statusaktualisierungen ohne vollständigen Seitenreload.
+
+Rechnungen und Exporthistorien starten bei einer neuen Installation leer. Bei
+bestehenden Prüfungen werden die bisherigen `billable`- und Exportfelder in die
+neuen Statusspalten gespiegelt; alte Zuordnungen werden nicht erfunden.
+
 Der Bootstrap einschließlich externer Konfiguration und SQLite-Anbindung wird
 mit einer temporären, isolierten Instanz geprüft:
 

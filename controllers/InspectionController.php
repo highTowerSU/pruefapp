@@ -403,7 +403,8 @@ final class InspectionController
             if ($room->id) $inspection->room_snapshot = class_exists('StructureController') ? StructureController::roomIdentifier($room, $floor, $area) : (string) ($room->name ?: $room->number);
         }
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
-        $billingInvoice = R::getRow('SELECT bi.invoice_id, bi.quantity, inv.sevdesk_invoice_id, inv.invoice_number, inv.invoice_date, inv.status FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? ORDER BY inv.id DESC LIMIT 1', [(int) $inspection->id]);
+        $billingInvoice = R::getRow('SELECT bi.invoice_id, bi.quantity, bi.active, inv.sevdesk_invoice_id, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_number, inv.invoice_date, inv.status FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? AND bi.active = 1 ORDER BY inv.id DESC LIMIT 1', [(int) $inspection->id]);
+        $billingHistory = R::getAll('SELECT bi.invoice_id, bi.active, bi.assigned_at, bi.deactivated_at, bi.deactivation_reason, inv.invoice_number, inv.sevdesk_invoice_number FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? ORDER BY bi.id DESC', [(int) $inspection->id]);
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
         $normalizedMeasurements = self::normalizeImportedMeasurements($measurements, (string) ($inspection->result_status ?? ''));
         if ($normalizedMeasurements !== $measurements && (string) ($inspection->source_type ?? '') === 'csv') {
@@ -441,7 +442,7 @@ final class InspectionController
                 R::store($inspection);
             }
         }
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'billingInvoice'))])];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'billingInvoice', 'billingHistory'))])];
     }
 
     /** Repair legacy Benning rows created before decimal-comma columns were fixed. */
