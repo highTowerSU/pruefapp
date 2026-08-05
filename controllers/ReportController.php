@@ -88,9 +88,22 @@ final class ReportController
     public static function inspectionPdfRows(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
     {
         $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
+        $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
+        $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $rows = [['Prüfung', 'Wert']];
         foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfart', $inspection->inspection_type], ['Prüfer', display_examiner_name((string) $inspection->examiner)], ['Gerät', $device->external_number . ' · ' . $device->name], ['Inventarnummer', $device->inventory_number], ['Geräteart', $device->name], ['Hersteller', $device->manufacturer], ['Typ', $device->device_model], ['Wärmegerät', !empty($device->warming_device) ? 'Ja' : 'Nein'], ['Raum-Nr.', $device->room_snapshot], ['Ergebnis', $inspection->result_status], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, (string) $value];
         foreach ($measurements as $measurement) if (is_array($measurement)) $rows[] = [(string) ($measurement['name'] ?? 'Messung'), trim((string) ($measurement['value'] ?? '') . ' ' . (string) ($measurement['unit'] ?? '') . ' · ' . (string) ($measurement['result'] ?? ''))];
+        if ($checklist !== []) {
+            $rows[] = ['Prüfschritte', ''];
+            foreach ($checklist as $key => $step) {
+                if (is_array($step)) $rows[] = [(string) ($step['step'] ?? $step['label'] ?? ('Prüfschritt ' . ((int) $key + 1))), trim((string) ($step['result'] ?? '') . ((string) ($step['criterion'] ?? '') !== '' ? ' · ' . $step['criterion'] : ''))];
+                else $rows[] = ['Prüfschritt ' . ((int) $key + 1), (string) $step];
+            }
+        } elseif ($raw !== []) {
+            $phoenixSteps = [];
+            foreach ($raw as $key => $value) if (preg_match('/^step(\d+)$/', (string) $key, $match)) $phoenixSteps[(int) $match[1]] = [(string) $value, (string) ($raw['result' . $match[1]] ?? ''), (string) ($raw['criterion' . $match[1]] ?? '')];
+            if ($phoenixSteps !== []) { $rows[] = ['Prüfschritte', '']; foreach ($phoenixSteps as [$step, $result, $criterion]) $rows[] = [$step, trim($result . ($criterion !== '' ? ' · ' . $criterion : ''))]; }
+        }
         return $rows;
     }
 
