@@ -265,6 +265,50 @@ class AdminController
         return [303, ['Location' => url_for('admin/nutzer')], ''];
     }
 
+    public static function loginAs(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        if (isset($_SESSION['impersonator_user_id'])) return [409, [], 'Eine Nutzeranmeldung ist bereits aktiv.'];
+        $targetId = (int) ($params['id'] ?? 0);
+        $target = R::load('oauthuser', $targetId);
+        if (!$target->id) return [404, [], 'Nutzer nicht gefunden.'];
+        if (strtolower((string) ($target->role ?? '')) === 'superadmin') return [403, [], 'Superadministratoren können nicht imitiert werden.'];
+        $original = current_user();
+        if (!$original || (int) $original->id === (int) $target->id) return [409, [], 'Diese Nutzeranmeldung ist nicht möglich.'];
+        audit_log('nutzeranmeldung_gestartet', ['oauthuser_id' => (int) $target->id, 'durch_oauthuser_id' => (int) $original->id]);
+        $_SESSION['impersonator_user_id'] = (int) $original->id;
+        $_SESSION['impersonator_user_info'] = json_decode((string) ($original->userinfo_json ?? ''), true) ?: [
+            'sub' => (string) ($original->sub ?? ''),
+            'email' => (string) ($original->email ?? ''),
+            'name' => (string) ($original->name ?? ''),
+        ];
+        $_SESSION['auth_user_id'] = (int) $target->id;
+        $_SESSION['user_role'] = (string) ($target->role ?? 'user');
+        $_SESSION['user'] = json_decode((string) ($target->userinfo_json ?? ''), true) ?: [
+            'sub' => (string) ($target->sub ?? ''),
+            'email' => (string) ($target->email ?? ''),
+            'name' => (string) ($target->name ?? ''),
+        ];
+        $_SESSION['meldung'] = 'Du bist jetzt als ' . trim((string) ($target->name ?: $target->email ?: 'Nutzer/in')) . ' angemeldet.';
+        return [303, ['Location' => url_for('geraete')], ''];
+    }
+
+    public static function stopLoginAs(array $params, bool $isHx): array
+    {
+        $originalId = (int) ($_SESSION['impersonator_user_id'] ?? 0);
+        if ($originalId <= 0) return [403, [], 'Keine Nutzeranmeldung aktiv.'];
+        $currentId = current_user_id();
+        $original = R::load('oauthuser', $originalId);
+        if (!$original->id) return [410, [], 'Der ursprüngliche Superadmin wurde nicht gefunden.'];
+        $_SESSION['auth_user_id'] = $originalId;
+        $_SESSION['user_role'] = (string) ($original->role ?? 'superadmin');
+        $_SESSION['user'] = json_decode((string) ($original->userinfo_json ?? ''), true) ?: ($_SESSION['impersonator_user_info'] ?? []);
+        unset($_SESSION['impersonator_user_id'], $_SESSION['impersonator_user_info']);
+        audit_log('nutzeranmeldung_beendet', ['oauthuser_id' => $currentId, 'durch_oauthuser_id' => $originalId]);
+        $_SESSION['meldung'] = 'Die Nutzeranmeldung wurde beendet.';
+        return [303, ['Location' => url_for('admin/nutzer')], ''];
+    }
+
     public static function updateUserCustomers(array $params, bool $isHx): array
     {
         if (!current_user_is_superadmin()) return forbidden_response();

@@ -100,6 +100,11 @@
                                 <?php else: ?>
                                     <span class="text-body-secondary small">Kein Keycloak-Link verfügbar</span>
                                 <?php endif; ?>
+                                <?php if ($canManageUsers && ($user['role'] ?? '') !== 'superadmin'): ?>
+                                    <form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . (int) $user['id'] . '/login-as'), ENT_QUOTES) ?>" class="d-inline-block mt-1" onsubmit="return confirm('Als dieser Nutzer anmelden?');">
+                                        <button type="submit" class="btn btn-outline-warning btn-sm"><i class="fa-solid fa-user-secret me-1" aria-hidden="true"></i>Als Nutzer/in anmelden</button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

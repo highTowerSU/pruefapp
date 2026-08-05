@@ -218,6 +218,13 @@ $assetVersion = app_asset_version();
   <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['fehlermeldung']) ?></div>
   <?php unset($_SESSION['fehlermeldung']); ?>
 <?php endif; ?>
+<?php if ((int) ($_SESSION['impersonator_user_id'] ?? 0) > 0): ?>
+  <div class="alert alert-warning d-flex align-items-center gap-2 flex-wrap" role="status">
+    <i class="fa-solid fa-user-secret" aria-hidden="true"></i>
+    <span class="flex-grow-1"><strong>Nutzeranmeldung aktiv.</strong> Du siehst die Anwendung als <?= htmlspecialchars((string) ((current_user()->name ?? '') ?: (current_user()->email ?? 'Nutzer/in'))) ?>.</span>
+    <form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/login-as/stop'), ENT_QUOTES) ?>" class="mb-0"><button class="btn btn-sm btn-warning text-dark" type="submit"><i class="fa-solid fa-arrow-right-from-bracket me-1" aria-hidden="true"></i>Zurück zum Superadmin</button></form>
+  </div>
+<?php endif; ?>
 <?php $loginReminders = is_array($_SESSION['login_reminders'] ?? null) ? $_SESSION['login_reminders'] : []; unset($_SESSION['login_reminders']); ?>
 <?php foreach ($loginReminders as $loginReminder): ?>
   <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">

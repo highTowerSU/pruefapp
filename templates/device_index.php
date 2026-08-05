@@ -165,7 +165,15 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       }, 100);
     };
     window.addEventListener('hashchange', focusScanner);
-    document.querySelectorAll('a[href$="#device-inspection-lookup"]').forEach(link => link.addEventListener('click', focusScanner));
+    document.querySelectorAll('a[href$="#device-inspection-lookup"]').forEach(link => link.addEventListener('click', event => {
+      const target = new URL(link.href, window.location.href);
+      if (target.pathname !== window.location.pathname) return;
+      event.preventDefault();
+      window.history.replaceState(null, '', '#device-inspection-lookup');
+      const toggle = link.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+      if (toggle && window.bootstrap?.Dropdown) window.bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
+      focusScanner();
+    }));
     document.addEventListener('hidden.bs.dropdown', focusScanner);
     focusScanner();
   }
