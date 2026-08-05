@@ -97,6 +97,12 @@ $phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix
 if (!is_file($phoenixRestoreMarker)) {
     $phoenixRestored = 0;
     $phoenixUnresolved = 0;
+    $legacyRoots = [];
+    $configuredPhoenixReports = trim((string) (getenv('PRUEFAPP_PHOENIX_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_PHOENIX_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
+    foreach ([$configuredPhoenixReports, '/var/www/berichte'] as $legacyCandidateRoot) {
+        $resolvedRoot = $legacyCandidateRoot !== '' ? realpath($legacyCandidateRoot) : false;
+        if ($resolvedRoot !== false && is_dir($resolvedRoot) && !in_array($resolvedRoot, $legacyRoots, true)) $legacyRoots[] = $resolvedRoot;
+    }
     try {
         $phoenixRows = R::getAll("SELECT id, external_number, report_path FROM inspection
             WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
@@ -118,21 +124,22 @@ if (!is_file($phoenixRestoreMarker)) {
             // Phoenix originals are also kept in the legacy report store. The
             // current-layout migration must never replace those PDFs.
             if ($source === '') {
-                $legacyRoot = realpath('/var/www/berichte');
                 $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
-                if ($legacyRoot !== false && $number !== '') {
+                foreach ($legacyRoots as $legacyRoot) {
+                    if ($number === '') continue;
                     $legacyCandidates = [$legacyRoot . '/' . $number . '.pdf', $legacyRoot . '/' . $number . '-24.pdf', $legacyRoot . '/' . $number . '-25.pdf'];
                     foreach ($legacyCandidates as $candidate) {
-                        if (is_file($candidate) && str_starts_with((string) @file_get_contents($candidate, false, null, 0, 4), '%PDF')) { $source = $candidate; break; }
+                        if (is_file($candidate) && str_starts_with((string) @file_get_contents($candidate, false, null, 0, 4), '%PDF')) { $source = $candidate; break 2; }
                     }
-                    if ($source === '') {
-                        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($legacyRoot, FilesystemIterator::SKIP_DOTS));
-                        foreach ($iterator as $candidateInfo) {
-                            if (!$candidateInfo->isFile() || strtolower($candidateInfo->getExtension()) !== 'pdf') continue;
-                            $candidateName = $candidateInfo->getFilename();
-                            if (($candidateName === $number . '.pdf' || str_starts_with($candidateName, $number . '-')) && str_starts_with((string) @file_get_contents($candidateInfo->getPathname(), false, null, 0, 4), '%PDF')) { $source = $candidateInfo->getPathname(); break; }
-                        }
+                    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($legacyRoot, FilesystemIterator::SKIP_DOTS));
+                    foreach ($iterator as $candidateInfo) {
+                        if (!$candidateInfo->isFile() || strtolower($candidateInfo->getExtension()) !== 'pdf') continue;
+                        $candidateName = $candidateInfo->getFilename();
+                        if (($candidateName === $number . '.pdf' || str_starts_with($candidateName, $number . '-')) && str_starts_with((string) @file_get_contents($candidateInfo->getPathname(), false, null, 0, 4), '%PDF')) { $source = $candidateInfo->getPathname(); break 2; }
                     }
+                }
+                if ($source === '' && $debug && $phoenixUnresolved < 3) {
+                    $log('Debug: kein Phoenix-Original für Prüfnummer ' . (string) ($row['external_number'] ?? '—') . ' gefunden.', 'warning');
                 }
             }
             if ($source === '') {
@@ -149,7 +156,8 @@ if (!is_file($phoenixRestoreMarker)) {
             file_put_contents($phoenixRestoreMarker, json_encode(['completed_at' => date(DATE_ATOM), 'restored' => $phoenixRestored], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
             if ($phoenixRestored > 0) $log('Phoenix-PDFs wiederhergestellt: ' . $phoenixRestored);
         } elseif ($phoenixUnresolved > 0) {
-            $log('Phoenix-Original-PDFs noch nicht vollständig gefunden (' . $phoenixUnresolved . ' offen); Wiederherstellung bleibt vorgemerkt.', 'warning');
+            $searched = $legacyRoots === [] ? 'kein konfiguriertes Quellverzeichnis vorhanden' : implode(', ', $legacyRoots);
+            $log('Phoenix-Original-PDFs noch nicht vollständig gefunden (' . $phoenixUnresolved . ' offen). Gesucht wurde in: ' . $searched . '. Wiederherstellung bleibt vorgemerkt.', 'warning');
         }
         $phoenixRestoredTotal += $phoenixRestored;
     } catch (Throwable $exception) {
