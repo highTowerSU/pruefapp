@@ -185,13 +185,14 @@ final class InspectionController
                 $beaExaminer = 'bdebertshaeuser@koenigsbl.au';
                 $eandroExaminer = 'edebertshaeuser@koenigsbl.au';
                 $examinerMigrationStats = ['bea_2023_2024' => 0, 'eandro_ab_2025' => 0, 'total' => 0];
-                foreach (R::getAll('SELECT id, test_date FROM inspection WHERE LOWER(TRIM(examiner)) = LOWER(?) AND test_date IS NOT NULL', [$sourceExaminer]) as $row) {
+                foreach (R::getAll("SELECT id, test_date, examiner, source_type FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv') AND (LOWER(TRIM(examiner)) = LOWER(?) OR TRIM(COALESCE(examiner, '')) IN ('', '—'))", [$sourceExaminer]) as $row) {
                     $year = (int) substr(trim((string) ($row['test_date'] ?? '')), 0, 4);
                     $target = in_array($year, [2023, 2024], true) ? $beaExaminer : ($year >= 2025 ? $eandroExaminer : '');
                     if ($target === '') continue;
                     $inspection = R::load('inspection', (int) $row['id']);
                     if (!$inspection->id) continue;
                     $inspection->examiner = $target;
+                    if ((string) ($row['source_type'] ?? '') === 'csv') $inspection->report_path = '';
                     $inspection->updated_at = date(DATE_ATOM);
                     R::store($inspection);
                     $target === $beaExaminer ? $examinerMigrationStats['bea_2023_2024']++ : $examinerMigrationStats['eandro_ab_2025']++;
