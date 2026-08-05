@@ -24,9 +24,10 @@ final class BillingController
         $buildings = R::findAll('building', ' ORDER BY name ');
         $floors = R::findAll('floor', ' ORDER BY sort_order, name ');
         $rooms = R::findAll('room', ' ORDER BY name ');
+        $examinerOptions = InspectionFilterService::examinerOptions();
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
-        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
+        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
         unset($_SESSION['billing_message']);
         return $isHx ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content] : [200, [], render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content])];
     }
@@ -201,7 +202,20 @@ final class BillingController
         if ($ids !== []) { $where .= ' AND i.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'; array_push($args, ...$ids); }
         if (($q = trim((string) ($filters['q'] ?? ''))) !== '') { $where .= ' AND (i.external_number LIKE ? OR d.external_number LIKE ? OR d.name LIKE ? OR c.name LIKE ?)'; array_push($args, '%' . $q . '%', '%' . $q . '%', '%' . $q . '%', '%' . $q . '%'); }
         foreach (['customer_id' => 'c.id', 'site_id' => 's.id', 'building_id' => 'b.id', 'floor_id' => 'f.id', 'room_id' => 'r.id', 'from' => 'i.test_date >= ?', 'to' => 'i.test_date <= ?'] as $key => $condition) { if (($value = trim((string) ($filters[$key] ?? ''))) !== '') { $where .= ' AND ' . $condition; $args[] = in_array($key, ['customer_id', 'site_id', 'building_id', 'floor_id', 'room_id'], true) ? (int) $value : $value; } }
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billing_invoice_item bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billing_invoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);
+        $examiner = trim((string) ($filters['examiner'] ?? ''));
+        if ($examiner !== '') {
+            $where .= " AND LOWER(TRIM(COALESCE(i.examiner, ''))) = LOWER(?)";
+            $args[] = $examiner;
+        }
+        $dueCondition = InspectionFilterService::dueCondition(
+            trim((string) ($filters['due_status'] ?? '')),
+            'i.next_due_date'
+        );
+        if ($dueCondition['sql'] !== '') {
+            $where .= ' AND (' . $dueCondition['sql'] . ')';
+            array_push($args, ...$dueCondition['params']);
+        }
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billing_invoice_item bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billing_invoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);
     }
 
     private static function csv(array $rows): array

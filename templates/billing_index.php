@@ -1,7 +1,7 @@
 <?php require_once dirname(__DIR__) . '/lib/filter_renderer.php'; ?>
 <div id="billing-content">
 <!-- billing-common-filter is rendered by lib/filter_renderer.php -->
-<?= render_common_filter_panel('billing', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms')) ?>
+<?= render_common_filter_panel('billing', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'examinerOptions')) ?>
 <style>.common-filter-panel{container-type:inline-size}.common-filter-panel .form-label{font-weight:600}.common-filter-panel .form-control,.common-filter-panel .form-select{min-height:2.75rem}@media(max-width:767.98px){.common-filter-panel{padding:1rem}.common-filter-panel .row{--bs-gutter-y:.75rem}}</style>
 <div class="d-flex justify-content-between align-items-start gap-3 mb-4 flex-wrap"><div><h1 class="h3 mb-1"><i class="fa-solid fa-coins me-2" aria-hidden="true"></i>Abrechnung</h1><p class="text-body-secondary mb-0">Abrechenbarkeit und SevDesk-Rechnungsexporte nachvollziehbar verwalten.</p></div><span class="badge text-bg-<?= $configured ? 'success' : 'warning text-dark' ?>"><?= $configured ? 'SevDesk konfiguriert' : 'SevDesk noch nicht konfiguriert' ?></span></div>
 <?php if (!empty($message)): ?><div class="alert alert-info d-flex gap-2 align-items-start"><i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i><span><?= htmlspecialchars((string) $message) ?></span></div><?php endif; ?>

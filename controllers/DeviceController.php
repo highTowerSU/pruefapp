@@ -53,6 +53,8 @@ class DeviceController
         }
         $newNumber = trim((string) ($_GET['new_number'] ?? ''));
         $inspectionStatus = trim((string) ($_GET['inspection_status'] ?? ''));
+        $examiner = trim((string) ($_GET['examiner'] ?? ''));
+        $dueStatus = trim((string) ($_GET['due_status'] ?? ''));
         $billingStatus = trim((string) ($_GET['billing_status'] ?? ''));
         $billingEligibility = trim((string) ($_GET['billing_eligibility'] ?? ''));
         $showArchived = current_user_is_superadmin() && ($_GET['show_archived'] ?? '') === '1';
@@ -90,6 +92,19 @@ class DeviceController
             $where[] = $latestStatus . " IN ('in_progress','data_missing')";
         } elseif ($inspectionStatus === 'completed') {
             $where[] = $latestStatus . " IN ('passed','failed')";
+        }
+        $latestExaminer = InspectionFilterService::latestValueExpression('examiner');
+        if ($examiner !== '') {
+            $where[] = "LOWER(TRIM(COALESCE({$latestExaminer}, ''))) = LOWER(?)";
+            $paramsQuery[] = $examiner;
+        }
+        $dueCondition = InspectionFilterService::dueCondition(
+            $dueStatus,
+            InspectionFilterService::latestValueExpression('next_due_date')
+        );
+        if ($dueCondition['sql'] !== '') {
+            $where[] = '(' . $dueCondition['sql'] . ')';
+            array_push($paramsQuery, ...$dueCondition['params']);
         }
         if (in_array($billingStatus, ['not_exported', 'export_pending', 'exported', 'export_failed', 'manually_unexported'], true)) {
             $where[] = "EXISTS (SELECT 1 FROM inspection ib WHERE ib.device_id = d.id AND ib.test_date >= '2025-01-01' AND COALESCE(ib.billing_status, CASE WHEN ib.billing_exported_at IS NULL OR ib.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) = ?)";
@@ -183,6 +198,10 @@ class DeviceController
             if (preg_match('/^\d+$/', $candidate)) { $suggestedDeviceNumber = (string) ((int) $candidate + 1); break; }
         }
         $selectedDeviceIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_SESSION['device_selection'] ?? [])), static fn(int $id): bool => $id > 0)));
+        $examinerOptions = InspectionFilterService::examinerOptions(
+            $allowedCustomers,
+            !current_user_has_role('admin')
+        );
         $examinerUsers = [];
         if (current_user_has_role('admin')) {
             $examinerUsers = array_map(static function ($user): array {
@@ -227,11 +246,12 @@ class DeviceController
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
-                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'billing_status' => $billingStatus, 'billing_eligibility' => $billingEligibility, 'per_page' => $perPage, 'sort' => $sort],
+                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'examiner' => $examiner, 'due_status' => $dueStatus, 'billing_status' => $billingStatus, 'billing_eligibility' => $billingEligibility, 'per_page' => $perPage, 'sort' => $sort],
                 'newNumber' => $newNumber,
                 'suggestedDeviceNumber' => $suggestedDeviceNumber,
                 'selectedDeviceIds' => $selectedDeviceIds,
                 'examinerUsers' => $examinerUsers,
+                'examinerOptions' => $examinerOptions,
                 'zipJob' => $zipJob,
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
@@ -366,6 +386,20 @@ class DeviceController
             $params[] = $status;
         } elseif ($status === 'pending') $where[] = $latestStatus . " IN ('in_progress','data_missing')";
         elseif ($status === 'completed') $where[] = $latestStatus . " IN ('passed','failed')";
+        $examiner = trim((string) ($filters['examiner'] ?? ''));
+        if ($examiner !== '') {
+            $latestExaminer = InspectionFilterService::latestValueExpression('examiner');
+            $where[] = "LOWER(TRIM(COALESCE({$latestExaminer}, ''))) = LOWER(?)";
+            $params[] = $examiner;
+        }
+        $dueCondition = InspectionFilterService::dueCondition(
+            trim((string) ($filters['due_status'] ?? '')),
+            InspectionFilterService::latestValueExpression('next_due_date')
+        );
+        if ($dueCondition['sql'] !== '') {
+            $where[] = '(' . $dueCondition['sql'] . ')';
+            array_push($params, ...$dueCondition['params']);
+        }
         $billingStatus = trim((string) ($filters['billing_status'] ?? ''));
         if (in_array($billingStatus, ['not_exported', 'export_pending', 'exported', 'export_failed', 'manually_unexported'], true)) { $where[] = "EXISTS (SELECT 1 FROM inspection ib WHERE ib.device_id = d.id AND ib.test_date >= '2025-01-01' AND COALESCE(ib.billing_status, CASE WHEN ib.billing_exported_at IS NULL OR ib.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) = ?)"; $params[] = $billingStatus; }
         $billingEligibility = trim((string) ($filters['billing_eligibility'] ?? ''));

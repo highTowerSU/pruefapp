@@ -237,6 +237,20 @@ final class ReportController
             $args[] = $inspectionStatus;
         } elseif ($inspectionStatus === 'pending') $where[] = $latestStatus . " IN ('in_progress','data_missing')";
         elseif ($inspectionStatus === 'completed') $where[] = $latestStatus . " IN ('passed','failed')";
+        $examiner = trim((string) ($q['examiner'] ?? ''));
+        if ($examiner !== '') {
+            $latestExaminer = InspectionFilterService::latestValueExpression('examiner');
+            $where[] = "LOWER(TRIM(COALESCE({$latestExaminer}, ''))) = LOWER(?)";
+            $args[] = $examiner;
+        }
+        $dueCondition = InspectionFilterService::dueCondition(
+            trim((string) ($q['due_status'] ?? '')),
+            InspectionFilterService::latestValueExpression('next_due_date')
+        );
+        if ($dueCondition['sql'] !== '') {
+            $where[] = '(' . $dueCondition['sql'] . ')';
+            array_push($args, ...$dueCondition['params']);
+        }
         $where[] = "(d.archived_at IS NULL OR TRIM(d.archived_at) = '')";
         $sql = 'SELECT DISTINCT d.id FROM device d' . $join . ($where ? ' WHERE ' . implode(' AND ', $where) : '');
         return array_map('intval', R::getCol($sql, $args));

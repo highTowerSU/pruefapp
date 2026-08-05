@@ -74,7 +74,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 </section>
 <?php endif; ?>
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
-<?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms')) ?>
+<?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'examinerOptions')) ?>
 <style>.common-filter-panel{container-type:inline-size}.common-filter-panel .form-label{font-weight:600}.common-filter-panel .form-control,.common-filter-panel .form-select{min-height:2.75rem}@media(max-width:767.98px){.common-filter-panel{padding:1rem}.common-filter-panel .row{--bs-gutter-y:.75rem}}</style>
 
 <?php if (false): ?>
@@ -154,6 +154,12 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     lookupButton.addEventListener('click', lookup);
     numberInput.addEventListener('input', () => { clearTimeout(numberInput._lookupTimer); numberInput._lookupTimer = setTimeout(lookup, 250); });
     numberInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); lookup(); } });
+    const focusScanner = () => {
+      if (window.location.hash !== '#device-inspection-lookup') return;
+      requestAnimationFrame(() => { panel.scrollIntoView({block: 'start'}); numberInput.focus({preventScroll: true}); numberInput.select(); });
+    };
+    window.addEventListener('hashchange', focusScanner);
+    focusScanner();
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');
   if (newNumber) { const newDeviceDetails = [...document.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent.includes('Neues Gerät')); const field = newDeviceDetails?.querySelector('[name="external_number"]'); if (newDeviceDetails && field) { newDeviceDetails.open = true; field.value = newNumber; field.readOnly = true; newDeviceDetails.scrollIntoView({behavior:'smooth', block:'start'}); } }
