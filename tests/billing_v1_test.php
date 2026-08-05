@@ -21,6 +21,7 @@ $checks = [
     [str_contains($controller, "HX-Trigger' => 'billing-refresh'"), 'Billing status actions must refresh through HTMX.'],
     [str_contains($template, 'hx-get=') && str_contains($template, 'billing-status'), 'Billing filters are not HTMX-enabled.'],
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],
+    [str_contains($template, "if (\$status !== 'exported')") && str_contains($template, 'form-check-input billing-check'), 'Non-billable inspections must remain selectable for bulk eligibility changes.'],
     [str_contains($detail, 'Abrechnungshistorie'), 'Inspection billing history is missing.'],
     [str_contains($routes, "'/admin/abrechnung/pruefung/{id}/export-zuruecksetzen'"), 'Billing reset route is missing.'],
     [str_contains($devices, 'billing_status') && str_contains($devices, 'billing_eligibility'), 'Device billing filters are missing.'],
