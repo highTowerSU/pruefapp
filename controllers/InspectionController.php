@@ -178,6 +178,17 @@ final class InspectionController
             else $message = 'Phoenix-Sync läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'regenerate_new_reports') {
+                if (!current_user_is_superadmin()) return forbidden_response();
+                $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') IN ('json','csv') ORDER BY id"));
+                if ($ids === []) { $message = 'Keine importierten, abgeschlossenen Prüfungen für die Neuerzeugung gefunden.'; }
+                else {
+                    $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
+                    file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_regenerate', 'inspection_ids' => $ids, 'owner_user_id' => (int) (current_user()->id ?? 0)], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'queued', 'created_at' => date(DATE_ATOM), 'total' => count($ids), 'message' => 'Neue Prüfberichte warten auf den nächsten Hintergrundlauf.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
+                }
+            }
             if (($_POST['action'] ?? '') === 'pending_measurement_import' && isset($_FILES['measurement_csv']) && is_array($_FILES['measurement_csv'])) {
                 try {
                     $date = trim((string) ($_POST['measurement_date'] ?? ''));

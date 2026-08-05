@@ -28,7 +28,19 @@ try {
         $writeStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
         if ($debug) fwrite(STDERR, '[worker debug] ' . $step . '/' . $total . ' ' . ($number !== '' ? $number . ' · ' : '') . $message . PHP_EOL);
     };
-    if (($payload['type'] ?? '') === 'pdf_bundle') {
+    if (($payload['type'] ?? '') === 'pdf_regenerate') {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['inspection_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
+        $total = count($ids); $step = 0;
+        foreach ($ids as $inspectionId) {
+            $inspection = R::load('inspection', $inspectionId); $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
+            if ($inspection->id && $device && $device->id) {
+                $relative = 'reports/current/' . $inspectionId . '.pdf'; $path = app_data_root() . '/' . $relative; if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
+                $customerId = device_customer_id($device); file_put_contents($path, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_company_branding') ? get_company_branding((int) $customerId) : null), LOCK_EX); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+            }
+            $step++; $progress($step, $total, (string) ($device->external_number ?? ''), 'Prüfbericht wird neu erzeugt');
+        }
+        file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'done', 'finished_at' => date(DATE_ATOM), 'stats' => ['reports' => $step]], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); @unlink($cancelPath); exit(0);
+    } elseif (($payload['type'] ?? '') === 'pdf_bundle') {
         if (!function_exists('shell_exec')) throw new RuntimeException('PDF-Zusammenführung ist auf diesem Server nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         if ($ids === []) throw new RuntimeException('Keine Geräte für die Sammel-PDF.');
