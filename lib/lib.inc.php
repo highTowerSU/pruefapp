@@ -833,6 +833,7 @@ function current_user_background_jobs(int $limit = 8): array
         'pdf_zip' => 'PDF-ZIP-Export',
         'pdf_bundle' => 'Sammel-PDF',
         'pdf_regenerate' => 'Neue Prüfberichte',
+        'examiner_migration' => 'Prüferzuordnung',
         'directory_import' => 'Datenimport',
         'phoenix_sync' => 'Phoenix-Import',
     ];

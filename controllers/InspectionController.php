@@ -181,25 +181,12 @@ final class InspectionController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($_POST['action'] ?? '') === 'migrate_examiner_attribution') {
                 if (!current_user_is_superadmin()) return forbidden_response();
-                $sourceExaminer = 'info@CENEOS.net';
-                $beaExaminer = 'bdebertshaeuser@koenigsbl.au';
-                $eandroExaminer = 'edebertshaeuser@koenigsbl.au';
-                $examinerMigrationStats = ['bea_2023_2024' => 0, 'eandro_ab_2025' => 0, 'total' => 0];
-                foreach (R::getAll("SELECT id, test_date, examiner, source_type FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv')", []) as $row) {
-                    $year = (int) substr(trim((string) ($row['test_date'] ?? '')), 0, 4);
-                    $target = in_array($year, [2023, 2024], true) ? $beaExaminer : ($year >= 2025 ? $eandroExaminer : '');
-                    if ($target === '') continue;
-                    $inspection = R::load('inspection', (int) $row['id']);
-                    if (!$inspection->id) continue;
-                    $inspection->examiner = $target;
-                    if ((string) ($row['source_type'] ?? '') === 'csv') $inspection->report_path = '';
-                    $inspection->updated_at = date(DATE_ATOM);
-                    R::store($inspection);
-                    $target === $beaExaminer ? $examinerMigrationStats['bea_2023_2024']++ : $examinerMigrationStats['eandro_ab_2025']++;
-                }
-                $examinerMigrationStats['total'] = $examinerMigrationStats['bea_2023_2024'] + $examinerMigrationStats['eandro_ab_2025'];
-                audit_log('prueferzuordnung_migriert', ['quelle' => $sourceExaminer, 'bea_2023_2024' => $examinerMigrationStats['bea_2023_2024'], 'eandro_ab_2025' => $examinerMigrationStats['eandro_ab_2025']]);
-                $message = $examinerMigrationStats['total'] . ' Prüfungen wurden neu zugeordnet: ' . $examinerMigrationStats['bea_2023_2024'] . ' an Bea (2023/2024), ' . $examinerMigrationStats['eandro_ab_2025'] . ' an Eandro (ab 2025).';
+                $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
+                $payload = ['type' => 'examiner_migration', 'owner_user_id' => (int) (current_user()->id ?? 0)];
+                $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv')");
+                file_put_contents($root . '/' . $id . '.json', json_encode($payload, JSON_UNESCAPED_UNICODE), LOCK_EX);
+                file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'examiner_migration', 'state' => 'queued', 'owner_user_id' => $payload['owner_user_id'], 'created_at' => date(DATE_ATOM), 'total' => $total, 'message' => 'Prüferzuordnung wartet auf den nächsten Hintergrundlauf.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                $message = 'Die Prüferzuordnung wurde als Hintergrund-Migration vorgemerkt.';
             }
             if (($_POST['action'] ?? '') === 'regenerate_new_reports') {
                 if (!current_user_is_superadmin()) return forbidden_response();

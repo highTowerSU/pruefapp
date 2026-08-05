@@ -49,6 +49,19 @@ try {
             $step++; $progress($step, $total, (string) ($device->external_number ?? ''), 'Prüfbericht wird neu erzeugt');
         }
         file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => ['reports' => $step]], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); @unlink($cancelPath); exit(0);
+    } elseif (($payload['type'] ?? '') === 'examiner_migration') {
+        $rows = R::getAll("SELECT id, test_date, source_type FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv') ORDER BY id");
+        $total = count($rows); $step = min((int) ($statusInitial['step'] ?? 0), $total); $bea = 0; $eandro = 0;
+        foreach (array_slice($rows, $step) as $row) {
+            $year = (int) substr(trim((string) ($row['test_date'] ?? '')), 0, 4);
+            $target = in_array($year, [2023, 2024], true) ? 'bdebertshaeuser@koenigsbl.au' : ($year >= 2025 ? 'edebertshaeuser@koenigsbl.au' : '');
+            if ($target !== '') {
+                $inspection = R::load('inspection', (int) $row['id']);
+                if ($inspection->id) { $inspection->examiner = $target; if ((string) ($row['source_type'] ?? '') === 'csv') $inspection->report_path = ''; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); $target === 'bdebertshaeuser@koenigsbl.au' ? $bea++ : $eandro++; }
+            }
+            $step++; $progress($step, $total, (string) ($row['id'] ?? ''), 'Prüferzuordnung wird korrigiert');
+        }
+        file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'examiner_migration', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => ['processed' => $step, 'bea_2023_2024' => $bea, 'eandro_ab_2025' => $eandro]], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); @unlink($cancelPath); exit(0);
     } elseif (($payload['type'] ?? '') === 'pdf_bundle') {
         if (!function_exists('shell_exec')) throw new RuntimeException('PDF-Zusammenführung ist auf diesem Server nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
