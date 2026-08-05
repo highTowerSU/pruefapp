@@ -27,9 +27,14 @@ $archiveStatus = static function () use ($statusPath, $id): void {
 };
 register_shutdown_function($archiveStatus);
 $writeStatus = static function (array $extra) use ($statusPath, $id, $payload, $statusCreatedAt): void {
-    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'type' => (string) ($payload['type'] ?? 'background'), 'state' => 'running', 'owner_user_id' => (int) ($payload['owner_user_id'] ?? 0), 'created_at' => $statusCreatedAt, 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
+    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'type' => (string) ($payload['type'] ?? 'background'), 'state' => 'running', 'owner_user_id' => (int) ($payload['owner_user_id'] ?? 0), 'created_at' => $statusCreatedAt, 'updated_at' => date(DATE_ATOM), 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
 };
-$writeStatus([]);
+$writeStatus([
+    'step' => max(0, (int) ($statusInitial['step'] ?? 0)),
+    'total' => max(0, (int) ($statusInitial['total'] ?? 0)),
+    'current_device' => (string) ($statusInitial['current_device'] ?? ''),
+    'message' => (string) ($statusInitial['message'] ?? 'Aufgabe wird fortgesetzt.'),
+]);
 try {
     $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $cancelPath, $deadline, $debug): void {
         if (is_file($cancelPath)) throw new RuntimeException('Job wurde abgebrochen.');
@@ -134,6 +139,12 @@ try {
     $lastStatus['finished_at'] = date(DATE_ATOM);
     $lastStatus['message'] = $timeLimited ? 'Der Export wird automatisch beim nächsten Hintergrundlauf fortgesetzt.' : '';
     $lastStatus['error'] = $timeLimited ? '' : $exception->getMessage();
+    if ($timeLimited) {
+        // Keep the last durable cursor even if the deadline fired before the
+        // next progress callback could write a fresh status.
+        if (isset($statusInitial['step'])) $lastStatus['step'] = (int) $statusInitial['step'];
+        if (isset($statusInitial['total'])) $lastStatus['total'] = (int) $statusInitial['total'];
+    }
     file_put_contents($statusPath, json_encode($lastStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
     if ($timeLimited) exit(0);
 }

@@ -287,6 +287,14 @@ file_put_contents($root . '/report-heartbeat.json', json_encode([
 ], JSON_UNESCAPED_UNICODE), LOCK_EX);
 
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
+    $staleStatus = json_decode((string) @file_get_contents($statusPath), true);
+    if (is_array($staleStatus) && ($staleStatus['state'] ?? '') === 'running' && (time() - (int) @filemtime($statusPath)) > 180) {
+        $staleStatus['state'] = 'queued';
+        $staleStatus['message'] = 'Worker war nicht mehr aktiv; Aufgabe wird fortgesetzt.';
+        $staleStatus['recovered_at'] = date(DATE_ATOM);
+        file_put_contents($statusPath, json_encode($staleStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $log('Hintergrundaufgabe ' . substr((string) ($staleStatus['id'] ?? ''), 0, 12) . ' wegen abgelaufenem Worker-Status zur Fortsetzung vorgemerkt.', 'warning');
+    }
     $candidate = json_decode((string) @file_get_contents($statusPath), true);
     if ($timeLeft() <= 8) { $log('Weitere Hintergrundaufgaben werden beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
     $status = json_decode((string) file_get_contents($statusPath), true);
