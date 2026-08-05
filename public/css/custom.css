@@ -239,6 +239,7 @@ label.form-check-label > i {
   min-width: 0;
   padding-inline: clamp(.75rem, 2.5vw, 2rem) !important;
 }
+html, body { max-width: 100%; overflow-x: hidden; }
 .app-main-container .row > [class*="col-"] { min-width: 0; }
 .app-main-container input,
 .app-main-container select,

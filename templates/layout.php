@@ -103,6 +103,15 @@ $assetVersion = app_asset_version();
                 const initialTheme = getStoredTheme() || 'auto';
                 updateThemeUI(initialTheme);
 
+                const navbar = document.getElementById('appNavbarContent');
+                const navbarToggle = document.querySelector('[data-bs-target="#appNavbarContent"]');
+                if (navbar && navbarToggle) {
+                    navbar.addEventListener('shown.bs.collapse', () => {
+                        navbar.querySelector('a, button, input, select, textarea')?.focus({preventScroll: true});
+                    });
+                    navbar.addEventListener('hidden.bs.collapse', () => navbarToggle.focus({preventScroll: true}));
+                }
+
                 document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
                     button.addEventListener('click', () => {
                         const theme = button.getAttribute('data-bs-theme-value');
