@@ -3,70 +3,98 @@
 declare(strict_types=1);
 
 use RedBeanPHP\R as R;
+use Ceneos\PhpBase\Jobs\JobQueue;
+$configOverride = trim((string) getenv('PRUEFAPP_CONFIG_FILE'));
+if ($configOverride !== '' && !defined('CENEOS_CONFIG_FILE')) define('CENEOS_CONFIG_FILE', $configOverride);
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
 
 $id = preg_replace('/[^a-f0-9]/', '', (string) ($argv[1] ?? ''));
-$root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-$payloadPath = $root . '/' . $id . '.json';
-$statusPath = $root . '/' . $id . '.status.json';
-$cancelPath = $root . '/' . $id . '.cancel';
 $deadline = (float) (getenv('PRUEFAPP_CRON_DEADLINE') ?: 0);
 $debug = getenv('PRUEFAPP_CRON_DEBUG') === '1';
-if ($id === '' || !is_file($payloadPath)) exit(2);
-$payload = json_decode((string) file_get_contents($payloadPath), true);
-$ownerUserId = (int) (is_array($payload) ? ($payload['owner_user_id'] ?? 0) : 0);
-$statusInitial = is_file($statusPath) ? json_decode((string) @file_get_contents($statusPath), true) : [];
-$statusCreatedAt = is_array($statusInitial) && !empty($statusInitial['created_at']) ? (string) $statusInitial['created_at'] : date(DATE_ATOM);
-$archiveStatus = static function () use ($statusPath, $id): void {
-    $status = json_decode((string) @file_get_contents($statusPath), true);
-    if (!is_array($status) || !in_array((string) ($status['state'] ?? ''), ['done', 'error', 'cancelled'], true)) return;
-    $archiveRoot = app_data_root() . '/logs/background-jobs';
-    if (!is_dir($archiveRoot)) @mkdir($archiveRoot, 0770, true);
-    @file_put_contents($archiveRoot . '/' . $id . '.status.json', json_encode($status, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+$cronRunId = trim((string) getenv('PRUEFAPP_CRON_RUN_ID'));
+$debugLog = static function (string $message, array $context = []) use ($cronRunId): void {
+    try {
+        R::exec('INSERT INTO cron_log (run_at, level, message, run_id, context_json) VALUES (?, ?, ?, ?, ?)', [date(DATE_ATOM), 'debug', $message, $cronRunId, json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}']);
+    } catch (Throwable) {
+        // Progress logging must never interrupt the actual unit of work.
+    }
 };
-register_shutdown_function($archiveStatus);
-$writeStatus = static function (array $extra) use ($statusPath, $id, $payload, $statusCreatedAt): void {
-    file_put_contents($statusPath, json_encode(array_merge(['id' => $id, 'type' => (string) ($payload['type'] ?? 'background'), 'state' => 'running', 'owner_user_id' => (int) ($payload['owner_user_id'] ?? 0), 'created_at' => $statusCreatedAt, 'updated_at' => date(DATE_ATOM), 'customer_id' => (string) ($payload['customer_id'] ?? '')], $extra), JSON_UNESCAPED_UNICODE), LOCK_EX);
+$job = $id !== '' ? JobQueue::getByPublicId($id) : null;
+if ($job === null || !in_array((string) $job['status'], ['running', 'cancel_requested'], true)) exit(2);
+$jobId = (int) $job['id'];
+$workerId = (string) ($job['worker_id'] ?? '');
+$payload = (array) ($job['payload'] ?? []);
+$ownerUserId = (int) ($job['owner_user_id'] ?? 0);
+$statusInitial = [
+    'step' => (int) ($job['current'] ?? 0),
+    'total' => (int) ($job['total'] ?? 0),
+    'current_device' => (string) (($job['checkpoint']['current_device'] ?? '')),
+    'message' => (string) ($job['message'] ?? ''),
+];
+$writeStatus = static function (array $extra) use ($jobId, $workerId, $job): void {
+    $latest = JobQueue::get($jobId) ?? $job;
+    $checkpoint = (array) ($latest['checkpoint'] ?? []);
+    if (isset($extra['current_device'])) $checkpoint['current_device'] = (string) $extra['current_device'];
+    $checkpoint['next_index'] = max(0, (int) ($extra['step'] ?? $latest['current'] ?? 0));
+    JobQueue::checkpoint(
+        $jobId,
+        $checkpoint,
+        max(0, (int) ($extra['step'] ?? $latest['current'] ?? 0)),
+        max(0, (int) ($extra['total'] ?? $latest['total'] ?? 0)),
+        (string) ($extra['message'] ?? $latest['message'] ?? ''),
+        $workerId,
+        180
+    );
 };
-$writeStatus([
-    'step' => max(0, (int) ($statusInitial['step'] ?? 0)),
-    'total' => max(0, (int) ($statusInitial['total'] ?? 0)),
-    'current_device' => (string) ($statusInitial['current_device'] ?? ''),
-    'message' => (string) ($statusInitial['message'] ?? 'Aufgabe wird fortgesetzt.'),
-]);
 try {
-    $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $cancelPath, $deadline, $debug): void {
-        if (is_file($cancelPath)) throw new RuntimeException('Job wurde abgebrochen.');
-        if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
+    $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $jobId, $deadline, $debug, $debugLog): void {
         $writeStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
+        $debugLog('Aufgabenfortschritt: ' . $step . ' von ' . $total . ($number !== '' ? ' · ' . $number : '') . ' · ' . $message, ['job_id' => $jobId, 'current' => $step, 'total' => $total, 'record' => $number]);
         if ($debug) fwrite(STDERR, '[worker debug] ' . $step . '/' . $total . ' ' . ($number !== '' ? $number . ' · ' : '') . $message . PHP_EOL);
+        if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
+        if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
     };
-    if (($payload['type'] ?? '') === 'pdf_regenerate') {
+    $maintenanceTypes = ['missing_reports', 'report_migration', 'phoenix_pdf_restore', 'measurement_migration'];
+    if (in_array((string) ($payload['type'] ?? ''), $maintenanceTypes, true)) {
+        $tick = static function (array $checkpoint, int $step, int $total, string $number, string $message) use ($jobId, $workerId, $deadline, $debug, $debugLog): void {
+            JobQueue::checkpoint($jobId, $checkpoint + ['current_device' => $number, 'next_index' => $step], $step, $total, $message, $workerId, 180);
+            $debugLog('Aufgabenfortschritt: ' . $step . ' von ' . $total . ($number !== '' ? ' · ' . $number : '') . ' · ' . $message, ['job_id' => $jobId, 'current' => $step, 'total' => $total, 'record' => $number]);
+            if ($debug) fwrite(STDERR, '[worker debug] ' . $step . '/' . $total . ' ' . ($number !== '' ? $number . ' · ' : '') . $message . PHP_EOL);
+            if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
+            if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
+        };
+        $stats = MaintenanceJobHandler::run($job, $tick);
+        BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) $payload['type']) . ' abgeschlossen.');
+        exit(0);
+    } elseif (($payload['type'] ?? '') === 'pdf_regenerate') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['inspection_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         $total = count($ids); $step = min((int) ($statusInitial['step'] ?? 0), $total);
         foreach (array_slice($ids, $step) as $inspectionId) {
             $inspection = R::load('inspection', $inspectionId); $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
-            if ($inspection->id && $device && $device->id) {
+            $isPhoenixOriginal = $inspection->id && (string) ($inspection->source_type ?? '') === 'json' && str_contains((string) ($inspection->raw_json ?? ''), 'phoenix-sync');
+            if ($inspection->id && $device && $device->id && !$isPhoenixOriginal) {
                 $relative = 'reports/current/' . $inspectionId . '.pdf'; $path = app_data_root() . '/' . $relative; if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
                 file_put_contents($path, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null), LOCK_EX); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
             }
-            $step++; $progress($step, $total, (string) ($device->external_number ?? ''), 'Prüfbericht wird neu erzeugt');
+            $step++; $progress($step, $total, (string) ($device->external_number ?? ''), $isPhoenixOriginal ? 'Phoenix-Originalbericht bleibt unverändert.' : 'Prüfbericht wird neu erzeugt');
         }
-        file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => ['reports' => $step]], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); @unlink($cancelPath); exit(0);
+        BackgroundJobService::complete($jobId, ['stats' => ['reports' => $step]], $step . ' Prüfberichte wurden neu erzeugt.'); exit(0);
     } elseif (($payload['type'] ?? '') === 'examiner_migration') {
         $rows = R::getAll("SELECT id, test_date, source_type FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv') ORDER BY id");
-        $total = count($rows); $step = min((int) ($statusInitial['step'] ?? 0), $total); $bea = 0; $eandro = 0;
+        $total = count($rows); $step = min((int) ($statusInitial['step'] ?? 0), $total);
         foreach (array_slice($rows, $step) as $row) {
             $year = (int) substr(trim((string) ($row['test_date'] ?? '')), 0, 4);
             $target = in_array($year, [2023, 2024], true) ? 'bdebertshaeuser@koenigsbl.au' : ($year >= 2025 ? 'edebertshaeuser@koenigsbl.au' : '');
             if ($target !== '') {
                 $inspection = R::load('inspection', (int) $row['id']);
-                if ($inspection->id) { $inspection->examiner = $target; if ((string) ($row['source_type'] ?? '') === 'csv') $inspection->report_path = ''; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); $target === 'bdebertshaeuser@koenigsbl.au' ? $bea++ : $eandro++; }
+                if ($inspection->id) { $inspection->examiner = $target; if ((string) ($row['source_type'] ?? '') === 'csv') $inspection->report_path = ''; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); }
             }
             $step++; $progress($step, $total, (string) ($row['id'] ?? ''), 'Prüferzuordnung wird korrigiert');
         }
-        file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'examiner_migration', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => ['processed' => $step, 'bea_2023_2024' => $bea, 'eandro_ab_2025' => $eandro]], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); @unlink($cancelPath); exit(0);
+        $bea = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE examiner = ? AND CAST(SUBSTR(test_date, 1, 4) AS INTEGER) IN (2023, 2024) AND COALESCE(source_type, '') IN ('json','csv')", ['bdebertshaeuser@koenigsbl.au']);
+        $eandro = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE examiner = ? AND CAST(SUBSTR(test_date, 1, 4) AS INTEGER) >= 2025 AND COALESCE(source_type, '') IN ('json','csv')", ['edebertshaeuser@koenigsbl.au']);
+        BackgroundJobService::complete($jobId, ['stats' => ['processed' => $step, 'bea_2023_2024' => $bea, 'eandro_ab_2025' => $eandro]], $step . ' Prüferzuordnungen wurden geprüft.'); exit(0);
     } elseif (($payload['type'] ?? '') === 'pdf_bundle') {
         if (!function_exists('shell_exec')) throw new RuntimeException('PDF-Zusammenführung ist auf diesem Server nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
@@ -76,7 +104,7 @@ try {
         $files = [];
         foreach ($rows as $row) {
             $source = (string) $row['report_path']; $source = is_file($source) ? $source : (is_file('/var/www/berichte/' . basename($source)) ? '/var/www/berichte/' . basename($source) : $source);
-            if (!is_file($source)) { $inspection = R::load('inspection', (int) $row['id']); $device = R::load('device', (int) $row['device_id']); $relative = 'reports/current/' . (int) $inspection->id . '.pdf'; $source = app_data_root() . '/' . $relative; if (!is_dir(dirname($source))) mkdir(dirname($source), 0770, true); file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null)); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); }
+            if (!is_file($source)) { $inspection = R::load('inspection', (int) $row['id']); $device = R::load('device', (int) $row['device_id']); if ((string) ($inspection->source_type ?? '') === 'json' && str_contains((string) ($inspection->raw_json ?? ''), 'phoenix-sync')) continue; $relative = 'reports/current/' . (int) $inspection->id . '.pdf'; $source = app_data_root() . '/' . $relative; if (!is_dir(dirname($source))) mkdir(dirname($source), 0770, true); file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null)); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); }
             if (!is_file($source)) continue;
             $info = shell_exec('pdfinfo ' . escapeshellarg($source) . ' 2>/dev/null'); preg_match('/^Pages:\s+(\d+)/mi', (string) $info, $match); $pages = max(1, (int) ($match[1] ?? 1)); $row['pages'] = $pages; $row['source'] = $source; $files[] = $row;
         }
@@ -84,19 +112,25 @@ try {
         $maxPages = max(10, (int) ($payload['max_pages'] ?? 500)); $parts = []; $current = []; $currentPages = 0;
         foreach ($files as $row) { if ($current !== [] && $currentPages + (int) $row['pages'] + 2 > $maxPages) { $parts[] = $current; $current = []; $currentPages = 0; } $current[] = $row; $currentPages += (int) $row['pages']; }
         if ($current !== []) $parts[] = $current;
-        $outDir = app_data_root() . '/exports/sammelpdf-' . date('Ymd-His') . '-' . $id; if (!is_dir($outDir)) mkdir($outDir, 0770, true); $outputs = [];
-        foreach ($parts as $partIndex => $part) {
+        $outDir = app_data_root() . '/exports/sammelpdf-' . $id; if (!is_dir($outDir)) mkdir($outDir, 0770, true);
+        $partStart = min((int) ($statusInitial['step'] ?? 0), count($parts));
+        $outputs = [];
+        for ($existingPart = 0; $existingPart < $partStart; $existingPart++) {
+            $existingOutput = $outDir . '/Pruefberichte-' . sprintf('%03d', $existingPart + 1) . '.pdf';
+            if (is_file($existingOutput)) $outputs[] = $existingOutput;
+            else { $partStart = $existingPart; break; }
+        }
+        foreach (array_slice($parts, $partStart, null, true) as $partIndex => $part) {
             $toc = [['Inhaltsverzeichnis', 'Seite', 'Raum', 'Gerät', 'Prüfung']]; $page = 3;
             foreach ($part as $row) { $room = trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: 'ohne Raum'; $toc[] = [$room, (string) $page, (string) $row['device_number'] . ' · ' . (string) $row['device_name'], (string) $row['external_number'], (string) $row['test_date']]; $page += (int) $row['pages']; }
             $cover = $outDir . '/cover-' . $partIndex . '.pdf'; $tocPdf = $outDir . '/toc-' . $partIndex . '.pdf'; file_put_contents($cover, ReportController::renderPdf([['Sammelbericht', 'Wert'], ['Erstellt', date('d.m.Y H:i')], ['Teil', ($partIndex + 1) . ' von ' . count($parts)]], 'Sammelbericht Prüfungen')); file_put_contents($tocPdf, ReportController::renderPdf($toc, 'Inhaltsverzeichnis Prüfberichte'));
             $output = $outDir . '/Pruefberichte-' . sprintf('%03d', $partIndex + 1) . '.pdf'; $inputs = [$cover, $tocPdf]; foreach ($part as $row) $inputs[] = $row['source']; $command = 'pdfunite ' . implode(' ', array_map('escapeshellarg', $inputs)) . ' ' . escapeshellarg($output) . ' 2>&1'; $result = shell_exec($command); if (!is_file($output)) throw new RuntimeException('Sammel-PDF konnte nicht erstellt werden: ' . trim((string) $result)); $outputs[] = $output; @unlink($cover); @unlink($tocPdf); $progress($partIndex + 1, count($parts), (string) ($part[0]['device_number'] ?? ''), 'Sammel-PDF erstellt');
         }
         if (count($outputs) === 1) {
-            file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => ['parts' => 1, 'reports' => count($files), 'max_pages' => $maxPages], 'output' => $outputs[0], 'outputs' => $outputs, 'output_type' => 'pdf'], JSON_UNESCAPED_UNICODE), LOCK_EX);
-            @unlink($payloadPath);
+            BackgroundJobService::complete($jobId, ['stats' => ['parts' => 1, 'reports' => count($files), 'max_pages' => $maxPages], 'output' => $outputs[0], 'outputs' => $outputs, 'output_type' => 'pdf'], 'Das Sammel-PDF steht zum Download bereit.');
             exit(0);
         }
-        $zipPath = $outDir . '/Sammelberichte.zip'; $zip = new ZipArchive(); if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Sammel-PDF-ZIP konnte nicht erstellt werden.'); foreach ($outputs as $output) $zip->addFile($output, 'Pruefberichte/' . basename($output)); $zip->close(); file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => ['parts' => count($outputs), 'reports' => count($files), 'max_pages' => $maxPages], 'output' => $zipPath, 'outputs' => $outputs], JSON_UNESCAPED_UNICODE), LOCK_EX); @unlink($payloadPath); exit(0);
+        $zipPath = $outDir . '/Sammelberichte.zip'; $zip = new ZipArchive(); if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Sammel-PDF-ZIP konnte nicht erstellt werden.'); foreach ($outputs as $output) $zip->addFile($output, 'Pruefberichte/' . basename($output)); $zip->close(); BackgroundJobService::complete($jobId, ['stats' => ['parts' => count($outputs), 'reports' => count($files), 'max_pages' => $maxPages], 'output' => $zipPath, 'outputs' => $outputs], 'Die Sammelberichte stehen zum Download bereit.'); exit(0);
     } elseif (($payload['type'] ?? '') === 'pdf_zip') {
         if (!class_exists('ZipArchive')) throw new RuntimeException('ZipArchive ist nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
@@ -120,33 +154,70 @@ try {
         if (!empty($payload['index_ods'])) $zip->addFromString('inhaltsverzeichnis.ods', ReportController::renderOds($index, 'Inhaltsverzeichnis'));
         $zip->close();
         $stats = ['files' => max(0, count($index) - 1), 'output' => $zipPath, 'all_reports' => $all];
-        file_put_contents($statusPath, json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => $stats, 'output' => $zipPath], JSON_UNESCAPED_UNICODE), LOCK_EX);
-        @unlink($workPath); @unlink($payloadPath); @unlink($cancelPath); exit(0);
+        BackgroundJobService::complete($jobId, ['stats' => $stats, 'output' => $zipPath], 'Der ZIP-Export steht zum Download bereit.');
+        @unlink($workPath); exit(0);
     } elseif (($payload['type'] ?? '') === 'directory_import') {
-        $stats = (new ElectricalInspectionImportService())->importDirectory((string) ($payload['directory'] ?? ''), trim((string) ($payload['reports_directory'] ?? '')) ?: null, is_array($payload['defaults'] ?? null) ? $payload['defaults'] : []);
-        if (is_file($cancelPath)) throw new RuntimeException('Job wurde nach dem aktuellen Importschritt abgebrochen.');
+        $source = realpath((string) ($payload['directory'] ?? '')) ?: '';
+        if ($source === '' || (!is_file($source) && !is_dir($source))) throw new RuntimeException('Importquelle wurde nicht gefunden.');
+        $checkpoint = (array) ($job['checkpoint'] ?? []);
+        $files = is_array($checkpoint['files'] ?? null) ? $checkpoint['files'] : [];
+        if ($files === []) {
+            if (is_file($source)) $files = [$source];
+            else {
+                $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS));
+                foreach ($iterator as $file) if ($file->isFile() && in_array(strtolower($file->getExtension()), ['json', 'jsonl', 'csv'], true)) $files[] = $file->getPathname();
+                sort($files, SORT_NATURAL | SORT_FLAG_CASE);
+            }
+        }
+        $fileIndex = min((int) ($checkpoint['file_index'] ?? 0), count($files));
+        $byteOffset = max(0, (int) ($checkpoint['byte_offset'] ?? 0));
+        $stats = is_array($checkpoint['stats'] ?? null) ? $checkpoint['stats'] : ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
+        $defaults = is_array($payload['defaults'] ?? null) ? $payload['defaults'] : [];
+        $defaults['_audit_correlation_id'] = 'job-' . $id;
+        $mergeStats = static function (array &$target, array $part): void {
+            foreach ($part as $key => $value) {
+                if (is_int($value)) $target[$key] = (int) ($target[$key] ?? 0) + $value;
+                elseif (in_array($key, ['errors', 'new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) $target[$key] = array_merge((array) ($target[$key] ?? []), $value);
+            }
+        };
+        $service = new ElectricalInspectionImportService();
+        while ($fileIndex < count($files)) {
+            $file = (string) $files[$fileIndex];
+            if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'jsonl') {
+                $chunk = $service->importJsonlChunk($file, $byteOffset, 25, trim((string) ($payload['reports_directory'] ?? '')) ?: null, $defaults);
+                $mergeStats($stats, (array) $chunk['stats']);
+                $byteOffset = (int) $chunk['next_offset'];
+                if (!empty($chunk['eof'])) { $fileIndex++; $byteOffset = 0; }
+            } else {
+                $part = $service->importDirectory($file, trim((string) ($payload['reports_directory'] ?? '')) ?: null, $defaults);
+                $mergeStats($stats, $part);
+                $fileIndex++;
+                $byteOffset = 0;
+            }
+            $checkpoint = ['files' => $files, 'file_index' => $fileIndex, 'byte_offset' => $byteOffset, 'stats' => $stats, 'current_device' => basename($file)];
+            JobQueue::checkpoint($jobId, $checkpoint, $fileIndex, count($files), basename($file) . ' wird importiert', $workerId, 180);
+            $progress($fileIndex, count($files), basename($file), (int) ($stats['imported'] ?? 0) . ' importiert, ' . (int) ($stats['updated'] ?? 0) . ' aktualisiert');
+        }
+        $completionMarker = trim((string) ($payload['completion_marker'] ?? ''));
+        if ($completionMarker !== '') {
+            if (!is_dir(dirname($completionMarker))) mkdir(dirname($completionMarker), 0770, true);
+            file_put_contents($completionMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        }
+        if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
     } else {
-        $stats = (new PhoenixSyncService())->sync((string) ($payload['customer_id'] ?? ''), (string) ($payload['token'] ?? ''), (string) ($payload['api_url'] ?? ''), $progress);
+        $stats = (new PhoenixSyncService())->sync((string) ($payload['customer_id'] ?? ''), (string) ($payload['token'] ?? ''), (string) ($payload['api_url'] ?? ''), $progress, (int) ($statusInitial['step'] ?? 0), $id);
     }
-    file_put_contents($statusPath, json_encode(['id' => $id, 'type' => (string) ($payload['type'] ?? 'background'), 'state' => 'done', 'owner_user_id' => $ownerUserId, 'finished_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
+    BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) ($payload['type'] ?? 'background')) . ' abgeschlossen.');
 } catch (Throwable $exception) {
-    $cancelled = is_file($cancelPath);
+    $cancelled = $exception->getMessage() === '__JOB_CANCELLED__' || JobQueue::cancellationRequested($jobId);
     $timeLimited = $exception->getMessage() === '__CRON_TIME_LIMIT__';
-    $lastStatus = is_file($statusPath) ? json_decode((string) @file_get_contents($statusPath), true) : [];
-    $lastStatus = is_array($lastStatus) ? $lastStatus : [];
-    $lastStatus['id'] = $id;
-    $lastStatus['state'] = $timeLimited ? 'queued' : ($cancelled ? 'cancelled' : 'error');
-    $lastStatus['finished_at'] = date(DATE_ATOM);
-    $lastStatus['message'] = $timeLimited ? 'Der Export wird automatisch beim nächsten Hintergrundlauf fortgesetzt.' : '';
-    $lastStatus['error'] = $timeLimited ? '' : $exception->getMessage();
-    if ($timeLimited) {
-        // Keep the last durable cursor even if the deadline fired before the
-        // next progress callback could write a fresh status.
-        if (isset($statusInitial['step'])) $lastStatus['step'] = (int) $statusInitial['step'];
-        if (isset($statusInitial['total'])) $lastStatus['total'] = (int) $statusInitial['total'];
+    if ($cancelled) {
+        JobQueue::finish($jobId, 'cancelled', [], 'Die Aufgabe wurde abgebrochen.');
+        exit(0);
     }
-    file_put_contents($statusPath, json_encode($lastStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
-    if ($timeLimited) exit(0);
+    if ($timeLimited) {
+        JobQueue::release($jobId, $workerId, 'Die Aufgabe wird im nächsten freien Arbeitsabschnitt am gespeicherten Stand fortgesetzt.', 0);
+        exit(0);
+    }
+    BackgroundJobService::fail($jobId, $exception->getMessage());
 }
-if (!isset($timeLimited) || !$timeLimited) @unlink($payloadPath);
-@unlink($cancelPath);

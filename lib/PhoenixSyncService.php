@@ -6,7 +6,14 @@ use RedBeanPHP\R;
 
 final class PhoenixSyncService
 {
-    public function sync(string $customerId, string $token, string $baseUrl = 'https://api.phoenix-arbeitswelt.de/phoenix', ?callable $progress = null): array
+    public function sync(
+        string $customerId,
+        string $token,
+        string $baseUrl = 'https://api.phoenix-arbeitswelt.de/phoenix',
+        ?callable $progress = null,
+        int $resumeStep = 0,
+        string $workId = ''
+    ): array
     {
         $baseUrl = rtrim($baseUrl, '/');
         $query = http_build_query([
@@ -17,31 +24,62 @@ final class PhoenixSyncService
         $list = $this->request($baseUrl . '/table?' . $query, $token);
         $items = $list['resources']['data'] ?? [];
         if (!is_array($items)) throw new RuntimeException('Phoenix-Antwort enthält keine Prüfungen.');
-        $records = []; $skipped = 0;
-        $reportDir = sys_get_temp_dir() . '/phoenix-reports-' . bin2hex(random_bytes(6));
-        mkdir($reportDir, 0700, true);
-        $total = count($items); $step = 0;
-        foreach ($items as $item) {
-            $step++;
+        $workId = preg_replace('/[^a-f0-9]/', '', strtolower($workId)) ?: bin2hex(random_bytes(12));
+        $workRoot = app_data_root() . '/imports/phoenix-work-' . $workId;
+        $reportDir = $workRoot . '/reports';
+        if (!is_dir($reportDir) && !mkdir($reportDir, 0770, true) && !is_dir($reportDir)) throw new RuntimeException('Phoenix-Arbeitsverzeichnis konnte nicht angelegt werden.');
+        $jsonl = $workRoot . '/records.jsonl';
+        $statePath = $workRoot . '/state.json';
+        $state = is_file($statePath) ? json_decode((string) @file_get_contents($statePath), true) : [];
+        if (!is_array($state)) $state = [];
+        $skipped = (int) ($state['skipped_existing'] ?? 0);
+        $total = count($items);
+        $fetchStep = min(max((int) ($state['fetch_step'] ?? $resumeStep), 0), $total);
+        foreach (array_slice($items, $fetchStep) as $item) {
+            $fetchStep++;
             if (!is_array($item) || trim((string) ($item['number'] ?? '')) === '') continue;
             $number = trim((string) $item['number']);
-            if ($progress !== null) $progress($step, $total, $number, 'Prüfung laden');
-            if (R::findOne('device', ' external_number = ? OR legacy_number = ? ', [$number, $number])) { $skipped++; continue; }
+            if (R::findOne('device', ' external_number = ? OR legacy_number = ? ', [$number, $number])) {
+                $skipped++;
+                $state['fetch_step'] = $fetchStep; $state['skipped_existing'] = $skipped;
+                file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_UNICODE), LOCK_EX);
+                if ($progress !== null) $progress($fetchStep, max(1, $total * 2), $number, 'Bereits vorhandene Prüfung übersprungen');
+                continue;
+            }
             $auditId = (int) ($item['id'] ?? $item['audit_id'] ?? $item['resource_id'] ?? 0);
             $detail = $auditId > 0 ? $this->request($baseUrl . '/modules/audits/resources/' . $auditId, $token) : $item;
-            $records[] = $this->record(is_array($detail) ? $detail : [], $item);
+            file_put_contents($jsonl, json_encode($this->record(is_array($detail) ? $detail : [], $item), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND | LOCK_EX);
             if ($auditId > 0) $this->downloadReport($baseUrl . '/webhook/good-parrot-49/audits/' . $auditId, $number, $token, $reportDir);
+            $state['fetch_step'] = $fetchStep; $state['skipped_existing'] = $skipped;
+            file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_UNICODE), LOCK_EX);
+            if ($progress !== null) $progress($fetchStep, max(1, $total * 2), $number, 'Prüfung und Originalbericht geladen');
         }
-        if ($progress !== null) $progress($total, $total, '', 'Lokalen Import ausführen');
-        if ($records === []) { @rmdir($reportDir); return ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; }
+        if (!is_file($jsonl) || filesize($jsonl) === 0) { $this->removeDirectory($reportDir); @unlink($statePath); @rmdir($workRoot); return ['fetched' => count($items), 'new' => 0, 'skipped_existing' => $skipped, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'errors' => []]; }
         $archiveRoot = app_data_root() . '/phoenix-imports';
         if (!is_dir($archiveRoot) && !mkdir($archiveRoot, 0770, true) && !is_dir($archiveRoot)) throw new RuntimeException('Phoenix-Archiv konnte nicht angelegt werden.');
-        $jsonl = $archiveRoot . '/phoenix-sync-' . bin2hex(random_bytes(12)) . '.jsonl';
-        $handle = fopen($jsonl, 'wb');
-        foreach ($records as $record) fwrite($handle, json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
-        fclose($handle);
-        try { $stats = (new ElectricalInspectionImportService())->importDirectory($jsonl, $reportDir); } finally { $this->removeDirectory($reportDir); }
-        $stats['fetched'] = count($items); $stats['skipped_existing'] = $skipped; $stats['new'] = count($records);
+        $byteOffset = max(0, (int) ($state['import_offset'] ?? 0));
+        $importedRecords = max(0, (int) ($state['import_records'] ?? 0));
+        $stats = is_array($state['stats'] ?? null) ? $state['stats'] : ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
+        $merge = static function (array &$target, array $part): void {
+            foreach ($part as $key => $value) {
+                if (is_int($value)) $target[$key] = (int) ($target[$key] ?? 0) + $value;
+                elseif (in_array($key, ['errors', 'new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) $target[$key] = array_merge((array) ($target[$key] ?? []), $value);
+            }
+        };
+        $service = new ElectricalInspectionImportService();
+        do {
+            $chunk = $service->importJsonlChunk($jsonl, $byteOffset, 25, $reportDir, ['_audit_correlation_id' => 'job-' . $workId]);
+            $merge($stats, (array) $chunk['stats']);
+            $byteOffset = (int) $chunk['next_offset'];
+            $importedRecords += (int) $chunk['processed'];
+            $state = array_merge($state, ['fetch_step' => $total, 'import_offset' => $byteOffset, 'import_records' => $importedRecords, 'stats' => $stats, 'skipped_existing' => $skipped]);
+            file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_UNICODE), LOCK_EX);
+            if ($progress !== null) $progress($total + $importedRecords, max(1, $total * 2), '', 'Geladene Prüfungen werden lokal importiert');
+        } while (empty($chunk['eof']));
+        $archiveJsonl = $archiveRoot . '/phoenix-sync-' . $workId . '.jsonl';
+        if (!is_file($archiveJsonl)) @copy($jsonl, $archiveJsonl);
+        $this->removeDirectory($reportDir); @unlink($jsonl); @unlink($statePath); @rmdir($workRoot);
+        $stats['fetched'] = count($items); $stats['skipped_existing'] = $skipped; $stats['new'] = $importedRecords;
         return $stats;
     }
 

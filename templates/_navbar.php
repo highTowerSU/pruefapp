@@ -207,7 +207,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         <?php endif; ?>
 
         <?php if ($authUser !== null): ?>
-          <?php $notifications = current_user_background_jobs(6); $unreadNotifications = array_filter($notifications, static fn(array $entry): bool => !empty($entry['notification_unread'])); ?>
+          <?php $notifications = current_user_notifications(6); $unreadNotifications = array_filter($notifications, static fn(array $entry): bool => !empty($entry['notification_unread'])); ?>
           <div class="dropdown">
             <button class="btn btn-outline-navbar position-relative" type="button" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Benachrichtigungen" title="Benachrichtigungen">
               <i class="fa-solid fa-bell" aria-hidden="true"></i>
@@ -219,8 +219,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <li><span class="dropdown-item-text small text-body-secondary">Keine aktuellen Hintergrundaufgaben.</span></li>
               <?php else: ?>
                 <?php foreach ($notifications as $notification): ?>
-                  <?php $notificationState = (string) ($notification['state'] ?? ''); $notificationType = (string) ($notification['type'] ?? ''); $notificationIcon = $notificationState === 'done' ? 'fa-circle-check text-success' : (in_array($notificationState, ['error', 'cancelled'], true) ? 'fa-circle-exclamation text-danger' : (in_array($notificationType, ['directory_import', 'phoenix_sync'], true) ? 'fa-file-import text-primary' : ($notificationType === 'pdf_regenerate' ? 'fa-file-pdf text-warning' : 'fa-clock text-warning'))); $notificationHref = !empty($notification['downloadable']) ? url_for('geraete/zip/' . rawurlencode((string) $notification['id']) . '/download') : $downloadsUrl; ?>
-                  <li><a class="dropdown-item small d-flex gap-2 align-items-start rounded-2" href="<?= htmlspecialchars($notificationHref, ENT_QUOTES) ?>"><i class="fa-solid <?= $notificationIcon ?> mt-1" aria-hidden="true"></i><span><strong><?= htmlspecialchars((string) ($notification['type_label'] ?? 'Hintergrundaufgabe')) ?></strong><br><span class="text-body-secondary"><?= htmlspecialchars((string) ($notification['message'] ?? ($notificationState === 'done' ? 'Download ist fertig.' : 'Wird im Hintergrund verarbeitet.'))) ?></span></span></a></li>
+                  <?php $severity = (string) ($notification['severity'] ?? 'info'); $notificationIcon = $severity === 'success' ? 'fa-circle-check text-success' : ($severity === 'error' ? 'fa-circle-exclamation text-danger' : ($severity === 'warning' ? 'fa-triangle-exclamation text-warning' : ((string) ($notification['category'] ?? '') === 'import' ? 'fa-file-import text-primary' : 'fa-circle-info text-info'))); $notificationHref = trim((string) ($notification['action_url'] ?? '')) ?: $downloadsUrl; ?>
+                  <li><a class="dropdown-item small d-flex gap-2 align-items-start rounded-2<?= !empty($notification['notification_unread']) ? ' fw-semibold' : '' ?>" href="<?= htmlspecialchars($notificationHref, ENT_QUOTES) ?>"><i class="fa-solid <?= $notificationIcon ?> mt-1" aria-hidden="true"></i><span><strong><?= htmlspecialchars((string) ($notification['title'] ?? 'Benachrichtigung')) ?></strong><br><span class="text-body-secondary"><?= htmlspecialchars((string) ($notification['message'] ?? '')) ?></span></span></a></li>
                 <?php endforeach; ?>
               <?php endif; ?>
             </ul>

@@ -1,14 +1,18 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
-use RedBeanPHP\R as R;
+use Ceneos\PhpBase\Jobs\JobQueue;
+use Ceneos\PhpBase\Notification\NotificationRepository;
+use Ceneos\PhpBase\Audit\AuditTrailRepository;
+use RedBeanPHP\R;
 
-// Run from cron as the same user that owns the application data (usually www-data).
+$configOverride = trim((string) getenv('PRUEFAPP_CONFIG_FILE'));
+if ($configOverride !== '' && !defined('CENEOS_CONFIG_FILE')) define('CENEOS_CONFIG_FILE', $configOverride);
 require_once dirname(__DIR__) . '/lib/lib.inc.php';
 require_once dirname(__DIR__) . '/controllers/ReportController.php';
 require_once dirname(__DIR__) . '/controllers/InspectionController.php';
-require_once dirname(__DIR__) . '/lib/ElectricalInspectionImportService.php';
 
 $debug = in_array('--debug', $argv ?? [], true) || in_array('-d', $argv ?? [], true);
 if ($debug) {
@@ -16,391 +20,157 @@ if ($debug) {
     error_reporting(E_ALL);
     fwrite(STDERR, '[cron debug] Datenbank: ' . (function_exists('app_database_path') ? app_database_path() : 'unbekannt') . PHP_EOL);
 }
+
 try {
-    R::exec("CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')");
+    R::exec("CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '', run_id TEXT NOT NULL DEFAULT '', context_json TEXT NOT NULL DEFAULT '{}')");
+    $cronColumns = R::inspect('cron_log');
+    if (!isset($cronColumns['run_id'])) R::exec("ALTER TABLE cron_log ADD COLUMN run_id TEXT NOT NULL DEFAULT ''");
+    if (!isset($cronColumns['context_json'])) R::exec("ALTER TABLE cron_log ADD COLUMN context_json TEXT NOT NULL DEFAULT '{}'");
 } catch (Throwable $exception) {
     if ($debug) fwrite(STDERR, '[cron debug] cron_log konnte nicht angelegt werden: ' . $exception->getMessage() . PHP_EOL);
 }
 
-$root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-if (!is_dir($root)) mkdir($root, 0700, true);
-$cronStartedAt = microtime(true);
-$cronDeadline = $cronStartedAt + 120.0;
-$timeLeft = static fn(): float => max(0.0, $cronDeadline - microtime(true));
+$runtimeRoot = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
+if (!is_dir($runtimeRoot)) mkdir($runtimeRoot, 0700, true);
+$startedAt = microtime(true);
+$budget = max(30, min(900, (int) (get_app_config('cron_time_budget_seconds', (string) (getenv('PRUEFAPP_CRON_TIME_BUDGET') ?: 120)) ?? 120)));
+$slice = max(5, min(120, (int) (get_app_config('cron_job_slice_seconds', (string) (getenv('PRUEFAPP_CRON_JOB_SLICE') ?: 30)) ?? 30)));
+$lease = max(30, min(900, (int) (get_app_config('cron_job_lease_seconds', (string) (getenv('PRUEFAPP_CRON_JOB_LEASE') ?: 180)) ?? 180)));
+$deadline = $startedAt + $budget;
+$timeLeft = static fn(): float => max(0.0, $deadline - microtime(true));
+$runId = date('YmdHis') . '-' . bin2hex(random_bytes(4));
 $logPath = app_data_root() . '/logs/cron.log';
-if (!is_dir(dirname($logPath))) @mkdir(dirname($logPath), 0770, true);
-$log = static function (string $message, string $level = 'info') use ($logPath, $debug): void { $timestamp = date(DATE_ATOM); $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL; $written = @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX); $isProblem = in_array(strtolower($level), ['warning', 'error', 'critical'], true); if ($debug || $isProblem) fwrite(STDERR, $line . ($written === false ? '[cron debug] Textlog konnte nicht geschrieben werden: ' . $logPath . PHP_EOL : '')); try { R::exec('INSERT INTO cron_log (run_at, level, message) VALUES (?, ?, ?)', [$timestamp, strtolower($level), $message]); } catch (Throwable $exception) { if ($debug || $isProblem) fwrite(STDERR, '[cron_log database] ' . $exception->getMessage() . PHP_EOL); } };
-$pruneOperationalLogs = static function () use ($logPath): void {
-    // Older installations may not have the optional appconfig table yet.
-    // Reading GUI settings must therefore never prevent the Cron itself from
-    // starting; environment values remain the bootstrap fallback.
-    $configuredRows = null;
-    try { $configuredRows = get_app_config('cron_log_max_rows', null); } catch (Throwable) {}
-    $maxRows = max(500, (int) (($configuredRows ?? getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: '5000') ?: 5000));
+if (!is_dir(dirname($logPath))) mkdir(dirname($logPath), 0770, true);
+$log = static function (string $message, string $level = 'info', array $context = []) use ($logPath, $debug, $runId): void {
+    $timestamp = date(DATE_ATOM);
+    $line = '[' . $timestamp . '] ' . strtoupper($level) . ' ' . $message . PHP_EOL;
+    @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX);
+    if ($debug || in_array(strtolower($level), ['warning', 'error', 'critical'], true)) fwrite(STDERR, $line);
     try {
+        R::exec('INSERT INTO cron_log (run_at, level, message, run_id, context_json) VALUES (?, ?, ?, ?, ?)', [$timestamp, strtolower($level), $message, $runId, json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}']);
+    } catch (Throwable $exception) {
+        if ($debug) fwrite(STDERR, '[cron debug] Datenbank-Log fehlgeschlagen: ' . $exception->getMessage() . PHP_EOL);
+    }
+};
+
+$lock = fopen($runtimeRoot . '/cron.lock', 'c');
+if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+    if ($debug) fwrite(STDERR, '[cron debug] Ein anderer Cron-Lauf ist noch aktiv.' . PHP_EOL);
+    exit(0);
+}
+
+$finished = false;
+$jobsStarted = 0;
+$jobsRemaining = 0;
+register_shutdown_function(static function () use (&$finished, $log, $startedAt, &$jobsStarted, &$jobsRemaining): void {
+    if ($finished) return;
+    $error = error_get_last();
+    $suffix = is_array($error) ? ' Letzter PHP-Fehler: ' . (string) ($error['message'] ?? 'unbekannt') : '';
+    $log('Hintergrundlauf unerwartet beendet; Dauer ' . number_format(microtime(true) - $startedAt, 1, ',', '.') . ' Sekunden, Aufgaben gestartet ' . $jobsStarted . ', offen ' . $jobsRemaining . '.' . $suffix, 'error');
+});
+
+$prune = static function () use ($logPath, $debug): void {
+    try {
+        $maxRows = max(500, (int) (get_app_config('cron_log_max_rows', (string) (getenv('PRUEFAPP_CRON_LOG_MAX_ROWS') ?: 5000)) ?? 5000));
         $count = (int) R::getCell('SELECT COUNT(*) FROM cron_log');
         if ($count > $maxRows) {
             $cutoff = R::getCell('SELECT id FROM cron_log ORDER BY id DESC LIMIT 1 OFFSET ?', [$maxRows]);
             if ($cutoff !== null && $cutoff !== false) R::exec('DELETE FROM cron_log WHERE id <= ?', [(int) $cutoff]);
         }
-    } catch (Throwable) {
-        // Log retention must never interrupt the actual Cron work.
+        $historyDays = max(7, min(3650, (int) (get_app_config('background_history_days', '180') ?? 180)));
+        NotificationRepository::pruneOlderThan($historyDays);
+        JobQueue::pruneFinished($historyDays);
+        $auditRows = max(1000, min(5000000, (int) (get_app_config('audit_log_max_rows', '250000') ?? 250000)));
+        (new AuditTrailRepository())->pruneToMaxRows($auditRows);
+    } catch (Throwable $exception) {
+        if ($debug) fwrite(STDERR, '[cron debug] Aufbewahrung konnte nicht bereinigt werden: ' . $exception->getMessage() . PHP_EOL);
     }
-    $configuredBytes = null;
-    try { $configuredBytes = get_app_config('cron_log_max_bytes', null); } catch (Throwable) {}
-    $maxBytes = max(256 * 1024, (int) (($configuredBytes ?? getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: (string) (5 * 1024 * 1024)) ?: 5 * 1024 * 1024));
-    if (is_file($logPath) && (int) @filesize($logPath) > $maxBytes) {
-        $content = @file_get_contents($logPath);
-        if (is_string($content)) {
-            $lines = explode("\n", $content);
-            $content = implode("\n", array_slice($lines, -10000));
-            @file_put_contents($logPath, ltrim($content), LOCK_EX);
-        }
+    $maxBytes = max(262144, (int) (get_app_config('cron_log_max_bytes', (string) (getenv('PRUEFAPP_CRON_LOG_MAX_BYTES') ?: 5242880)) ?? 5242880));
+    if (is_file($logPath) && (int) filesize($logPath) > $maxBytes) {
+        $lines = explode("\n", (string) file_get_contents($logPath));
+        file_put_contents($logPath, ltrim(implode("\n", array_slice($lines, -10000))), LOCK_EX);
     }
 };
-$pruneOperationalLogs();
-$lock = fopen($root . '/cron.lock', 'c');
-if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
-    if ($debug) fwrite(STDERR, '[cron debug] Ein anderer Cron-Lauf ist noch aktiv; keine parallele Iteration gestartet.' . PHP_EOL);
-    exit(0);
-}
-$log('Hintergrundlauf gestartet. Er wird automatisch innerhalb des verfügbaren Zeitfensters bearbeitet.');
-$log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden', 'debug');
-file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
-$generatedReports = 0;
-$remainingMissingReports = null;
-$migrationProcessedTotal = 0;
-$phoenixRestoredTotal = 0;
-$reportErrors = [];
-$missingReportCount = 0;
-$jobsStarted = 0;
-$jobsRemaining = 0;
-$cronFinished = false;
-register_shutdown_function(static function () use (&$cronFinished, $log, $cronStartedAt, &$generatedReports, &$reportErrors, &$jobsStarted, &$jobsRemaining): void {
-    if ($cronFinished) return;
-    $lastError = error_get_last();
-    if (is_array($lastError) && in_array((int) ($lastError['type'] ?? 0), [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
-        $log('Cron unerwartet beendet: ' . (string) ($lastError['message'] ?? 'unbekannter fataler Fehler'), 'error');
-    }
-    $log('Cron beendet (Shutdown), Dauer ' . number_format(microtime(true) - $cronStartedAt, 1, ',', '.') . ' Sekunden; Berichte ' . $generatedReports . ', Jobs gestartet ' . $jobsStarted . ', Jobs offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors), 'warning');
-});
+$prune();
 
-// Optional one-time repair/reimport for Benning CSV/ODS data. Set the
-// directory only for the migration run; the marker prevents repeated imports.
-$migrationDirectory = trim((string) (getenv('PRUEFAPP_BENNING_REIMPORT_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REIMPORT_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reimport_directory', '') ?: '') : '')));
-$migrationMarker = app_data_root() . '/migration/benning-measurements-v3.done';
-if (!is_file($migrationMarker)) {
-    try {
-        if ($timeLeft() <= 1) throw new RuntimeException('Zeitbudget vor der Nachmigration erreicht.');
-        $log('Debug: starte Benning-Nachmigration.', 'debug');
-        $stats = ['imported' => 0, 'updated' => 0, 'repaired' => 0, 'errors' => []];
-        if ($migrationDirectory !== '' && is_dir($migrationDirectory)) {
-            $migrationReports = trim((string) (getenv('PRUEFAPP_BENNING_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_BENNING_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
-            $importStats = (new ElectricalInspectionImportService())->importDirectory($migrationDirectory, $migrationReports !== '' ? $migrationReports : null);
-            $stats = array_merge($stats, ['imported' => $importStats['imported'] ?? 0, 'updated' => $importStats['updated'] ?? 0, 'errors' => $importStats['errors'] ?? []]);
-        }
-        foreach (R::findAll('inspection', " source_type = 'csv' ORDER BY id ") as $inspection) {
-            if ($timeLeft() <= 2) { $log('Die Messdaten-Aufbereitung wird beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
-            $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
-            if (!is_array($measurements) || $measurements === []) continue;
-            $normalized = InspectionController::normalizeImportedMeasurements($measurements, (string) ($inspection->result_status ?? ''));
-            if ($normalized === $measurements) continue;
-            $inspection->measurements_json = json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $inspection->updated_at = date(DATE_ATOM);
-            R::store($inspection);
-            $stats['repaired']++;
-        }
-        if (!is_dir(dirname($migrationMarker))) @mkdir(dirname($migrationMarker), 0770, true);
-        if ($timeLeft() > 2) {
-            file_put_contents($migrationMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-            $log('Benning-Messdaten-Nachmigration abgeschlossen: ' . json_encode($stats, JSON_UNESCAPED_UNICODE));
-        }
-    } catch (Throwable $exception) {
-        $log('Benning-Messdaten-Nachmigration fehlgeschlagen: ' . $exception->getMessage(), 'error');
-    }
-}
+$log('Hintergrundlauf gestartet. Offene Aufgaben werden nach Priorität am gespeicherten Stand fortgesetzt.');
+$log('Zeitbudget ' . $budget . ' Sekunden; Abschnitt ' . $slice . ' Sekunden; Worker-Lease ' . $lease . ' Sekunden.', 'debug');
+file_put_contents($runtimeRoot . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => $budget, 'run_id' => $runId], JSON_UNESCAPED_UNICODE), LOCK_EX);
 
-// Einmalige PDF-Migration: alle bereits abgeschlossenen Prüfungen werden mit
-// dem aktuellen Einzelbericht-Layout neu gerendert. Der Cursor macht den Lauf
-// über mehrere Cron-Iterationen hinweg sicher und wiederholbar.
-$phoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v4.json';
-if (!is_file($phoenixRestoreMarker)) {
-    $phoenixRestored = 0;
-    $phoenixUnresolved = 0;
-    $legacyRoots = [];
-    $configuredPhoenixReports = trim((string) (getenv('PRUEFAPP_PHOENIX_REPORTS_DIR') ?: (function_exists('config_value') ? (config_value('APP_PHOENIX_REPORTS_DIRECTORY') ?: '') : '') ?: (function_exists('get_app_config') ? (get_app_config('benning_reports_directory', '') ?: '') : '')));
-    foreach ([$configuredPhoenixReports, '/var/www/berichte'] as $legacyCandidateRoot) {
-        $resolvedRoot = $legacyCandidateRoot !== '' ? realpath($legacyCandidateRoot) : false;
-        if ($resolvedRoot !== false && is_dir($resolvedRoot) && !in_array($resolvedRoot, $legacyRoots, true)) $legacyRoots[] = $resolvedRoot;
-    }
-    $phoenixFileIndex = [];
-    foreach ($legacyRoots as $legacyRoot) {
-        try {
-            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($legacyRoot, FilesystemIterator::SKIP_DOTS));
-            foreach ($iterator as $candidateInfo) {
-                if (!$candidateInfo->isFile() || strtolower($candidateInfo->getExtension()) !== 'pdf') continue;
-                $candidatePath = $candidateInfo->getPathname();
-                if (!str_starts_with((string) @file_get_contents($candidatePath, false, null, 0, 4), '%PDF')) continue;
-                if (preg_match('/^(\d+)/', $candidateInfo->getFilename(), $match)) $phoenixFileIndex[$match[1]] ??= $candidatePath;
-            }
-        } catch (Throwable $exception) {
-            $log('Phoenix-PDF-Index konnte nicht gelesen werden: ' . $exception->getMessage(), 'warning');
-        }
-    }
-    try {
-        $phoenixRows = R::getAll("SELECT id, external_number, report_path FROM inspection
-            WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
-              AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'
-            ORDER BY id ASC");
-        $phoenixTimedOut = false;
-        foreach ($phoenixRows as $row) {
-            if ($timeLeft() <= 4) { $phoenixTimedOut = true; $log('Die Wiederherstellung der Original-PDFs wird beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
-            $target = app_data_root() . '/reports/current/' . (int) $row['id'] . '.pdf';
-            $source = '';
-            $relative = trim((string) ($row['report_path'] ?? ''));
-            if ($relative !== '' && str_starts_with($relative, 'reports/') && !str_starts_with($relative, 'reports/current/')) {
-                $candidate = app_data_root() . '/' . $relative;
-                if (is_file($candidate)) $source = $candidate;
-            }
-            if ($source === '') {
-                $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
-                foreach (glob(app_data_root() . '/reports/' . $number . '-*.pdf') ?: [] as $candidate) { if (is_file($candidate)) { $source = $candidate; break; } }
-            }
-            // Phoenix originals are also kept in the legacy report store. The
-            // current-layout migration must never replace those PDFs.
-            if ($source === '') {
-                $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
-                if (preg_match('/^(\d+)/', $number, $match) && isset($phoenixFileIndex[$match[1]])) $source = $phoenixFileIndex[$match[1]];
-            }
-            // Phoenix originals are also kept in the legacy report store. The
-            // current-layout migration must never replace those PDFs.
-            if ($source === '') {
-                $number = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($row['external_number'] ?? '')));
-                $legacyNumber = preg_replace('/[-_]\d{2}$/', '', $number);
-                foreach ($legacyRoots as $legacyRoot) {
-                    if ($number === '') continue;
-                    $legacyNames = array_values(array_unique([$number, $legacyNumber, explode('-', $number)[0]]));
-                    $legacyCandidates = [];
-                    foreach ($legacyNames as $legacyName) $legacyCandidates = array_merge($legacyCandidates, [$legacyRoot . '/' . $legacyName . '.pdf', $legacyRoot . '/' . $legacyName . '-24.pdf', $legacyRoot . '/' . $legacyName . '-25.pdf']);
-                    foreach ($legacyCandidates as $candidate) {
-                        if (is_file($candidate) && str_starts_with((string) @file_get_contents($candidate, false, null, 0, 4), '%PDF')) { $source = $candidate; break 2; }
-                    }
-                }
-                if ($source === '' && $debug && $phoenixUnresolved < 3) {
-                    $log('Debug: kein Phoenix-Original für Prüfnummer ' . (string) ($row['external_number'] ?? '—') . ' gefunden.', 'debug');
-                }
-            }
-            if ($source === '') {
-                $phoenixUnresolved++;
-                continue;
-            }
-            if ($source !== $target) {
-                if (!is_dir(dirname($target))) @mkdir(dirname($target), 0770, true);
-                if (@copy($source, $target)) $phoenixRestored++;
-            }
-        }
-        if (!$phoenixTimedOut && count($phoenixRows) > 0) {
-            if (!is_dir(dirname($phoenixRestoreMarker))) @mkdir(dirname($phoenixRestoreMarker), 0770, true);
-            file_put_contents($phoenixRestoreMarker, json_encode(['completed_at' => date(DATE_ATOM), 'restored' => $phoenixRestored, 'unresolved' => $phoenixUnresolved], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-            if ($phoenixRestored > 0) $log('Phoenix-PDFs wiederhergestellt: ' . $phoenixRestored);
-            if ($phoenixUnresolved > 0) $log('Phoenix-PDF-Wiederherstellung abgeschlossen; nicht gefunden: ' . $phoenixUnresolved . '. Diese Nummern bleiben unverändert.', 'warning');
-        } elseif ($phoenixUnresolved > 0) {
-            $searched = $legacyRoots === [] ? 'kein konfiguriertes Quellverzeichnis vorhanden' : implode(', ', $legacyRoots);
-            $log('Phoenix-Original-PDFs noch nicht vollständig gefunden (' . $phoenixUnresolved . ' offen). Gesucht wurde in: ' . $searched . '. Wiederherstellung bleibt vorgemerkt.', 'warning');
-        }
-        $phoenixRestoredTotal += $phoenixRestored;
-    } catch (Throwable $exception) {
-        $log('Phoenix-PDF-Wiederherstellung fehlgeschlagen: ' . $exception->getMessage(), 'error');
-    }
-}
-$reportMigrationMarker = app_data_root() . '/migration/inspection-reports-v2.json';
-if (!is_file($reportMigrationMarker) || (($reportMigrationState = json_decode((string) @file_get_contents($reportMigrationMarker), true))['completed'] ?? false) !== true) {
-    try {
-        $reportMigrationState = is_array($reportMigrationState ?? null) ? $reportMigrationState : [];
-        $lastMigrationId = (int) ($reportMigrationState['last_id'] ?? 0);
-        $migrationRows = R::getAll("SELECT i.id, i.external_number, i.device_id, c.id AS customer_id
-            FROM inspection i
-            JOIN device d ON d.id = i.device_id
-            LEFT JOIN room r ON r.id = d.room_id
-            LEFT JOIN floor f ON f.id = r.floor_id
-            LEFT JOIN building b ON b.id = f.building_id
-            LEFT JOIN site s ON s.id = b.site_id
-            LEFT JOIN customer c ON c.id = s.customer_id
-            WHERE i.id > ? AND i.result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
-              AND NOT (COALESCE(i.source_type, '') = 'json' AND COALESCE(i.raw_json, '') LIKE '%phoenix-sync%')
-            ORDER BY i.id ASC LIMIT 250", [$lastMigrationId]);
-        $migrationProcessed = 0;
-        foreach ($migrationRows as $row) {
-            if ($timeLeft() <= 4) { $log('Die PDF-Aufbereitung wird beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
-            try {
-                $inspection = R::load('inspection', (int) $row['id']);
-                $device = R::load('device', (int) $row['device_id']);
-                if (!$inspection->id || !$device->id) throw new RuntimeException('Prüfung oder Gerät nicht gefunden.');
-                $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
-                $path = app_data_root() . '/' . $relative;
-                $pdf = ReportController::renderPdf(
-                    ReportController::inspectionPdfRows($inspection, $device),
-                    'Prüfbericht ' . (string) $inspection->external_number,
-                    function_exists('get_report_branding') ? get_report_branding() : null
-                );
-                if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('PDF konnte nicht gespeichert werden.');
-                if ((string) ($inspection->report_path ?? '') !== $relative) {
-                    $inspection->report_path = $relative;
-                    R::store($inspection);
-                }
-                $lastMigrationId = (int) $row['id']; $migrationProcessed++;
-                $reportMigrationState = ['version' => 2, 'last_id' => $lastMigrationId, 'completed' => false, 'updated_at' => date(DATE_ATOM)];
-                if (!is_dir(dirname($reportMigrationMarker))) @mkdir(dirname($reportMigrationMarker), 0770, true);
-                file_put_contents($reportMigrationMarker, json_encode($reportMigrationState, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-            } catch (Throwable $exception) {
-                $log('PDF-Migration Prüfung ' . ((int) ($row['id'] ?? 0)) . ' fehlgeschlagen: ' . $exception->getMessage(), 'error');
-                break;
-            }
-        }
-        if (count($migrationRows) === 0 || ($migrationProcessed === count($migrationRows) && count($migrationRows) < 250)) {
-            $reportMigrationState = ['version' => 2, 'last_id' => $lastMigrationId, 'completed' => true, 'completed_at' => date(DATE_ATOM)];
-            if (!is_dir(dirname($reportMigrationMarker))) @mkdir(dirname($reportMigrationMarker), 0770, true);
-            file_put_contents($reportMigrationMarker, json_encode($reportMigrationState, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
-            $log('PDF-Aufbereitung abgeschlossen. Neu erzeugt: ' . $migrationProcessed . '.');
-        } elseif ($migrationProcessed > 0) {
-            $log('PDF-Aufbereitung fortgesetzt. In diesem Lauf neu erzeugt: ' . $migrationProcessed . '.');
-        }
-        $migrationProcessedTotal += $migrationProcessed;
-    } catch (Throwable $exception) {
-        $log('PDF-Migration fehlgeschlagen: ' . $exception->getMessage(), 'error');
-    }
-}
+$legacyImported = BackgroundJobService::importLegacyJobs();
+if ($legacyImported > 0) $log($legacyImported . ' ältere Hintergrundaufgabe(n) wurden in die gemeinsame Aufgabenliste übernommen.');
+$legacyImportLogs = BackgroundJobService::importLegacyImportLogs();
+if ($legacyImportLogs > 0) $log($legacyImportLogs . ' ältere Importprotokoll(e) wurden in das Ereignisprotokoll übernommen.');
 
-// Abgeschlossene Prüfungen bekommen auch dann automatisch einen Bericht,
-// wenn sie nicht über das Webformular abgeschlossen wurden (z. B. Import).
-$reportDir = app_data_root() . '/reports/current';
-if (!is_dir($reportDir)) mkdir($reportDir, 0770, true);
+// Register automatic maintenance only when it is actually needed. Dedupe keys
+// guarantee that repeated Cron invocations do not create parallel copies.
 try {
-    $missingReports = R::getAll("SELECT i.id, i.external_number, d.id AS device_id, c.id AS customer_id
-        FROM inspection i
-        JOIN device d ON d.id = i.device_id
-        LEFT JOIN room r ON r.id = d.room_id
-        LEFT JOIN floor f ON f.id = r.floor_id
-        LEFT JOIN building b ON b.id = f.building_id
-        LEFT JOIN site s ON s.id = b.site_id
-        LEFT JOIN customer c ON c.id = s.customer_id
-        WHERE i.result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden')
-          AND TRIM(COALESCE(i.report_path, '')) = ''
-        ORDER BY i.id ASC
-        LIMIT 500");
-    $reportTotal = count($missingReports);
-    $missingReportCount = $reportTotal;
-    $log('Debug: ' . $reportTotal . ' fehlende Prüfberichte gefunden.', 'debug');
-    foreach ($missingReports as $row) {
-        if ($timeLeft() <= 3) { $log('Die Erstellung weiterer Prüfberichte wird beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
-        $log('Debug: Bericht ' . ((int) $row['id']) . ' wird verarbeitet (' . ($generatedReports + 1) . '/' . $reportTotal . ').', 'debug');
-        try {
-            $inspection = R::load('inspection', (int) $row['id']);
-            $device = R::load('device', (int) $row['device_id']);
-            if (!$inspection->id || !$device->id) continue;
-            $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
-            $path = app_data_root() . '/' . $relative;
-            if (!is_file($path)) {
-                $pdf = ReportController::renderPdf(
-                    ReportController::inspectionPdfRows($inspection, $device),
-                    'Prüfbericht ' . (string) $inspection->external_number,
-                    function_exists('get_report_branding') ? get_report_branding() : null
-                );
-                if (file_put_contents($path, $pdf, LOCK_EX) === false) {
-                    throw new RuntimeException('PDF konnte nicht gespeichert werden.');
-                }
-            }
-            $inspection->report_path = $relative;
-            $inspection->updated_at = date(DATE_ATOM);
-            R::store($inspection);
-            $generatedReports++;
-        } catch (Throwable $exception) {
-            $reportErrors[] = ['inspection_id' => (int) $row['id'], 'error' => $exception->getMessage()];
-        }
+    $migrationRoot = app_data_root() . '/migration';
+    $benningDirectory = trim((string) (get_app_config('benning_reimport_directory', '') ?: getenv('PRUEFAPP_BENNING_REIMPORT_DIR')));
+    $benningImportMarker = $migrationRoot . '/benning-import-v3.done';
+    if ($benningDirectory !== '' && is_dir($benningDirectory) && !is_file($benningImportMarker)) {
+        $reportsDirectory = trim((string) (get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_BENNING_REPORTS_DIR')));
+        BackgroundJobService::enqueue('directory_import', [
+            'type' => 'directory_import',
+            'directory' => $benningDirectory,
+            'reports_directory' => $reportsDirectory,
+            'completion_marker' => $benningImportMarker,
+        ], ['dedupe_key' => 'maintenance:benning-import:v3', 'cancellable' => false]);
     }
+    $measurementMarker = $migrationRoot . '/benning-measurements-v3.done';
+    if (!is_file($measurementMarker)) {
+        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type = 'csv'");
+        BackgroundJobService::enqueue('measurement_migration', ['type' => 'measurement_migration'], ['total' => $total, 'dedupe_key' => 'maintenance:measurements:v3', 'cancellable' => false]);
+    }
+
+    $restoreMarker = $migrationRoot . '/inspection-reports-phoenix-restore-v4.json';
+    if (!is_file($restoreMarker)) {
+        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'");
+        if ($total > 0) BackgroundJobService::enqueue('phoenix_pdf_restore', ['type' => 'phoenix_pdf_restore'], ['total' => $total, 'dedupe_key' => 'maintenance:phoenix-originals:v4', 'cancellable' => false]);
+    }
+
+    $reportMarker = $migrationRoot . '/inspection-reports-v2.json';
+    $reportState = is_file($reportMarker) ? json_decode((string) file_get_contents($reportMarker), true) : [];
+    if (!is_array($reportState)) $reportState = [];
+    if (($reportState['completed'] ?? false) !== true) {
+        $lastId = max(0, (int) ($reportState['last_id'] ?? 0));
+        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')");
+        $current = $lastId > 0 ? (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id <= ? AND result_status IN ('bestanden','durchgefallen','nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')", [$lastId]) : 0;
+        BackgroundJobService::enqueue('report_migration', ['type' => 'report_migration'], ['current' => $current, 'total' => $total, 'checkpoint' => ['last_id' => $lastId], 'dedupe_key' => 'maintenance:reports:v2', 'cancellable' => false]);
+    }
+
+    $missing = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND TRIM(COALESCE(report_path, '')) = '' AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')");
+    if ($missing > 0) BackgroundJobService::enqueue('missing_reports', ['type' => 'missing_reports'], ['total' => $missing, 'dedupe_key' => 'automatic:missing-reports', 'cancellable' => false]);
 } catch (Throwable $exception) {
-    $reportErrors[] = ['error' => $exception->getMessage()];
+    $log('Automatische Aufgaben konnten nicht vollständig eingeplant werden: ' . $exception->getMessage(), 'error');
 }
-foreach ($reportErrors as $error) $log('Berichtsfehler: ' . json_encode($error, JSON_UNESCAPED_UNICODE));
 
-try {
-    $remainingMissingReports = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND TRIM(COALESCE(report_path, '')) = ''");
-} catch (Throwable) {}
-$log('Berichtslauf: verarbeitet ' . $generatedReports . '; beim Start fehlend ' . $missingReportCount . '; danach offen ' . ($remainingMissingReports ?? 'unbekannt') . '; Fehler ' . count($reportErrors) . '.');
+$recovered = JobQueue::recoverExpiredLeases();
+if ($recovered > 0) $log($recovered . ' unterbrochene Aufgabe(n) wurden am letzten gespeicherten Stand wieder freigegeben.', 'warning');
 
-file_put_contents($root . '/report-heartbeat.json', json_encode([
-    'last_run' => date(DATE_ATOM),
-    'generated' => $generatedReports,
-    'errors' => $reportErrors,
-    'remaining_missing' => $remainingMissingReports,
-], JSON_UNESCAPED_UNICODE), LOCK_EX);
-
-foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
-    $staleStatus = json_decode((string) @file_get_contents($statusPath), true);
-    if (is_array($staleStatus) && ($staleStatus['state'] ?? '') === 'cancel_requested' && (time() - (int) @filemtime($statusPath)) > 180) {
-        $staleStatus['state'] = 'cancelled';
-        $staleStatus['finished_at'] = date(DATE_ATOM);
-        $staleStatus['message'] = 'Die Aufgabe wurde abgebrochen.';
-        file_put_contents($statusPath, json_encode($staleStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
-        $log('Abbruch der Hintergrundaufgabe ' . substr((string) ($staleStatus['id'] ?? ''), 0, 12) . ' abgeschlossen.', 'info');
-    } elseif (is_array($staleStatus) && ($staleStatus['state'] ?? '') === 'running' && (time() - (int) @filemtime($statusPath)) > 180) {
-        $staleStatus['state'] = 'queued';
-        $staleStatus['message'] = 'Worker war nicht mehr aktiv; Aufgabe wird fortgesetzt.';
-        $staleStatus['recovered_at'] = date(DATE_ATOM);
-        file_put_contents($statusPath, json_encode($staleStatus, JSON_UNESCAPED_UNICODE), LOCK_EX);
-        $log('Hintergrundaufgabe ' . substr((string) ($staleStatus['id'] ?? ''), 0, 12) . ' wegen abgelaufenem Worker-Status zur Fortsetzung vorgemerkt.', 'warning');
-    }
-    $candidate = json_decode((string) @file_get_contents($statusPath), true);
-    if ($timeLeft() <= 8) { $log('Weitere Hintergrundaufgaben werden beim nächsten Hintergrundlauf fortgesetzt.', 'warning'); break; }
-    $status = json_decode((string) file_get_contents($statusPath), true);
-    if (!is_array($status) || ($status['state'] ?? '') !== 'queued') continue;
-    $id = (string) ($status['id'] ?? basename($statusPath, '.status.json'));
-    if (!preg_match('/^[a-f0-9]{24}$/', $id)) { $log('Debug: Hintergrundaufgabe übersprungen, ungültige ID ' . $id . '.', 'debug'); continue; }
-    if (!is_file($root . '/' . $id . '.json')) { $log('Debug: Hintergrundaufgabe ' . substr($id, 0, 12) . ' übersprungen, Payload-Datei fehlt.', 'debug'); continue; }
-    // Claim the job atomically. The Cron lock normally serializes workers,
-    // but this per-job lock also protects against manual/parallel launches.
-    $workerLockPath = $root . '/' . $id . '.worker.lock';
-    if (is_file($workerLockPath) && (time() - (int) @filemtime($workerLockPath)) > 180) {
-        @unlink($workerLockPath);
-        $log('Veraltete Worker-Sperre für Aufgabe ' . substr($id, 0, 12) . ' entfernt.', 'warning');
-    }
-    $workerLock = @fopen($workerLockPath, 'x');
-    if ($workerLock === false) {
-        $log('Debug: Aufgabe ' . substr($id, 0, 12) . ' wird bereits von einem Worker bearbeitet.', 'debug');
+while ($timeLeft() > 8) {
+    $workerId = 'cron-' . getmypid() . '-' . bin2hex(random_bytes(4));
+    $job = JobQueue::claim(null, $workerId, $lease);
+    if ($job === null) break;
+    $publicId = (string) $job['public_id'];
+    $label = BackgroundJobService::label((string) $job['type']);
+    $log($label . ' ' . substr($publicId, 0, 12) . ' startet bei ' . (int) $job['current'] . ' von ' . (int) $job['total'] . '.', 'info', ['job_id' => $publicId, 'job_type' => $job['type']]);
+    $jobsStarted++;
+    $workerDeadline = microtime(true) + max(5.0, min((float) $slice, $timeLeft() - 3.0));
+    $environment = 'PRUEFAPP_CRON_DEADLINE=' . escapeshellarg((string) $workerDeadline) . ' PRUEFAPP_CRON_RUN_ID=' . escapeshellarg($runId) . ($debug ? ' PRUEFAPP_CRON_DEBUG=1' : '');
+    passthru($environment . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($publicId), $exitCode);
+    $after = BackgroundJobService::find($publicId);
+    if ($after === null) {
+        $log($label . ' ' . substr($publicId, 0, 12) . ' ist nach dem Arbeitsschritt nicht mehr auffindbar.', 'error');
         continue;
     }
-    $status['attempts'] = (int) ($status['attempts'] ?? 0) + 1;
-    $status['started_at'] = date(DATE_ATOM);
-    $status['worker_pid'] = getmypid();
-    file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
-    $log('Hintergrundaufgabe gestartet.');
-    $jobsStarted++;
-    // Give every queued job a slice so a large ZIP cannot monopolise the
-    // complete Cron window. The worker persists its cursor and resumes later.
-    $workerDeadline = (string) (microtime(true) + max(12.0, min(35.0, $timeLeft() - 3.0)));
-    $workerDebug = $debug ? ' PRUEFAPP_CRON_DEBUG=1' : '';
-    try {
-        passthru('PRUEFAPP_CRON_DEADLINE=' . escapeshellarg($workerDeadline) . $workerDebug . ' ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/phoenix_sync_worker.php') . ' ' . escapeshellarg($id));
-        $log('Hintergrundaufgabe beendet.');
-    } finally {
-        fclose($workerLock);
-        @unlink($workerLockPath);
-    }
+    $level = $after['state'] === 'error' || $exitCode !== 0 ? 'error' : 'info';
+    $log($label . ' ' . substr($publicId, 0, 12) . ': ' . (string) ($after['message'] ?: 'Arbeitsschritt beendet.') . ' (' . (int) $after['step'] . ' von ' . (int) $after['total'] . ').', $level, ['job_id' => $publicId, 'state' => $after['state'], 'current' => $after['step'], 'total' => $after['total']]);
 }
-$jobsRemaining = 0;
-foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
-    $status = json_decode((string) @file_get_contents($statusPath), true);
-    if (is_array($status) && ($status['state'] ?? '') === 'queued') $jobsRemaining++;
-}
-$log('Zusammenfassung: Berichte verarbeitet ' . $generatedReports . ' (danach offen ' . ($remainingMissingReports ?? 'unbekannt') . '), PDF-Aufbereitung ' . $migrationProcessedTotal . ', Original-PDFs wiederhergestellt ' . $phoenixRestoredTotal . ', Hintergrundaufgaben gestartet ' . $jobsStarted . ', noch offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors) . '.');
-if ($debug) {
-    if ($generatedReports === 0 && $reportErrors === [] && $missingReportCount === 0 && $jobsStarted === 0 && $jobsRemaining === 0 && is_file($migrationMarker)) {
-        fwrite(STDERR, '[cron debug] Keine offenen Aufgaben: keine fehlenden Prüfberichte, keine wartenden Hintergrundjobs, keine Nachmigration.' . PHP_EOL);
-    } else {
-        fwrite(STDERR, '[cron debug] Zusammenfassung: Berichte ' . $generatedReports . '/' . $missingReportCount . ', Jobs gestartet ' . $jobsStarted . ', Jobs noch offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors) . '.' . PHP_EOL);
-    }
-}
-$log('Cron beendet, Dauer ' . number_format(microtime(true) - $cronStartedAt, 1, ',', '.') . ' Sekunden');
-$cronFinished = true;
+
+$jobsRemaining = count(BackgroundJobService::pending(1000));
+$log('Zusammenfassung: ' . $jobsStarted . ' Arbeitsabschnitt(e) ausgeführt, ' . $jobsRemaining . ' Aufgabe(n) noch offen, verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden.');
+$log('Cron beendet, Dauer ' . number_format(microtime(true) - $startedAt, 1, ',', '.') . ' Sekunden.');
+$finished = true;
 flock($lock, LOCK_UN);
 fclose($lock);

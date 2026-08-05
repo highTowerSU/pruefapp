@@ -181,29 +181,18 @@ final class InspectionController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($_POST['action'] ?? '') === 'migrate_examiner_attribution') {
                 if (!current_user_is_superadmin()) return forbidden_response();
-                $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
-                foreach (glob($root . '/*.status.json') ?: [] as $existingPath) {
-                    $existing = json_decode((string) @file_get_contents($existingPath), true);
-                    if (is_array($existing) && ($existing['type'] ?? '') === 'examiner_migration' && in_array(($existing['state'] ?? ''), ['queued', 'running'], true)) {
-                        $message = 'Eine Prüferzuordnung läuft bereits oder wartet auf den nächsten Cron-Lauf.';
-                        return [303, ['Location' => url_for('admin/pruefungen/import')], ''];
-                    }
-                }
-                $id = bin2hex(random_bytes(12));
                 $payload = ['type' => 'examiner_migration', 'owner_user_id' => (int) (current_user()->id ?? 0)];
                 $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE test_date IS NOT NULL AND COALESCE(source_type, '') IN ('json', 'csv')");
-                file_put_contents($root . '/' . $id . '.json', json_encode($payload, JSON_UNESCAPED_UNICODE), LOCK_EX);
-                file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'examiner_migration', 'state' => 'queued', 'owner_user_id' => $payload['owner_user_id'], 'created_at' => date(DATE_ATOM), 'total' => $total, 'message' => 'Prüferzuordnung wartet auf den nächsten Hintergrundlauf.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                BackgroundJobService::enqueue('examiner_migration', $payload, ['total' => $total, 'dedupe_key' => 'examiner-migration:v2', 'cancellable' => false]);
                 $message = 'Die Prüferzuordnung wurde als Hintergrund-Migration vorgemerkt.';
             }
             if (($_POST['action'] ?? '') === 'regenerate_new_reports') {
                 if (!current_user_is_superadmin()) return forbidden_response();
-                $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') IN ('json','csv') ORDER BY id"));
+                $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') IN ('json','csv') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%') ORDER BY id"));
                 if ($ids === []) { $message = 'Keine importierten, abgeschlossenen Prüfungen für die Neuerzeugung gefunden.'; }
                 else {
-                    $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
-                    file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_regenerate', 'inspection_ids' => $ids, 'owner_user_id' => (int) (current_user()->id ?? 0)], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_regenerate', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'total' => count($ids), 'message' => 'Neue Prüfberichte warten auf den nächsten Hintergrundlauf.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    $job = BackgroundJobService::enqueue('pdf_regenerate', ['type' => 'pdf_regenerate', 'inspection_ids' => $ids, 'owner_user_id' => (int) (current_user()->id ?? 0)], ['total' => count($ids), 'dedupe_key' => 'pdf-regenerate:all-current']);
+                    $id = (string) $job['id'];
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 }
             }
@@ -221,21 +210,17 @@ final class InspectionController
                 try {
                     $directoryJob = trim((string) ($_POST['directory'] ?? ''));
                     if ($directoryJob === '') throw new InvalidArgumentException('Bitte ein Importverzeichnis angeben.');
-                    $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-                    if (!is_dir($root)) mkdir($root, 0700, true);
                     $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0), 'test_date' => trim((string) ($_POST['default_test_date'] ?? ''))];
                     $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true); if (is_array($rules)) $defaults['import_rules'] = $rules;
-                    file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'directory_import', 'directory' => $directoryJob, 'reports_directory' => trim((string) ($_POST['reports_directory'] ?? '')), 'defaults' => $defaults], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'directory_import', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'message' => 'Import wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    $job = BackgroundJobService::enqueue('directory_import', ['type' => 'directory_import', 'directory' => $directoryJob, 'reports_directory' => trim((string) ($_POST['reports_directory'] ?? '')), 'defaults' => $defaults, 'owner_user_id' => (int) (current_user()->id ?? 0)]);
+                    $id = (string) $job['id'];
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Import-Job konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
             if (($_POST['action'] ?? '') === 'phoenix_sync') {
                 try {
-                    $id = bin2hex(random_bytes(12)); $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-                    if (!is_dir($root)) mkdir($root, 0700, true);
-                    file_put_contents($root . '/' . $id . '.json', json_encode(['customer_id' => trim((string) ($_POST['phoenix_customer_id'] ?? '')), 'token' => trim((string) ($_POST['phoenix_token'] ?? '')), 'api_url' => trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix'], JSON_UNESCAPED_UNICODE), LOCK_EX);
-                    file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'phoenix_sync', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'message' => 'Phoenix-Import wartet auf den Prüfapp-Cron.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+                    $job = BackgroundJobService::enqueue('phoenix_sync', ['type' => 'phoenix_sync', 'customer_id' => trim((string) ($_POST['phoenix_customer_id'] ?? '')), 'token' => trim((string) ($_POST['phoenix_token'] ?? '')), 'api_url' => trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix', 'owner_user_id' => (int) (current_user()->id ?? 0)]);
+                    $id = (string) $job['id'];
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
@@ -290,16 +275,7 @@ final class InspectionController
         if (!current_user_has_role('admin')) return forbidden_response();
         $id = (string) ($params['id'] ?? '');
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return [400, [], 'Ungültige Job-ID.'];
-        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-        $statusPath = $root . '/' . $id . '.status.json';
-        if (is_file($statusPath)) {
-            $status = json_decode((string) file_get_contents($statusPath), true) ?: [];
-            $state = (string) ($status['state'] ?? 'queued');
-            $status['state'] = $state === 'queued' ? 'cancelled' : 'cancel_requested';
-            $status['finished_at'] = $state === 'queued' ? date(DATE_ATOM) : ($status['finished_at'] ?? null);
-            file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
-            file_put_contents($root . '/' . $id . '.cancel', '1', LOCK_EX);
-        }
+        BackgroundJobService::requestCancellation($id);
         return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
     }
 
@@ -314,35 +290,21 @@ final class InspectionController
         if (!current_user_has_role('admin')) return forbidden_response();
         $id = (string) ($params['id'] ?? '');
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return [400, [], 'Ungültige Job-ID.'];
-        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-        $statusPath = $root . '/' . $id . '.status.json';
-        if (is_file($statusPath)) {
-            $status = json_decode((string) file_get_contents($statusPath), true) ?: [];
-            if (in_array((string) ($status['state'] ?? ''), ['queued', 'running'], true)) return [409, [], 'Laufende Jobs können nicht archiviert werden.'];
-            $archiveRoot = $root . '/archive';
-            if (!is_dir($archiveRoot)) mkdir($archiveRoot, 0700, true);
-            rename($statusPath, $archiveRoot . '/' . $id . '.status.json');
-            if (is_file($root . '/' . $id . '.json')) rename($root . '/' . $id . '.json', $archiveRoot . '/' . $id . '.json');
-        }
+        $status = BackgroundJobService::find($id);
+        if ($status !== null && in_array((string) ($status['state'] ?? ''), ['queued', 'running', 'cancel_requested'], true)) return [409, [], 'Laufende Aufgaben können nicht archiviert werden.'];
+        BackgroundJobService::markRead($id, (int) (current_user()->id ?? 0));
         return [303, ['Location' => url_for('admin/pruefungen/import')], ''];
     }
 
     private static function readPhoenixJob(string $id): array
     {
         if (!preg_match('/^[a-f0-9]{24}$/', $id)) return ['state' => 'error', 'error' => 'Ungültige Job-ID.'];
-        $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
-        return is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: ['state' => 'running']) : ['state' => 'running'];
+        return BackgroundJobService::find($id) ?? ['state' => 'error', 'error' => 'Aufgabe nicht gefunden.'];
     }
 
     private static function phoenixJobs(): array
     {
-        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; $jobs = [];
-        foreach (glob($root . '/*.status.json') ?: [] as $path) {
-            $job = json_decode((string) file_get_contents($path), true);
-            if (is_array($job)) { $job['id'] ??= basename($path, '.status.json'); $jobs[] = $job; }
-        }
-        usort($jobs, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
-        return array_slice($jobs, 0, 20);
+        return BackgroundJobService::latest(20);
     }
 
     private static function importLogs(): array

@@ -23,6 +23,14 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
   Migrationen bleiben bewusst geschützt
 - Fertige Exporte stehen in einer persönlichen Downloadübersicht und im
   Benachrichtigungsmenü der Navigation bereit
+- Alle längeren Exporte, Berichtsaufbereitungen, Migrationen und Importe
+  verwenden dieselbe datenbankgestützte Hintergrundqueue. Der Fortschritt wird
+  nach jeder abgeschlossenen Einheit gespeichert und im nächsten Cron-Lauf
+  fortgesetzt, statt erneut am Anfang zu beginnen.
+- Importläufe erscheinen zusammengefasst im Audit; die einzelnen importierten,
+  aktualisierten oder übersprungenen Datensätze bleiben dort filterbar erhalten.
+- Zeitbudget, Arbeitsschrittgröße, Worker-Lease sowie FIFO-Grenzen für Cron- und
+  Audit-Protokolle werden in der Superadmin-Konfiguration gepflegt.
 
 - Mandantenfähiges Branding inklusive Verwaltung, Logo-Upload und Impressumssteuerung
 - Individuelle Navigationsfarben pro Mandant
@@ -190,6 +198,12 @@ php tests/bootstrap_config_test.php
 
 Fachliche Änderungen sollten zusätzlich manuell über die Weboberfläche geprüft
 werden.
+
+Die automatisierten Tests werden gemeinsam gestartet mit:
+
+```bash
+php tests/run.php
+```
 
 Das Layout eines Prüfberichts lässt sich unabhängig von der Datenbank als PDF
 erzeugen und technisch sowie visuell prüfen:

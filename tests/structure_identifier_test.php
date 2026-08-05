@@ -12,6 +12,11 @@ function current_user_can_manage_courses(): bool
     return true;
 }
 
+function current_user_has_role(string ...$roles): bool
+{
+    return true;
+}
+
 function url_for(string $path): string
 {
     return '/' . ltrim($path, '/');
@@ -108,11 +113,15 @@ if (StructureController::roomIdentifier($room, $legacyFloor) !== 'N181') {
 }
 
 $customerCount = R::count('customer');
+$tenant = R::dispense('tenant');
+$tenant->name = 'Testmandant';
+R::store($tenant);
 $_POST = [
     'name' => 'Neuer Hauptkunde',
     'parent_customer_id' => '0',
     'metadata_json' => '',
     'room_code_pattern' => '',
+    'tenant_id' => (string) $tenant->id,
 ];
 $saveMethod = new ReflectionMethod(StructureController::class, 'save');
 $saveMethod->setAccessible(true);

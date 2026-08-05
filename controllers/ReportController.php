@@ -64,12 +64,10 @@ final class ReportController
     {
         if ($ids === []) $ids = self::filteredIds($filterQuery);
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
-        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
-        $id = bin2hex(random_bytes(12));
         $user = current_user(); $ownerId = (int) ($user->id ?? 0);
         $payload = ['type' => 'pdf_zip', 'device_ids' => $ids, 'all_reports' => $allReports, 'index_csv' => $indexCsv, 'index_pdf' => $indexPdf, 'index_ods' => $indexOds, 'owner_user_id' => $ownerId];
-        file_put_contents($root . '/' . $id . '.json', json_encode($payload, JSON_UNESCAPED_UNICODE), LOCK_EX);
-        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_zip', 'state' => 'queued', 'owner_user_id' => $ownerId, 'created_at' => date(DATE_ATOM), 'message' => 'Der ZIP-Export wird vorbereitet und startet automatisch im Hintergrund.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $job = BackgroundJobService::enqueue('pdf_zip', $payload, ['owner_user_id' => $ownerId, 'total' => count($ids), 'message' => 'Der ZIP-Export wird im Hintergrund vorbereitet.']);
+        $id = (string) ($job['id'] ?? '');
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
@@ -78,10 +76,9 @@ final class ReportController
         if ($invoiceId > 0) $ids = array_map('intval', R::getCol('SELECT DISTINCT device_id FROM billing_invoice_item WHERE invoice_id = ?', [$invoiceId]));
         if ($ids === []) $ids = self::filteredIds($filterQuery);
         if ($ids === []) return [422, [], 'Keine Geräte für die Sammel-PDF gefunden.'];
-        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; if (!is_dir($root)) mkdir($root, 0700, true);
-        $id = bin2hex(random_bytes(12));
-        file_put_contents($root . '/' . $id . '.json', json_encode(['type' => 'pdf_bundle', 'device_ids' => $ids, 'invoice_id' => $invoiceId, 'max_pages' => max(10, min(5000, $maxPages ?: 500))], JSON_UNESCAPED_UNICODE), LOCK_EX);
-        file_put_contents($root . '/' . $id . '.status.json', json_encode(['id' => $id, 'type' => 'pdf_bundle', 'state' => 'queued', 'owner_user_id' => (int) (current_user()->id ?? 0), 'created_at' => date(DATE_ATOM), 'message' => 'Das Sammel-PDF wird vorbereitet und startet automatisch im Hintergrund.'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $ownerId = (int) (current_user()->id ?? 0);
+        $job = BackgroundJobService::enqueue('pdf_bundle', ['type' => 'pdf_bundle', 'device_ids' => $ids, 'invoice_id' => $invoiceId, 'max_pages' => max(10, min(5000, $maxPages ?: 500)), 'owner_user_id' => $ownerId], ['owner_user_id' => $ownerId, 'total' => count($ids), 'message' => 'Das Sammel-PDF wird im Hintergrund vorbereitet.']);
+        $id = (string) ($job['id'] ?? '');
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
     }
 
@@ -132,8 +129,7 @@ final class ReportController
     public static function zipStatus(array $params, bool $isHx): array
     {
         $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
-        $path = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
-        $status = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : ['state' => 'error', 'error' => 'Job nicht gefunden'];
+        $status = BackgroundJobService::find($id) ?? ['state' => 'error', 'error' => 'Aufgabe nicht gefunden'];
         $user = current_user(); $allowed = current_user_is_superadmin() || current_user_has_role('admin') || ((int) ($status['owner_user_id'] ?? 0) > 0 && (int) ($status['owner_user_id'] ?? 0) === (int) ($user->id ?? 0));
         if (!$allowed) return [403, ['Content-Type' => 'application/json'], '{}'];
         $status['can_cancel'] = in_array((string) ($status['state'] ?? ''), ['queued', 'running'], true);
@@ -156,35 +152,24 @@ final class ReportController
     private static function cancelBackgroundJob(array $params): array
     {
         $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
-        $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs'; $statusPath = $root . '/' . $id . '.status.json';
-        if (strlen($id) < 24) { $matches = glob($root . '/' . $id . '*.status.json') ?: []; if (count($matches) === 1) { $statusPath = $matches[0]; $id = basename($matches[0], '.status.json'); } }
-        if (!is_file($statusPath)) return [404, [], 'Hintergrundaufgabe nicht gefunden.'];
-        $status = json_decode((string) file_get_contents($statusPath), true) ?: []; $user = current_user();
+        $status = BackgroundJobService::find($id); $user = current_user();
+        if ($status === null) return [404, [], 'Hintergrundaufgabe nicht gefunden.'];
         if (!current_user_is_superadmin() && !current_user_has_role('admin') && (int) ($status['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
         $type = (string) ($status['type'] ?? 'background');
-        $cancellableTypes = ['pdf_zip', 'pdf_bundle', 'pdf_regenerate', 'directory_import', 'phoenix_sync', 'background'];
-        if (!in_array($type, $cancellableTypes, true)) return [409, [], 'Diese Aufgabe kann nicht abgebrochen werden.'];
-        if (in_array((string) ($status['state'] ?? ''), ['queued', 'running'], true)) {
-            $status['state'] = ($status['state'] ?? '') === 'queued' ? 'cancelled' : 'cancel_requested';
-            $status['message'] = 'Der Abbruch wurde vorgemerkt und beim nächsten Verarbeitungsschritt ausgeführt.';
-            file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
-            file_put_contents($root . '/' . $id . '.cancel', '1', LOCK_EX);
-        }
+        if (empty($status['cancellable'])) return [409, [], 'Diese Aufgabe kann nicht abgebrochen werden.'];
+        if (!BackgroundJobService::requestCancellation((string) $status['id'])) return [409, [], 'Die Aufgabe ist bereits beendet.'];
         return [200, [], ''];
     }
 
     public static function zipDownload(array $params, bool $isHx): array
     {
         $id = preg_replace('/[^a-f0-9]/', '', (string) ($params['id'] ?? ''));
-        $statusPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $id . '.status.json';
-        $status = is_file($statusPath) ? (json_decode((string) file_get_contents($statusPath), true) ?: []) : [];
+        $status = BackgroundJobService::find($id) ?? [];
         $user = current_user();
         if (!current_user_is_superadmin() && !current_user_has_role('admin') && (int) ($status['owner_user_id'] ?? 0) !== (int) ($user->id ?? 0)) return forbidden_response();
         $file = (string) ($status['output'] ?? '');
         if (($status['state'] ?? '') !== 'done' || $file === '' || !is_file($file)) return [404, [], 'Der Export ist noch nicht verfügbar.'];
-        $status['downloaded_at'] = date(DATE_ATOM);
-        $status['notification_read'] = true;
-        file_put_contents($statusPath, json_encode($status, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        BackgroundJobService::markRead($id, (int) ($user->id ?? 0));
         $isPdf = strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'pdf';
         $mime = $isPdf ? 'application/pdf' : 'application/zip';
         $filename = basename($file);

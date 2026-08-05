@@ -161,8 +161,7 @@ class DeviceController
         $zipJob = trim((string) ($_GET['zip_job'] ?? ''));
         $zipJobStatus = null;
         if (preg_match('/^[a-f0-9]{24}$/', $zipJob)) {
-            $zipStatusPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/' . $zipJob . '.status.json';
-            if (is_file($zipStatusPath)) $zipJobStatus = json_decode((string) file_get_contents($zipStatusPath), true) ?: null;
+            $zipJobStatus = BackgroundJobService::find($zipJob);
         }
         return [200, [], render_template('layout.php', [
             'title' => 'Geräte',

@@ -13,5 +13,9 @@
         "ceneos/php-base": "dev-main",
         "jumbojett/openid-connect-php": "^1.0",
         "gabordemooij/redbean": "dev-master"
+    },
+    "scripts": {
+        "test": "php tests/run.php",
+        "lint": "find lib controllers bin tests -name '*.php' -print0 | xargs -0 -n1 php -l"
     }
 }

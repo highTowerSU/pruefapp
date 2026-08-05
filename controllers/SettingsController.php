@@ -24,6 +24,11 @@ class SettingsController
             'auto_update_enabled' => get_app_config('auto_update_enabled', '1') === '1' ? '1' : '0',
             'cron_log_max_rows' => (string) max(500, (int) (get_app_config('cron_log_max_rows', '5000') ?? '5000')),
             'cron_log_max_bytes' => (string) max(262144, (int) (get_app_config('cron_log_max_bytes', (string) (5 * 1024 * 1024)) ?? (5 * 1024 * 1024))),
+            'audit_log_max_rows' => (string) max(1000, (int) (get_app_config('audit_log_max_rows', '250000') ?? '250000')),
+            'cron_time_budget_seconds' => (string) max(30, (int) (get_app_config('cron_time_budget_seconds', '120') ?? '120')),
+            'cron_job_slice_seconds' => (string) max(5, (int) (get_app_config('cron_job_slice_seconds', '30') ?? '30')),
+            'cron_job_lease_seconds' => (string) max(30, (int) (get_app_config('cron_job_lease_seconds', '180') ?? '180')),
+            'background_history_days' => (string) max(7, (int) (get_app_config('background_history_days', '180') ?? '180')),
         ];
         $errors = [];
         $databaseWizard = null;
@@ -100,11 +105,26 @@ class SettingsController
             $values['auto_update_enabled'] = isset($_POST['auto_update_enabled']) ? '1' : '0';
             $values['cron_log_max_rows'] = trim((string) ($_POST['cron_log_max_rows'] ?? '5000'));
             $values['cron_log_max_bytes'] = trim((string) ($_POST['cron_log_max_bytes'] ?? (5 * 1024 * 1024)));
+            $values['audit_log_max_rows'] = trim((string) ($_POST['audit_log_max_rows'] ?? '250000'));
+            $values['cron_time_budget_seconds'] = trim((string) ($_POST['cron_time_budget_seconds'] ?? '120'));
+            $values['cron_job_slice_seconds'] = trim((string) ($_POST['cron_job_slice_seconds'] ?? '30'));
+            $values['cron_job_lease_seconds'] = trim((string) ($_POST['cron_job_lease_seconds'] ?? '180'));
+            $values['background_history_days'] = trim((string) ($_POST['background_history_days'] ?? '180'));
 
             $cronRows = filter_var($values['cron_log_max_rows'], FILTER_VALIDATE_INT);
             $cronBytes = filter_var($values['cron_log_max_bytes'], FILTER_VALIDATE_INT);
+            $auditRows = filter_var($values['audit_log_max_rows'], FILTER_VALIDATE_INT);
             if ($cronRows === false || $cronRows < 500 || $cronRows > 1000000) $errors['cron_log_max_rows'] = 'Bitte zwischen 500 und 1.000.000 Einträge wählen.';
             if ($cronBytes === false || $cronBytes < 262144 || $cronBytes > 100 * 1024 * 1024) $errors['cron_log_max_bytes'] = 'Bitte zwischen 262.144 Bytes und 100 MB wählen.';
+            if ($auditRows === false || $auditRows < 1000 || $auditRows > 5000000) $errors['audit_log_max_rows'] = 'Bitte zwischen 1.000 und 5.000.000 Ereignissen wählen.';
+            $cronBudget = filter_var($values['cron_time_budget_seconds'], FILTER_VALIDATE_INT);
+            $cronSlice = filter_var($values['cron_job_slice_seconds'], FILTER_VALIDATE_INT);
+            $cronLease = filter_var($values['cron_job_lease_seconds'], FILTER_VALIDATE_INT);
+            $historyDays = filter_var($values['background_history_days'], FILTER_VALIDATE_INT);
+            if ($cronBudget === false || $cronBudget < 30 || $cronBudget > 900) $errors['cron_time_budget_seconds'] = 'Bitte zwischen 30 und 900 Sekunden wählen.';
+            if ($cronSlice === false || $cronSlice < 5 || $cronSlice > 120) $errors['cron_job_slice_seconds'] = 'Bitte zwischen 5 und 120 Sekunden wählen.';
+            if ($cronLease === false || $cronLease < 30 || $cronLease > 900) $errors['cron_job_lease_seconds'] = 'Bitte zwischen 30 und 900 Sekunden wählen.';
+            if ($historyDays === false || $historyDays < 7 || $historyDays > 3650) $errors['background_history_days'] = 'Bitte zwischen 7 und 3.650 Tagen wählen.';
 
             if ($values['keycloak_account_console_base_url'] !== ''
                 && filter_var($values['keycloak_account_console_base_url'], FILTER_VALIDATE_URL) === false
@@ -132,6 +152,11 @@ class SettingsController
                 set_app_config('auto_update_enabled', $values['auto_update_enabled']);
                 set_app_config('cron_log_max_rows', (string) $cronRows);
                 set_app_config('cron_log_max_bytes', (string) $cronBytes);
+                set_app_config('audit_log_max_rows', (string) $auditRows);
+                set_app_config('cron_time_budget_seconds', (string) $cronBudget);
+                set_app_config('cron_job_slice_seconds', (string) $cronSlice);
+                set_app_config('cron_job_lease_seconds', (string) $cronLease);
+                set_app_config('background_history_days', (string) $historyDays);
 
                 $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
 

@@ -27,6 +27,7 @@ final class ElectricalInspectionImportService
      */
     public function importDirectory(string $directory, ?string $reportsDirectory = null, array $defaults = []): array
     {
+        $defaults['_audit_correlation_id'] = trim((string) ($defaults['_audit_correlation_id'] ?? '')) ?: 'import-' . bin2hex(random_bytes(8));
         $source = realpath($directory) ?: '';
         if ($source === '' || (!is_dir($source) && !is_file($source))) {
             throw new InvalidArgumentException('Importverzeichnis oder Importdatei wurde nicht gefunden.');
@@ -43,7 +44,7 @@ final class ElectricalInspectionImportService
             $extension = strtolower($file->getExtension());
             if (!in_array($extension, ['json', 'jsonl', 'csv'], true)) continue;
             if (in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
-            $stats['files']++;
+                $stats['files']++;
             try {
                 $result = in_array($extension, ['json', 'jsonl'], true)
                     ? $this->importJsonFile($file->getPathname(), $root, $extension === 'jsonl', $defaults)
@@ -59,7 +60,63 @@ final class ElectricalInspectionImportService
         }
 
         $this->persistImportLog($stats);
+        audit_log('import_abgeschlossen', [
+            '_correlation_id' => $defaults['_audit_correlation_id'],
+            '_category' => 'import',
+            'source' => $source,
+            'stats' => $stats,
+        ]);
         return $stats;
+    }
+
+    /**
+     * Imports a bounded JSONL slice and returns a byte cursor for exact resume.
+     *
+     * @return array{next_offset:int,eof:bool,processed:int,stats:array<string,mixed>}
+     */
+    public function importJsonlChunk(
+        string $path,
+        int $byteOffset,
+        int $maxRecords,
+        ?string $reportsDirectory = null,
+        array $defaults = []
+    ): array {
+        $real = realpath($path) ?: '';
+        if ($real === '' || !is_file($real)) throw new InvalidArgumentException('JSONL-Datei wurde nicht gefunden.');
+        $defaults['_audit_correlation_id'] = trim((string) ($defaults['_audit_correlation_id'] ?? '')) ?: 'import-' . bin2hex(random_bytes(8));
+        $root = dirname($real);
+        $reportRoot = $reportsDirectory !== null && is_dir($reportsDirectory) ? realpath($reportsDirectory) : $root;
+        $this->indexReports($reportRoot ?: $root, true);
+        $handle = fopen($real, 'rb');
+        if ($handle === false) throw new RuntimeException('JSONL-Datei konnte nicht geöffnet werden.');
+        if ($byteOffset > 0) fseek($handle, $byteOffset);
+        $stats = ['files' => 1, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
+        $processed = 0;
+        try {
+            while ($processed < max(1, $maxRecords) && ($line = fgets($handle)) !== false) {
+                if (trim($line) === '') continue;
+                $processed++;
+                try {
+                    $record = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+                    if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
+                        $stats['skipped']++;
+                        $this->auditSkipped($defaults, $real, 'Datensatz enthält keine Prüfnummer.', ['line_offset' => $byteOffset]);
+                        continue;
+                    }
+                    $one = $this->importRecord(array_merge($defaults, $record), 'json', $real, $root);
+                    $this->mergeStats($stats, $one);
+                } catch (Throwable $exception) {
+                    $stats['skipped']++;
+                    $stats['errors'][] = $exception->getMessage();
+                    $this->auditSkipped($defaults, $real, $exception->getMessage(), ['line_offset' => $byteOffset]);
+                }
+            }
+            $nextOffset = (int) ftell($handle);
+            $eof = feof($handle);
+        } finally {
+            fclose($handle);
+        }
+        return ['next_offset' => $nextOffset, 'eof' => $eof, 'processed' => $processed, 'stats' => $stats];
     }
 
     /** Import only measurement columns into already existing inspections. */
@@ -80,6 +137,7 @@ final class ElectricalInspectionImportService
             $date = $this->csvRecord($header, $rows[0])['test_date'] ?? '';
         }
         if ($date === '') throw new InvalidArgumentException('Die CSV enthält kein Prüfdatum.');
+        $correlationId = 'measurement-import-' . bin2hex(random_bytes(8));
         $updated = 0; $skipped = 0; $needsCableLength = 0; $updatedInspections = [];
         $inspectionsBySlot = [];
         foreach (R::findAll('inspection', ' test_date = ? ORDER BY id DESC ', [$date]) as $candidate) {
@@ -91,10 +149,10 @@ final class ElectricalInspectionImportService
         foreach ($rows as $row) {
             $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
             $slot = trim((string) ($record['storage_slot'] ?? ''));
-            if ($slot === '') { $skipped++; continue; }
+            if ($slot === '') { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Speicherplatz fehlt in der Messdatenzeile.'); continue; }
             $slotKey = preg_match('/^\d+$/', $slot) ? (string) ((int) $slot) : $slot;
             $inspection = $inspectionsBySlot[$slotKey] ?? null;
-            if (!$inspection) { $skipped++; continue; }
+            if (!$inspection) { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Keine bestehende Prüfung für den Speicherplatz gefunden.', ['storage_slot' => $slot]); continue; }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
@@ -138,10 +196,12 @@ final class ElectricalInspectionImportService
             $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
+            audit_log('import_datensatz_aktualisiert', ['_correlation_id' => $correlationId, '_category' => 'import', '_status' => 'aktualisiert', 'source_file' => basename($csvPath), 'inspection_id' => (int) $inspection->id, 'inspection_number' => (string) ($inspection->external_number ?? ''), 'status' => 'aktualisiert']);
             $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status, 'evaluation_reasons' => $evaluationReasons];
         }
         $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'cable_length_required' => $needsCableLength, 'updated_inspections' => $updatedInspections, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
         $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
+        audit_log('import_abgeschlossen', ['_correlation_id' => $correlationId, '_category' => 'import', '_status' => 'abgeschlossen', 'source_file' => basename($csvPath), 'stats' => $stats]);
         return $stats;
     }
 
@@ -163,7 +223,7 @@ final class ElectricalInspectionImportService
                 while (($line = fgets($handle)) !== false) {
                     if (trim($line) === '') continue;
                     $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-                    if (!is_array($decoded) || trim((string) ($decoded['number'] ?? '')) === '') { $result['skipped']++; continue; }
+                    if (!is_array($decoded) || trim((string) ($decoded['number'] ?? '')) === '') { $result['skipped']++; $this->auditSkipped($defaults, $path, 'Datensatz enthält keine Prüfnummer.'); continue; }
                     $one = $this->importRecord(array_merge($defaults, $decoded), 'json', $path, $root);
                     foreach ($one as $key => $value) {
                         if (in_array($key, ['new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) $result[$key] = array_merge($result[$key] ?? [], $value);
@@ -193,6 +253,7 @@ final class ElectricalInspectionImportService
         foreach ($records as $record) {
             if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
                 $result['skipped']++;
+                $this->auditSkipped($defaults, $path, 'Datensatz enthält keine Prüfnummer.');
                 continue;
             }
             $one = $this->importRecord(array_merge($defaults, $record), 'json', $path, $root);
@@ -213,7 +274,7 @@ final class ElectricalInspectionImportService
         fwrite($stream, $contents);
         rewind($stream);
         $header = fgetcsv($stream, 0, $delimiter);
-        if (!is_array($header)) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'CSV enthält keine Kopfzeile.'];
+        if (!is_array($header)) { $this->auditSkipped($defaults, $path, 'CSV enthält keine Kopfzeile.'); return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'CSV enthält keine Kopfzeile.']; }
         $header = $this->uniqueHeaders($header);
         $hasBenning = $this->findColumn($header, ['speicher nr', 'speichernr', 'speicherplatz']) !== null;
         $hasLegacy = $this->findColumn($header, ['number', 'nummer', 'prüfungsnr']) !== null;
@@ -228,7 +289,7 @@ final class ElectricalInspectionImportService
                     $headerlessRows[] = $candidate;
                 }
             }
-            if ($headerlessRows === []) return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'Kein Speicher-Nr.-Header und keine gültigen Benning-Datensätze erkannt.'];
+            if ($headerlessRows === []) { $this->auditSkipped($defaults, $path, 'Kein Speicher-Nr.-Header und keine gültigen Benning-Datensätze erkannt.'); return ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 1, 'reason' => 'Kein Speicher-Nr.-Header und keine gültigen Benning-Datensätze erkannt.']; }
             $header = $this->benningHeaders();
         }
 
@@ -247,6 +308,7 @@ final class ElectricalInspectionImportService
             if ($odsPath !== null && !is_array($odsRow)) {
                 $result['skipped']++;
                 $result['not_imported'][] = ['storage_slot' => $slot, 'source' => 'CSV', 'reason' => 'Speicherplatz fehlt in der ODS'];
+                $this->auditSkipped($defaults, $path, 'Speicherplatz fehlt in der ODS.', ['storage_slot' => $slot, 'source' => 'CSV']);
                 continue;
             }
             if (is_array($odsRow)) {
@@ -261,6 +323,7 @@ final class ElectricalInspectionImportService
             }
             if (($record['external_number'] ?? '') === '' && ($record['storage_slot'] ?? '') === '') {
                 $result['skipped']++;
+                $this->auditSkipped($defaults, $path, 'Prüfnummer und Speicherplatz fehlen.', ['source' => 'CSV']);
                 continue;
             }
             $one = $this->importRecord(array_merge($defaults, $record), 'csv', $path, $root);
@@ -274,6 +337,7 @@ final class ElectricalInspectionImportService
                 if ($odsSlot !== '' && !isset($matchedSlots[$key])) {
                     $result['skipped']++;
                     $result['not_imported'][] = ['storage_slot' => $odsSlot, 'source' => 'ODS', 'reason' => 'Speicherplatz fehlt in der CSV'];
+                    $this->auditSkipped($defaults, $odsPath, 'Speicherplatz fehlt in der CSV.', ['storage_slot' => $odsSlot, 'source' => 'ODS']);
                     $matchedSlots[$key] = true;
                 }
             }
@@ -421,7 +485,42 @@ final class ElectricalInspectionImportService
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
         R::store($inspection);
         $deviceInfo = ['id' => (int) $deviceResult['device']->id, 'number' => $external, 'name' => (string) $deviceResult['device']->name];
+        audit_log($created ? 'import_datensatz_importiert' : 'import_datensatz_aktualisiert', [
+            '_correlation_id' => (string) ($record['_audit_correlation_id'] ?? ''),
+            '_category' => 'import',
+            'source_file' => basename($sourcePath),
+            'source_type' => $sourceType,
+            'inspection_id' => (int) $inspection->id,
+            'inspection_number' => (string) $inspection->external_number,
+            'device_id' => (int) $deviceResult['device']->id,
+            'device_number' => (string) $deviceResult['device']->external_number,
+            'status' => $created ? 'importiert' : 'aktualisiert',
+        ]);
         return ['imported' => $created ? 1 : 0, 'updated' => $created ? 0 : 1, 'devices' => $deviceResult['created'] ? 1 : 0, 'reports' => $report !== null ? 1 : 0, 'new_devices' => $deviceResult['created'] ? [$deviceInfo] : [], 'updated_devices' => !$deviceResult['created'] ? [$deviceInfo] : []];
+    }
+
+    /** @param array<string,mixed> $target @param array<string,mixed> $source */
+    private function mergeStats(array &$target, array $source): void
+    {
+        foreach ($source as $key => $value) {
+            if (in_array($key, ['new_devices', 'updated_devices', 'not_imported', 'errors'], true) && is_array($value)) {
+                $target[$key] = array_merge((array) ($target[$key] ?? []), $value);
+            } elseif (is_int($value)) {
+                $target[$key] = (int) ($target[$key] ?? 0) + $value;
+            }
+        }
+    }
+
+    /** @param array<string,mixed> $defaults @param array<string,mixed> $details */
+    private function auditSkipped(array $defaults, string $source, string $reason, array $details = []): void
+    {
+        audit_log('import_datensatz_uebersprungen', array_merge($details, [
+            '_correlation_id' => (string) ($defaults['_audit_correlation_id'] ?? ''),
+            '_category' => 'import',
+            'source_file' => basename($source),
+            'status' => 'übersprungen',
+            'reason' => $reason,
+        ]));
     }
 
     /** @return array{device:\RedBeanPHP\OODBBean,created:bool} */

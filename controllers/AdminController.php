@@ -87,7 +87,13 @@ class AdminController
     public static function auditLog(array $params, bool $isHx): array
     {
         $requestedPage = isset($_GET['page']) ? (int) $_GET['page'] : 1;
-        $events = (new AuditTrailRepository())->paginateEvents($requestedPage, 50);
+        $auditFilters = [];
+        foreach (['search', 'category', 'status', 'user', 'action', 'correlation_id', 'from', 'to'] as $filterKey) {
+            $auditFilters[$filterKey] = trim((string) ($_GET[$filterKey] ?? ''));
+        }
+        $auditRepository = new AuditTrailRepository();
+        $events = $auditRepository->paginateEvents($requestedPage, 50, $auditFilters);
+        $importRuns = $auditRepository->latestCorrelations('import', 20);
         $revisionPage = max(1, (int) ($_GET['revision_page'] ?? 1));
         $revisionPerPage = 50;
         $allRevisions = array_merge(
@@ -100,17 +106,27 @@ class AdminController
         $revisionPage = min($revisionPage, $revisionPages);
         $revisions = array_slice($allRevisions, ($revisionPage - 1) * $revisionPerPage, $revisionPerPage);
         $cronPage = max(1, (int) ($_GET['cron_page'] ?? 1));
+        $cronRunFilter = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($_GET['cron_run'] ?? ''));
         $cronPerPage = 50;
         // `cron_log` is intentionally an underscored SQL table name. RedBean
         // bean types cannot contain underscores, so do not call R::count()
         // with it as a bean type.
-        $cronTotal = (int) R::getCell('SELECT COUNT(*) FROM cron_log');
+        $cronColumns = R::inspect('cron_log');
+        $hasCronRunId = is_array($cronColumns) && isset($cronColumns['run_id']);
+        if (!$hasCronRunId) $cronRunFilter = '';
+        $cronWhere = $cronRunFilter !== '' ? ' WHERE run_id = ?' : '';
+        $cronArguments = $cronRunFilter !== '' ? [$cronRunFilter] : [];
+        $cronTotal = (int) R::getCell('SELECT COUNT(*) FROM cron_log' . $cronWhere, $cronArguments);
         $cronPages = max(1, (int) ceil($cronTotal / $cronPerPage));
         $cronPage = min($cronPage, $cronPages);
         $cronOffset = ($cronPage - 1) * $cronPerPage;
         // LIMIT/OFFSET are validated integers here; interpolation keeps this
         // compatible with SQLite and the other RedBean drivers.
-        $cronLog = R::getAll("SELECT run_at, level, message FROM cron_log ORDER BY id DESC LIMIT {$cronPerPage} OFFSET {$cronOffset}");
+        $cronRunSelect = $hasCronRunId ? ', run_id' : ", '' AS run_id";
+        $cronLog = R::getAll("SELECT run_at, level, message {$cronRunSelect} FROM cron_log{$cronWhere} ORDER BY id DESC LIMIT {$cronPerPage} OFFSET {$cronOffset}", $cronArguments);
+        $cronRuns = $hasCronRunId
+            ? R::getAll("SELECT run_id, MIN(run_at) AS started_at, MAX(run_at) AS finished_at, COUNT(*) AS entries, SUM(CASE WHEN level IN ('error','critical') THEN 1 ELSE 0 END) AS errors, SUM(CASE WHEN level = 'warning' THEN 1 ELSE 0 END) AS warnings FROM cron_log WHERE run_id != '' GROUP BY run_id ORDER BY MAX(id) DESC LIMIT 20")
+            : [];
         $cronHeartbeat = [];
         $heartbeatPath = sys_get_temp_dir() . '/pruefapp-phoenix-jobs/cron-heartbeat.json';
         if (is_file($heartbeatPath)) $cronHeartbeat = json_decode((string) @file_get_contents($heartbeatPath), true) ?: [];
@@ -120,51 +136,17 @@ class AdminController
             try { $cronAge = max(0, time() - (new DateTimeImmutable($cronLastRun))->getTimestamp()); } catch (Throwable) { $cronAge = null; }
         }
         $cronHealthy = $cronAge !== null && $cronAge <= 300;
-        $cronPendingJobs = [];
-        $jobRoot = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
-        foreach (glob($jobRoot . '/*.status.json') ?: [] as $jobStatusPath) {
-            $job = json_decode((string) @file_get_contents($jobStatusPath), true);
-            if (!is_array($job) || !in_array((string) ($job['state'] ?? ''), ['queued', 'running'], true)) continue;
-            $cronPendingJobs[] = $job;
-        }
-        usort($cronPendingJobs, static fn(array $a, array $b): int => strcmp((string) ($a['created_at'] ?? ''), (string) ($b['created_at'] ?? '')));
-        $cronMissingReports = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND TRIM(COALESCE(report_path, '')) = ''");
-        $cronPdfMigrationState = [];
-        $cronPdfMigrationPending = false;
-        $cronPdfMigrationRemaining = 0;
-        $cronPhoenixRestorePending = false;
-        $cronPhoenixRestoreRemaining = 0;
-        try {
-            $cronPdfMigrationMarker = app_data_root() . '/migration/inspection-reports-v2.json';
-        } catch (Throwable) {
-            // The audit view must remain available even while a legacy
-            // installation is still creating its appconfig table.
-            $cronPdfMigrationMarker = '/var/www/data/pruefapp/migration/inspection-reports-v2.json';
-        }
-        if (is_file($cronPdfMigrationMarker)) {
-            $decodedPdfMigrationState = json_decode((string) @file_get_contents($cronPdfMigrationMarker), true);
-            $cronPdfMigrationState = is_array($decodedPdfMigrationState) ? $decodedPdfMigrationState : [];
-            $cronPdfMigrationPending = ($cronPdfMigrationState['completed'] ?? false) !== true;
-            if ($cronPdfMigrationPending) {
-                $cronPdfMigrationRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id > ? AND result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')", [(int) ($cronPdfMigrationState['last_id'] ?? 0)]);
-            }
-        }
-        try {
-            $cronPhoenixRestoreMarker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v4.json';
-        } catch (Throwable) {
-            $cronPhoenixRestoreMarker = '/var/www/data/pruefapp/migration/inspection-reports-phoenix-restore-v4.json';
-        }
-        $cronPhoenixRestorePending = !is_file($cronPhoenixRestoreMarker);
-        if ($cronPhoenixRestorePending) {
-            $cronPhoenixRestoreRemaining = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'");
-            if ($cronPhoenixRestoreRemaining === 0) $cronPhoenixRestorePending = false;
-        }
+        $cronPendingJobs = BackgroundJobService::pending(200);
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
             'pagination' => $events['pagination'],
+            'auditFilters' => $auditFilters,
+            'importRuns' => $importRuns,
             'revisions' => $revisions,
             'cronLog' => $cronLog,
+            'cronRuns' => $cronRuns,
+            'cronRunFilter' => $cronRunFilter,
             'cronTotal' => $cronTotal,
             'cronPage' => $cronPage,
             'cronPages' => $cronPages,
@@ -172,12 +154,6 @@ class AdminController
             'cronAge' => $cronAge,
             'cronHealthy' => $cronHealthy,
             'cronPendingJobs' => $cronPendingJobs,
-            'cronMissingReports' => $cronMissingReports,
-            'cronPdfMigrationPending' => $cronPdfMigrationPending,
-            'cronPdfMigrationRemaining' => $cronPdfMigrationRemaining,
-            'cronPdfMigrationState' => $cronPdfMigrationState,
-            'cronPhoenixRestorePending' => $cronPhoenixRestorePending,
-            'cronPhoenixRestoreRemaining' => $cronPhoenixRestoreRemaining,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,

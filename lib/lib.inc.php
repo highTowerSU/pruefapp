@@ -69,6 +69,8 @@ require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
+require_once __DIR__ . '/BackgroundJobService.php';
+require_once __DIR__ . '/MaintenanceJobHandler.php';
 
 initialize_database();
 
@@ -323,6 +325,7 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS customerinfo (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', slug TEXT NOT NULL DEFAULT '', markdown TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', file_mime TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_invoice (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', invoice_number TEXT NOT NULL DEFAULT '', invoice_date TEXT NULL, status TEXT NOT NULL DEFAULT 'draft', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS appconfig (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, value TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
@@ -827,46 +830,47 @@ function current_user_background_jobs(int $limit = 8): array
 {
     $user = current_user();
     if ($user === null) return [];
-    $root = sys_get_temp_dir() . '/pruefapp-phoenix-jobs';
     $all = current_user_is_superadmin();
-    $jobs = [];
-    $labels = [
-        'pdf_zip' => 'PDF-ZIP-Export',
-        'pdf_bundle' => 'Sammel-PDF',
-        'pdf_regenerate' => 'Neue Prüfberichte',
-        'examiner_migration' => 'Prüferzuordnung',
-        'directory_import' => 'Datenimport',
-        'phoenix_sync' => 'Phoenix-Import',
-    ];
-    $statusPaths = array_merge(glob($root . '/*.status.json') ?: [], glob(app_data_root() . '/logs/background-jobs/*.status.json') ?: []);
-    $byId = [];
-    foreach (array_unique($statusPaths) as $path) {
-        $job = json_decode((string) @file_get_contents($path), true);
-        if (!is_array($job)) continue;
-        $ownerId = (int) ($job['owner_user_id'] ?? 0);
-        if (!$all && $ownerId !== (int) ($user->id ?? 0)) continue;
-        $job['id'] = (string) ($job['id'] ?? basename($path, '.status.json'));
-        $job['historical'] = str_contains($path, '/logs/background-jobs/');
-        $job['type_label'] = $labels[(string) ($job['type'] ?? '')] ?? 'Hintergrundaufgabe';
+    $jobs = BackgroundJobService::latest(max(100, $limit), $all ? null : (int) ($user->id ?? 0));
+    $notifications = \Ceneos\PhpBase\Notification\NotificationRepository::forUser((int) ($user->id ?? 0), 500);
+    $notificationsByJob = [];
+    foreach ($notifications as $notification) {
+        $jobId = (int) ($notification['job_id'] ?? 0);
+        if ($jobId > 0) $notificationsByJob[$jobId] = $notification;
+    }
+    foreach ($jobs as &$job) {
+        $job['historical'] = in_array((string) ($job['state'] ?? ''), ['done', 'error', 'cancelled'], true);
+        $job['type_label'] = BackgroundJobService::label((string) ($job['type'] ?? ''));
         $job['downloadable'] = ($job['state'] ?? '') === 'done'
             && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle'], true)
             && is_file((string) ($job['output'] ?? ''));
-        $job['notification_unread'] = empty($job['notification_read']);
-        $existingIndex = $byId[$job['id']] ?? null;
-        if ($existingIndex === null) {
-            $byId[$job['id']] = count($jobs);
-            $jobs[] = $job;
-        } else {
-            // A completed job is copied to the history directory. Merge the
-            // two representations instead of showing it twice; read state
-            // is kept if either copy was marked as read.
-            $notificationUnread = !empty($jobs[$existingIndex]['notification_unread']) && !empty($job['notification_unread']);
-            if (($job['historical'] ?? false) === false) $jobs[$existingIndex] = array_merge($jobs[$existingIndex], $job);
-            $jobs[$existingIndex]['notification_unread'] = $notificationUnread;
-        }
+        $notification = $notificationsByJob[(int) ($job['database_id'] ?? 0)] ?? null;
+        $job['notification_unread'] = is_array($notification) && trim((string) ($notification['read_at'] ?? '')) === '';
     }
-    usort($jobs, static fn(array $a, array $b): int => strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')));
+    unset($job);
     return array_slice($jobs, 0, max(1, $limit));
+}
+
+/** @return array<int,array<string,mixed>> */
+function current_user_notifications(int $limit = 8): array
+{
+    $user = current_user();
+    if ($user === null) return [];
+    $rows = \Ceneos\PhpBase\Notification\NotificationRepository::forUser((int) ($user->id ?? 0), max(1, $limit));
+    return array_map(static function (array $row): array {
+        $job = (int) ($row['job_id'] ?? 0) > 0 ? BackgroundJobService::findById((int) $row['job_id']) : null;
+        return [
+            'notification_id' => (int) ($row['id'] ?? 0),
+            'title' => (string) ($row['title'] ?? 'Benachrichtigung'),
+            'message' => (string) ($row['message'] ?? ''),
+            'category' => (string) ($row['category'] ?? 'system'),
+            'severity' => (string) ($row['severity'] ?? 'info'),
+            'action_url' => (string) ($row['action_url'] ?? ''),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'notification_unread' => trim((string) ($row['read_at'] ?? '')) === '',
+            'job' => $job,
+        ];
+    }, $rows);
 }
 
 function current_user_can_manage_courses(): bool
