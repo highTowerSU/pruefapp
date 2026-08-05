@@ -18,6 +18,7 @@ $assetVersion = app_asset_version();
 <html lang="de" data-bs-theme="auto">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title ?? 'Seite') ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= htmlspecialchars(url_for('public/favicon.svg'), ENT_QUOTES) ?>">
     <script>
@@ -193,7 +194,7 @@ $assetVersion = app_asset_version();
 <body class="d-flex flex-column min-vh-100">
 <?php include "templates/_navbar.php"; ?>
 <main class="flex-grow-1">
-<div class="container py-4">
+<div class="container-fluid app-main-container py-4">
     <header class="page-header mb-4 noprint">
       <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
       <?php if (($showCompanySubtitle ?? true) && !empty($branding['company_name'])): ?>

@@ -6,7 +6,7 @@ $navTextColor = $navColors['text'] ?? '#FFFFFF';
 $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $navTextColor);
 ?>
 <nav class="navbar navbar-expand-lg navbar-themed mb-4 noprint" style="<?= htmlspecialchars($navStyle, ENT_QUOTES) ?>">
-  <div class="container">
+  <div class="container-fluid app-nav-container">
     <?php
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $coursesUrl = url_for('kurse');
@@ -92,7 +92,11 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
       <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Prüf-Doku') ?></span>
     </a>
 
-    <div class="d-flex align-items-center ms-auto gap-4 flex-wrap justify-content-end">
+    <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#appNavbarContent" aria-controls="appNavbarContent" aria-expanded="false" aria-label="Navigation öffnen">
+      <i class="fa-solid fa-bars" aria-hidden="true"></i>
+    </button>
+
+    <div id="appNavbarContent" class="navbar-collapse collapse d-lg-flex align-items-lg-center ms-lg-auto gap-lg-4 flex-wrap justify-content-lg-end">
       <?php $authUser = current_user(); ?>
       <?php if ($authUser !== null): ?>
         <ul class="navbar-nav align-items-lg-center gap-lg-2 flex-wrap justify-content-end">
