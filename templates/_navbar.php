@@ -107,6 +107,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           <li class="nav-item dropdown">
             <button class="nav-link dropdown-toggle border-0 bg-transparent<?= $devicesMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="deviceNavigationDropdown" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Geräte</button>
             <ul class="dropdown-menu" aria-labelledby="deviceNavigationDropdown">
+              <li><a class="dropdown-item" href="<?= htmlspecialchars($devicesUrl . '#device-inspection-lookup', ENT_QUOTES) ?>"><i class="fa-solid fa-barcode icon-slot me-2" aria-hidden="true"></i>Neue Prüfung</a></li>
+              <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item<?= $devicesActive ? ' active' : '' ?>" href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-plug icon-slot me-2" aria-hidden="true"></i>Geräteübersicht</a></li>
               <li><a class="dropdown-item<?= $inspectionsActive ? ' active' : '' ?>" href="<?= htmlspecialchars($inspectionsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clipboard-check icon-slot me-2" aria-hidden="true"></i>Prüfungen</a></li>
             </ul>

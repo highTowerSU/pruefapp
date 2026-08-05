@@ -5,27 +5,74 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'warming_device' => 0, 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
     $metadataValue = trim((string) ($device->metadata_json ?? ''));
     if ($metadataValue === '{}') $metadataValue = '';
+    $formKey = (int) ($device->id ?? 0);
+    $initialNumber = $formKey > 0 ? (string) ($device->external_number ?? '') : $newNumber;
+    $manufacturerListId = 'manufacturers-' . $formKey;
+    $modelListId = 'models-' . $formKey;
+    $nameListId = 'device-names-' . $formKey;
+    $currentManufacturer = trim((string) ($device->manufacturer ?? ''));
 ?>
-  <form method="post" action="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>" class="row g-2">
-    <input type="hidden" name="id" value="<?= (int) $device->id ?>">
-    <?php $initialNumber = (int) ($device->id ?? 0) > 0 ? (string) ($device->external_number ?? '') : $newNumber; ?>
-    <div class="col-md-2"><div class="d-flex justify-content-between align-items-center"><label class="form-label mb-1" for="external-number-<?= (int) $device->id ?>">Gerätenummer</label><?php if ((int) $device->id === 0 && $initialNumber === '' && $suggestedDeviceNumber !== ''): ?><button type="button" class="btn btn-link btn-sm p-0" data-suggest-device-number="<?= htmlspecialchars($suggestedDeviceNumber, ENT_QUOTES) ?>">Vorschlag</button><?php endif; ?></div><input class="form-control" id="external-number-<?= (int) $device->id ?>" name="external_number" value="<?= htmlspecialchars($initialNumber) ?>"<?= $initialNumber !== '' ? ' readonly' : '' ?> required><div class="form-text" data-number-check-hint></div></div>
-    <?php $nameListId = 'device-names-' . (int) ($device->id ?? 0); ?><div class="col-md-4"><div class="d-flex justify-content-between align-items-center"><label class="form-label mb-1">Gerätebezeichnung</label><button type="button" class="btn btn-link btn-sm p-0" data-copy-device-name>passende Bezeichnung übernehmen</button></div><input class="form-control" name="name" list="<?= $nameListId ?>" required value="<?= htmlspecialchars((string) $device->name) ?>"><datalist id="<?= $nameListId ?>"></datalist></div>
-    <div class="col-md-4"><div class="d-flex justify-content-between align-items-center"><label class="form-label mb-1">Raum</label><a href="#" class="small d-none" data-last-room-link></a></div><select class="form-select" name="room_id" required data-search-select data-placeholder="Raum suchen"><option value="">Raum wählen</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) $device->room_id === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select></div>
-    <div class="col-md-2"><label class="form-label">Inventarnummer</label><input class="form-control" name="inventory_number" value="<?= htmlspecialchars((string) $device->inventory_number) ?>"></div>
-    <div class="col-md-2"><label class="form-label">Seriennummer</label><input class="form-control" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"></div>
-    <?php $formKey = (int) ($device->id ?? 0); $manufacturerListId = 'manufacturers-' . $formKey; $modelListId = 'models-' . $formKey; $currentManufacturer = trim((string) ($device->manufacturer ?? '')); ?>
-    <div class="col-md-3"><label class="form-label" for="manufacturer-<?= $formKey ?>">Hersteller</label><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" list="<?= $manufacturerListId ?>" autocomplete="organization" value="<?= htmlspecialchars($currentManufacturer) ?>"><datalist id="<?= $manufacturerListId ?>"><?php foreach ($manufacturerOptions as $manufacturer): ?><option value="<?= htmlspecialchars($manufacturer) ?>"></option><?php endforeach; ?></datalist></div>
-    <div class="col-md-3"><label class="form-label" for="device-model-<?= $formKey ?>">Typ / Modell</label><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" list="<?= $modelListId ?>" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"><datalist id="<?= $modelListId ?>"><?php foreach (($modelOptionsByManufacturer[$currentManufacturer] ?? []) as $model): ?><option value="<?= htmlspecialchars($model) ?>"></option><?php endforeach; ?></datalist></div>
-    <div class="col-md-2"><div class="device-option-card form-check form-switch h-100"><input class="form-check-input" type="checkbox" role="switch" name="warming_device" id="warming-<?= (int) $device->id ?>"<?= !empty($device->warming_device) ? ' checked' : '' ?>><label class="form-check-label d-flex align-items-center gap-2" for="warming-<?= (int) $device->id ?>"><span class="device-option-icon rounded-circle d-inline-flex align-items-center justify-content-center" aria-hidden="true"><i class="fa-solid fa-temperature-high"></i></span><span><strong class="d-block">Wärmegerät</strong><small class="text-body-secondary">Heizelement vorhanden</small></span></label></div></div>
-    <div class="col-12"><label class="form-label">Kurzbeschreibung</label><textarea class="form-control" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
-    <div class="col-md-6"><label class="form-label">Kommentar</label><textarea class="form-control" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
-    <div class="col-md-6"><label class="form-label">Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
-    <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-outline-primary btn-sm" name="save_only" value="1">Speichern</button><?php if ((int) ($device->id ?? 0) > 0): ?><a class="btn btn-primary btn-sm" href="<?= htmlspecialchars(url_for('geraete/' . (int) $device->id . '/pruefungen/neu'), ENT_QUOTES) ?>">Neue Prüfung anlegen</a><?php else: ?><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1">Speichern und neue Prüfung</button><?php endif; ?></div>
+  <form method="post" action="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>" class="row g-3 device-form">
+    <input type="hidden" name="id" value="<?= $formKey ?>">
+
+    <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Identifikation</h2></div>
+    <div class="col-md-4">
+      <div class="d-flex justify-content-between align-items-center gap-2">
+        <label class="form-label mb-1" for="external-number-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätenummer</label>
+        <?php if ($formKey === 0 && $initialNumber === '' && $suggestedDeviceNumber !== ''): ?><button type="button" class="btn btn-link btn-sm p-0" data-suggest-device-number="<?= htmlspecialchars($suggestedDeviceNumber, ENT_QUOTES) ?>">Vorschlag</button><?php endif; ?>
+      </div>
+      <input class="form-control" id="external-number-<?= $formKey ?>" name="external_number" value="<?= htmlspecialchars($initialNumber) ?>"<?= $initialNumber !== '' ? ' readonly' : '' ?> required>
+      <div class="form-text" data-number-check-hint></div>
+    </div>
+    <div class="col-md-4"><label class="form-label" for="inventory-number-<?= $formKey ?>"><i class="fa-solid fa-hashtag icon-slot me-1" aria-hidden="true"></i>Inventarnummer</label><input class="form-control" id="inventory-number-<?= $formKey ?>" name="inventory_number" value="<?= htmlspecialchars((string) $device->inventory_number) ?>"></div>
+    <div class="col-md-4"><label class="form-label" for="serial-number-<?= $formKey ?>"><i class="fa-solid fa-hashtag icon-slot me-1" aria-hidden="true"></i>Seriennummer</label><input class="form-control" id="serial-number-<?= $formKey ?>" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"></div>
+
+    <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Gerätedaten</h2></div>
+    <div class="col-md-3"><label class="form-label" for="manufacturer-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Hersteller</label><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" list="<?= $manufacturerListId ?>" autocomplete="organization" value="<?= htmlspecialchars($currentManufacturer) ?>"><datalist id="<?= $manufacturerListId ?>"><?php foreach ($manufacturerOptions as $manufacturer): ?><option value="<?= htmlspecialchars($manufacturer) ?>"></option><?php endforeach; ?></datalist></div>
+    <div class="col-md-3"><label class="form-label" for="device-model-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Typ / Modell</label><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" list="<?= $modelListId ?>" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"><datalist id="<?= $modelListId ?>"><?php foreach (($modelOptionsByManufacturer[$currentManufacturer] ?? []) as $model): ?><option value="<?= htmlspecialchars($model) ?>"></option><?php endforeach; ?></datalist></div>
+    <div class="col-md-6">
+      <div class="d-flex justify-content-between align-items-center gap-2">
+        <label class="form-label mb-1" for="device-name-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätebezeichnung</label>
+        <button type="button" class="btn btn-link btn-sm p-0" data-copy-device-name><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>passende Bezeichnung übernehmen</button>
+      </div>
+      <input class="form-control" id="device-name-<?= $formKey ?>" name="name" list="<?= $nameListId ?>" required value="<?= htmlspecialchars((string) $device->name) ?>"><datalist id="<?= $nameListId ?>"></datalist>
+    </div>
+
+    <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Standort und Kennzeichnung</h2></div>
+    <div class="col-md-8">
+      <div class="d-flex justify-content-between align-items-center gap-2"><label class="form-label mb-1" for="device-room-<?= $formKey ?>"><i class="fa-solid fa-location-dot icon-slot me-1" aria-hidden="true"></i>Raum</label><a href="#" class="small d-none" data-last-room-link></a></div>
+      <select class="form-select" id="device-room-<?= $formKey ?>" name="room_id" required data-search-select data-placeholder="Raum suchen"><option value="">Raum wählen</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) $device->room_id === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select>
+    </div>
+    <div class="col-md-4"><div class="device-option-card form-check form-switch h-100"><input class="form-check-input" type="checkbox" role="switch" name="warming_device" id="warming-<?= $formKey ?>"<?= !empty($device->warming_device) ? ' checked' : '' ?>><label class="form-check-label d-flex align-items-center gap-2" for="warming-<?= $formKey ?>"><span class="device-option-icon rounded-circle d-inline-flex align-items-center justify-content-center" aria-hidden="true"><i class="fa-solid fa-temperature-high"></i></span><span><strong class="d-block">Wärmegerät</strong><small class="text-body-secondary">Heizelement vorhanden</small></span></label></div></div>
+
+    <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Zusätzliche Angaben</h2></div>
+    <div class="col-12"><label class="form-label" for="device-description-<?= $formKey ?>"><i class="fa-solid fa-comment icon-slot me-1" aria-hidden="true"></i>Kurzbeschreibung</label><textarea class="form-control" id="device-description-<?= $formKey ?>" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
+    <div class="col-md-6"><label class="form-label" for="device-comment-<?= $formKey ?>"><i class="fa-solid fa-comment icon-slot me-1" aria-hidden="true"></i>Kommentar</label><textarea class="form-control" id="device-comment-<?= $formKey ?>" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
+    <div class="col-md-6"><label class="form-label" for="device-metadata-<?= $formKey ?>"><i class="fa-solid fa-code icon-slot me-1" aria-hidden="true"></i>Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" id="device-metadata-<?= $formKey ?>" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
+    <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-secondary btn-sm" name="save_only" value="1"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Speichern</button><?php if ($formKey > 0): ?><a class="btn btn-primary btn-sm" href="<?= htmlspecialchars(url_for('geraete/' . $formKey . '/pruefungen/neu'), ENT_QUOTES) ?>"><i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Neue Prüfung anlegen</a><?php else: ?><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1"><i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Speichern und neue Prüfung</button><?php endif; ?></div>
   </form>
 <?php }; ?>
 
 <div id="device-page">
+<?php if ($canManage): ?>
+<section id="device-inspection-lookup" class="card card-body mb-4 device-new-inspection" aria-labelledby="device-inspection-lookup-title">
+  <div class="row g-3 align-items-end">
+    <div class="col-lg-5">
+      <h2 id="device-inspection-lookup-title" class="h5 mb-1"><i class="fa-solid fa-clipboard-check me-2" aria-hidden="true"></i>Neue Prüfung</h2>
+      <p class="small text-body-secondary mb-0">Gerätenummer eingeben oder den Barcode mit einem angeschlossenen Scanner erfassen.</p>
+    </div>
+    <div class="col-lg-7">
+      <label class="form-label fw-semibold" for="inspection-device-number"><i class="fa-solid fa-barcode icon-slot me-1" aria-hidden="true"></i>Gerätenummer oder Barcode</label>
+      <div class="input-group">
+        <span class="input-group-text" aria-hidden="true"><i class="fa-solid fa-barcode"></i></span>
+        <input class="form-control" id="inspection-device-number" inputmode="text" enterkeyhint="search" autocomplete="off" placeholder="Gerätenummer scannen oder eingeben" autofocus>
+        <button class="btn btn-primary" type="button" id="inspection-device-lookup-button"><i class="fa-solid fa-magnifying-glass me-1" aria-hidden="true"></i>Suchen</button>
+      </div>
+      <div id="inspection-device-result" class="small mt-2" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
 <?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms')) ?>
 <style>.common-filter-panel{container-type:inline-size}.common-filter-panel .form-label{font-weight:600}.common-filter-panel .form-control,.common-filter-panel .form-select{min-height:2.75rem}@media(max-width:767.98px){.common-filter-panel{padding:1rem}.common-filter-panel .row{--bs-gutter-y:.75rem}}</style>
@@ -43,7 +90,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 .device-export-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.65rem 1rem;padding:.35rem 0}.device-export-toolbar + .device-export-toolbar{border-top:1px solid var(--bs-border-color);margin-top:.5rem;padding-top:.85rem}.device-export-toolbar .btn{white-space:nowrap}.device-export-toolbar .btn-group-label{font-weight:600;color:var(--bs-secondary-color)}
 .device-export-toolbar .btn-group>.btn:not(:last-child){border-right-color:rgba(255,255,255,.55)}
 [data-bs-theme="dark"] .device-export-toolbar .btn-group>.btn:not(:last-child){border-right-color:rgba(0,0,0,.45)}
-.device-page-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}.device-new-inspection{flex:0 1 26rem;min-width:min(100%,20rem)}.device-new-inspection .input-group{max-width:26rem}
+.device-new-inspection{scroll-margin-top:6rem}.device-new-inspection .input-group{width:100%}
 details.card>summary.card-header{user-select:none;-webkit-user-select:none}.device-card-summary{min-height:3rem}.device-card>summary strong{font-size:1rem}.device-new-caption{margin-left:auto}.device-due-badge{margin-left:auto}.device-inspection-status{width:1.8rem;text-align:center}
 @media(min-width:992px){.device-filter-form .row>.col-md-1.d-flex{width:auto;flex:0 0 auto;flex-wrap:wrap}}
 @media(max-width:991.98px){.device-filter-form .row>[class*="col-"]{width:50%}.device-filter-form .row>.col-md-3:first-child{width:100%}.device-filter-form .row>.col-md-1.d-flex{width:100%}}
@@ -76,22 +123,6 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       manufacturerSelect.on('type', refreshModels);
       refreshModels();
     }
-    const submitBlock = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
-    const fieldOrder = ['external_number', 'inventory_number', 'serial_number', 'manufacturer', 'device_model', 'name', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'];
-    const fieldWidths = {external_number: 'col-md-4', inventory_number: 'col-md-4', serial_number: 'col-md-4', manufacturer: 'col-md-3', device_model: 'col-md-3', name: 'col-md-6', room_id: 'col-md-8', warming_device: 'col-md-4'};
-    const fieldBlocks = fieldOrder.map(name => {
-      const block = form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]');
-      if (!block) return null;
-      Object.keys(fieldWidths).includes(name) && (block.className = block.className.replace(/\bcol-(?:sm|md|lg|xl|xxl)-\d+\b/g, '') + ' ' + fieldWidths[name]);
-      return block;
-    }).filter(Boolean);
-    if (submitBlock) fieldBlocks.forEach(block => form.insertBefore(block, submitBlock));
-    form.classList.remove('g-2'); form.classList.add('g-3', 'device-form');
-    const addDeviceHeading = (before, text) => { if (!before || before.previousElementSibling?.classList.contains('device-form-heading')) return; const heading = document.createElement('div'); heading.className = 'col-12 device-form-heading mt-2'; heading.innerHTML = `<h2 class="h5 border-bottom pb-2 mb-0">${text}</h2>`; form.insertBefore(heading, before); };
-    addDeviceHeading(form.querySelector('[name="external_number"]')?.closest('[class*="col-"]'), 'Identifikation');
-    addDeviceHeading(form.querySelector('[name="manufacturer"]')?.closest('[class*="col-"]'), 'Gerätedaten');
-    addDeviceHeading(form.querySelector('[name="room_id"]')?.closest('[class*="col-"]'), 'Standort und Kennzeichnung');
-    addDeviceHeading(form.querySelector('[name="description"]')?.closest('[class*="col-"]'), 'Zusätzliche Angaben');
     const copyNameButton = form.querySelector('[data-copy-device-name]');
     if (copyNameButton) copyNameButton.addEventListener('click', () => { const manufacturerValue = form.querySelector('[name="manufacturer"]')?.value.trim() || ''; const modelValue = form.querySelector('[name="device_model"]')?.value.trim() || ''; const nameField = form.querySelector('[name="name"]'); const suggestion = copyNameButton.dataset.suggestedName || [manufacturerValue, modelValue].filter(Boolean).join(' '); if (!nameField || !suggestion) return; if (nameField.value.trim() !== '' && !window.confirm('Gerätebezeichnung ersetzen?')) return; nameField.value = suggestion; nameField.dispatchEvent(new Event('input', {bubbles: true})); });
   });
@@ -103,15 +134,11 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   if (typeof window.TomSelect === 'function') window.addEventListener('DOMContentLoaded', initializeDeviceNameTomSelect, {once: true}); else window.addEventListener('DOMContentLoaded', initializeDeviceNameTomSelect, {once: true});
   const initializeDeviceShortcuts = () => { const roomLabels = <?= json_encode($roomLabels, JSON_UNESCAPED_UNICODE) ?>; document.querySelectorAll('form[action$="/geraete"]').forEach(form => { const number = form.querySelector('[name="external_number"]'); const suggest = form.querySelector('[data-suggest-device-number]'); const hint = form.querySelector('[data-number-check-hint]'); if (suggest && number) suggest.addEventListener('click', () => { const value = suggest.dataset.suggestDeviceNumber || ''; if (!value) return; let count = 0; try { count = parseInt(localStorage.getItem('pruefapp-device-number-suggestions') || '0', 10) || 0; } catch (_) {} count++; if (count % 10 === 0) { const check = window.prompt('Bitte zur Kontrolle die letzten drei Stellen des vorgeschlagenen Werts eingeben: ' + value); if (check !== value.slice(-3)) { if (hint) hint.textContent = 'Vorschlag nicht übernommen – Abgleich fehlgeschlagen.'; return; } } number.value = value; number.dispatchEvent(new Event('input', {bubbles: true})); if (hint) hint.textContent = 'Vorschlag übernommen. Bitte vor dem Speichern prüfen.'; try { localStorage.setItem('pruefapp-device-number-suggestions', String(count)); } catch (_) {} }); const room = form.querySelector('[name="room_id"]'); const roomLink = form.querySelector('[data-last-room-link]'); if (!room) return; const rememberRoom = () => { if (!room.value) return; try { localStorage.setItem('pruefapp-last-room-id', room.value); } catch (_) {} }; room.addEventListener('change', rememberRoom); room.addEventListener('input', rememberRoom); if (roomLink && !room.value) { let lastRoom = ''; try { lastRoom = localStorage.getItem('pruefapp-last-room-id') || ''; } catch (_) {} const option = lastRoom ? room.querySelector(`option[value="${CSS.escape(lastRoom)}"]`) : null; if (option) { roomLink.textContent = `${option.textContent.trim()} eintragen`; roomLink.classList.remove('d-none'); roomLink.addEventListener('click', event => { event.preventDefault(); if (room.tomselect) room.tomselect.setValue(lastRoom); else { room.value = lastRoom; room.dispatchEvent(new Event('change', {bubbles: true})); } }); } } }); };
   window.addEventListener('DOMContentLoaded', initializeDeviceShortcuts, {once: true});
-  const filterForm = document.querySelector('form[method="get"]');
-  if (<?= $canManage ? 'true' : 'false' ?> && filterForm) {
-    const panel = document.createElement('div');
-    panel.className = 'device-new-inspection border rounded p-2 bg-body-tertiary';
-    panel.innerHTML = '<div class="small fw-semibold mb-1"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Neue Prüfung</div><div class="input-group input-group-sm"><label class="visually-hidden" for="inspection-device-number">Gerät suchen oder Barcode scannen</label><input class="form-control" id="inspection-device-number" inputmode="text" autocomplete="off" placeholder="Gerätenummer oder Barcode"><button class="btn btn-primary" type="button" id="inspection-device-lookup">Suchen</button></div><div id="inspection-device-result" class="small mt-2" aria-live="polite"></div>';
-    const pageHeader = document.querySelector('.page-header');
-    if (pageHeader) { pageHeader.classList.add('device-page-header'); pageHeader.append(panel); } else filterForm.before(panel);
-    const numberInput = panel.querySelector('#inspection-device-number');
-    const result = panel.querySelector('#inspection-device-result');
+  const panel = document.getElementById('device-inspection-lookup');
+  if (panel) {
+    const numberInput = document.getElementById('inspection-device-number');
+    const result = document.getElementById('inspection-device-result');
+    const lookupButton = document.getElementById('inspection-device-lookup-button');
     const lookup = async () => {
       const number = numberInput.value.trim();
       if (!number) { result.textContent = ''; return; }
@@ -120,14 +147,13 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
         const response = await fetch(`<?= htmlspecialchars(url_for('geraete/suche'), ENT_QUOTES) ?>?number=${encodeURIComponent(number)}`, {headers:{Accept:'application/json'}});
         const data = await response.json();
         result.replaceChildren();
-        if (data.found) { const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`; const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.textContent = 'Prüfung anlegen'; result.append(text, link); }
-        else { const text = document.createElement('span'); text.className = 'text-warning-emphasis'; text.textContent = 'Keine passende Gerätenummer gefunden.'; const link = document.createElement('a'); link.className = 'btn btn-sm btn-outline-primary ms-2'; link.href = `<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>?new_number=${encodeURIComponent(number)}`; link.textContent = 'Gerät neu anlegen'; result.append(text, link); }
+        if (data.found) { const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`; const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.innerHTML = '<i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Prüfung anlegen'; result.append(text, link); }
+        else { const text = document.createElement('span'); text.className = 'text-warning-emphasis'; text.textContent = 'Keine passende Gerätenummer gefunden.'; const link = document.createElement('a'); link.className = 'btn btn-sm btn-secondary ms-2'; link.href = `<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>?new_number=${encodeURIComponent(number)}`; link.innerHTML = '<i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Gerät neu anlegen'; result.append(text, link); }
       } catch (_) { result.textContent = 'Suche momentan nicht verfügbar.'; }
     };
-    panel.querySelector('#inspection-device-lookup').addEventListener('click', lookup);
+    lookupButton.addEventListener('click', lookup);
     numberInput.addEventListener('input', () => { clearTimeout(numberInput._lookupTimer); numberInput._lookupTimer = setTimeout(lookup, 250); });
     numberInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); lookup(); } });
-    numberInput.focus({preventScroll: true});
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');
   if (newNumber) { const newDeviceDetails = [...document.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent.includes('Neues Gerät')); const field = newDeviceDetails?.querySelector('[name="external_number"]'); if (newDeviceDetails && field) { newDeviceDetails.open = true; field.value = newNumber; field.readOnly = true; newDeviceDetails.scrollIntoView({behavior:'smooth', block:'start'}); } }
@@ -223,29 +249,6 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   </details>
 <?php endforeach; ?>
 </div>
-<script>
-(() => {
-  const order = ['external_number', 'inventory_number', 'serial_number', 'manufacturer', 'device_model', 'name', 'room_id', 'warming_device', 'description', 'comment', 'metadata_json'];
-  const widths = {external_number: 'col-md-4', inventory_number: 'col-md-4', serial_number: 'col-md-4', manufacturer: 'col-md-3', device_model: 'col-md-3', name: 'col-md-6', room_id: 'col-md-8', warming_device: 'col-md-4'};
-  document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
-    if (form.classList.contains('device-form')) return;
-    const submit = form.querySelector('button[type="submit"],button:not([type])')?.closest('[class*="col-12"]');
-    const blocks = order.map(name => {
-      const block = form.querySelector(`[name="${name}"]`)?.closest('[class*="col-"]');
-      if (!block) return null;
-      if (widths[name]) block.className = block.className.replace(/\bcol-(?:sm|md|lg|xl|xxl)-\d+\b/g, '') + ' ' + widths[name];
-      return block;
-    }).filter(Boolean);
-    if (submit) blocks.forEach(block => form.insertBefore(block, submit));
-    form.classList.remove('g-2'); form.classList.add('g-3', 'device-form');
-    const heading = (before, text) => { if (!before || before.previousElementSibling?.classList.contains('device-form-heading')) return; const node = document.createElement('div'); node.className = 'col-12 device-form-heading mt-2'; node.innerHTML = `<h2 class="h5 border-bottom pb-2 mb-0">${text}</h2>`; form.insertBefore(node, before); };
-    heading(form.querySelector('[name="external_number"]')?.closest('[class*="col-"]'), 'Identifikation');
-    heading(form.querySelector('[name="manufacturer"]')?.closest('[class*="col-"]'), 'Gerätedaten');
-    heading(form.querySelector('[name="room_id"]')?.closest('[class*="col-"]'), 'Standort und Kennzeichnung');
-    heading(form.querySelector('[name="description"]')?.closest('[class*="col-"]'), 'Zusätzliche Angaben');
-  });
-})();
-</script>
 <script>
 (() => {
   const actions = document.getElementById('device-actions-panel');
