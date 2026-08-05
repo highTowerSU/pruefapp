@@ -10,11 +10,13 @@ final class BillingController
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();
-        $rows = self::rows([], $_GET);
+        $preselectedIds = ($_GET['preselect'] ?? '') === '1' ? array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_preselect_inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0)) : [];
+        if ($preselectedIds !== []) unset($_SESSION['billing_preselect_inspection_ids']);
+        $rows = self::rows($preselectedIds, $_GET);
         $customers = R::findAll('customer', ' ORDER BY name ');
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
-        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'configured' => $configured, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
+        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
         unset($_SESSION['billing_message']);
         return $isHx ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content] : [200, [], render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content])];
     }

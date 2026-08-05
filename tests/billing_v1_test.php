@@ -7,6 +7,8 @@ $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/Billin
 $template = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_index.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_detail.php');
+$devices = (string) file_get_contents(dirname(__DIR__) . '/templates/device_index.php');
+$deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 
 $checks = [
     [str_contains($schema, 'billing_eligibility') && str_contains($schema, 'billing_status'), 'Billing status fields are missing.'],
@@ -20,6 +22,8 @@ $checks = [
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],
     [str_contains($detail, 'Abrechnungshistorie'), 'Inspection billing history is missing.'],
     [str_contains($routes, "'/admin/abrechnung/pruefung/{id}/export-zuruecksetzen'")],
+    [str_contains($devices, 'billing_status') && str_contains($devices, 'billing_eligibility'), 'Device billing filters are missing.'],
+    [str_contains($devices, 'Abrechnung vorbereiten') && str_contains($deviceController, "\$action === 'billing'"), 'Device billing bulk action is missing.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

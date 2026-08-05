@@ -53,6 +53,8 @@ class DeviceController
         }
         $newNumber = trim((string) ($_GET['new_number'] ?? ''));
         $inspectionStatus = trim((string) ($_GET['inspection_status'] ?? ''));
+        $billingStatus = trim((string) ($_GET['billing_status'] ?? ''));
+        $billingEligibility = trim((string) ($_GET['billing_eligibility'] ?? ''));
         $showArchived = current_user_is_superadmin() && ($_GET['show_archived'] ?? '') === '1';
         $sort = (string) ($_GET['sort'] ?? 'name');
         $orderBy = [
@@ -88,6 +90,14 @@ class DeviceController
             $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
         } elseif ($inspectionStatus === 'completed') {
             $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status, '') NOT IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        }
+        if (in_array($billingStatus, ['not_exported', 'export_pending', 'exported', 'export_failed', 'manually_unexported'], true)) {
+            $where[] = "EXISTS (SELECT 1 FROM inspection ib WHERE ib.device_id = d.id AND ib.test_date >= '2025-01-01' AND COALESCE(ib.billing_status, CASE WHEN ib.billing_exported_at IS NULL OR ib.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) = ?)";
+            $paramsQuery[] = $billingStatus;
+        }
+        if (in_array($billingEligibility, ['billable', 'not_billable'], true)) {
+            $where[] = "EXISTS (SELECT 1 FROM inspection ie WHERE ie.device_id = d.id AND ie.test_date >= '2025-01-01' AND COALESCE(ie.billing_eligibility, CASE WHEN ie.billable = 1 THEN 'billable' ELSE 'not_billable' END) = ?)";
+            $paramsQuery[] = $billingEligibility;
         }
         $dateWhere = [];
         if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $paramsQuery[] = $year . '-01-01'; $paramsQuery[] = ((int) $year + 1) . '-01-01'; }
@@ -205,7 +215,7 @@ class DeviceController
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
-                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'per_page' => $perPage, 'sort' => $sort],
+                'filters' => ['q' => $query, 'year' => $year, 'from' => $from, 'to' => $to, 'customer_id' => $customerId, 'site_id' => $siteId, 'building_id' => $buildingId, 'floor_id' => $floorId, 'room_id' => $roomId, 'inspection_status' => $inspectionStatus, 'billing_status' => $billingStatus, 'billing_eligibility' => $billingEligibility, 'per_page' => $perPage, 'sort' => $sort],
                 'newNumber' => $newNumber,
                 'suggestedDeviceNumber' => $suggestedDeviceNumber,
                 'selectedDeviceIds' => $selectedDeviceIds,
@@ -283,6 +293,15 @@ class DeviceController
             $ids = self::filteredDeviceIds((string) ($_POST['filter_query'] ?? ''));
         }
         $action = trim((string) ($_POST['bulk_action'] ?? ''));
+        if ($action === 'billing') {
+            if ($ids === []) { $_SESSION['fehlermeldung'] = 'Keine Geräte ausgewählt.'; return [303, ['Location' => url_for('geraete')], '']; }
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $eligible = array_map('intval', R::getCol("SELECT id FROM inspection WHERE device_id IN ($marks) AND test_date >= '2025-01-01' AND result_status IN ('bestanden','durchgefallen') AND COALESCE(billing_eligibility, CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END) = 'billable' AND COALESCE(billing_status, CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) IN ('not_exported','manually_unexported','export_failed')", $ids));
+            if ($eligible === []) { $_SESSION['fehlermeldung'] = 'Für die Auswahl gibt es keine abrechenbare, noch nicht exportierte Prüfung ab 2025.'; return [303, ['Location' => url_for('geraete')], '']; }
+            $_SESSION['billing_preselect_inspection_ids'] = $eligible;
+            $_SESSION['billing_message'] = count($eligible) . ' Prüfung(en) für die Abrechnung vorbereitet. Bitte Auswahl und Status vor dem Export prüfen.';
+            return [303, ['Location' => url_for('admin/abrechnung?preselect=1')], ''];
+        }
         if ($ids === [] || !in_array($action, ['archive', 'delete'], true)) {
             $_SESSION['fehlermeldung'] = 'Bitte mindestens ein Gerät und eine gültige Aktion auswählen.';
             return [303, ['Location' => url_for('geraete')], ''];
@@ -328,6 +347,10 @@ class DeviceController
         elseif ($status === 'passed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
         elseif ($status === 'pending') $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
         elseif ($status === 'completed') $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status, '') NOT IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        $billingStatus = trim((string) ($filters['billing_status'] ?? ''));
+        if (in_array($billingStatus, ['not_exported', 'export_pending', 'exported', 'export_failed', 'manually_unexported'], true)) { $where[] = "EXISTS (SELECT 1 FROM inspection ib WHERE ib.device_id = d.id AND ib.test_date >= '2025-01-01' AND COALESCE(ib.billing_status, CASE WHEN ib.billing_exported_at IS NULL OR ib.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) = ?)"; $params[] = $billingStatus; }
+        $billingEligibility = trim((string) ($filters['billing_eligibility'] ?? ''));
+        if (in_array($billingEligibility, ['billable', 'not_billable'], true)) { $where[] = "EXISTS (SELECT 1 FROM inspection ie WHERE ie.device_id = d.id AND ie.test_date >= '2025-01-01' AND COALESCE(ie.billing_eligibility, CASE WHEN ie.billable = 1 THEN 'billable' ELSE 'not_billable' END) = ?)"; $params[] = $billingEligibility; }
         $dateWhere = [];
         $year = trim((string) ($filters['year'] ?? ''));
         if (preg_match('/^\d{4}$/', $year)) { $dateWhere[] = 'i.test_date >= ? AND i.test_date < ?'; $params[] = $year . '-01-01'; $params[] = ((int) $year + 1) . '-01-01'; }
