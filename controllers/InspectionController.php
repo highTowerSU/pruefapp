@@ -379,6 +379,22 @@ final class InspectionController
         return [200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="' . basename($path) . '"'], (string) file_get_contents($path)];
     }
 
+    public static function regenerateReport(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
+        $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
+        if (!$inspection->id || !$device || !$device->id) return [404, [], 'Prüfung nicht gefunden.'];
+        $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
+        $path = app_data_root() . '/' . $relative;
+        if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
+        $customerId = device_customer_id($device);
+        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, function_exists('get_company_branding') ? get_company_branding((int) $customerId) : null);
+        if (file_put_contents($path, $pdf, LOCK_EX) === false) return [500, [], 'PDF konnte nicht gespeichert werden.'];
+        $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+        return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id)], ''];
+    }
+
     public static function detail(array $params, bool $isHx): array
     {
         if (!current_user()) return [403, [], ''];

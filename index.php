@@ -111,6 +111,7 @@ $routes = [
     ['POST', '/admin/pruefungen/import/{id}/archivieren', fn($params, $isHx) => InspectionController::archivePhoenixJob($params, $isHx)],
     ['GET', '/admin/pruefungen/import/{id}/status', fn($params, $isHx) => InspectionController::phoenixStatus($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/bericht', fn($params, $isHx) => InspectionController::report($params, $isHx)],
+    ['POST', '/admin/pruefungen/{id}/bericht/neu-erzeugen', fn($params, $isHx) => InspectionController::regenerateReport($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}', fn($params, $isHx) => InspectionController::detail($params, $isHx)],
     ['POST', '/admin/pruefungen/{id}/loeschen', fn($params, $isHx) => InspectionController::delete($params, $isHx)],
     ['GET', '/admin/nutzer', fn($params, $isHx) => AdminController::users($params, $isHx)],
