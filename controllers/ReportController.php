@@ -182,7 +182,18 @@ final class ReportController
         $isPdf = strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'pdf';
         $mime = $isPdf ? 'application/pdf' : 'application/zip';
         $filename = basename($file);
-        return \Ceneos\PhpBase\Http\Response::file($file, ['Content-Type' => $mime, 'Content-Length' => (string) filesize($file), 'Content-Disposition' => 'attachment; filename="' . $filename . '"', 'Cache-Control' => 'private, no-store']);
+        // The legacy array router expects a string body. Stream here directly
+        // so large ZIP/PDF exports never get copied into PHP memory.
+        if (!headers_sent()) {
+            http_response_code(200);
+            header('Content-Type: ' . $mime);
+            header('Content-Length: ' . (string) filesize($file));
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Cache-Control: private, no-store');
+        }
+        while (ob_get_level() > 0) ob_end_clean();
+        readfile($file);
+        exit;
     }
 
     private static function filteredIds(string $query): array
