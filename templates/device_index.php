@@ -154,11 +154,19 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     lookupButton.addEventListener('click', lookup);
     numberInput.addEventListener('input', () => { clearTimeout(numberInput._lookupTimer); numberInput._lookupTimer = setTimeout(lookup, 250); });
     numberInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); lookup(); } });
+    let scannerFocusTimer = 0;
     const focusScanner = () => {
       if (window.location.hash !== '#device-inspection-lookup') return;
-      requestAnimationFrame(() => { panel.scrollIntoView({block: 'start'}); numberInput.focus({preventScroll: true}); numberInput.select(); });
+      window.clearTimeout(scannerFocusTimer);
+      scannerFocusTimer = window.setTimeout(() => {
+        panel.scrollIntoView({block: 'start'});
+        numberInput.focus({preventScroll: true});
+        numberInput.select();
+      }, 100);
     };
     window.addEventListener('hashchange', focusScanner);
+    document.querySelectorAll('a[href$="#device-inspection-lookup"]').forEach(link => link.addEventListener('click', focusScanner));
+    document.addEventListener('hidden.bs.dropdown', focusScanner);
     focusScanner();
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');

@@ -359,6 +359,8 @@ final class InspectionController
         if (in_array($filters['result_status'], array_keys(InspectionEvaluationService::statuses()), true)) {
             $where[] = InspectionEvaluationService::sqlStatusExpression('i') . '=?';
             $args[] = $filters['result_status'];
+        } elseif ($filters['result_status'] === 'open') {
+            $where[] = InspectionEvaluationService::sqlStatusExpression('i') . " IN ('in_progress','data_missing')";
         }
         if (in_array($filters['classification'], ['legacy','migrated_import','native'], true)) { $where[] = 'i.classification=?'; $args[] = $filters['classification']; }
         if ($filters['from'] !== '') { $where[] = 'i.test_date>=?'; $args[] = $filters['from']; }

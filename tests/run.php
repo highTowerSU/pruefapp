@@ -16,6 +16,7 @@ $tests = [
     'inspection_evaluation_test.php',
     'inspection_migration_test.php',
     'inspection_filter_test.php',
+    'user_reminder_test.php',
     'device_ui_test.php',
     'user_customer_access_test.php',
 ];

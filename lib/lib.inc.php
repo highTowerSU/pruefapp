@@ -69,6 +69,7 @@ require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 require_once __DIR__ . '/InspectionEvaluationService.php';
 require_once __DIR__ . '/InspectionFilterService.php';
+require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
@@ -1149,6 +1150,12 @@ function initialisiere_oidc(bool $force = false): void
             $_SESSION['user'] = $userInfo;
             $_SESSION['auth_user_id'] = (int) $user->id;
             $_SESSION['user_role'] = (string) ($user->role ?? '');
+            try {
+                $_SESSION['login_reminders'] = UserReminderService::afterLogin($user);
+            } catch (\Throwable $reminderError) {
+                error_log('Prüferhinweise konnten beim Login nicht erstellt werden: ' . $reminderError->getMessage());
+                $_SESSION['login_reminders'] = [];
+            }
         } catch (\Throwable $throwable) {
             unset($_SESSION['user'], $_SESSION['auth_user_id'], $_SESSION['user_role']);
             $_SESSION['fehlermeldung'] = 'Die Anmeldung war nicht erfolgreich. Bitte versuche es erneut oder kontaktiere den Support.';

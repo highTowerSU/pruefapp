@@ -218,6 +218,14 @@ $assetVersion = app_asset_version();
   <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['fehlermeldung']) ?></div>
   <?php unset($_SESSION['fehlermeldung']); ?>
 <?php endif; ?>
+<?php $loginReminders = is_array($_SESSION['login_reminders'] ?? null) ? $_SESSION['login_reminders'] : []; unset($_SESSION['login_reminders']); ?>
+<?php foreach ($loginReminders as $loginReminder): ?>
+  <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+    <i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i>
+    <div class="flex-grow-1"><strong><?= htmlspecialchars((string) ($loginReminder['title'] ?? 'Hinweis')) ?></strong><div><?= htmlspecialchars((string) ($loginReminder['message'] ?? '')) ?></div></div>
+    <?php if (trim((string) ($loginReminder['action_url'] ?? '')) !== ''): ?><a class="btn btn-sm btn-warning text-dark text-nowrap" href="<?= htmlspecialchars((string) $loginReminder['action_url'], ENT_QUOTES) ?>">Öffnen</a><?php endif; ?>
+  </div>
+<?php endforeach; ?>
 
     <?= $content ?>
 </div>
