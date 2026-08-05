@@ -66,6 +66,11 @@ class AdminController
                 'raw_last_login_at' => $rawLastLogin,
                 'sub' => (string) ($bean->sub ?? ''),
                 'customer_ids' => array_map('intval', R::getCol('SELECT customer_id FROM oauthuser_customer WHERE oauthuser_id = ?', [(int) $bean->id])),
+                'customer_access' => array_column(
+                    R::getAll('SELECT customer_id, include_descendants FROM oauthuser_customer WHERE oauthuser_id = ?', [(int) $bean->id]),
+                    'include_descendants',
+                    'customer_id'
+                ),
             ];
         }, array_values($beans));
 
@@ -264,8 +269,14 @@ class AdminController
         $userId = (int) ($params['id'] ?? 0); $user = R::load('oauthuser', $userId);
         if (!$user->id) return [404, [], 'Nutzer nicht gefunden'];
         R::exec('DELETE FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);
+        $descendants = is_array($_POST['include_descendants'] ?? null) ? $_POST['include_descendants'] : [];
         foreach (array_unique(array_map('intval', (array) ($_POST['customer_ids'] ?? []))) as $customerId) {
-            if ($customerId > 0 && R::load('customer', $customerId)->id) R::exec('INSERT OR IGNORE INTO oauthuser_customer (oauthuser_id, customer_id, created_at) VALUES (?, ?, ?)', [$userId, $customerId, date('c')]);
+            if ($customerId > 0 && R::load('customer', $customerId)->id) {
+                R::exec(
+                    'INSERT OR IGNORE INTO oauthuser_customer (oauthuser_id, customer_id, include_descendants, created_at) VALUES (?, ?, ?, ?)',
+                    [$userId, $customerId, isset($descendants[$customerId]) ? 1 : 0, date('c')]
+                );
+            }
         }
         audit_log('nutzer_kundenzuordnung_geaendert', ['oauthuser_id' => $userId]);
         $_SESSION['meldung'] = 'Kundenzuordnung aktualisiert.';

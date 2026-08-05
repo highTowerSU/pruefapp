@@ -21,6 +21,8 @@ final class BackgroundJobService
         'phoenix_pdf_restore' => 'Original-PDFs wiederherstellen',
         'report_migration' => 'PDF-Aufbereitung',
         'measurement_migration' => 'Messdaten-Aufbereitung',
+        'inspection_data_migration' => 'Prüfungsdaten migrieren',
+        'inspection_pdf_zip' => 'Ausgewählte Prüfberichte',
     ];
 
     /** @param array<string,mixed> $payload @param array<string,mixed> $options */
@@ -74,7 +76,7 @@ final class BackgroundJobService
         if ($job === null) return;
         JobQueue::finish($jobId, 'done', $result, $message !== '' ? $message : self::label($job['type']) . ' abgeschlossen.');
         $owner = (int) $job['owner_user_id'];
-        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration'], true) ? self::adminUserIds() : []);
+        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration', 'inspection_data_migration'], true) ? self::adminUserIds() : []);
         if ($recipients !== []) {
             NotificationRepository::publish($recipients, self::label($job['type']) . ' abgeschlossen', $message ?: 'Die Aufgabe wurde erfolgreich abgeschlossen.', [
                 'category' => str_contains($job['type'], 'import') || $job['type'] === 'phoenix_sync' ? 'import' : 'background_job',
@@ -207,10 +209,11 @@ final class BackgroundJobService
     {
         return match ($type) {
             'directory_import', 'phoenix_sync' => 40,
+            'inspection_data_migration' => 40,
             'examiner_migration', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration' => 30,
             'pdf_regenerate', 'missing_reports' => 20,
             'pdf_bundle' => 0,
-            'pdf_zip' => -10,
+            'pdf_zip', 'inspection_pdf_zip' => -10,
             default => 10,
         };
     }
@@ -227,7 +230,7 @@ final class BackgroundJobService
 
     private static function resultActionUrl(string $type, string $publicId): string
     {
-        return in_array($type, ['pdf_zip', 'pdf_bundle'], true)
+        return in_array($type, ['pdf_zip', 'pdf_bundle', 'inspection_pdf_zip'], true)
             ? url_for('geraete/zip/' . $publicId . '/download')
             : (in_array($type, ['directory_import', 'phoenix_sync'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
     }

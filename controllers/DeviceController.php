@@ -82,14 +82,14 @@ class DeviceController
         if ($roomId > 0) { $where[] = 'r.id = ?'; $paramsQuery[] = $roomId; }
         if ($deviceId > 0) { $where[] = 'd.id = ?'; $paramsQuery[] = $deviceId; }
         if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
-        if ($inspectionStatus === 'failed') {
-            $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
-        } elseif ($inspectionStatus === 'passed') {
-            $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
+        $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
+        if (in_array($inspectionStatus, ['failed', 'passed', 'in_progress', 'data_missing'], true)) {
+            $where[] = $latestStatus . ' = ?';
+            $paramsQuery[] = $inspectionStatus;
         } elseif ($inspectionStatus === 'pending') {
-            $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+            $where[] = $latestStatus . " IN ('in_progress','data_missing')";
         } elseif ($inspectionStatus === 'completed') {
-            $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status, '') NOT IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+            $where[] = $latestStatus . " IN ('passed','failed')";
         }
         if (in_array($billingStatus, ['not_exported', 'export_pending', 'exported', 'export_failed', 'manually_unexported'], true)) {
             $where[] = "EXISTS (SELECT 1 FROM inspection ib WHERE ib.device_id = d.id AND ib.test_date >= '2025-01-01' AND COALESCE(ib.billing_status, CASE WHEN ib.billing_exported_at IS NULL OR ib.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) = ?)";
@@ -118,6 +118,21 @@ class DeviceController
         $inspections = [];
         foreach ($devices as $device) {
             $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
+            if (current_user_has_role('customer')) {
+                $inspections[(int) $device->id] = array_values(array_filter(
+                    $inspections[(int) $device->id],
+                    static fn($inspection): bool => InspectionEvaluationService::isCompleted((string) ($inspection->result_status ?? ''))
+                ));
+            }
+            if (!current_user_is_superadmin()) {
+                foreach ($inspections[(int) $device->id] as $inspection) {
+                    if ((string) ($inspection->classification ?? '') === 'migrated_import'
+                        && !str_starts_with(ltrim((string) ($inspection->report_path ?? ''), '/'), 'reports/current/')
+                    ) {
+                        $inspection->report_path = '';
+                    }
+                }
+            }
         }
         $customers = array_values(R::findAll('customer', ' ORDER BY name '));
         $sites = array_values(R::findAll('site', ' ORDER BY name '));
@@ -208,7 +223,7 @@ class DeviceController
                 'manufacturerOptions' => $manufacturerOptions,
                 'modelOptionsByManufacturer' => $modelOptionsByManufacturer,
                 'nameOptionsByManufacturerModel' => array_map(static fn(array $names): array => array_keys($names), $nameOptionsByManufacturerModel),
-                'inspectionReportUrl' => static fn(int $id): string => url_for('admin/pruefungen/' . $id . '/bericht'),
+                'inspectionReportUrl' => static fn(int $id): string => url_for('pruefungen/' . $id . '/bericht'),
                 'page' => $page,
                 'pages' => $pages,
                 'total' => $total,
@@ -298,7 +313,7 @@ class DeviceController
         if ($action === 'billing') {
             if ($ids === []) { $_SESSION['fehlermeldung'] = 'Keine Geräte ausgewählt.'; return [303, ['Location' => url_for('geraete')], '']; }
             $marks = implode(',', array_fill(0, count($ids), '?'));
-            $eligible = array_map('intval', R::getCol("SELECT id FROM inspection WHERE device_id IN ($marks) AND test_date >= '2025-01-01' AND result_status IN ('bestanden','durchgefallen') AND COALESCE(billing_eligibility, CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END) = 'billable' AND COALESCE(billing_status, CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) IN ('not_exported','manually_unexported','export_failed')", $ids));
+            $eligible = array_map('intval', R::getCol("SELECT id FROM inspection i WHERE device_id IN ($marks) AND test_date >= '2025-01-01' AND " . InspectionEvaluationService::sqlStatusExpression('i') . " IN ('passed','failed') AND COALESCE(billing_eligibility, CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END) = 'billable' AND COALESCE(billing_status, CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) IN ('not_exported','manually_unexported','export_failed')", $ids));
             if ($eligible === []) { $_SESSION['fehlermeldung'] = 'Für die Auswahl gibt es keine abrechenbare, noch nicht exportierte Prüfung ab 2025.'; return [303, ['Location' => url_for('geraete')], '']; }
             $_SESSION['billing_preselect_inspection_ids'] = $eligible;
             $_SESSION['billing_message'] = count($eligible) . ' Prüfung(en) für die Abrechnung vorbereitet. Bitte Auswahl und Status vor dem Export prüfen.';
@@ -345,10 +360,12 @@ class DeviceController
             $like = '%' . strtolower($search) . '%'; array_push($params, $like, $like, $like, $like, $like);
         }
         $status = trim((string) ($filters['inspection_status'] ?? ''));
-        if ($status === 'failed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
-        elseif ($status === 'passed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
-        elseif ($status === 'pending') $where[] = "(SELECT CASE WHEN i2.result_status = 'ausstehend' OR i2.status IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
-        elseif ($status === 'completed') $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status, '') NOT IN ('draft', 'measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
+        if (in_array($status, ['failed', 'passed', 'in_progress', 'data_missing'], true)) {
+            $where[] = $latestStatus . ' = ?';
+            $params[] = $status;
+        } elseif ($status === 'pending') $where[] = $latestStatus . " IN ('in_progress','data_missing')";
+        elseif ($status === 'completed') $where[] = $latestStatus . " IN ('passed','failed')";
         $billingStatus = trim((string) ($filters['billing_status'] ?? ''));
         if (in_array($billingStatus, ['not_exported', 'export_pending', 'exported', 'export_failed', 'manually_unexported'], true)) { $where[] = "EXISTS (SELECT 1 FROM inspection ib WHERE ib.device_id = d.id AND ib.test_date >= '2025-01-01' AND COALESCE(ib.billing_status, CASE WHEN ib.billing_exported_at IS NULL OR ib.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) = ?)"; $params[] = $billingStatus; }
         $billingEligibility = trim((string) ($filters['billing_eligibility'] ?? ''));

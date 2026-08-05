@@ -16,6 +16,13 @@ final class MaintenanceJobHandler
     {
         $type = (string) ($job['type'] ?? '');
         $checkpoint = (array) ($job['checkpoint'] ?? []);
+        $payload = (array) ($job['payload'] ?? []);
+        if ($type === 'inspection_data_migration'
+            && !isset($checkpoint['inspection_ids'])
+            && isset($payload['inspection_ids'])
+        ) {
+            $checkpoint['inspection_ids'] = (array) $payload['inspection_ids'];
+        }
         $current = max(0, (int) ($job['current'] ?? 0));
         $total = max(0, (int) ($job['total'] ?? 0));
 
@@ -24,21 +31,78 @@ final class MaintenanceJobHandler
             'report_migration' => self::reportMigration($checkpoint, $current, $total, $tick),
             'phoenix_pdf_restore' => self::restorePhoenixPdfs($checkpoint, $current, $total, $tick),
             'measurement_migration' => self::measurementMigration($checkpoint, $current, $total, $tick),
+            'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
             default => throw new InvalidArgumentException('Unbekannte Wartungsaufgabe: ' . $type),
         };
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
+    private static function inspectionDataMigration(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $migrated = max(0, (int) ($checkpoint['migrated'] ?? 0));
+        $errors = is_array($checkpoint['errors'] ?? null) ? $checkpoint['errors'] : [];
+        $selected = array_values(array_unique(array_filter(
+            array_map('intval', (array) ($checkpoint['inspection_ids'] ?? [])),
+            static fn(int $id): bool => $id > 0
+        )));
+        if ($selected === [] && $total <= 0) {
+            $total = (int) R::getCell('SELECT COUNT(*) FROM inspection');
+        } elseif ($selected !== []) {
+            $total = count($selected);
+        }
+
+        while (true) {
+            if ($selected !== []) {
+                $next = $selected[$current] ?? 0;
+                $row = $next > 0 ? R::getRow('SELECT id, external_number FROM inspection WHERE id = ?', [$next]) : [];
+            } else {
+                $row = R::getRow('SELECT id, external_number FROM inspection WHERE id > ? ORDER BY id LIMIT 1', [$lastId]);
+            }
+            if ($row === []) break;
+            $lastId = (int) $row['id'];
+            try {
+                $result = InspectionMigrationService::migrate($lastId);
+                $migrated++;
+                $message = 'Prüfung wurde gesichert und in das kanonische Datenmodell überführt: '
+                    . InspectionEvaluationService::presentation((string) $result['status'])['label'] . '.';
+            } catch (Throwable $exception) {
+                $errors[] = ['inspection_id' => $lastId, 'error' => $exception->getMessage()];
+                $errors = array_slice($errors, -50);
+                $message = 'Migration fehlgeschlagen; der unveränderte Datensatz wird protokolliert.';
+            }
+            $current++;
+            $checkpoint = [
+                'last_id' => $lastId,
+                'migrated' => $migrated,
+                'errors' => $errors,
+                'inspection_ids' => $selected,
+            ];
+            $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
+        }
+
+        if ($selected === []) {
+            set_app_config('inspection_data_migration_version', '1');
+            set_app_config(
+                'inspection_data_migration_errors',
+                json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)
+            );
+        }
+        return ['migrated' => $migrated, 'errors' => $errors, 'processed' => $current];
+    }
+
+    /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
     private static function missingReports(array $checkpoint, int $current, int $total, callable $tick): array
     {
+        $eligible = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy'";
         if ($total <= 0) {
-            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND TRIM(COALESCE(report_path, '')) = '' AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')");
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible} AND TRIM(COALESCE(report_path, '')) = ''");
         }
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $created = max(0, (int) ($checkpoint['created'] ?? 0));
         $errors = is_array($checkpoint['errors'] ?? null) ? $checkpoint['errors'] : [];
 
-        while ($row = R::getRow("SELECT id, device_id, external_number FROM inspection WHERE id > ? AND result_status IN ('bestanden','durchgefallen','nicht bestanden') AND TRIM(COALESCE(report_path, '')) = '' AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%') ORDER BY id LIMIT 1", [$lastId])) {
+        while ($row = R::getRow("SELECT id, device_id, external_number FROM inspection WHERE id > ? AND {$eligible} AND TRIM(COALESCE(report_path, '')) = '' ORDER BY id LIMIT 1", [$lastId])) {
             $lastId = (int) $row['id'];
             try {
                 self::renderReport($lastId, false);
@@ -60,54 +124,55 @@ final class MaintenanceJobHandler
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
     private static function reportMigration(array $checkpoint, int $current, int $total, callable $tick): array
     {
-        $marker = app_data_root() . '/migration/inspection-reports-v2.json';
+        $marker = app_data_root() . '/migration/inspection-reports-v3.json';
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $created = max(0, (int) ($checkpoint['created'] ?? 0));
         if ($total <= 0) {
-            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')");
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('passed','failed') AND classification = 'migrated_import'");
         }
 
-        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND result_status IN ('bestanden','durchgefallen','nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%') ORDER BY id LIMIT 1", [$lastId])) {
+        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND result_status IN ('passed','failed') AND classification = 'migrated_import' ORDER BY id LIMIT 1", [$lastId])) {
             $lastId = (int) $row['id'];
             self::renderReport($lastId, true);
             $current++;
             $created++;
             $checkpoint = ['last_id' => $lastId, 'created' => $created];
-            self::writeMarker($marker, ['version' => 2, 'last_id' => $lastId, 'completed' => false, 'updated_at' => date(DATE_ATOM)]);
+            self::writeMarker($marker, ['version' => 3, 'last_id' => $lastId, 'completed' => false, 'updated_at' => date(DATE_ATOM)]);
             $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), 'Prüfbericht wurde mit dem aktuellen Layout neu erzeugt.');
         }
 
-        self::writeMarker($marker, ['version' => 2, 'last_id' => $lastId, 'completed' => true, 'completed_at' => date(DATE_ATOM), 'created' => $created]);
+        self::writeMarker($marker, ['version' => 3, 'last_id' => $lastId, 'completed' => true, 'completed_at' => date(DATE_ATOM), 'created' => $created]);
         return ['created' => $created, 'processed' => $current];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
     private static function restorePhoenixPdfs(array $checkpoint, int $current, int $total, callable $tick): array
     {
-        $marker = app_data_root() . '/migration/inspection-reports-phoenix-restore-v4.json';
+        $marker = app_data_root() . '/migration/inspection-reports-legacy-restore-v5.json';
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $restored = max(0, (int) ($checkpoint['restored'] ?? 0));
         $unresolved = max(0, (int) ($checkpoint['unresolved'] ?? 0));
+        $completed = InspectionEvaluationService::sqlStatusExpression('inspection') . " IN ('passed','failed')";
+        $eligible = "{$completed} AND classification = 'legacy'";
         if ($total <= 0) {
-            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'");
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
         }
         $roots = self::phoenixRoots();
         $index = self::phoenixPdfIndex($roots);
 
-        while ($row = R::getRow("SELECT id, external_number, legacy_number, report_path FROM inspection WHERE id > ? AND result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%' ORDER BY id LIMIT 1", [$lastId])) {
+        while ($row = R::getRow("SELECT id, external_number, legacy_number, report_path FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
             $lastId = (int) $row['id'];
             $source = self::findPhoenixPdf($row, $index);
             if ($source !== '') {
-                $target = app_data_root() . '/reports/current/' . $lastId . '.pdf';
-                if (!is_dir(dirname($target))) mkdir(dirname($target), 0770, true);
-                if ($source === $target || copy($source, $target)) {
-                    $inspection = R::load('inspection', $lastId);
-                    $inspection->report_path = 'reports/current/' . $lastId . '.pdf';
-                    $inspection->updated_at = date(DATE_ATOM);
-                    R::store($inspection);
-                    $restored++;
-                }
-                $message = 'Phoenix-Originalbericht wurde wiederhergestellt.';
+                InspectionDataService::registerReportAsset(
+                    $lastId,
+                    'legacy_original',
+                    $source,
+                    true
+                );
+                R::exec('UPDATE inspection SET report_path = ?, updated_at = ? WHERE id = ?', [$source, date(DATE_ATOM), $lastId]);
+                $restored++;
+                $message = 'Legacy-Originalbericht wurde als aktiver Bericht verknüpft.';
             } else {
                 $unresolved++;
                 $message = 'Kein Phoenix-Originalbericht gefunden; vorhandene Datei bleibt unverändert.';
@@ -153,6 +218,8 @@ final class MaintenanceJobHandler
         $inspection = R::load('inspection', $inspectionId);
         $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
         if (!$inspection->id || !$device || !$device->id) throw new RuntimeException('Prüfung oder Gerät wurde nicht gefunden.');
+        if ((string) ($inspection->classification ?? '') === 'legacy') throw new RuntimeException('Legacy-Berichte werden nicht neu erzeugt.');
+        if (!InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification)) throw new RuntimeException('Die Prüfung ist nicht für einen Bericht freigegeben.');
         $relative = 'reports/current/' . $inspectionId . '.pdf';
         $path = app_data_root() . '/' . $relative;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
@@ -163,6 +230,7 @@ final class MaintenanceJobHandler
         $inspection->report_path = $relative;
         $inspection->updated_at = date(DATE_ATOM);
         R::store($inspection);
+        InspectionDataService::registerReportAsset($inspectionId, 'generated', $path, true);
     }
 
     /** @return list<string> */

@@ -32,6 +32,17 @@ $statusInitial = [
     'current_device' => (string) (($job['checkpoint']['current_device'] ?? '')),
     'message' => (string) ($job['message'] ?? ''),
 ];
+$resolveReportSource = static function (string $storedPath): string {
+    $storedPath = trim($storedPath);
+    if ($storedPath === '') return '';
+    $candidates = [$storedPath];
+    if (!str_starts_with($storedPath, '/')) $candidates[] = app_data_root() . '/' . ltrim($storedPath, '/');
+    $candidates[] = '/var/www/berichte/' . basename($storedPath);
+    foreach (array_unique($candidates) as $candidate) {
+        if (is_file($candidate)) return $candidate;
+    }
+    return '';
+};
 $writeStatus = static function (array $extra) use ($jobId, $workerId, $job): void {
     $latest = JobQueue::get($jobId) ?? $job;
     $checkpoint = (array) ($latest['checkpoint'] ?? []);
@@ -55,7 +66,7 @@ try {
         if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
         if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
     };
-    $maintenanceTypes = ['missing_reports', 'report_migration', 'phoenix_pdf_restore', 'measurement_migration'];
+    $maintenanceTypes = ['missing_reports', 'report_migration', 'phoenix_pdf_restore', 'measurement_migration', 'inspection_data_migration'];
     if (in_array((string) ($payload['type'] ?? ''), $maintenanceTypes, true)) {
         $tick = static function (array $checkpoint, int $step, int $total, string $number, string $message) use ($jobId, $workerId, $deadline, $debug, $debugLog): void {
             JobQueue::checkpoint($jobId, $checkpoint + ['current_device' => $number, 'next_index' => $step], $step, $total, $message, $workerId, 180);
@@ -67,17 +78,68 @@ try {
         $stats = MaintenanceJobHandler::run($job, $tick);
         BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) $payload['type']) . ' abgeschlossen.');
         exit(0);
+    } elseif (($payload['type'] ?? '') === 'inspection_pdf_zip') {
+        if (!class_exists('ZipArchive')) throw new RuntimeException('ZIP-Export ist auf diesem Server nicht verfügbar.');
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', (array) ($payload['inspection_ids'] ?? [])),
+            static fn(int $value): bool => $value > 0
+        )));
+        if ($ids === []) throw new RuntimeException('Keine Prüfungen für den Export ausgewählt.');
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $rows = R::getAll(
+            "SELECT i.id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, d.external_number AS device_number, d.name AS device_name FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.id IN ($marks) AND i.result_status IN ('passed','failed') ORDER BY i.test_date DESC, i.id DESC",
+            $ids
+        );
+        if ($rows === []) throw new RuntimeException('Die Auswahl enthält keine freigegebenen Prüfberichte.');
+        $outDir = app_data_root() . '/exports';
+        if (!is_dir($outDir)) mkdir($outDir, 0770, true);
+        $zipPath = $outDir . '/pruefberichte-auswahl-' . $id . '.zip';
+        $step = min((int) ($statusInitial['step'] ?? 0), count($rows));
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ($step > 0 ? 0 : ZipArchive::OVERWRITE)) !== true) {
+            throw new RuntimeException('ZIP-Datei konnte nicht angelegt werden.');
+        }
+        foreach (array_slice($rows, $step) as $row) {
+            $source = trim((string) ($row['report_path'] ?? ''));
+            if ($source !== '' && !str_starts_with($source, '/')) $source = app_data_root() . '/' . ltrim($source, '/');
+            if (!is_file($source) && trim((string) ($row['report_path'] ?? '')) !== '') {
+                $archive = '/var/www/berichte/' . basename((string) $row['report_path']);
+                if (is_file($archive)) $source = $archive;
+            }
+            if (is_file($source)) {
+                $filename = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $row['device_number'] . '-' . (string) $row['external_number']) . '.pdf';
+                $zip->addFile($source, 'Pruefberichte/' . $filename);
+                if (method_exists($zip, 'setCompressionName')) $zip->setCompressionName('Pruefberichte/' . $filename, ZipArchive::CM_STORE);
+                $message = 'Prüfbericht wurde dem Download hinzugefügt.';
+            } else {
+                $message = 'Prüfbericht fehlt und wurde übersprungen.';
+            }
+            $step++;
+            $progress($step, count($rows), (string) ($row['external_number'] ?? ''), $message);
+        }
+        $zip->close();
+        BackgroundJobService::complete(
+            $jobId,
+            ['stats' => ['selected' => count($rows), 'files' => $step], 'output' => $zipPath],
+            'Die ausgewählten Prüfberichte stehen zum Download bereit.'
+        );
+        exit(0);
     } elseif (($payload['type'] ?? '') === 'pdf_regenerate') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['inspection_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         $total = count($ids); $step = min((int) ($statusInitial['step'] ?? 0), $total);
         foreach (array_slice($ids, $step) as $inspectionId) {
             $inspection = R::load('inspection', $inspectionId); $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
-            $isPhoenixOriginal = $inspection->id && (string) ($inspection->source_type ?? '') === 'json' && str_contains((string) ($inspection->raw_json ?? ''), 'phoenix-sync');
-            if ($inspection->id && $device && $device->id && !$isPhoenixOriginal) {
+            $eligible = $inspection->id
+                && $device
+                && $device->id
+                && (string) ($inspection->classification ?? '') !== 'legacy'
+                && InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification);
+            if ($eligible) {
                 $relative = 'reports/current/' . $inspectionId . '.pdf'; $path = app_data_root() . '/' . $relative; if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
                 file_put_contents($path, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null), LOCK_EX); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+                InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $path, true);
             }
-            $step++; $progress($step, $total, (string) ($device->external_number ?? ''), $isPhoenixOriginal ? 'Phoenix-Originalbericht bleibt unverändert.' : 'Prüfbericht wird neu erzeugt');
+            $step++; $progress($step, $total, (string) ($device->external_number ?? ''), $eligible ? 'Prüfbericht wurde neu erzeugt.' : 'Legacy- oder unvollständige Prüfung wurde nicht verändert.');
         }
         BackgroundJobService::complete($jobId, ['stats' => ['reports' => $step]], $step . ' Prüfberichte wurden neu erzeugt.'); exit(0);
     } elseif (($payload['type'] ?? '') === 'examiner_migration') {
@@ -100,11 +162,28 @@ try {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         if ($ids === []) throw new RuntimeException('Keine Geräte für die Sammel-PDF.');
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.device_id IN ($marks) AND i.result_status IN ('bestanden','durchgefallen','nicht bestanden') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $ids);
+        $statusExpression = InspectionEvaluationService::sqlStatusExpression('i');
+        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.device_id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $ids);
         $files = [];
         foreach ($rows as $row) {
-            $source = (string) $row['report_path']; $source = is_file($source) ? $source : (is_file('/var/www/berichte/' . basename($source)) ? '/var/www/berichte/' . basename($source) : $source);
-            if (!is_file($source)) { $inspection = R::load('inspection', (int) $row['id']); $device = R::load('device', (int) $row['device_id']); if ((string) ($inspection->source_type ?? '') === 'json' && str_contains((string) ($inspection->raw_json ?? ''), 'phoenix-sync')) continue; $relative = 'reports/current/' . (int) $inspection->id . '.pdf'; $source = app_data_root() . '/' . $relative; if (!is_dir(dirname($source))) mkdir(dirname($source), 0770, true); file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null)); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection); }
+            $source = $resolveReportSource((string) $row['report_path']);
+            $pathAllowed = InspectionEvaluationService::reportPathAllowed(
+                (string) $row['result_status'],
+                (string) $row['classification'],
+                (string) $row['report_path']
+            );
+            if (!$pathAllowed && (string) $row['classification'] !== 'legacy') {
+                $inspection = R::load('inspection', (int) $row['id']);
+                $device = R::load('device', (int) $row['device_id']);
+                $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
+                $source = app_data_root() . '/' . $relative;
+                if (!is_dir(dirname($source))) mkdir(dirname($source), 0770, true);
+                file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null), LOCK_EX);
+                $inspection->report_path = $relative;
+                $inspection->updated_at = date(DATE_ATOM);
+                R::store($inspection);
+                InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $source, true);
+            }
             if (!is_file($source)) continue;
             $info = shell_exec('pdfinfo ' . escapeshellarg($source) . ' 2>/dev/null'); preg_match('/^Pages:\s+(\d+)/mi', (string) $info, $match); $pages = max(1, (int) ($match[1] ?? 1)); $row['pages'] = $pages; $row['source'] = $source; $files[] = $row;
         }
@@ -136,7 +215,8 @@ try {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         $marks = implode(',', array_fill(0, count($ids), '?'));
         $all = !empty($payload['all_reports']);
-        $sql = "SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.device_id IN ($marks) ORDER BY c.name, d.external_number, i.test_date DESC, i.id DESC";
+        $statusExpression = InspectionEvaluationService::sqlStatusExpression('i');
+        $sql = "SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.device_id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, d.external_number, i.test_date DESC, i.id DESC";
         $rows = $ids === [] ? [] : R::getAll($sql, $ids);
         if (!$all) { $seen = []; $rows = array_values(array_filter($rows, static function (array $row) use (&$seen): bool { $device = (int) ($row['device_id'] ?? 0); if (isset($seen[$device])) return false; $seen[$device] = true; return true; })); }
         $outDir = app_data_root() . '/exports'; if (!is_dir($outDir)) mkdir($outDir, 0770, true);
@@ -148,7 +228,7 @@ try {
         $zip = new ZipArchive(); if ($zip->open($zipPath, ZipArchive::CREATE | ($resume ? 0 : ZipArchive::OVERWRITE)) !== true) throw new RuntimeException('ZIP-Datei konnte nicht erstellt werden.');
         $index = $resume && is_array($work['index'] ?? null) ? $work['index'] : [['Gerät', 'Gerätenummer', 'Prüfnummer', 'Prüfdatum', 'Kunde', 'Datei', 'Quelle']];
         $step = $resume ? min((int) ($work['step'] ?? 0), count($rows)) : 0; $total = count($rows);
-        foreach (array_slice($rows, $step) as $row) { $step++; $source = (string) $row['report_path']; $source = is_file($source) ? $source : (is_file('/var/www/berichte/' . basename($source)) ? '/var/www/berichte/' . basename($source) : $source); if (!is_file($source)) { file_put_contents($workPath, json_encode(['zip_path' => $zipPath, 'step' => $step, 'total' => $total, 'index' => $index], JSON_UNESCAPED_UNICODE), LOCK_EX); $progress($step, $total, (string) $row['device_number'], 'Ein PDF konnte nicht gefunden werden und wurde übersprungen.'); continue; } $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $row['device_number'] . '-' . (string) $row['external_number'] . '.pdf'); $zip->addFile($source, 'berichte/' . $name); if (method_exists($zip, 'setCompressionName')) $zip->setCompressionName('berichte/' . $name, ZipArchive::CM_STORE); $index[] = [(string) $row['device_name'], (string) $row['device_number'], (string) $row['external_number'], (string) $row['test_date'], (string) $row['customer_name'], 'berichte/' . $name, $source]; file_put_contents($workPath, json_encode(['zip_path' => $zipPath, 'step' => $step, 'total' => $total, 'index' => $index], JSON_UNESCAPED_UNICODE), LOCK_EX); $progress($step, $total, (string) $row['device_number'], 'PDF wird gepackt'); }
+        foreach (array_slice($rows, $step) as $row) { $step++; $source = InspectionEvaluationService::reportPathAllowed((string) $row['result_status'], (string) $row['classification'], (string) $row['report_path']) ? $resolveReportSource((string) $row['report_path']) : ''; if (!is_file($source)) { file_put_contents($workPath, json_encode(['zip_path' => $zipPath, 'step' => $step, 'total' => $total, 'index' => $index], JSON_UNESCAPED_UNICODE), LOCK_EX); $progress($step, $total, (string) $row['device_number'], 'Ein freigegebener Prüfbericht fehlt und wurde übersprungen.'); continue; } $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $row['device_number'] . '-' . (string) $row['external_number'] . '.pdf'); $zip->addFile($source, 'berichte/' . $name); if (method_exists($zip, 'setCompressionName')) $zip->setCompressionName('berichte/' . $name, ZipArchive::CM_STORE); $index[] = [(string) $row['device_name'], (string) $row['device_number'], (string) $row['external_number'], (string) $row['test_date'], (string) $row['customer_name'], 'berichte/' . $name, $source]; file_put_contents($workPath, json_encode(['zip_path' => $zipPath, 'step' => $step, 'total' => $total, 'index' => $index], JSON_UNESCAPED_UNICODE), LOCK_EX); $progress($step, $total, (string) $row['device_number'], 'Prüfbericht wird dem Download hinzugefügt.'); }
         if (!empty($payload['index_csv'])) { $csv = ''; foreach ($index as $line) { $cells = []; foreach ($line as $value) $cells[] = '"' . str_replace('"', '""', (string) $value) . '"'; $csv .= implode(';', $cells) . "\r\n"; } $zip->addFromString('inhaltsverzeichnis.csv', "\xEF\xBB\xBF" . $csv); }
         if (!empty($payload['index_pdf'])) $zip->addFromString('inhaltsverzeichnis.pdf', ReportController::renderPdf($index, 'Inhaltsverzeichnis Prüfberichte'));
         if (!empty($payload['index_ods'])) $zip->addFromString('inhaltsverzeichnis.ods', ReportController::renderOds($index, 'Inhaltsverzeichnis'));
@@ -203,9 +283,11 @@ try {
             if (!is_dir(dirname($completionMarker))) mkdir(dirname($completionMarker), 0770, true);
             file_put_contents($completionMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         }
+        set_app_config('inspection_data_migration_version', '');
         if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
     } else {
         $stats = (new PhoenixSyncService())->sync((string) ($payload['customer_id'] ?? ''), (string) ($payload['token'] ?? ''), (string) ($payload['api_url'] ?? ''), $progress, (int) ($statusInitial['step'] ?? 0), $id);
+        set_app_config('inspection_data_migration_version', '');
     }
     BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) ($payload['type'] ?? 'background')) . ' abgeschlossen.');
 } catch (Throwable $exception) {

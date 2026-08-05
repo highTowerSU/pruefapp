@@ -13,6 +13,8 @@ $tests = [
     'cron_queue_integration_test.php',
     'audit_htmx_test.php',
     'billing_v1_test.php',
+    'inspection_evaluation_test.php',
+    'inspection_migration_test.php',
 ];
 $failed = 0;
 foreach ($tests as $test) {

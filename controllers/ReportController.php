@@ -86,8 +86,27 @@ final class ReportController
     public static function renderPdf(array $rows, string $title, ?array $branding = null): string { return (string) (self::pdf($rows, $title, $branding ?? (function_exists('get_report_branding') ? get_report_branding() : (function_exists('get_branding') ? get_branding() : [])))[2] ?? ''); }
     public static function inspectionPdfRows(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
     {
-        $measurements = json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [];
-        $checklist = json_decode((string) ($inspection->checklist_json ?? ''), true) ?: [];
+        $canonicalMeasurements = InspectionDataService::measurements((int) $inspection->id);
+        $canonicalAnswers = InspectionDataService::answers((int) $inspection->id);
+        $measurements = $canonicalMeasurements !== [] ? array_map(static function (array $measurement): array {
+            return [
+                'name' => (string) ($measurement['name_snapshot'] ?: $measurement['measurement_key']),
+                'value' => (string) ($measurement['text_value'] !== '' ? $measurement['text_value'] : $measurement['numeric_value']),
+                'unit' => (string) $measurement['unit'],
+                'result' => InspectionEvaluationService::presentation((string) $measurement['outcome'])['label'],
+                'limit' => $measurement['limit_value'] !== null ? (string) $measurement['limit_value'] . ' ' . (string) $measurement['limit_unit'] : '',
+                'voltage' => (string) $measurement['voltage'],
+            ];
+        }, $canonicalMeasurements) : (json_decode((string) ($inspection->measurements_json ?? ''), true) ?: []);
+        $checklist = $canonicalAnswers !== [] ? array_map(static function (array $answer): array {
+            return [
+                'category' => (string) $answer['category'],
+                'step' => (string) $answer['question_snapshot'],
+                'criterion' => (string) $answer['criterion_snapshot'],
+                'result' => (string) ($answer['skip_reason'] !== '' ? $answer['skip_reason'] : $answer['answer_value']),
+                'check' => (string) $answer['outcome'] === 'passed' ? true : ((string) $answer['outcome'] === 'failed' ? false : null),
+            ];
+        }, $canonicalAnswers) : (json_decode((string) ($inspection->checklist_json ?? ''), true) ?: []);
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
         $room = (int) ($device->room_id ?? 0) > 0 ? R::load('room', (int) $device->room_id) : null;
         $floor = $room && $room->id ? R::load('floor', (int) $room->floor_id) : null;
@@ -101,7 +120,8 @@ final class ReportController
             return '';
         };
         $examinerValue = $scalar($inspection->examiner ?: ($raw['created_by'] ?? ''));
-        foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfart', $inspection->inspection_type ?: ($raw['type'] ?? '')], ['Prüfer', display_examiner_name($examinerValue)], ['Gerät', $scalar($device->external_number) . ' · ' . $scalar($device->name)], ['Inventarnummer', $device->inventory_number], ['Geräteart', $device->name], ['Hersteller', $device->manufacturer], ['Typ', $device->device_model], ['Wärmegerät', !empty($device->warming_device) ? 'Ja' : 'Nein'], ['Auftraggeber', $customer ? $customer->name : ''], ['Liegenschaft', $site ? $site->name : ''], ['Gebäude', $building ? $building->name : ''], ['Etage', $floor ? $floor->name : ''], ['Raum-Nr.', $device->room_snapshot ?: ($room ? $room->number : '')], ['Ergebnis', $inspection->result_status], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, $scalar($value)];
+        $resultLabel = InspectionEvaluationService::presentation((string) $inspection->result_status, (string) $inspection->status)['label'];
+        foreach ([['Prüfnummer', $inspection->external_number], ['Datum', $inspection->test_date], ['Prüfart', $inspection->inspection_type ?: ($raw['type'] ?? '')], ['Prüfer', display_examiner_name($examinerValue)], ['Gerät', $scalar($device->external_number) . ' · ' . $scalar($device->name)], ['Inventarnummer', $device->inventory_number], ['Geräteart', $device->name], ['Hersteller', $device->manufacturer], ['Typ', $device->device_model], ['Schutzklasse', $inspection->protection_class], ['Kabellänge', $inspection->cable_length_m !== null && $inspection->cable_length_m !== '' ? (string) $inspection->cable_length_m . ' m' : ''], ['Wärmegerät', !empty($inspection->warming_device_snapshot ?? $device->warming_device) ? 'Ja' : 'Nein'], ['Auftraggeber', $customer ? $customer->name : ''], ['Liegenschaft', $site ? $site->name : ''], ['Gebäude', $building ? $building->name : ''], ['Etage', $floor ? $floor->name : ''], ['Raum-Nr.', $device->room_snapshot ?: ($room ? $room->number : '')], ['Ergebnis', $resultLabel], ['Ergebnisbegründung', $inspection->result_reason_text], ['Nächste Prüfung', $inspection->next_due_date], ['Regiezeit', ((int) ($inspection->regie_minutes ?? 0)) . ' Minuten'], ['Regiebegründung', $inspection->regie_reason]] as [$label, $value]) $rows[] = [(string) $label, $scalar($value)];
         foreach ($measurements as $measurement) if (is_array($measurement)) $rows[] = [(string) ($measurement['name'] ?? 'Messung'), trim((string) ($measurement['value'] ?? '') . ' ' . (string) ($measurement['unit'] ?? '') . ' · ' . (string) ($measurement['result'] ?? ''))];
         if ($measurements !== []) $rows[] = ['__measurements_json', json_encode($measurements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         if ($checklist !== []) $rows[] = ['__checklist_json', json_encode($checklist, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
@@ -211,10 +231,12 @@ final class ReportController
         if (trim((string) ($q['from'] ?? '')) !== '') { $where[] = 'EXISTS (SELECT 1 FROM inspection ifr WHERE ifr.device_id=d.id AND ifr.test_date >= ?)'; $args[] = trim((string) $q['from']); }
         if (trim((string) ($q['to'] ?? '')) !== '') { $where[] = 'EXISTS (SELECT 1 FROM inspection ito WHERE ito.device_id=d.id AND ito.test_date <= ?)'; $args[] = trim((string) $q['to']); }
         $inspectionStatus = trim((string) ($q['inspection_status'] ?? ''));
-        if ($inspectionStatus === 'failed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'durchgefallen'";
-        if ($inspectionStatus === 'passed') $where[] = "(SELECT i2.result_status FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 'bestanden'";
-        if ($inspectionStatus === 'pending') $where[] = "(SELECT CASE WHEN i2.result_status='ausstehend' OR i2.status IN ('draft','measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
-        if ($inspectionStatus === 'completed') $where[] = "(SELECT CASE WHEN i2.result_status IS NOT NULL AND i2.result_status <> 'ausstehend' AND COALESCE(i2.status,'') NOT IN ('draft','measurement_pending') THEN 1 ELSE 0 END FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1) = 1";
+        $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
+        if (in_array($inspectionStatus, ['failed', 'passed', 'in_progress', 'data_missing'], true)) {
+            $where[] = $latestStatus . ' = ?';
+            $args[] = $inspectionStatus;
+        } elseif ($inspectionStatus === 'pending') $where[] = $latestStatus . " IN ('in_progress','data_missing')";
+        elseif ($inspectionStatus === 'completed') $where[] = $latestStatus . " IN ('passed','failed')";
         $where[] = "(d.archived_at IS NULL OR TRIM(d.archived_at) = '')";
         $sql = 'SELECT DISTINCT d.id FROM device d' . $join . ($where ? ' WHERE ' . implode(' AND ', $where) : '');
         return array_map('intval', R::getCol($sql, $args));
@@ -230,7 +252,7 @@ final class ReportController
             $row['inspection_number'] = $latest['inspection_number'] ?? '';
             $row['test_date'] = $latest['test_date'] ?? '';
             $row['next_due_date'] = $latest['next_due_date'] ?? '';
-            $row['result_status'] = $latest['result_status'] ?? '';
+            $row['result_status'] = InspectionEvaluationService::presentation((string) ($latest['result_status'] ?? ''))['label'];
             $result[] = $row;
         }
         return $result;
@@ -248,7 +270,7 @@ final class ReportController
         if ($deviceIds === []) return [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
         $marks = implode(',', array_fill(0, count($deviceIds), '?')); $args = $deviceIds; $where = ["i.device_id IN ($marks)"]; if ($date !== '') { if ($toDate !== '') { $where[] = 'i.test_date >= ? AND i.test_date <= ?'; $args[] = $date; $args[] = $toDate; } else { $where[] = 'i.test_date = ?'; $args[] = $date; } } if ($examiner !== '') { $where[] = 'LOWER(i.examiner) LIKE ?'; $args[] = '%' . strtolower($examiner) . '%'; } if ($customerId > 0) { $where[] = 'c.id = ?'; $args[] = $customerId; }
         $rows = [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
-        foreach (R::getAll("SELECT i.external_number, i.test_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE " . implode(' AND ', $where) . ' ORDER BY c.name, i.examiner, i.test_date, i.id', $args) as $row) $rows[] = [(string) $row['external_number'], (string) $row['test_date'], display_examiner_name((string) $row['examiner']), (string) $row['customer_name'], (string) $row['device_number'] . ' · ' . (string) $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', (string) $row['result_status'], (int) $row['regie_minutes'], (string) $row['regie_reason']];
+        foreach (R::getAll("SELECT i.external_number, i.test_date, i.examiner, i.result_status, i.status, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE " . implode(' AND ', $where) . ' ORDER BY c.name, i.examiner, i.test_date, i.id', $args) as $row) $rows[] = [(string) $row['external_number'], (string) $row['test_date'], display_examiner_name((string) $row['examiner']), (string) $row['customer_name'], (string) $row['device_number'] . ' · ' . (string) $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', InspectionEvaluationService::presentation((string) $row['result_status'], (string) $row['status'])['label'], (int) $row['regie_minutes'], (string) $row['regie_reason']];
         return $rows;
     }
 
@@ -265,10 +287,10 @@ final class ReportController
         foreach ($groups as $room => $items) {
             $due = 0; $overdue = 0;
             foreach ($items as $d) {
-                $status = strtolower((string) $d['result_status']);
+                $status = InspectionEvaluationService::normalizeStatus((string) $d['result_status']);
                 $date = trim((string) $d['next_due_date']);
-                $isDue = in_array($status, ['durchgefallen', 'nicht bestanden', 'ausstehend'], true);
-                if (in_array($status, ['durchgefallen', 'nicht bestanden'], true)) $overdue++;
+                $isDue = in_array($status, [InspectionEvaluationService::FAILED, InspectionEvaluationService::IN_PROGRESS, InspectionEvaluationService::DATA_MISSING], true);
+                if ($status === InspectionEvaluationService::FAILED) $overdue++;
                 if ($date !== '') try { $dueDate = new DateTimeImmutable($date); $isDue = $isDue || $dueDate <= $yellowLimit; if ($dueDate < $today) $overdue++; } catch (Throwable) {}
                 if ($isDue) $due++;
             }

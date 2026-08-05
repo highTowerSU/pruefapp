@@ -11,10 +11,10 @@
             <table class="table table-striped align-middle mb-0">
                 <thead>
                     <tr>
-                        <th scope="col">Nutzer</th>
-                        <th scope="col" class="text-nowrap">Letzter Login</th>
-                        <th scope="col" class="text-nowrap">Rolle</th>
-                        <th scope="col">Kundenzugriff</th>
+                        <th scope="col"><i class="fa-solid fa-user me-1" aria-hidden="true"></i>Nutzer</th>
+                        <th scope="col"><i class="fa-solid fa-building me-1" aria-hidden="true"></i>Kundenzugriff</th>
+                        <th scope="col" class="text-nowrap"><i class="fa-solid fa-clock-rotate-left me-1" aria-hidden="true"></i>Letzter Login</th>
+                        <th scope="col" class="text-nowrap"><i class="fa-solid fa-user-shield me-1" aria-hidden="true"></i>Rolle</th>
                         <th scope="col" class="text-end text-nowrap">Aktionen</th>
                     </tr>
                 </thead>
@@ -50,10 +50,15 @@
                             </td>
                             <td>
                                 <?php if ($canManageUsers): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/nutzer/' . $user['id'] . '/kunden'), ENT_QUOTES) ?>">
-                                    <select name="customer_ids[]" class="form-select form-select-sm" multiple size="3" aria-label="Kundenzugriff">
-                                        <?php foreach ($customers as $customer): ?><option value="<?= (int) $customer->id ?>"<?= in_array((int) $customer->id, $user['customer_ids'] ?? [], true) ? ' selected' : '' ?>><?= htmlspecialchars(($customer->code ? $customer->code . ' · ' : '') . $customer->name) ?></option><?php endforeach; ?>
-                                    </select>
-                                    <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Zugriff speichern</button>
+                                    <div class="border rounded p-2 overflow-auto" style="max-height:12rem" aria-label="Kundenzugriff">
+                                        <?php foreach ($customers as $customer): $customerId = (int) $customer->id; $assigned = in_array($customerId, $user['customer_ids'] ?? [], true); ?>
+                                            <div class="mb-2">
+                                                <label class="form-check mb-1"><input class="form-check-input" type="checkbox" name="customer_ids[]" value="<?= $customerId ?>"<?= $assigned ? ' checked' : '' ?>><span class="form-check-label"><i class="fa-solid fa-building me-1" aria-hidden="true"></i><?= htmlspecialchars(($customer->code ? $customer->code . ' · ' : '') . $customer->name) ?></span></label>
+                                                <label class="form-check ms-4 small"><input class="form-check-input" type="checkbox" name="include_descendants[<?= $customerId ?>]" value="1"<?= !empty($user['customer_access'][$customerId]) ? ' checked' : '' ?>><span class="form-check-label">Unterkunden einbeziehen</span></label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm mt-2"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Zugriff speichern</button>
                                 </form><?php else: ?><span class="text-body-secondary small"><?php $assigned = array_values(array_filter(array_map(static fn($customer): string => ($customer->code ? $customer->code . ' · ' : '') . (string) $customer->name, $customers), static fn($label, $index): bool => in_array((int) ($customers[$index]->id ?? 0), $user['customer_ids'] ?? [], true), ARRAY_FILTER_USE_BOTH)); ?><?= htmlspecialchars($assigned === [] ? 'Keine Zuordnung' : implode(', ', $assigned)) ?></span><?php endif; ?>
                             </td>
                             <td>

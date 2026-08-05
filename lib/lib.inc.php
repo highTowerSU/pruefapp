@@ -67,6 +67,9 @@ require_once __DIR__ . '/htmx.php';
 require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
+require_once __DIR__ . '/InspectionEvaluationService.php';
+require_once __DIR__ . '/InspectionDataService.php';
+require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
 require_once __DIR__ . '/BackgroundJobService.php';
@@ -225,7 +228,7 @@ function initialize_database(): void
         R::freeze(false);
         ensure_structure_schema();
         RevisionSupport::enableFor(
-            ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'customer', 'site', 'building', 'floor', 'area', 'room', 'device', 'inspection', 'customerinfo']
+            ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'customer', 'site', 'building', 'floor', 'area', 'room', 'device', 'inspection', 'inspectionanswer', 'inspectionmeasurement', 'inspectiondiagnostic', 'inspectionsourcesnapshot', 'inspectionreportasset', 'customerinfo']
         );
         $initialized = true;
         return;
@@ -296,6 +299,11 @@ function initialize_database(): void
             'room',
             'device',
             'inspection',
+            'inspectionanswer',
+            'inspectionmeasurement',
+            'inspectiondiagnostic',
+            'inspectionsourcesnapshot',
+            'inspectionreportasset',
             'customerinfo',
         ]
     );
@@ -322,6 +330,13 @@ function ensure_structure_schema(): void
         'CREATE TABLE IF NOT EXISTS room (id INTEGER PRIMARY KEY AUTOINCREMENT, floor_id INTEGER NOT NULL, name TEXT NOT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS inspection (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, dedupe_key TEXT NOT NULL UNIQUE, source_type TEXT NOT NULL, source_file TEXT NULL, external_number TEXT NULL, storage_slot TEXT NULL, test_date TEXT NULL, next_due_date TEXT NULL, result_status TEXT NULL, device_type TEXT NULL, manufacturer TEXT NULL, device_model TEXT NULL, room_snapshot TEXT NULL, measurements_json TEXT NULL, checklist_json TEXT NULL, raw_json TEXT NULL, report_path TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
+        "CREATE TABLE IF NOT EXISTS inspection_catalog_version (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0, locked_at TEXT NULL, created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS inspection_catalog_item (id INTEGER PRIMARY KEY AUTOINCREMENT, version_id INTEGER NOT NULL, item_key TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', question TEXT NOT NULL DEFAULT '', criterion TEXT NOT NULL DEFAULT '', input_type TEXT NOT NULL DEFAULT 'boolean', measurement_key TEXT NOT NULL DEFAULT '', required INTEGER NOT NULL DEFAULT 1, applies_to_json TEXT NOT NULL DEFAULT '{}', rule_key TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, UNIQUE(version_id, item_key))",
+        "CREATE TABLE IF NOT EXISTS inspection_answer (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, catalog_version_id INTEGER NULL, item_key TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', question_snapshot TEXT NOT NULL DEFAULT '', criterion_snapshot TEXT NOT NULL DEFAULT '', answer_value TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT 'missing', required INTEGER NOT NULL DEFAULT 1, skip_reason TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, updated_at TEXT NULL, UNIQUE(inspection_id, item_key))",
+        "CREATE TABLE IF NOT EXISTS inspection_measurement (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, measurement_key TEXT NOT NULL, name_snapshot TEXT NOT NULL DEFAULT '', numeric_value REAL NULL, text_value TEXT NOT NULL DEFAULT '', unit TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT 'missing', limit_value REAL NULL, limit_unit TEXT NOT NULL DEFAULT '', rule_key TEXT NOT NULL DEFAULT '', rule_version TEXT NOT NULL DEFAULT '1', voltage TEXT NOT NULL DEFAULT '', raw_json TEXT NOT NULL DEFAULT '{}', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS inspection_diagnostic (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, code TEXT NOT NULL, severity TEXT NOT NULL DEFAULT 'warning', message TEXT NOT NULL DEFAULT '', details_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS inspection_source_snapshot (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL UNIQUE, classification TEXT NOT NULL DEFAULT '', source_type TEXT NOT NULL DEFAULT '', source_file TEXT NOT NULL DEFAULT '', source_row_json TEXT NOT NULL DEFAULT '{}', legacy_row_json TEXT NOT NULL DEFAULT '{}', original_report_path TEXT NOT NULL DEFAULT '', original_report_checksum TEXT NOT NULL DEFAULT '', created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS inspection_report_asset (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, asset_type TEXT NOT NULL, path TEXT NOT NULL DEFAULT '', checksum TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, UNIQUE(inspection_id, asset_type))",
         "CREATE TABLE IF NOT EXISTS customerinfo (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT '', slug TEXT NOT NULL DEFAULT '', markdown TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '', file_name TEXT NOT NULL DEFAULT '', file_mime TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_invoice (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NULL, tenant_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', sevdesk_invoice_number TEXT NOT NULL DEFAULT '', sevdesk_url TEXT NOT NULL DEFAULT '', invoice_number TEXT NOT NULL DEFAULT '', invoice_date TEXT NULL, status TEXT NOT NULL DEFAULT 'draft', error_details TEXT NOT NULL DEFAULT '', created_by INTEGER NULL, exported_by TEXT NOT NULL DEFAULT '', exported_at TEXT NULL, amount_net REAL NULL, amount_gross REAL NULL, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, assigned_at TEXT NULL, deactivated_at TEXT NULL, deactivation_reason TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'sevdesk', created_at TEXT NULL)",
@@ -337,6 +352,10 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_device_room ON device (room_id)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_device ON inspection (device_id)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_date ON inspection (test_date)',
+        'CREATE INDEX IF NOT EXISTS idx_inspection_answer_inspection ON inspection_answer (inspection_id, sort_order)',
+        'CREATE INDEX IF NOT EXISTS idx_inspection_measurement_inspection ON inspection_measurement (inspection_id, sort_order)',
+        'CREATE INDEX IF NOT EXISTS idx_inspection_diagnostic_inspection ON inspection_diagnostic (inspection_id)',
+        'CREATE INDEX IF NOT EXISTS idx_inspection_report_asset_inspection ON inspection_report_asset (inspection_id, active)',
     ];
 
     foreach ($statements as $statement) {
@@ -366,6 +385,21 @@ function ensure_structure_schema(): void
         'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''", 'room_snapshot' => "TEXT NOT NULL DEFAULT ''", 'device_model' => 'TEXT NULL', 'manufacturer' => 'TEXT NULL', 'warming_device' => 'INTEGER NOT NULL DEFAULT 0', 'archived_at' => 'TEXT NULL'],
         'inspection' => [
+            'status' => "TEXT NOT NULL DEFAULT 'in_progress'",
+            'classification' => "TEXT NOT NULL DEFAULT ''",
+            'catalog_version_id' => 'INTEGER NULL',
+            'result_reason_code' => "TEXT NOT NULL DEFAULT ''",
+            'result_reason_text' => "TEXT NOT NULL DEFAULT ''",
+            'metadata_notes' => "TEXT NOT NULL DEFAULT ''",
+            'protection_class' => "TEXT NOT NULL DEFAULT ''",
+            'inspection_type' => "TEXT NOT NULL DEFAULT ''",
+            'examiner' => "TEXT NOT NULL DEFAULT ''",
+            'warming_device_snapshot' => 'INTEGER NOT NULL DEFAULT 0',
+            'cable_length_m' => 'REAL NULL',
+            'rsl_limit_ohm' => 'REAL NULL',
+            'csv_row_json' => 'TEXT NULL',
+            'regie_reason' => "TEXT NOT NULL DEFAULT ''",
+            'regie_minutes' => 'INTEGER NOT NULL DEFAULT 0',
             'legacy_number' => "TEXT NOT NULL DEFAULT ''",
             'billable' => 'INTEGER NOT NULL DEFAULT 0',
             'billing_exported_at' => 'TEXT NULL',
@@ -378,6 +412,7 @@ function ensure_structure_schema(): void
             'billing_active_invoice_item_id' => 'INTEGER NULL',
             'billing_last_error' => "TEXT NOT NULL DEFAULT ''",
         ],
+        'oauthuser_customer' => ['include_descendants' => 'INTEGER NOT NULL DEFAULT 1'],
         'customer' => [
             'code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL',
             'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_customer_number' => "TEXT NOT NULL DEFAULT ''", 'tenant_id' => 'INTEGER NOT NULL DEFAULT 0',
@@ -399,11 +434,47 @@ function ensure_structure_schema(): void
     R::exec("UPDATE room SET number = name WHERE number = ''");
     R::exec('CREATE INDEX IF NOT EXISTS idx_room_area ON room (area_id)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_billing_status ON inspection (billing_eligibility, billing_status)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_result ON inspection (result_status, test_date)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_classification ON inspection (classification, test_date)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billing_invoice_item_inspection ON billing_invoice_item (inspection_id, active)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billing_export_status ON billing_export (status, updated_at)');
     if (get_app_config('billing_v1_initialized') !== '1') {
         R::exec("UPDATE inspection SET billing_eligibility = CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END, billing_status = CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END WHERE billing_eligibility IS NULL OR billing_eligibility = '' OR billing_status IS NULL OR billing_status = ''");
         set_app_config('billing_v1_initialized', '1');
+    }
+    seed_inspection_catalog();
+}
+
+/** Seed the immutable first catalog version. Text can later be superseded in the GUI. */
+function seed_inspection_catalog(): void
+{
+    $versionId = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['electrical-v1']);
+    if ($versionId <= 0) {
+        R::exec(
+            'INSERT INTO inspection_catalog_version (code, name, active, locked_at, created_at) VALUES (?, ?, 1, ?, ?)',
+            ['electrical-v1', 'Elektroprüfung Version 1', date(DATE_ATOM), date(DATE_ATOM)]
+        );
+        $versionId = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['electrical-v1']);
+    }
+    if ((int) R::getCell('SELECT COUNT(*) FROM inspection_catalog_item WHERE version_id = ?', [$versionId]) > 0) return;
+    $items = [
+        ['identification', 'Inventarisierung', 'Ist das Prüfobjekt eindeutig identifiziert?', 'Gerätenummer, Geräteart und Anschluss sind eindeutig zugeordnet.', 'boolean', '', '', 10],
+        ['visual_label', 'Sichtprüfung', 'Sind keine Schäden an der Beschriftung erkennbar?', 'Beschriftungen sind vollständig und eindeutig erkennbar.', 'boolean', '', '', 20],
+        ['visual_cable', 'Sichtprüfung', 'Sind keine Schäden an der Anschlussleitung erkennbar?', 'Leitung, Stecker und Zugentlastung sind unbeschädigt.', 'boolean', '', '', 30],
+        ['visual_housing', 'Sichtprüfung', 'Sind keine Abweichungen am Gehäuse erkennbar?', 'Gehäuse und Kühlluftöffnungen sind intakt und sauber.', 'boolean', '', '', 40],
+        ['rpe', 'Messung', 'Messung des Schutzleiterwiderstands RPE/RSL.', 'Der Grenzwert wird serverseitig anhand der Kabellänge berechnet.', 'measurement', 'RPE', 'rsl_by_cable_length_v1', 50],
+        ['riso', 'Messung', 'Messung des Isolationswiderstands RISO.', 'Mindestens 1 MΩ, bei Wärmegeräten mindestens 0,3 MΩ.', 'measurement', 'RISO', 'riso_heating_v1', 60],
+        ['ipe', 'Messung', 'Messung des Schutzleiterstroms IPE.', 'Höchstens 3,5 mA.', 'measurement', 'IPE', 'ipe_v1', 70],
+        ['iber', 'Messung', 'Messung des Berührungsstroms IB.', 'Höchstens 0,5 mA.', 'measurement', 'IBER', 'iber_v1', 80],
+        ['function', 'Funktionsprüfung', 'Arbeiten alle sicherheitsrelevanten Funktionen ordnungsgemäß?', 'Es sind keine sicherheitsrelevanten Abweichungen erkennbar.', 'boolean', '', '', 90],
+        ['safe_operation', 'Abschluss', 'Ist ein sicherer Betrieb bis zur nächsten Prüfung zu erwarten?', 'Ein sicherer Betrieb ist bis zur nächsten Prüfung zu erwarten.', 'boolean', '', '', 100],
+        ['customer_notice', 'Abschluss', 'Sind alle erforderlichen Hinweise an den Auftraggeber dokumentiert?', 'Abweichungen und erforderliche Hinweise sind vollständig dokumentiert.', 'boolean', '', '', 110],
+    ];
+    foreach ($items as [$key, $category, $question, $criterion, $type, $measurement, $rule, $sort]) {
+        R::exec(
+            'INSERT INTO inspection_catalog_item (version_id, item_key, category, question, criterion, input_type, measurement_key, required, applies_to_json, rule_key, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
+            [$versionId, $key, $category, $question, $criterion, $type, $measurement, '{}', $rule, $sort]
+        );
     }
 }
 
@@ -816,12 +887,24 @@ function current_user_customer_ids(): array
     if (current_user_has_role('admin')) return array_map('intval', array_keys(R::findAll('customer')));
     $userId = current_user_id();
     if (!$userId) return [];
-    $roots = array_map('intval', R::getCol('SELECT customer_id FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]));
-    $visible = array_fill_keys($roots, true);
+    $assignments = R::getAll('SELECT customer_id, include_descendants FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);
+    $visible = [];
+    $expandable = [];
+    foreach ($assignments as $assignment) {
+        $customerId = (int) ($assignment['customer_id'] ?? 0);
+        if ($customerId <= 0) continue;
+        $visible[$customerId] = true;
+        if (!empty($assignment['include_descendants'])) $expandable[$customerId] = true;
+    }
     do {
         $added = false;
         foreach (R::findAll('customer', ' parent_customer_id IS NOT NULL ') as $customer) {
-            if (isset($visible[(int) $customer->parent_customer_id]) && !isset($visible[(int) $customer->id])) { $visible[(int) $customer->id] = true; $added = true; }
+            $parentId = (int) $customer->parent_customer_id;
+            if (isset($expandable[$parentId]) && !isset($visible[(int) $customer->id])) {
+                $visible[(int) $customer->id] = true;
+                $expandable[(int) $customer->id] = true;
+                $added = true;
+            }
         }
     } while ($added);
     return array_map('intval', array_keys($visible));
@@ -874,7 +957,7 @@ function current_user_background_jobs(int $limit = 8): array
         $job['historical'] = in_array((string) ($job['state'] ?? ''), ['done', 'error', 'cancelled'], true);
         $job['type_label'] = BackgroundJobService::label((string) ($job['type'] ?? ''));
         $job['downloadable'] = ($job['state'] ?? '') === 'done'
-            && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle'], true)
+            && in_array((string) ($job['type'] ?? ''), ['pdf_zip', 'pdf_bundle', 'inspection_pdf_zip'], true)
             && is_file((string) ($job['output'] ?? ''));
         $notification = $notificationsByJob[(int) ($job['database_id'] ?? 0)] ?? null;
         $job['notification_unread'] = is_array($notification) && trim((string) ($notification['read_at'] ?? '')) === '';

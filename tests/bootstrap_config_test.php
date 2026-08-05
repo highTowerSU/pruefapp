@@ -43,6 +43,11 @@ foreach ([
     'area' => 'description',
     'room' => 'number',
     'device' => 'metadata_json',
+    'inspection' => 'classification',
+    'inspection_answer' => 'outcome',
+    'inspection_measurement' => 'rule_key',
+    'inspection_source_snapshot' => 'legacy_row_json',
+    'inspection_report_asset' => 'checksum',
 ] as $table => $column) {
     if (!array_key_exists($column, RedBeanPHP\R::getColumns($table))) {
         throw new \RuntimeException("Die Strukturspalte {$table}.{$column} fehlt.");

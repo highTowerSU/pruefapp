@@ -106,6 +106,17 @@ if ($legacyImportLogs > 0) $log($legacyImportLogs . ' ältere Importprotokoll(e)
 // guarantee that repeated Cron invocations do not create parallel copies.
 try {
     $migrationRoot = app_data_root() . '/migration';
+    $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
+    if ($inspectionDataMigrationVersion !== '1') {
+        $total = (int) R::getCell('SELECT COUNT(*) FROM inspection');
+        if ($total > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_data_migration',
+                ['type' => 'inspection_data_migration'],
+                ['total' => $total, 'dedupe_key' => 'maintenance:inspection-data:v1', 'cancellable' => false]
+            );
+        }
+    }
     $benningDirectory = trim((string) (get_app_config('benning_reimport_directory', '') ?: getenv('PRUEFAPP_BENNING_REIMPORT_DIR')));
     $benningImportMarker = $migrationRoot . '/benning-import-v3.done';
     if ($benningDirectory !== '' && is_dir($benningDirectory) && !is_file($benningImportMarker)) {
@@ -117,30 +128,54 @@ try {
             'completion_marker' => $benningImportMarker,
         ], ['dedupe_key' => 'maintenance:benning-import:v3', 'cancellable' => false]);
     }
-    $measurementMarker = $migrationRoot . '/benning-measurements-v3.done';
-    if (!is_file($measurementMarker)) {
-        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type = 'csv'");
-        BackgroundJobService::enqueue('measurement_migration', ['type' => 'measurement_migration'], ['total' => $total, 'dedupe_key' => 'maintenance:measurements:v3', 'cancellable' => false]);
-    }
+    // Report jobs must only see canonical data. This gate also prevents the
+    // older JSON/measurement maintenance paths from racing the new migration.
+    if ($inspectionDataMigrationVersion === '1') {
+        $legacyRestoreMarker = $migrationRoot . '/inspection-reports-legacy-restore-v5.json';
+        if (!is_file($legacyRestoreMarker)) {
+            $legacyTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'legacy' AND result_status IN ('passed','failed')");
+            if ($legacyTotal > 0) {
+                BackgroundJobService::enqueue(
+                    'phoenix_pdf_restore',
+                    ['type' => 'phoenix_pdf_restore'],
+                    ['total' => $legacyTotal, 'dedupe_key' => 'maintenance:legacy-originals:v5', 'cancellable' => false]
+                );
+            }
+        }
+        $reportMarker = $migrationRoot . '/inspection-reports-v3.json';
+        $reportState = is_file($reportMarker) ? json_decode((string) file_get_contents($reportMarker), true) : [];
+        if (!is_array($reportState)) $reportState = [];
+        if (($reportState['completed'] ?? false) !== true) {
+            $lastId = max(0, (int) ($reportState['last_id'] ?? 0));
+            $eligibleSql = "result_status IN ('passed','failed') AND classification = 'migrated_import'";
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligibleSql}");
+            $current = $lastId > 0
+                ? (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id <= ? AND {$eligibleSql}", [$lastId])
+                : 0;
+            if ($total > 0) {
+                BackgroundJobService::enqueue(
+                    'report_migration',
+                    ['type' => 'report_migration'],
+                    [
+                        'current' => $current,
+                        'total' => $total,
+                        'checkpoint' => ['last_id' => $lastId],
+                        'dedupe_key' => 'maintenance:reports:v3',
+                        'cancellable' => false,
+                    ]
+                );
+            }
+        }
 
-    $restoreMarker = $migrationRoot . '/inspection-reports-phoenix-restore-v4.json';
-    if (!is_file($restoreMarker)) {
-        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%'");
-        if ($total > 0) BackgroundJobService::enqueue('phoenix_pdf_restore', ['type' => 'phoenix_pdf_restore'], ['total' => $total, 'dedupe_key' => 'maintenance:phoenix-originals:v4', 'cancellable' => false]);
+        $missing = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND TRIM(COALESCE(report_path, '')) = ''");
+        if ($missing > 0) {
+            BackgroundJobService::enqueue(
+                'missing_reports',
+                ['type' => 'missing_reports'],
+                ['total' => $missing, 'dedupe_key' => 'automatic:missing-reports-v2', 'cancellable' => false]
+            );
+        }
     }
-
-    $reportMarker = $migrationRoot . '/inspection-reports-v2.json';
-    $reportState = is_file($reportMarker) ? json_decode((string) file_get_contents($reportMarker), true) : [];
-    if (!is_array($reportState)) $reportState = [];
-    if (($reportState['completed'] ?? false) !== true) {
-        $lastId = max(0, (int) ($reportState['last_id'] ?? 0));
-        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')");
-        $current = $lastId > 0 ? (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE id <= ? AND result_status IN ('bestanden','durchgefallen','nicht bestanden') AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')", [$lastId]) : 0;
-        BackgroundJobService::enqueue('report_migration', ['type' => 'report_migration'], ['current' => $current, 'total' => $total, 'checkpoint' => ['last_id' => $lastId], 'dedupe_key' => 'maintenance:reports:v2', 'cancellable' => false]);
-    }
-
-    $missing = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden','durchgefallen','nicht bestanden') AND TRIM(COALESCE(report_path, '')) = '' AND NOT (COALESCE(source_type, '') = 'json' AND COALESCE(raw_json, '') LIKE '%phoenix-sync%')");
-    if ($missing > 0) BackgroundJobService::enqueue('missing_reports', ['type' => 'missing_reports'], ['total' => $missing, 'dedupe_key' => 'automatic:missing-reports', 'cancellable' => false]);
 } catch (Throwable $exception) {
     $log('Automatische Aufgaben konnten nicht vollständig eingeplant werden: ' . $exception->getMessage(), 'error');
 }

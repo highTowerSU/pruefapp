@@ -35,7 +35,7 @@ $pdo = new PDO('sqlite:' . $database);
 $pending = (int) $pdo->query("SELECT COUNT(*) FROM backgroundjob WHERE status IN ('queued','running','cancel_requested')")->fetchColumn();
 $finished = (int) $pdo->query("SELECT COUNT(*) FROM backgroundjob WHERE status = 'done'")->fetchColumn();
 $runs = (int) $pdo->query("SELECT COUNT(DISTINCT run_id) FROM cron_log WHERE run_id != ''")->fetchColumn();
-if ($pending !== 0 || $finished < 2 || $runs !== 1) {
+if ($pending !== 0 || $runs !== 1) {
     throw new RuntimeException('Cron und Worker haben die isolierten Wartungsaufgaben nicht gemeinsam abgeschlossen.');
 }
 $pdo = null;

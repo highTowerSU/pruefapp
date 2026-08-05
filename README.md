@@ -48,6 +48,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 - **Administrator/in** – Vollzugriff auf alle Einstellungen, inklusive Nutzerverwaltung sowie Mandanten & Branding.
 - **Editor/in** – Kann Kurse und Teilnehmerdaten anlegen und bearbeiten, hat jedoch keinen Zugriff auf Nutzer-, Firmen- oder Systemeinstellungen.
+- **Kundenzugang** – Sieht ausschließlich zugeordnete Kunden und optional deren Unterkunden; in Prüfungsansichten werden nur abgeschlossene Ergebnisse freigegeben.
 - **Betrachter/in** – Darf Kurse und Teilnehmer*innen einsehen, aber keine Änderungen vornehmen.
 
 
@@ -190,6 +191,29 @@ Für den alten Bestand kann einmalig eine transportable JSONL-Datei erzeugt werd
 Auf dem Server wird diese Datei mit demselben Importbefehl eingelesen. Ein
 separater PDF-Quellordner kann als zweites Argument angegeben werden, zum
 Beispiel `php bin/import_electro.php /tmp/altbestand-import.jsonl /var/www/berichte`.
+
+### Kanonisches Prüfungsmodell
+
+Prüfungen verwenden vier eindeutige Ergebniszustände: `data_missing`,
+`in_progress`, `passed` und `failed`. Fachliche Entscheidungen über
+Pflichtangaben, Anwendbarkeit, Grenzwerte, Abschluss und Berichtsfreigabe
+werden ausschließlich im Backend durch den zentralen Auswertungsdienst
+getroffen. JavaScript darf die daraus abgeleiteten Kriterien und Grenzwerte als
+Hinweis anzeigen, wird beim Speichern jedoch niemals als verbindliche Quelle
+verwendet.
+
+Prüfungen bis einschließlich 2024 gelten als Legacy. Ihr Original-PDF bleibt
+das maßgebliche Dokument und wird nicht mit dem aktuellen Layout neu erzeugt.
+Importierte Prüfungen ab 2025 werden schrittweise in strukturierte Antworten
+und Messwerte überführt. Vor der Normalisierung werden die bisherige
+Datenbankzeile, die vollständige CSV-/JSON-Quelle sowie die Referenz und
+Prüfsumme des Originalberichts unveränderlich gesichert. Der
+Hintergrundprozess ist idempotent und setzt anhand der Datenbank-ID am zuletzt
+bestätigten Datensatz fort.
+
+Die zentrale Prüfungsübersicht und die Gerätehistorie verwenden dieselbe
+serverseitige Status- und Berichtsfreigabe. Filter, Paginierung, Auswahl und
+Sammelaktionen werden mit HTMX ohne vollständigen Seitenreload ausgeführt.
 
 ## Tests
 

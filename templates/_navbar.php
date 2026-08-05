@@ -16,6 +16,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $helpUrl = url_for('hilfe');
     $structureUrl = url_for('struktur');
     $devicesUrl = url_for('geraete');
+    $inspectionsUrl = url_for('pruefungen');
     $inspectionImportUrl = url_for('admin/pruefungen/import');
     $billingUrl = url_for('admin/abrechnung');
     $companyUrl = url_for('mandanten');
@@ -67,6 +68,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         $structureActive = $currentPath === $structureUrl || strpos($currentPath, $structurePrefix . '/') === 0;
     }
     $devicesActive = $currentPath === $devicesUrl || strpos($currentPath, rtrim($devicesUrl, '/') . '/') === 0;
+    $inspectionsActive = $pathIsActive($inspectionsUrl) || strpos($currentPath, rtrim(url_for('admin/pruefungen'), '/') . '/') === 0;
+    $devicesMenuActive = $devicesActive || $inspectionsActive;
     $inspectionImportActive = $pathIsActive($inspectionImportUrl);
     $billingActive = $pathIsActive($billingUrl);
     $companyActive = $pathIsActive($companyUrl);
@@ -101,7 +104,13 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
       <?php if ($authUser !== null): ?>
         <ul class="navbar-nav align-items-lg-center gap-lg-2 flex-wrap justify-content-end">
           <li class="nav-item"><a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link<?= $structureActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-sitemap me-1" aria-hidden="true"></i>Struktur</a></li>
-          <li class="nav-item"><a href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>" class="nav-link<?= $devicesActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Geräte</a></li>
+          <li class="nav-item dropdown">
+            <button class="nav-link dropdown-toggle border-0 bg-transparent<?= $devicesMenuActive ? ' active fw-semibold' : '' ?>" type="button" id="deviceNavigationDropdown" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Geräte</button>
+            <ul class="dropdown-menu" aria-labelledby="deviceNavigationDropdown">
+              <li><a class="dropdown-item<?= $devicesActive ? ' active' : '' ?>" href="<?= htmlspecialchars($devicesUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-plug icon-slot me-2" aria-hidden="true"></i>Geräteübersicht</a></li>
+              <li><a class="dropdown-item<?= $inspectionsActive ? ' active' : '' ?>" href="<?= htmlspecialchars($inspectionsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clipboard-check icon-slot me-2" aria-hidden="true"></i>Prüfungen</a></li>
+            </ul>
+          </li>
           <?php if (current_user_has_role('admin')): ?>
             <li class="nav-item"><a href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>" class="nav-link<?= $inspectionImportActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-file-import me-1" aria-hidden="true"></i>Import</a></li>
             <li class="nav-item"><a href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>" class="nav-link<?= $billingActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-coins me-1" aria-hidden="true"></i>Abrechnung</a></li>

@@ -192,8 +192,8 @@ final class ElectricalInspectionImportService
                 if (in_array('', $checklist, true)) $unclear = true;
             }
             $unclear = $evaluationReasons !== [];
-            $inspection->status = $failed ? 'completed' : ($unclear ? 'measurement_pending' : 'completed');
-            $inspection->result_status = $failed ? 'durchgefallen' : ($unclear ? 'ausstehend' : 'bestanden');
+            $inspection->status = $failed ? 'completed' : ($unclear ? InspectionEvaluationService::DATA_MISSING : 'completed');
+            $inspection->result_status = $failed ? InspectionEvaluationService::FAILED : ($unclear ? InspectionEvaluationService::DATA_MISSING : InspectionEvaluationService::PASSED);
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
             audit_log('import_datensatz_aktualisiert', ['_correlation_id' => $correlationId, '_category' => 'import', '_status' => 'aktualisiert', 'source_file' => basename($csvPath), 'inspection_id' => (int) $inspection->id, 'inspection_number' => (string) ($inspection->external_number ?? ''), 'status' => 'aktualisiert']);
@@ -464,7 +464,9 @@ final class ElectricalInspectionImportService
         $derivedProtectionClass = $this->protectionClassFromRecord($record);
         if ($derivedProtectionClass !== '') $inspection->protection_class = $derivedProtectionClass;
         $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
-        $inspection->result_status = (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null));
+        $inspection->result_status = InspectionEvaluationService::normalizeStatus(
+            (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null))
+        );
         $inspection->device_type = (string) ($record['device_type'] ?? '');
         $inspection->manufacturer = (string) ($record['manufacturer'] ?? '');
         $inspection->device_model = (string) ($record['device_model'] ?? '');
@@ -475,7 +477,7 @@ final class ElectricalInspectionImportService
         foreach ($importMeasurements as $measurement) {
             if (!is_array($measurement) || !in_array(strtoupper(trim((string) ($measurement['name'] ?? ''))), ['RSL', 'RPE'], true)) continue;
             $measured = (float) str_replace(',', '.', (string) ($measurement['value'] ?? ''));
-            if ($measured > 0 && $measured > (float) $inspection->rsl_limit_ohm) { $inspection->result_status = 'durchgefallen'; break; }
+            if ($measured > 0 && $measured > (float) $inspection->rsl_limit_ohm) { $inspection->result_status = InspectionEvaluationService::FAILED; break; }
         }
         $inspection->checklist_json = json_encode($record['checklist'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->raw_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
