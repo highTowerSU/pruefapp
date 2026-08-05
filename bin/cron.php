@@ -39,6 +39,7 @@ $log('Hintergrundlauf gestartet. Er wird automatisch innerhalb des verfügbaren 
 $log('Debug: verbleibendes Zeitbudget ' . number_format($timeLeft(), 1, ',', '.') . ' Sekunden', 'debug');
 file_put_contents($root . '/cron-heartbeat.json', json_encode(['last_run' => date(DATE_ATOM), 'pid' => getmypid(), 'time_limit_seconds' => 120], JSON_UNESCAPED_UNICODE), LOCK_EX);
 $generatedReports = 0;
+$remainingMissingReports = null;
 $migrationProcessedTotal = 0;
 $phoenixRestoredTotal = 0;
 $reportErrors = [];
@@ -291,13 +292,18 @@ try {
 } catch (Throwable $exception) {
     $reportErrors[] = ['error' => $exception->getMessage()];
 }
-$log('Berichtslauf: fehlende Prüfberichte ' . $generatedReports . '; Fehler ' . count($reportErrors) . '.');
 foreach ($reportErrors as $error) $log('Berichtsfehler: ' . json_encode($error, JSON_UNESCAPED_UNICODE));
+
+try {
+    $remainingMissingReports = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('bestanden', 'durchgefallen', 'nicht bestanden') AND TRIM(COALESCE(report_path, '')) = ''");
+} catch (Throwable) {}
+$log('Berichtslauf: verarbeitet ' . $generatedReports . '; beim Start fehlend ' . $missingReportCount . '; danach offen ' . ($remainingMissingReports ?? 'unbekannt') . '; Fehler ' . count($reportErrors) . '.');
 
 file_put_contents($root . '/report-heartbeat.json', json_encode([
     'last_run' => date(DATE_ATOM),
     'generated' => $generatedReports,
     'errors' => $reportErrors,
+    'remaining_missing' => $remainingMissingReports,
 ], JSON_UNESCAPED_UNICODE), LOCK_EX);
 
 foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
@@ -336,7 +342,7 @@ foreach (glob($root . '/*.status.json') ?: [] as $statusPath) {
     $status = json_decode((string) @file_get_contents($statusPath), true);
     if (is_array($status) && ($status['state'] ?? '') === 'queued') $jobsRemaining++;
 }
-$log('Zusammenfassung: fehlende Prüfberichte ' . $generatedReports . ', PDF-Aufbereitung ' . $migrationProcessedTotal . ', Original-PDFs wiederhergestellt ' . $phoenixRestoredTotal . ', Hintergrundaufgaben gestartet ' . $jobsStarted . ', noch offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors) . '.');
+$log('Zusammenfassung: Berichte verarbeitet ' . $generatedReports . ' (danach offen ' . ($remainingMissingReports ?? 'unbekannt') . '), PDF-Aufbereitung ' . $migrationProcessedTotal . ', Original-PDFs wiederhergestellt ' . $phoenixRestoredTotal . ', Hintergrundaufgaben gestartet ' . $jobsStarted . ', noch offen ' . $jobsRemaining . ', Fehler ' . count($reportErrors) . '.');
 if ($debug) {
     if ($generatedReports === 0 && $reportErrors === [] && $missingReportCount === 0 && $jobsStarted === 0 && $jobsRemaining === 0 && is_file($migrationMarker)) {
         fwrite(STDERR, '[cron debug] Keine offenen Aufgaben: keine fehlenden Prüfberichte, keine wartenden Hintergrundjobs, keine Nachmigration.' . PHP_EOL);
