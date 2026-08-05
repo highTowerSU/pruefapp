@@ -7,6 +7,7 @@
 ## Gemeinsame CENEOS-UI
 
 - Gemeinsame UI-Regeln aus `ceneos-php-base` gelten auch hier: Bootstrap-first, responsive Spalten, klare Abstände und keine unnötigen Dropdowns.
+- Auf großen Bildschirmen darf ein zentrierter Bootstrap-`container` genutzt werden; `container-fluid` bleibt für Ansichten vorbehalten, die tatsächlich die volle Breite benötigen.
 - Buttons, Navigation, Filter, Formular-Labels und Ausklappboxen mit passenden Icons versehen; Icon-Spalten in gleichartigen Menüs einheitlich breit halten.
 - Light-/Dark-Mode-Kontrast prüfen, besonders bei aktiven Menüpunkten, gelben Icons und sekundären Texten.
 - Gemeinsame Footer-, Versions-, Branding- und Mandantenlogik nicht duplizieren, sondern aus der Base verwenden.
