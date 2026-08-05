@@ -25,7 +25,7 @@ $checks = [
     [str_contains($routes, "'/admin/abrechnung/pruefung/{id}/export-zuruecksetzen'"), 'Billing reset route is missing.'],
     [str_contains($devices, 'billing_status') && str_contains($devices, 'billing_eligibility'), 'Device billing filters are missing.'],
     [str_contains($devices, 'Abrechnung vorbereiten') && str_contains($deviceController, "\$action === 'billing'"), 'Device billing bulk action is missing.'],
-    [str_contains($renderer, 'render_common_filter_panel') && str_contains($devices, 'device-common-filter') && str_contains($template, 'billing-common-filter') && str_contains($devices, ':not(.common-filter-panel)') && str_contains($template, ':not(#billing-common-filter)'), 'Shared filter renderer is missing from both views.'],
+    [str_contains($renderer, 'render_common_filter_panel') && str_contains($devices, 'device-common-filter') && str_contains($template, 'billing-common-filter') && !str_contains($devices, 'display:none') && !str_contains($template, 'display:none'), 'Shared filter renderer is missing from both views.'],
     [str_contains($deviceController, "if (\$isHx) return [200") && str_contains($renderer, "'#device-page'"), 'Device HTMX partial rendering is missing.'],
     [str_contains($controller, '$requestedPerPage = (int) ($_GET[\'per_page\'] ?? 50)') && str_contains($controller, '$perPage = in_array($requestedPerPage'), 'Billing pagination must use a safe default page size.'],
 ];
