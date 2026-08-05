@@ -458,6 +458,23 @@ function base_path(): string
         return $basePath;
     }
 
+    // Cron/CLI jobs have no public request script. Without an explicit base
+    // path PHP would derive URLs from bin/cron.php and create links such as
+    // /var/www/html/pruefapp/bin/downloads. Prefer the shared configuration
+    // and otherwise derive the deployed application mount from its directory.
+    $configured = class_exists(Config::class) ? Config::string('APP_BASE_PATH') : null;
+    if ($configured !== null && $configured !== '') {
+        $basePath = '/' . trim(str_replace('\\', '/', $configured), '/');
+        return $basePath === '/' ? '' : $basePath;
+    }
+    if (PHP_SAPI === 'cli') {
+        $applicationName = basename(dirname(__DIR__));
+        $basePath = $applicationName !== '' && $applicationName !== '.' && $applicationName !== DIRECTORY_SEPARATOR
+            ? '/' . $applicationName
+            : '';
+        return $basePath;
+    }
+
     $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
     $dir = str_replace('\\', '/', dirname($scriptName));
 

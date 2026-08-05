@@ -57,9 +57,20 @@ final class DownloadController
         }
         unset($job);
 
+        // Older CLI-created notifications could contain the filesystem path
+        // derived from bin/cron.php. Convert those historical links to the
+        // public application route while keeping normal URLs untouched.
+        foreach ($notifications = current_user_notifications(100) as &$notification) {
+            $actionUrl = trim((string) ($notification['action_url'] ?? ''));
+            if ($actionUrl !== '' && preg_match('#/pruefapp/(?:bin/)?(.+)$#', $actionUrl, $match) === 1) {
+                $notification['action_url'] = url_for($match[1]);
+            }
+        }
+        unset($notification);
+
         $content = render_template('downloads.php', [
             'jobs' => $jobs,
-            'notifications' => current_user_notifications(100),
+            'notifications' => $notifications,
             'canSeeAll' => current_user_is_superadmin(),
         ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
