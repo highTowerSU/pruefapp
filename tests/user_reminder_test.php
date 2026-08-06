@@ -26,7 +26,7 @@ foreach (['login_reminders', 'loginReminder'] as $needle) {
 if (!str_contains($lib, 'UserReminderService::afterLogin')) {
     throw new RuntimeException('Login-Hinweise werden nicht serverseitig nach der Anmeldung vorbereitet.');
 }
-if (!str_contains($service, 'Unterschrift im Profil ergänzen') || !str_contains($service, 'Offene Prüfdaten') || !str_contains($service, 'missingInspections') || !str_contains($service, "modify('-10 days')")) {
+if (!str_contains($service, 'Unterschrift im Profil ergänzen') || !str_contains($service, 'Offene Prüfdaten') || !str_contains($service, 'missingInspections') || !str_contains($service, 'array_slice(array_keys($grouped), 0, 10)') || !str_contains($service, 'weitere ')) {
     throw new RuntimeException('Die beiden persönlichen Prüferhinweise fehlen.');
 }
 foreach (['loginAs', 'stopLoginAs', 'impersonator_user_id'] as $needle) {
