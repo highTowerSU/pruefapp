@@ -24,7 +24,7 @@ $checks = [
     [str_contains($downloads, 'badge text-bg-secondary') && !str_contains($downloads, 'badge text-bg-light border text-body-secondary ms-1">Historie'), 'Das Historie-Badge hat keinen sicheren Dark-Mode-Kontrast.'],
     [str_contains($navbar, 'navbar-themed sticky-top'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
     [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', " . '$roomLabels'), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
-    [str_contains($searchSelect, ':not([data-no-search])') && substr_count($template, 'data-no-search') >= 3, 'Aktionsauswahlen werden weiterhin doppelt als Suchdropdown gerendert.'],
+    [str_contains($searchSelect, 'if (select.tomselect)') && substr_count($template, 'data-search-select') >= 3 && !str_contains($template, 'data-no-search'), 'Aktionsauswahlen werden nicht genau einmal als TomSelect initialisiert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

@@ -9,7 +9,7 @@
     // Alle normalen Bootstrap-Auswahllisten erhalten dieselbe touch- und
     // tastaturfreundliche Suche; data-search-select bleibt als explizite
     // Markierung für Sonderfälle bestehen.
-    root.querySelectorAll('select.form-select:not([data-no-search]), select[data-search-select]:not([data-no-search]), select[name="tenant_id"]:not([data-no-search]), select[name="sevdesk_customer_id"]:not([data-no-search])').forEach(select => {
+    root.querySelectorAll('select.form-select, select[data-search-select], select[name="tenant_id"], select[name="sevdesk_customer_id"]').forEach(select => {
       if (select.tomselect) {
         return;
       }
