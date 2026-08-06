@@ -106,6 +106,13 @@ return [
 Die Datei sollte nur für den betreibenden Benutzer und den Webserver lesbar
 sein. Installationsspezifische Werte und Secrets gehören nicht ins Repository.
 
+Für die ausschließlich technische, JSON-basierte Prüfungsdiagnose kann dort
+`api_debug_secret` (alternativ die Umgebungsvariable
+`PRUEFAPP_API_DEBUG_SECRET`) gesetzt werden. Der Endpunkt
+`/pruefapp/api/debug/inspection?q=<Nummer>` akzeptiert das Geheimnis nur im
+Header `X-Api-Debug-Secret`; er ist nicht für Browser-Links oder die allgemeine
+Anwendungsoberfläche bestimmt.
+
 ### Keycloak
 
 - `APP_KEYCLOAK_ADMIN_CONSOLE_BASE_URL` – optionaler Direktlink zur Keycloak-Admin-Oberfläche eines Realms. Falls nicht gesetzt, wird die URL aus `APP_KEYCLOAK_SERVER_URL` und `APP_KEYCLOAK_REALM` abgeleitet; für die Standard-Konfiguration der Königsblau-Instanz wird automatisch `https://keycloak.koenigsbl.au` verwendet. Die URL kann alternativ im Backend unter „Konfiguration“ hinterlegt werden.

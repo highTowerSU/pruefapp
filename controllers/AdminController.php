@@ -10,6 +10,108 @@ use Ceneos\PhpBase\Tenant\TenantRepository;
 
 class AdminController
 {
+    /**
+     * Narrow, token-protected diagnostic endpoint for operational support.
+     * The secret is deliberately accepted only through an HTTP header so it
+     * cannot leak through browser history, URLs, referrers or audit logs.
+     */
+    public static function inspectionApiDebug(array $params, bool $isHx): array
+    {
+        $configuredSecret = trim((string) (get_app_config('api_debug_secret', '') ?: getenv('PRUEFAPP_API_DEBUG_SECRET')));
+        $providedSecret = trim((string) ($_SERVER['HTTP_X_API_DEBUG_SECRET'] ?? ''));
+        $headers = ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'];
+        if ($configuredSecret === '' || $providedSecret === '' || !hash_equals($configuredSecret, $providedSecret)) {
+            return [403, $headers, json_encode(['ok' => false, 'error' => 'Nicht autorisiert.'], JSON_UNESCAPED_UNICODE)];
+        }
+
+        $query = trim((string) ($_GET['q'] ?? ''));
+        if ($query === '' || mb_strlen($query) > 120) {
+            return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) fehlt.'], JSON_UNESCAPED_UNICODE)];
+        }
+        $like = '%' . mb_strtolower($query) . '%';
+        $rows = R::getAll(
+            'SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.result_status, i.status, i.classification, i.source_type, i.source_file, '
+            . 'i.result_reason_code, i.result_reason_text, d.external_number AS device_number, d.name AS device_name '
+            . 'FROM inspection i LEFT JOIN device d ON d.id = i.device_id '
+            . 'WHERE LOWER(COALESCE(i.external_number, \'\')) LIKE ? OR LOWER(COALESCE(d.external_number, \'\')) LIKE ? '
+            . 'ORDER BY i.test_date DESC, i.id DESC LIMIT 100',
+            [$like, $like]
+        );
+        foreach ($rows as &$row) {
+            $row['computed_status'] = (string) R::getCell(
+                'SELECT ' . InspectionEvaluationService::sqlStatusExpression('i') . ' FROM inspection i WHERE i.id = ?',
+                [(int) $row['id']]
+            );
+            $row['expected_legacy'] = trim((string) ($row['test_date'] ?? '')) !== ''
+                && (string) $row['test_date'] < '2025-01-01';
+        }
+        unset($row);
+        $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
+        return [200, $headers, json_encode([
+            'ok' => true,
+            'query' => $query,
+            'legacy_unclassified_count' => $unclassified,
+            'rows' => $rows,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /** Read-only diagnosis for disputed inspection states; strictly superadmin-only. */
+    public static function inspectionDebug(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+
+        $query = trim((string) ($_GET['q'] ?? ''));
+        $rows = [];
+        if ($query !== '') {
+            $like = '%' . mb_strtolower($query) . '%';
+            $rows = R::getAll(
+                'SELECT i.*, d.external_number AS device_number, d.name AS device_name '
+                . 'FROM inspection i LEFT JOIN device d ON d.id = i.device_id '
+                . 'WHERE LOWER(COALESCE(i.external_number, \'\')) LIKE ? OR LOWER(COALESCE(d.external_number, \'\')) LIKE ? '
+                . 'ORDER BY i.test_date DESC, i.id DESC LIMIT 100',
+                [$like, $like]
+            );
+            foreach ($rows as &$row) {
+                $row['computed_status'] = (string) R::getCell(
+                    'SELECT ' . InspectionEvaluationService::sqlStatusExpression('i') . ' FROM inspection i WHERE i.id = ?',
+                    [(int) $row['id']]
+                );
+                $row['expected_legacy'] = trim((string) ($row['test_date'] ?? '')) !== ''
+                    && (string) $row['test_date'] < '2025-01-01';
+            }
+            unset($row);
+        }
+        $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
+        $migration = BackgroundJobService::pending(200);
+        $legacyJob = null;
+        foreach ($migration as $job) {
+            if (($job['type'] ?? '') === 'legacy_classification_migration') {
+                $legacyJob = $job;
+                break;
+            }
+        }
+        $content = render_template('admin_inspection_debug.php', compact('query', 'rows', 'unclassified', 'legacyJob'));
+        if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfungsdiagnose', 'content' => $content])];
+    }
+
+    public static function enqueueLegacyClassificationMigration(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
+        if ($total > 0) {
+            BackgroundJobService::enqueue(
+                'legacy_classification_migration',
+                ['type' => 'legacy_classification_migration', 'owner_user_id' => (int) (current_user()->id ?? 0)],
+                ['total' => $total, 'dedupe_key' => 'maintenance:legacy-classification:v2', 'cancellable' => false]
+            );
+            $_SESSION['meldung'] = $total . ' historische Prüfung(en) wurden zur Legacy-Klassifizierung vorgemerkt.';
+        } else {
+            $_SESSION['meldung'] = 'Keine unklassifizierten historischen Prüfungen gefunden.';
+        }
+        return [303, ['Location' => url_for('admin/debug/pruefungen')], ''];
+    }
+
     public static function users(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) {
