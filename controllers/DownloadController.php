@@ -37,9 +37,8 @@ final class DownloadController
         }
         $notifications = self::notificationsForDisplay(100);
         $content = render_template('_notifications_list.php', ['notifications' => $notifications])
-            . render_template('_notifications_dropdown.php', [
-                'notifications' => array_slice($notifications, 0, 6),
-                'downloadsUrl' => url_for('downloads'),
+            . render_template('_notification_badge.php', [
+                'unreadCount' => count(array_filter($notifications, static fn(array $entry): bool => !empty($entry['notification_unread']))),
                 'oob' => true,
             ]);
         return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
@@ -50,6 +49,7 @@ final class DownloadController
         return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('_notifications_dropdown.php', [
             'notifications' => self::notificationsForDisplay(6),
             'downloadsUrl' => url_for('downloads'),
+            'fragment' => true,
         ])];
     }
 
