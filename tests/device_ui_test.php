@@ -25,6 +25,7 @@ $checks = [
     [str_contains($navbar, 'navbar-themed sticky-top'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
     [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', " . '$roomLabels'), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
     [str_contains($searchSelect, 'if (select.tomselect)') && substr_count($template, 'data-search-select') >= 3 && !str_contains($template, 'data-no-search'), 'Aktionsauswahlen werden nicht genau einmal als TomSelect initialisiert.'],
+    [str_contains($template, '$latestInspection = $deviceInspections[0]') && !str_contains($template, 'foreach ($deviceInspections as $inspectionForBadge)'), 'Das Gerätebadge wertet nicht ausschließlich die letzte Prüfung aus.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
