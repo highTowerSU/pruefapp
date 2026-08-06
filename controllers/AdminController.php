@@ -25,8 +25,12 @@ class AdminController
         }
 
         $query = trim((string) ($_GET['q'] ?? ''));
+        $directory = trim((string) ($_GET['directory'] ?? ''));
+        if ($directory !== '') {
+            return self::importDirectoryApiDebug($directory, $headers);
+        }
         if ($query === '' || mb_strlen($query) > 120) {
-            return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) fehlt.'], JSON_UNESCAPED_UNICODE)];
+            return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) oder directory (freigegebener Importpfad) fehlt.'], JSON_UNESCAPED_UNICODE)];
         }
         $like = '%' . mb_strtolower($query) . '%';
         $rows = R::getAll(
@@ -44,10 +48,6 @@ class AdminController
             );
             $row['expected_legacy'] = trim((string) ($row['test_date'] ?? '')) !== ''
                 && (string) $row['test_date'] < '2025-01-01';
-            $snapshot = json_decode((string) R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]), true);
-            $row['source_snapshot_status'] = is_array($snapshot)
-                ? InspectionEvaluationService::normalizeStatus((string) ($snapshot['result_status'] ?? ''), (string) ($snapshot['status'] ?? ''))
-                : '';
             $snapshot = json_decode((string) R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]), true);
             $row['source_snapshot_status'] = is_array($snapshot)
                 ? InspectionEvaluationService::normalizeStatus((string) ($snapshot['result_status'] ?? ''), (string) ($snapshot['status'] ?? ''))
@@ -71,6 +71,95 @@ class AdminController
             'import_result_reconciliation_count' => $importsToReconcile,
             'maintenance_jobs' => $maintenanceJobs,
             'rows' => $rows,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /**
+     * Read-only operational diagnosis for an explicitly allow-listed import root.
+     * It deliberately exposes only filenames and aggregate counts, never file data.
+     *
+     * @param array<string,string> $headers
+     */
+    private static function importDirectoryApiDebug(string $directory, array $headers): array
+    {
+        $configuredRoot = rtrim(app_data_root(), '/');
+        $allowedRoots = array_values(array_filter([
+            '/tmp/berichte',
+            $configuredRoot . '/uploads',
+        ], static fn(string $root): bool => $root !== ''));
+        $resolved = realpath($directory);
+        $allowed = false;
+        if ($resolved !== false && is_dir($resolved)) {
+            foreach ($allowedRoots as $allowedRoot) {
+                $resolvedRoot = realpath($allowedRoot);
+                if ($resolvedRoot !== false && ($resolved === $resolvedRoot || str_starts_with($resolved, rtrim($resolvedRoot, '/') . '/'))) {
+                    $allowed = true;
+                    break;
+                }
+            }
+        }
+        if (!$allowed) {
+            return [400, $headers, json_encode([
+                'ok' => false,
+                'error' => 'Dieser Importpfad ist nicht freigegeben oder für den Webserver nicht lesbar.',
+                'allowed_roots' => $allowedRoots,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        }
+
+        $counts = ['csv' => 0, 'ods' => 0, 'json' => 0, 'jsonl' => 0, 'pdf' => 0];
+        $files = [];
+        $csvPaths = [];
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($resolved, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+            foreach ($iterator as $file) {
+                if (!$file instanceof \SplFileInfo || !$file->isFile()) continue;
+                $extension = strtolower($file->getExtension());
+                if (!array_key_exists($extension, $counts)) continue;
+                $counts[$extension]++;
+                $relative = ltrim(substr($file->getPathname(), strlen(rtrim($resolved, '/'))), '/');
+                if (count($files) < 60) $files[] = $relative;
+                if ($extension === 'csv') $csvPaths[] = $file->getPathname();
+            }
+        } catch (\UnexpectedValueException $e) {
+            return [500, $headers, json_encode(['ok' => false, 'error' => 'Der Importpfad konnte nicht vollständig gelesen werden.', 'detail' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)];
+        }
+
+        $pairs = [];
+        $unpairedCsv = 0;
+        foreach ($csvPaths as $csvPath) {
+            $odsPath = substr($csvPath, 0, -4) . '.ods';
+            $hasOds = is_file($odsPath);
+            if (!$hasOds) $unpairedCsv++;
+            if (count($pairs) < 30) {
+                $pairs[] = [
+                    'csv' => ltrim(substr($csvPath, strlen(rtrim($resolved, '/'))), '/'),
+                    'ods_present' => $hasOds,
+                ];
+            }
+        }
+        $jobs = array_values(array_map(static fn(array $job): array => [
+            'id' => (string) ($job['id'] ?? ''),
+            'type' => (string) ($job['type'] ?? ''),
+            'label' => BackgroundJobService::label((string) ($job['type'] ?? '')),
+            'state' => (string) ($job['state'] ?? ''),
+            'current' => (int) ($job['current'] ?? 0),
+            'total' => (int) ($job['total'] ?? 0),
+            'message' => (string) ($job['message'] ?? ''),
+        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['directory_import', 'pending_measurement_import', 'phoenix_sync'], true))));
+
+        return [200, $headers, json_encode([
+            'ok' => true,
+            'directory' => $resolved,
+            'readable' => is_readable($resolved),
+            'file_counts' => $counts,
+            'importable_file_count' => $counts['csv'] + $counts['json'] + $counts['jsonl'],
+            'csv_without_matching_ods_count' => $unpairedCsv,
+            'csv_ods_pairs' => $pairs,
+            'sample_files' => $files,
+            'pending_import_jobs' => $jobs,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
