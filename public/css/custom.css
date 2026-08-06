@@ -189,6 +189,32 @@ label.form-check-label > i {
   margin-right: .35rem !important;
 }
 
+/* Einwertige TomSelect-Felder bleiben kompakt und umbrechen nicht. */
+.ts-wrapper.single .ts-control {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ts-wrapper.single .ts-control .item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ts-wrapper.single .ts-control > input {
+  min-width: 2rem;
+  flex: 1 1 auto;
+  width: auto !important;
+}
+
+label.form-label {
+  font-weight: 600;
+}
+
 .navbar-themed .nav-link > i,
 .navbar-themed .dropdown-item > i,
 .navbar-themed .btn-outline-navbar > i {
