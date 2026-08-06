@@ -21,6 +21,7 @@
         : (Object.prototype.hasOwnProperty.call(select.dataset, 'placeholder') ? select.dataset.placeholder : 'Auswählen und suchen');
 
       new window.TomSelect(select, {
+        plugins: ['dropdown_input'],
         allowEmptyOption: true,
         closeAfterSelect: true,
         create: false,

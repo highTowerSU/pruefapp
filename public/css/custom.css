@@ -211,6 +211,20 @@ label.form-check-label > i {
   width: auto !important;
 }
 
+.plugin-dropdown_input .dropdown-input-wrap {
+  padding: .35rem;
+}
+
+.plugin-dropdown_input .dropdown-input {
+  display: block;
+  width: 100%;
+  padding: .4rem .55rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius-sm);
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+
 label.form-label {
   font-weight: 600;
 }
