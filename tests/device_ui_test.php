@@ -6,6 +6,7 @@ $template = (string) file_get_contents(dirname(__DIR__) . '/templates/device_ind
 $navbar = (string) file_get_contents(dirname(__DIR__) . '/templates/_navbar.php');
 $downloads = (string) file_get_contents(dirname(__DIR__) . '/templates/downloads.php');
 $filterRenderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
+$searchSelect = (string) file_get_contents(dirname(__DIR__) . '/public/js/search-select.js');
 
 $lookupPosition = strpos($template, 'id="device-inspection-lookup"');
 $filterPosition = strpos($template, "render_common_filter_panel('device'");
@@ -23,6 +24,7 @@ $checks = [
     [str_contains($downloads, 'badge text-bg-secondary') && !str_contains($downloads, 'badge text-bg-light border text-body-secondary ms-1">Historie'), 'Das Historie-Badge hat keinen sicheren Dark-Mode-Kontrast.'],
     [str_contains($navbar, 'navbar-themed sticky-top'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
     [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', " . '$roomLabels'), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
+    [str_contains($searchSelect, ':not([data-no-search])') && substr_count($template, 'data-no-search') >= 3, 'Aktionsauswahlen werden weiterhin doppelt als Suchdropdown gerendert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
