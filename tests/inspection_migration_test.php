@@ -194,6 +194,14 @@ try {
     if (get_app_config('inspection_data_migration_version', '') !== '1') {
         throw new RuntimeException('Abgeschlossene Gesamtmigration wurde nicht dauerhaft markiert.');
     }
+    $controllerSource = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
+    $importTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_import.php');
+    if (!str_contains($controllerSource, 'i.test_date DESC')
+        || !str_contains($controllerSource, 'uksort($pending')
+        || !str_contains($importTemplate, "format_datetime_for_display((string) \$pendingDate, 'd.m.Y')")
+    ) {
+        throw new RuntimeException('Offene Messdaten werden nicht mit aktuellem Datum zuerst und lokal formatiert angezeigt.');
+    }
     echo "PASS: Legacy-Schutz, Quellsicherung und idempotente Importmigration\n";
 } finally {
     R::close();

@@ -396,7 +396,7 @@ final class InspectionController
     {
         $pending = [];
         $pendingExpression = InspectionEvaluationService::sqlStatusExpression('i');
-        $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.measurements_json, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE {$pendingExpression} IN ('in_progress','data_missing') ORDER BY i.test_date ASC, i.id ASC");
+        $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.measurements_json, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE {$pendingExpression} IN ('in_progress','data_missing') ORDER BY CASE WHEN COALESCE(i.test_date, '') = '' THEN 1 ELSE 0 END, i.test_date DESC, i.id DESC");
         foreach ($inspections as $inspection) {
             if ((int) ($inspection['device_id'] ?? 0) <= 0) continue;
             $date = trim((string) ($inspection['test_date'] ?? '')) ?: 'ohne Datum';
@@ -410,7 +410,11 @@ final class InspectionController
                 'result_status' => InspectionEvaluationService::normalizeStatus((string) ($inspection['result_status'] ?? ''), (string) ($inspection['status'] ?? '')),
             ];
         }
-        ksort($pending, SORT_NATURAL);
+        uksort($pending, static function (string $left, string $right): int {
+            if ($left === 'ohne Datum') return 1;
+            if ($right === 'ohne Datum') return -1;
+            return strcmp($right, $left);
+        });
         return $pending;
     }
 
