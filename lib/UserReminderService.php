@@ -41,6 +41,7 @@ final class UserReminderService
         $today = $now->format('Y-m-d');
         $identities = self::identities($user);
         $missing = self::missingInspections($identities, $today);
+        $dedupeKey = 'inspection-missing:user:' . $userId . ':open-v2';
         if ($missing !== []) {
             $identity = $identities[0] ?? '';
             $grouped = [];
@@ -62,7 +63,6 @@ final class UserReminderService
             $otherDays = count($grouped) - count($displayDates);
             if ($otherDays > 0) $lines[] = '… weitere ' . $otherDays . ' Tage';
             $message = count($missing) . ' offene Prüfung' . (count($missing) === 1 ? '' : 'en') . " mit fehlenden Daten oder ohne Abschluss an den zuletzt geprüften Tagen:\n" . implode("\n", $lines);
-            $dedupeKey = 'inspection-missing:user:' . $userId . ':open-v2';
             $reminders[] = self::reminder('Offene Prüfdaten', $message, 'warning', $actionUrl, 'inspection');
             NotificationRepository::publish(
                 [$userId],
@@ -70,6 +70,8 @@ final class UserReminderService
                 $message,
                 ['dedupe_key' => $dedupeKey, 'category' => 'inspection', 'severity' => 'warning', 'action_url' => $actionUrl]
             );
+        } else {
+            self::markDedupeRead($dedupeKey, $userId);
         }
 
         return $reminders;

@@ -28,7 +28,7 @@ if (InspectionEvaluationService::requiredMeasurementKeys('Klasse II') !== ['RISO
     throw new RuntimeException('Importierte Schutzklassenbezeichnung wurde nicht zentral normalisiert.');
 }
 $legacySql = InspectionEvaluationService::sqlStatusExpression('i');
-if (!str_contains($legacySql, "i.classification = 'legacy'")) {
+if (!str_contains($legacySql, "i.classification = 'legacy'") || !str_contains($legacySql, "THEN 'legacy'")) {
     throw new RuntimeException('Legacy-Prüfungen werden im Prüfstatus nicht als abgeschlossen behandelt.');
 }
 
