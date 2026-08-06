@@ -39,12 +39,12 @@ final class UserReminderService
         }
 
         $today = $now->format('Y-m-d');
+        $since = $now->modify('-10 days')->format('Y-m-d');
         $identities = self::identities($user);
-        $missing = self::missingInspections($identities, $today);
+        $missing = self::missingInspections($identities, $since, $today);
         if ($missing !== []) {
             $identity = $identities[0] ?? '';
-            $firstDate = (string) ($missing[0]['test_date'] ?? $today);
-            $query = http_build_query(['from' => $firstDate, 'to' => $now->modify('-1 day')->format('Y-m-d'), 'examiner' => $identity, 'result_status' => 'open']);
+            $query = http_build_query(['from' => $since, 'to' => $now->modify('-1 day')->format('Y-m-d'), 'examiner' => $identity, 'result_status' => 'open']);
             $actionUrl = url_for('pruefungen?' . $query);
             $grouped = [];
             foreach ($missing as $item) {
@@ -55,16 +55,10 @@ final class UserReminderService
             foreach ($grouped as $date => $items) {
                 $label = (new DateTimeImmutable($date))->format('d.m.Y');
                 $lines[] = $label . ': ' . count($items) . ' Prüfung' . (count($items) === 1 ? '' : 'en');
-                foreach (array_slice($items, 0, 10) as $item) {
-                    $number = trim((string) ($item['inspection_number'] ?? '')) ?: ('#' . (int) ($item['inspection_id'] ?? 0));
-                    $device = trim((string) ($item['device_name'] ?? ''));
-                    $lines[] = '  · ' . $number . ($device !== '' ? ' · ' . $device : '');
-                }
-                if (count($items) > 10) $lines[] = '  · … weitere ' . (count($items) - 10);
             }
-            $message = count($missing) . ' offene Prüfung' . (count($missing) === 1 ? '' : 'en') . " mit fehlenden Daten oder ohne Abschluss:\n" . implode("\n", $lines);
+            $message = count($missing) . ' offene Prüfung' . (count($missing) === 1 ? '' : 'en') . " mit fehlenden Daten oder ohne Abschluss in den letzten zehn Tagen:\n" . implode("\n", $lines);
             $dedupeKey = 'inspection-missing:user:' . $userId . ':open-v2';
-            $reminders[] = self::reminder('Offene Prüfdaten', $message, 'warning', $actionUrl, 'inspection', $missing);
+            $reminders[] = self::reminder('Offene Prüfdaten', $message, 'warning', $actionUrl, 'inspection');
             NotificationRepository::publish(
                 [$userId],
                 'Offene Prüfdaten',
@@ -83,11 +77,11 @@ final class UserReminderService
 
     /** @param list<string> $identities */
     /** @return list<array{inspection_id:int,test_date:string,inspection_number:string,device_name:string}> */
-    private static function missingInspections(array $identities, string $beforeDate): array
+    private static function missingInspections(array $identities, string $sinceDate, string $beforeDate): array
     {
         if ($identities === []) return [];
-        $where = ["i.test_date < ?", "COALESCE(i.test_date, '') <> ''", InspectionEvaluationService::sqlStatusExpression('i') . " IN ('in_progress','data_missing')"];
-        $args = [$beforeDate];
+        $where = ["i.test_date >= ?", "i.test_date < ?", "COALESCE(i.test_date, '') <> ''", InspectionEvaluationService::sqlStatusExpression('i') . " IN ('in_progress','data_missing')"];
+        $args = [$sinceDate, $beforeDate];
         $clauses = [];
         foreach ($identities as $identity) {
             $clauses[] = 'LOWER(TRIM(COALESCE(i.examiner, \'\'))) = ?';
