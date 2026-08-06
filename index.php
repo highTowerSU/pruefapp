@@ -77,6 +77,7 @@ $routes = [
     ['GET', '/admin/nutzer/{userId}/profil/nachweis/{certificateId}', fn($params, $isHx) => ProfileController::certificate($params, $isHx)],
     ['GET', '/profil/nachweis/{certificateId}', fn($params, $isHx) => ProfileController::certificate($params, $isHx)],
     ['GET', '/downloads', fn($params, $isHx) => DownloadController::index($params, $isHx)],
+    ['GET', '/downloads/benachrichtigungen', fn($params, $isHx) => DownloadController::notifications($params, $isHx)],
     ['POST', '/downloads/{id}/gelesen', fn($params, $isHx) => DownloadController::markRead($params, $isHx)],
     ['POST', '/downloads/benachrichtigung/{id}/gelesen', fn($params, $isHx) => DownloadController::markNotificationRead($params, $isHx)],
     ['POST', '/downloads/gelesen', fn($params, $isHx) => DownloadController::markAllRead($params, $isHx)],

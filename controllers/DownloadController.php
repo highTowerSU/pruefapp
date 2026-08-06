@@ -11,6 +11,7 @@ final class DownloadController
         $notificationId = max(0, (int) ($params['id'] ?? 0));
         if ($notificationId <= 0) return [404, [], 'Benachrichtigung nicht gefunden.'];
         \Ceneos\PhpBase\Notification\NotificationRepository::markRead($notificationId, (int) $user->id);
+        if ($isHx) return self::notificationFragment();
         return [303, ['Location' => url_for('downloads')], ''];
     }
 
@@ -19,7 +20,43 @@ final class DownloadController
         $user = current_user();
         if ($user === null) return [403, [], ''];
         \Ceneos\PhpBase\Notification\NotificationRepository::markAllRead((int) $user->id);
+        if ($isHx) return self::notificationFragment();
         return [303, ['Location' => url_for('downloads')], ''];
+    }
+
+    public static function notifications(array $params, bool $isHx): array
+    {
+        if (current_user() === null) return [403, [], ''];
+        return self::notificationDropdownFragment();
+    }
+
+    private static function notificationFragment(): array
+    {
+        return (($_SERVER['HTTP_HX_TARGET'] ?? '') === 'downloads-notifications')
+            ? [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('_notifications_list.php', ['notifications' => self::notificationsForDisplay(100)])]
+            : self::notificationDropdownFragment();
+    }
+
+    private static function notificationDropdownFragment(): array
+    {
+        return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('_notifications_dropdown.php', [
+            'notifications' => self::notificationsForDisplay(6),
+            'downloadsUrl' => url_for('downloads'),
+        ])];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function notificationsForDisplay(int $limit): array
+    {
+        $notifications = current_user_notifications($limit);
+        foreach ($notifications as &$notification) {
+            $actionUrl = trim((string) ($notification['action_url'] ?? ''));
+            if ($actionUrl !== '' && preg_match('#/pruefapp/(?:bin/)?(.+)$#', $actionUrl, $match) === 1) {
+                $notification['action_url'] = url_for($match[1]);
+            }
+        }
+        unset($notification);
+        return $notifications;
     }
 
     public static function markRead(array $params, bool $isHx): array
@@ -60,13 +97,7 @@ final class DownloadController
         // Older CLI-created notifications could contain the filesystem path
         // derived from bin/cron.php. Convert those historical links to the
         // public application route while keeping normal URLs untouched.
-        foreach ($notifications = current_user_notifications(100) as &$notification) {
-            $actionUrl = trim((string) ($notification['action_url'] ?? ''));
-            if ($actionUrl !== '' && preg_match('#/pruefapp/(?:bin/)?(.+)$#', $actionUrl, $match) === 1) {
-                $notification['action_url'] = url_for($match[1]);
-            }
-        }
-        unset($notification);
+        $notifications = self::notificationsForDisplay(100);
 
         $content = render_template('downloads.php', [
             'jobs' => $jobs,
