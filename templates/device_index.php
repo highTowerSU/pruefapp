@@ -178,9 +178,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       if (toggle && window.bootstrap?.Dropdown) window.bootstrap.Dropdown.getOrCreateInstance(toggle).hide();
       focusScanner();
     }));
-    document.addEventListener('hidden.bs.dropdown', focusScanner);
     document.addEventListener('shown.bs.collapse', focusScanner);
-    document.addEventListener('shown.bs.dropdown', focusScanner);
     focusScanner();
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');
