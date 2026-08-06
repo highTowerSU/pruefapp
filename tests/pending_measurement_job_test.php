@@ -17,7 +17,7 @@ foreach ([
     [$worker, 'Keine Importdateien gefunden.'],
     [$jobs, "'pending_measurement_import' => 'Messdaten importieren'"],
     [$template, 'Im Hintergrund importieren'],
-    [$template, 'zentral als Hintergrundaufgaben verarbeitet'],
+    [$template, 'laufen im Hintergrund'],
     [$template, 'pruefappImportAutoRefreshBound'],
     [$template, "event.target?.id !== 'import-auto-refresh'"],
     [$template, 'Benachrichtigungen'],

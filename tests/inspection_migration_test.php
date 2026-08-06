@@ -194,6 +194,13 @@ try {
     if (get_app_config('inspection_data_migration_version', '') !== '1') {
         throw new RuntimeException('Abgeschlossene Gesamtmigration wurde nicht dauerhaft markiert.');
     }
+    $sourceStatus = new ReflectionMethod(InspectionMigrationService::class, 'statusFromRawSource');
+    $sourceStatus->setAccessible(true);
+    if ($sourceStatus->invoke(null, ['Prüfergebnis' => 'bestanden']) !== InspectionEvaluationService::PASSED
+        || $sourceStatus->invoke(null, ['audit_ok' => false]) !== InspectionEvaluationService::FAILED
+    ) {
+        throw new RuntimeException('Überlieferte CSV- oder Phoenix-Ergebnisse werden nicht wiederhergestellt.');
+    }
     $controllerSource = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
     $importTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_import.php');
     if (!str_contains($controllerSource, 'i.test_date DESC')

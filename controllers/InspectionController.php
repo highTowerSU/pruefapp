@@ -503,9 +503,10 @@ final class InspectionController
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
-            if (isset($_FILES['csv'], $_FILES['ods']) && is_array($_FILES['csv']) && is_array($_FILES['ods'])) {
+            if (isset($_FILES['csv']) && is_array($_FILES['csv'])) {
                 try {
-                    $directory = self::savePairUpload($_FILES['csv'], $_FILES['ods']);
+                    $odsUpload = is_array($_FILES['ods'] ?? null) ? $_FILES['ods'] : ['error' => UPLOAD_ERR_NO_FILE];
+                    $directory = self::savePairUpload($_FILES['csv'], $odsUpload);
                     $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0), 'test_date' => trim((string) ($_POST['default_test_date'] ?? ''))];
                     $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true);
                     if (is_array($rules)) $defaults['import_rules'] = $rules;
@@ -601,17 +602,19 @@ final class InspectionController
 
     private static function savePairUpload(array $csv, array $ods): string
     {
-        foreach ([$csv, $ods] as $file) {
-            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new RuntimeException('Bitte genau eine CSV- und eine ODS-Datei auswählen.');
-        }
+        if (($csv['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new RuntimeException('Bitte eine CSV-Datei auswählen.');
+        $odsPresent = ($ods['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+        if (!$odsPresent && ($ods['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) throw new RuntimeException('ODS-Datei konnte nicht hochgeladen werden.');
         $csvName = basename((string) ($csv['name'] ?? ''));
         $odsName = basename((string) ($ods['name'] ?? ''));
-        if (!preg_match('/\.csv$/i', $csvName) || !preg_match('/\.ods$/i', $odsName) || strcasecmp(pathinfo($csvName, PATHINFO_FILENAME), pathinfo($odsName, PATHINFO_FILENAME)) !== 0) {
+        if (!preg_match('/\.csv$/i', $csvName)) throw new RuntimeException('Die Messdaten müssen eine CSV-Datei sein.');
+        if ($odsPresent && (!preg_match('/\.ods$/i', $odsName) || strcasecmp(pathinfo($csvName, PATHINFO_FILENAME), pathinfo($odsName, PATHINFO_FILENAME)) !== 0)) {
             throw new RuntimeException('CSV und ODS müssen denselben Dateinamen (unterschiedliche Endung) haben.');
         }
         $directory = sys_get_temp_dir() . '/pruefapp-upload-' . bin2hex(random_bytes(8));
         if (!mkdir($directory, 0700, true)) throw new RuntimeException('Temporäres Upload-Verzeichnis konnte nicht angelegt werden.');
-        if (!move_uploaded_file((string) $csv['tmp_name'], $directory . '/' . $csvName) || !move_uploaded_file((string) $ods['tmp_name'], $directory . '/' . $odsName)) throw new RuntimeException('Upload konnte nicht gespeichert werden.');
+        if (!move_uploaded_file((string) $csv['tmp_name'], $directory . '/' . $csvName)) throw new RuntimeException('CSV-Upload konnte nicht gespeichert werden.');
+        if ($odsPresent && !move_uploaded_file((string) $ods['tmp_name'], $directory . '/' . $odsName)) throw new RuntimeException('ODS-Upload konnte nicht gespeichert werden.');
         return $directory;
     }
 

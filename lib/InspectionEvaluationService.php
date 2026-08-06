@@ -50,6 +50,25 @@ final class InspectionEvaluationService
         return self::DATA_MISSING;
     }
 
+    /**
+     * Canonical status for a persisted inspection. This mirrors the SQL
+     * projection so a historic report never becomes "Daten fehlen" merely
+     * because it predates the current measurement catalogue.
+     *
+     * @param array<string,mixed>|object $inspection
+     */
+    public static function statusForInspection(array|object $inspection): string
+    {
+        $value = static function (string $key) use ($inspection): string {
+            if (is_array($inspection)) return (string) ($inspection[$key] ?? '');
+            return isset($inspection->{$key}) ? (string) $inspection->{$key} : '';
+        };
+        $classification = strtolower(trim($value('classification')));
+        $testDate = trim($value('test_date'));
+        if ($classification === self::LEGACY || ($testDate !== '' && $testDate < '2025-01-01')) return self::LEGACY;
+        return self::normalizeStatus($value('result_status'), $value('status'));
+    }
+
     /** Transitional SQL projection used while the resumable migration is running. */
     public static function sqlStatusExpression(string $alias = 'i'): string
     {

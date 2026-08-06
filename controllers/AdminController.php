@@ -369,6 +369,7 @@ class AdminController
         }
         $cronHealthy = $cronAge !== null && $cronAge <= 300;
         $cronPendingJobs = BackgroundJobService::pending(200);
+        $cronRecentJobs = BackgroundJobService::latest(30);
 
         $content = render_template('audit_log.php', [
             'entries' => $events['entries'],
@@ -387,6 +388,7 @@ class AdminController
             'cronAge' => $cronAge,
             'cronHealthy' => $cronHealthy,
             'cronPendingJobs' => $cronPendingJobs,
+            'cronRecentJobs' => $cronRecentJobs,
             'revisionPage' => $revisionPage,
             'revisionPages' => $revisionPages,
             'revisionTotal' => $revisionTotal,

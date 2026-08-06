@@ -63,7 +63,8 @@ $actionPresentation = static function (string $action): array {
 <?php endif; ?>
 
 <details class="card mb-4" id="audit-events-panel">
-<summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-body-secondary" aria-hidden="true"></i><span>Ereignisprotokoll</span></span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-events-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-events-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></span></summary>
+<summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-body-secondary" aria-hidden="true"></i><span>Ereignisprotokoll</span></span><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></summary>
+<div class="audit-panel-controls"><label class="small fw-normal mb-0" for="audit-events-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-events-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <form method="get" action="<?= htmlspecialchars(url_for('admin/audit-log'), ENT_QUOTES) ?>" hx-get="<?= htmlspecialchars(url_for('admin/audit-log'), ENT_QUOTES) ?>" hx-target="#audit-events-panel" hx-select="#audit-events-panel" hx-swap="outerHTML" hx-push-url="true" class="card card-body bg-body-tertiary mb-3">
     <div class="row g-3 align-items-end">
@@ -222,10 +223,13 @@ $actionPresentation = static function (string $action): array {
 <tr><td><span class="fw-semibold"><?= htmlspecialchars((string) ($job['label'] ?? 'Hintergrundaufgabe')) ?></span><br><span class="small text-body-secondary font-monospace"><?= htmlspecialchars(substr($jobId, 0, 12)) ?></span></td><td><span class="badge text-bg-<?= $stateClass ?>"><?= htmlspecialchars($stateLabel) ?></span></td><td><?= $total > 0 ? htmlspecialchars($step . ' von ' . $total) : '—' ?></td><td><?= htmlspecialchars((string) ($job['current_device'] ?? '—')) ?></td><td class="text-break"><?= htmlspecialchars((string) ($job['message'] ?: 'Wartet auf einen freien Arbeitsabschnitt.')) ?></td><td><?php if (!empty($job['cancellable'])): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/audit-log/job/' . rawurlencode($jobId) . '/abbrechen'), ENT_QUOTES) ?>" hx-post="<?= htmlspecialchars(url_for('admin/audit-log/job/' . rawurlencode($jobId) . '/abbrechen'), ENT_QUOTES) ?>" hx-target="#audit-tasks-panel" hx-select="#audit-tasks-panel" hx-swap="none" onsubmit="return confirm('Diese Hintergrundaufgabe wirklich abbrechen?');"><button type="submit" class="btn btn-sm btn-danger text-nowrap"><i class="fa-solid fa-stop me-1" aria-hidden="true"></i>Abbrechen</button></form><?php else: ?><span class="small text-body-secondary"><i class="fa-solid fa-lock me-1" aria-hidden="true"></i>Systemaufgabe</span><?php endif; ?></td></tr>
 <?php endforeach; ?></tbody></table></div>
 <?php else: ?><p class="small text-body-secondary mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Keine ausstehenden Hintergrundaufgaben.</p><?php endif; ?>
+<?php $recentJobs = array_values(array_filter($cronRecentJobs ?? [], static fn(array $job): bool => !in_array((string) ($job['state'] ?? ''), ['queued', 'running', 'cancel_requested'], true))); ?>
+<?php if ($recentJobs !== []): ?><details class="mt-3"><summary class="small fw-semibold"><i class="fa-solid fa-clock-rotate-left me-1" aria-hidden="true"></i>Letzte Hintergrundaufgaben (<?= count($recentJobs) ?>)</summary><div class="table-responsive mt-2"><table class="table table-sm align-middle mb-0"><thead><tr><th>Aufgabe</th><th>Status</th><th>Fortschritt</th><th>Meldung</th></tr></thead><tbody><?php foreach ($recentJobs as $job): $state = (string) ($job['state'] ?? ''); $total = (int) ($job['total'] ?? 0); $step = (int) ($job['step'] ?? 0); $stateClass = $state === 'done' ? 'success' : ($state === 'cancelled' ? 'secondary' : 'danger'); $stateLabel = ['done' => 'Fertig', 'cancelled' => 'Abgebrochen', 'error' => 'Fehlgeschlagen'][$state] ?? $state; ?><tr><td><span class="fw-semibold"><?= htmlspecialchars((string) ($job['label'] ?? 'Hintergrundaufgabe')) ?></span><br><span class="small text-body-secondary font-monospace"><?= htmlspecialchars(substr((string) ($job['id'] ?? ''), 0, 12)) ?></span></td><td><span class="badge text-bg-<?= $stateClass ?>"><?= htmlspecialchars($stateLabel) ?></span></td><td><?= $total > 0 ? htmlspecialchars($step . ' von ' . $total) : '—' ?></td><td class="text-break"><?= htmlspecialchars((string) ($job['message'] ?? '—')) ?></td></tr><?php endforeach; ?></tbody></table></div></details><?php endif; ?>
 </div>
 </section>
 <details class="card mb-4" id="audit-cron-panel"<?= !empty($cronRunFilters) ? ' open' : '' ?> >
-<summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock text-body-secondary" aria-hidden="true"></i><span>Prüfapp-Cron</span></span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-cron-show-debug"><input class="form-check-input me-1" type="checkbox" id="audit-cron-show-debug"> Debug-Meldungen anzeigen</label><label class="small fw-normal mb-0" for="audit-cron-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-cron-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></span></summary>
+<summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock text-body-secondary" aria-hidden="true"></i><span>Prüfapp-Cron</span></span><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></summary>
+<div class="audit-panel-controls"><label class="small fw-normal mb-0" for="audit-cron-show-debug"><input class="form-check-input me-1" type="checkbox" id="audit-cron-show-debug"> Debug-Meldungen anzeigen</label><label class="small fw-normal mb-0" for="audit-cron-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-cron-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
 <?php if (!empty($cronRunFilters)): ?><div class="alert alert-primary py-2 d-flex flex-wrap align-items-center justify-content-between gap-2"><span><i class="fa-solid fa-filter me-1" aria-hidden="true"></i><?= count($cronRunFilters) === 1 ? 'Cron-Lauf' : count($cronRunFilters) . ' Cron-Läufe' ?> ausgewählt: <span class="font-monospace"><?= htmlspecialchars(implode(', ', $cronRunFilters)) ?></span></span><a class="btn btn-sm btn-outline-primary" href="<?= htmlspecialchars(url_for('admin/audit-log#audit-cron-panel'), ENT_QUOTES) ?>" hx-get="<?= htmlspecialchars(url_for('admin/audit-log#audit-cron-panel'), ENT_QUOTES) ?>" hx-target="#audit-cron-panel" hx-select="#audit-cron-panel" hx-swap="outerHTML" hx-push-url="true"><i class="fa-solid fa-filter-circle-xmark me-1" aria-hidden="true"></i>Filter löschen</a></div><?php endif; ?>
@@ -251,19 +255,6 @@ $actionPresentation = static function (string $action): array {
 <script>
 (() => {
   const configs = [['audit-tasks-panel', 'audit-tasks-auto-refresh', 'pruefapp-audit-tasks-refresh'], ['audit-events-panel', 'audit-events-auto-refresh', 'pruefapp-audit-events-refresh'], ['audit-cron-panel', 'audit-cron-auto-refresh', 'pruefapp-audit-cron-refresh'], ['audit-revisions-panel', 'audit-revisions-auto-refresh', 'pruefapp-audit-revisions-refresh']];
-  if (!window.pruefappAuditSummaryControlsBound) {
-    window.pruefappAuditSummaryControlsBound = true;
-    document.addEventListener('click', event => {
-      const control = event.target.closest('.audit-panel-summary input[type="checkbox"], .audit-panel-summary label');
-      if (!control) return;
-      const checkbox = control.matches('input') ? control : (control.querySelector('input[type="checkbox"]') || document.getElementById(control.htmlFor));
-      if (!checkbox || checkbox.disabled) return;
-      event.preventDefault();
-      event.stopPropagation();
-      checkbox.checked = !checkbox.checked;
-      checkbox.dispatchEvent(new Event('change', {bubbles: true}));
-    }, true);
-  }
   const setup = ([panelId, toggleId, key]) => {
     const panel = document.getElementById(panelId); const toggle = document.getElementById(toggleId);
     if (!panel || !toggle || toggle.dataset.bound === '1') return;
@@ -325,12 +316,13 @@ $actionPresentation = static function (string $action): array {
 })();
 </script>
 <style>
-.audit-panel-summary{justify-content:flex-start!important;text-align:left!important}.audit-panel-summary>span:first-child{min-width:0;justify-content:flex-start;text-align:left}.audit-panel-summary>span:last-child{margin-left:auto}.audit-panel-summary>span:first-child>i{flex:0 0 auto}.audit-panel-summary label{white-space:nowrap}
+#audit-events-panel,#audit-cron-panel,#audit-revisions-panel{position:relative}.audit-panel-summary{justify-content:flex-start!important;text-align:left!important;padding-right:15rem}.audit-panel-summary>span:first-child{min-width:0;justify-content:flex-start;text-align:left}.audit-panel-summary>span:last-child{margin-left:auto}.audit-panel-summary>span:first-child>i{flex:0 0 auto}.audit-panel-controls{position:absolute;z-index:2;top:.55rem;right:.9rem;display:flex;align-items:center;gap:.85rem}.audit-panel-controls label{white-space:nowrap}@media(max-width:767.98px){.audit-panel-summary{padding-right:1rem}.audit-panel-controls{position:static;padding:.25rem .75rem .5rem;justify-content:flex-end;flex-wrap:wrap}}
 #audit-page-sections{display:flex;flex-direction:column;gap:0}#audit-page-sections>#audit-tasks-panel{order:1}#audit-page-sections>#audit-cron-panel{order:2}#audit-page-sections>#audit-import-runs,#audit-page-sections>#audit-events-panel{order:3}#audit-page-sections>#audit-revisions-panel{order:4}.audit-inline-detail td{background:var(--bs-tertiary-bg);border-left:4px solid var(--bs-primary)}
 </style>
 
 <details class="card mb-4" id="audit-revisions-panel">
-<summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-body-secondary" aria-hidden="true"></i><span>Datenrevisionen (ReBean)</span></span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-revisions-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-revisions-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></span></summary>
+<summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-body-secondary" aria-hidden="true"></i><span>Datenrevisionen (ReBean)</span></span><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></summary>
+<div class="audit-panel-controls"><label class="small fw-normal mb-0" for="audit-revisions-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-revisions-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <?php if (empty($revisions)): ?>
     <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>

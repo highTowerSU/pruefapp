@@ -33,6 +33,9 @@ if (!str_contains($legacySql, "i.classification = 'legacy'")
     || !str_contains($legacySql, "THEN 'legacy'")) {
     throw new RuntimeException('Legacy-Prüfungen werden im Prüfstatus nicht als abgeschlossen behandelt.');
 }
+if (InspectionEvaluationService::statusForInspection(['test_date' => '2024-12-31', 'result_status' => '', 'status' => '']) !== InspectionEvaluationService::LEGACY) {
+    throw new RuntimeException('Historische Prüfungen dürfen nicht als fehlende Daten erscheinen.');
+}
 
 $failedMeasurements = $measurements;
 $failedMeasurements[0]['numeric_value'] = 0.51;

@@ -150,12 +150,36 @@ final class InspectionMigrationService
         $snapshot = R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) ($row['id'] ?? 0)]);
         $original = json_decode((string) $snapshot, true);
         if (is_array($original)) {
-            return InspectionEvaluationService::normalizeStatus(
+            $status = InspectionEvaluationService::normalizeStatus(
                 (string) ($original['result_status'] ?? ''),
                 (string) ($original['status'] ?? '')
             );
+            if ($status !== InspectionEvaluationService::DATA_MISSING) return $status;
+            $fromSource = self::statusFromRawSource($original);
+            if ($fromSource !== InspectionEvaluationService::DATA_MISSING) return $fromSource;
         }
-        return InspectionEvaluationService::normalizeStatus((string) ($row['result_status'] ?? ''), (string) ($row['status'] ?? ''));
+        $status = InspectionEvaluationService::normalizeStatus((string) ($row['result_status'] ?? ''), (string) ($row['status'] ?? ''));
+        return $status !== InspectionEvaluationService::DATA_MISSING ? $status : self::statusFromRawSource($row);
+    }
+
+    /** @param array<string,mixed> $source */
+    private static function statusFromRawSource(array $source): string
+    {
+        if (array_key_exists('audit_ok', $source) && is_bool($source['audit_ok'])) {
+            return $source['audit_ok'] ? InspectionEvaluationService::PASSED : InspectionEvaluationService::FAILED;
+        }
+        foreach (['Prüfergebnis', 'pruefergebnis', 'result', 'Ergebnis', 'ergebnis'] as $key) {
+            if (!array_key_exists($key, $source) || is_array($source[$key])) continue;
+            $status = InspectionEvaluationService::normalizeStatus((string) $source[$key]);
+            if ($status !== InspectionEvaluationService::DATA_MISSING) return $status;
+        }
+        foreach (['raw_json', 'csv_row_json', 'source_row_json'] as $key) {
+            $raw = json_decode((string) ($source[$key] ?? ''), true);
+            if (!is_array($raw)) continue;
+            $status = self::statusFromRawSource($raw);
+            if ($status !== InspectionEvaluationService::DATA_MISSING) return $status;
+        }
+        return InspectionEvaluationService::DATA_MISSING;
     }
 
     /** @param array<string,mixed> $row */
