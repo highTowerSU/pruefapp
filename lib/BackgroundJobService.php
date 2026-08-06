@@ -113,6 +113,17 @@ final class BackgroundJobService
         return $job !== null && NotificationRepository::markJobRead((int) $job['id'], $userId) >= 0;
     }
 
+    /** Keeps one current notification for a one-time maintenance migration. */
+    public static function deduplicateImportReconciliationNotifications(): int
+    {
+        $title = self::label('import_result_reconciliation') . ' abgeschlossen';
+        $ids = array_map('intval', R::getCol(
+            'SELECT id FROM notification WHERE category = ? AND title = ? ORDER BY id DESC',
+            ['import', $title]
+        ));
+        return NotificationRepository::deleteMany(array_slice($ids, 1));
+    }
+
     /** Import old /tmp status files once; safe to call on every cron start. */
     public static function importLegacyJobs(): int
     {

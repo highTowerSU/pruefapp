@@ -1,9 +1,10 @@
 <?php
 /** @var array<int, array<string, mixed>> $notifications */
 /** @var string $downloadsUrl */
+$oob = !empty($oob);
 $unreadNotifications = array_filter($notifications, static fn(array $entry): bool => !empty($entry['notification_unread']));
 ?>
-<div id="notifications-dropdown-content" hx-get="<?= htmlspecialchars(url_for('downloads/benachrichtigungen'), ENT_QUOTES) ?>" hx-trigger="shown.bs.dropdown from:#notificationsDropdown" hx-swap="outerHTML">
+<div id="notifications-dropdown-content"<?= $oob ? ' hx-swap-oob="outerHTML"' : '' ?> hx-get="<?= htmlspecialchars(url_for('downloads/benachrichtigungen'), ENT_QUOTES) ?>" hx-trigger="shown.bs.dropdown from:#notificationsDropdown" hx-swap="outerHTML">
   <button class="btn btn-outline-navbar position-relative" type="button" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Benachrichtigungen" title="Benachrichtigungen">
     <i class="fa-solid fa-bell" aria-hidden="true"></i>
     <?php if ($unreadNotifications !== []): ?><span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"><?= count($unreadNotifications) ?><span class="visually-hidden"> ungelesene Benachrichtigungen</span></span><?php endif; ?>

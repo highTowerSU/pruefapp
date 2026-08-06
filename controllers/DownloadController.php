@@ -32,9 +32,17 @@ final class DownloadController
 
     private static function notificationFragment(): array
     {
-        return (($_SERVER['HTTP_HX_TARGET'] ?? '') === 'downloads-notifications')
-            ? [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('_notifications_list.php', ['notifications' => self::notificationsForDisplay(100)])]
-            : self::notificationDropdownFragment();
+        if (($_SERVER['HTTP_HX_TARGET'] ?? '') !== 'downloads-notifications') {
+            return self::notificationDropdownFragment();
+        }
+        $notifications = self::notificationsForDisplay(100);
+        $content = render_template('_notifications_list.php', ['notifications' => $notifications])
+            . render_template('_notifications_dropdown.php', [
+                'notifications' => array_slice($notifications, 0, 6),
+                'downloadsUrl' => url_for('downloads'),
+                'oob' => true,
+            ]);
+        return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
     }
 
     private static function notificationDropdownFragment(): array

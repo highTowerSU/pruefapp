@@ -123,8 +123,12 @@ try {
         }
     }
     $importReconciliationVersion = trim((string) get_app_config('import_result_reconciliation_version', ''));
+    BackgroundJobService::deduplicateImportReconciliationNotifications();
     $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
-    if ($importReconciliationVersion !== '2' || $importsToReconcile > 0) {
+    // Version 2 intentionally leaves genuinely inconclusive imports open.
+    // Re-queuing those rows after a successful run produced a fresh completed
+    // job (and notification) on every cron tick without making progress.
+    if ($importReconciliationVersion !== '2') {
         if ($importsToReconcile > 0) {
             BackgroundJobService::enqueue(
                 'import_result_reconciliation',
