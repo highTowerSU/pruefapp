@@ -32,8 +32,52 @@ final class MaintenanceJobHandler
             'phoenix_pdf_restore' => self::restorePhoenixPdfs($checkpoint, $current, $total, $tick),
             'measurement_migration' => self::measurementMigration($checkpoint, $current, $total, $tick),
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
+            'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             default => throw new InvalidArgumentException('Unbekannte Wartungsaufgabe: ' . $type),
         };
+    }
+
+    /**
+     * Corrects rows which were imported before the canonical classification
+     * existed. It deliberately only touches historical reports and resumes
+     * from the last primary key after every worker slice.
+     *
+     * @param array<string,mixed> $checkpoint
+     * @param callable $tick
+     * @return array<string,mixed>
+     */
+    private static function legacyClassificationMigration(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $migrated = max(0, (int) ($checkpoint['migrated'] ?? 0));
+        $errors = is_array($checkpoint['errors'] ?? null) ? $checkpoint['errors'] : [];
+        $eligible = "COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'";
+        if ($total <= 0) {
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
+        }
+
+        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            try {
+                $result = InspectionMigrationService::migrate($lastId);
+                if (($result['classification'] ?? '') !== 'legacy') {
+                    throw new RuntimeException('Historische Prüfung wurde nicht als Legacy klassifiziert.');
+                }
+                $migrated++;
+                $message = 'Historischer Prüfbericht wurde dauerhaft als Legacy klassifiziert.';
+            } catch (Throwable $exception) {
+                $errors[] = ['inspection_id' => $lastId, 'error' => $exception->getMessage()];
+                $errors = array_slice($errors, -50);
+                $message = 'Legacy-Klassifikation fehlgeschlagen; der Datensatz bleibt unverändert und wird erneut versucht.';
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'migrated' => $migrated, 'errors' => $errors];
+            $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
+        }
+
+        set_app_config('legacy_classification_migration_version', '2');
+        set_app_config('legacy_classification_migration_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+        return ['migrated' => $migrated, 'errors' => $errors, 'processed' => $current];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
@@ -152,8 +196,10 @@ final class MaintenanceJobHandler
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $restored = max(0, (int) ($checkpoint['restored'] ?? 0));
         $unresolved = max(0, (int) ($checkpoint['unresolved'] ?? 0));
-        $completed = InspectionEvaluationService::sqlStatusExpression('inspection') . " IN ('passed','failed')";
-        $eligible = "{$completed} AND classification = 'legacy'";
+        // Legacy is a classification, not a negative result. The shared
+        // status projection intentionally emits `legacy` for it, therefore
+        // restoration must use the canonical stored outcome directly.
+        $eligible = "classification = 'legacy' AND result_status IN ('passed','failed')";
         if ($total <= 0) {
             $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
         }

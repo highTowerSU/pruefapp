@@ -106,6 +106,22 @@ if ($legacyImportLogs > 0) $log($legacyImportLogs . ' ältere Importprotokoll(e)
 // guarantee that repeated Cron invocations do not create parallel copies.
 try {
     $migrationRoot = app_data_root() . '/migration';
+    // V2 correction for historical imports which predate the classification
+    // column. Do not rely on the old all-data migration marker: it may have
+    // been completed before these rows were imported or classified.
+    $legacyClassificationVersion = trim((string) get_app_config('legacy_classification_migration_version', ''));
+    $legacyUnclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
+    if ($legacyClassificationVersion !== '2' || $legacyUnclassified > 0) {
+        if ($legacyUnclassified > 0) {
+            BackgroundJobService::enqueue(
+                'legacy_classification_migration',
+                ['type' => 'legacy_classification_migration'],
+                ['total' => $legacyUnclassified, 'dedupe_key' => 'maintenance:legacy-classification:v2', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('legacy_classification_migration_version', '2');
+        }
+    }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
     if ($inspectionDataMigrationVersion !== '1') {
         $total = (int) R::getCell('SELECT COUNT(*) FROM inspection');

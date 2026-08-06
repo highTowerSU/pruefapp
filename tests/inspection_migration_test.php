@@ -125,6 +125,33 @@ try {
         throw new RuntimeException('Legacy-Originalbericht wurde nicht wieder als maßgebliches Dokument verknüpft.');
     }
 
+    // Simulate rows imported after the former all-data migration had already
+    // completed: V2 must classify them by date, not leave them as missing data.
+    foreach (['100016494-23', '100016495-24'] as $offset => $number) {
+        $historical = R::dispense('inspection');
+        $historical->device_id = $deviceId;
+        $historical->dedupe_key = 'late-legacy-' . $offset;
+        $historical->source_type = 'json';
+        $historical->external_number = $number;
+        $historical->test_date = $offset === 0 ? '2023-07-29' : '2024-07-29';
+        $historical->result_status = 'bestanden';
+        $historical->status = 'completed';
+        $historical->raw_json = '{"audit_ok":true}';
+        $historical->checklist_json = '[]';
+        $historical->measurements_json = '[]';
+        R::store($historical);
+    }
+    MaintenanceJobHandler::run(
+        ['type' => 'legacy_classification_migration', 'checkpoint' => [], 'current' => 0, 'total' => 2],
+        static function (): void {
+        }
+    );
+    if ((int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number IN ('100016494-23', '100016495-24') AND classification = 'legacy'") !== 2
+        || get_app_config('legacy_classification_migration_version', '') !== '2'
+    ) {
+        throw new RuntimeException('Die gezielte V2-Legacy-Migration hat historische Prüfungen nicht dauerhaft klassifiziert.');
+    }
+
     $savedCheckpoint = [];
     try {
         MaintenanceJobHandler::run(

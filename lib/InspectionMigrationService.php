@@ -134,6 +134,15 @@ final class InspectionMigrationService
     private static function backup(array $row, string $classification): void
     {
         if ((int) R::getCell('SELECT COUNT(*) FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]) > 0) {
+            // A previous broad migration may have captured the source before
+            // its historical classification was known. Keep the immutable
+            // source snapshot, but correct its searchable classification.
+            if ($classification === 'legacy') {
+                R::exec(
+                    "UPDATE inspection_source_snapshot SET classification = 'legacy' WHERE inspection_id = ?",
+                    [(int) $row['id']]
+                );
+            }
             return;
         }
         $sourceRow = trim((string) ($row['csv_row_json'] ?? ''));
