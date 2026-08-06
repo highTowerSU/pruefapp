@@ -268,12 +268,11 @@ $actionPresentation = static function (string $action): array {
       try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
       if (!toggle.checked) return;
       if (panel.tagName === 'DETAILS') panel.open = true; save();
-      if (window.htmx) { panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 30s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); panel.setAttribute('hx-swap', 'outerHTML'); window.htmx.process(panel); }
-      else { toggle.checked = false; toggle.disabled = true; toggle.title = 'Automatische Aktualisierung benötigt HTMX.'; }
+      if (!window.htmx) return;
+      panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 30s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); panel.setAttribute('hx-swap', 'outerHTML'); window.htmx.process(panel);
     };
     toggle.addEventListener('change', enable); panel.addEventListener('toggle', save); restore(); enable();
   };
-  configs.forEach(setup);
   const debugToggle = () => {
     const toggle = document.getElementById('audit-cron-show-debug');
     if (!toggle || toggle.dataset.bound === '1') return;
@@ -285,7 +284,6 @@ $actionPresentation = static function (string $action): array {
     };
     toggle.addEventListener('change', apply); apply();
   };
-  debugToggle();
   const selectedRuns = kind => [...document.querySelectorAll(`.audit-run-checkbox[data-run-kind="${kind}"]:checked`)].map(input => input.value).filter(Boolean);
   const targetFor = kind => kind === 'cron' ? '#audit-cron-panel' : '#audit-events-panel';
   const selectedUrl = kind => {
@@ -310,8 +308,8 @@ $actionPresentation = static function (string $action): array {
       document.querySelectorAll(`[data-run-export="${kind}"]`).forEach(button => { if (button.dataset.bound === '1') return; button.dataset.bound = '1'; button.addEventListener('click', () => { const values = selectedRuns(kind); if (!values.length) return; const form = document.createElement('form'); form.method = 'post'; form.action = '<?= htmlspecialchars(url_for('admin/audit-log/export'), ENT_QUOTES) ?>'; form.target = '_blank'; [['kind', kind], ['format', button.dataset.format || 'json'], ['ids', values.join(',')]].forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.appendChild(input); }); document.body.appendChild(form); form.submit(); form.remove(); }); });
     });
   };
-  bindRunSelection();
-  window.addEventListener('DOMContentLoaded', () => { configs.forEach(setup); debugToggle(); bindRunSelection(); });
+  const initialize = () => { configs.forEach(setup); debugToggle(); bindRunSelection(); };
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initialize, {once: true}); else initialize();
   document.body.addEventListener('htmx:afterSwap', () => { configs.forEach(setup); debugToggle(); bindRunSelection(); });
   document.body.addEventListener('audit-tasks-refresh', () => { if (window.htmx) window.htmx.ajax('GET', window.location.href, {target: '#audit-tasks-panel', select: '#audit-tasks-panel', swap: 'outerHTML'}); });
 })();
