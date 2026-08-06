@@ -5,6 +5,7 @@ declare(strict_types=1);
 $template = (string) file_get_contents(dirname(__DIR__) . '/templates/device_index.php');
 $navbar = (string) file_get_contents(dirname(__DIR__) . '/templates/_navbar.php');
 $downloads = (string) file_get_contents(dirname(__DIR__) . '/templates/downloads.php');
+$filterRenderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
 
 $lookupPosition = strpos($template, 'id="device-inspection-lookup"');
 $filterPosition = strpos($template, "render_common_filter_panel('device'");
@@ -21,6 +22,7 @@ $checks = [
     [$newInspectionPosition !== false && $deviceOverviewPosition !== false && $newInspectionPosition < $deviceOverviewPosition, 'Neue Prüfung ist nicht der erste Eintrag im Geräte-Dropdown.'],
     [str_contains($downloads, 'badge text-bg-secondary') && !str_contains($downloads, 'badge text-bg-light border text-body-secondary ms-1">Historie'), 'Das Historie-Badge hat keinen sicheren Dark-Mode-Kontrast.'],
     [str_contains($navbar, 'navbar-themed sticky-top'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
+    [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', $roomLabels"), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

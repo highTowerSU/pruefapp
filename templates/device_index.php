@@ -74,7 +74,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 </section>
 <?php endif; ?>
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
-<?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'examinerOptions')) ?>
+<?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'roomLabels', 'examinerOptions')) ?>
 <style>.common-filter-panel{container-type:inline-size}.common-filter-panel .form-label{font-weight:600}.common-filter-panel .form-control,.common-filter-panel .form-select{min-height:2.75rem}@media(max-width:767.98px){.common-filter-panel{padding:1rem}.common-filter-panel .row{--bs-gutter-y:.75rem}}</style>
 
 <?php if (false): ?>

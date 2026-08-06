@@ -9,12 +9,14 @@ function render_common_filter_panel(string $context, array $filters, array $data
     $id = $context === 'billing' ? 'billing-common-filter' : 'device-common-filter';
     $value = static fn(string $key, string $fallback = ''): string => htmlspecialchars((string) ($filters[$key] ?? $fallback), ENT_QUOTES);
     $selected = static fn(string $key, string $option): string => (string) ($filters[$key] ?? '') === $option ? ' selected' : '';
-    $options = static function (array $items, string $selectedValue, string $labelKey = 'name'): string {
+    $roomLabels = is_array($data['roomLabels'] ?? null) ? $data['roomLabels'] : [];
+    $options = static function (array $items, string $selectedValue, string $labelKey = 'name', array $labels = []): string {
         $html = '';
         foreach ($items as $item) {
             $id = (string) ((int) ($item->id ?? 0));
             $label = (string) ($item->{$labelKey} ?? $item->name ?? '');
             if ($labelKey === 'number') $label = (string) (($item->number ?? '') ?: ($item->name ?? ''));
+            if ($labels !== [] && isset($labels[(int) ($item->id ?? 0)])) $label = (string) $labels[(int) $item->id];
             $html .= '<option value="' . htmlspecialchars($id, ENT_QUOTES) . '"' . ($selectedValue === $id ? ' selected' : '') . '>' . htmlspecialchars($label) . '</option>';
         }
         return $html;
@@ -38,7 +40,7 @@ function render_common_filter_panel(string $context, array $filters, array $data
         <div class="col-12 col-sm-6 col-md-4 col-xl-2"><label class="form-label"><i class="fa-solid fa-location-dot me-1" aria-hidden="true"></i>Standort</label><select class="form-select" name="site_id"><option value="">Alle Standorte</option><?= $options($sites, (string) ($filters['site_id'] ?? '')) ?></select></div>
         <div class="col-12 col-sm-6 col-md-4 col-xl-2"><label class="form-label"><i class="fa-solid fa-city me-1" aria-hidden="true"></i>Gebäude</label><select class="form-select" name="building_id"><option value="">Alle Gebäude</option><?= $options($buildings, (string) ($filters['building_id'] ?? '')) ?></select></div>
         <div class="col-12 col-sm-6 col-md-4 col-xl-2"><label class="form-label"><i class="fa-solid fa-layer-group me-1" aria-hidden="true"></i>Etage</label><select class="form-select" name="floor_id"><option value="">Alle Etagen</option><?= $options($floors, (string) ($filters['floor_id'] ?? '')) ?></select></div>
-        <div class="col-12 col-sm-6 col-md-4 col-xl-2"><label class="form-label"><i class="fa-solid fa-door-open me-1" aria-hidden="true"></i>Raum</label><select class="form-select" name="room_id"><option value="">Alle Räume</option><?= $options($rooms, (string) ($filters['room_id'] ?? ''), 'number') ?></select></div>
+        <div class="col-12 col-sm-6 col-md-4 col-xl-2"><label class="form-label"><i class="fa-solid fa-door-open me-1" aria-hidden="true"></i>Raum</label><select class="form-select" name="room_id"><option value="">Alle Räume</option><?= $options($rooms, (string) ($filters['room_id'] ?? ''), 'number', $roomLabels) ?></select></div>
         <div class="col-6 col-md-3 col-xl-2"><label class="form-label"><i class="fa-solid fa-calendar-days me-1" aria-hidden="true"></i>Von</label><input class="form-control" type="date" name="from" value="<?= $value('from') ?>"></div>
         <div class="col-6 col-md-3 col-xl-2"><label class="form-label"><i class="fa-solid fa-calendar-days me-1" aria-hidden="true"></i>Bis</label><input class="form-control" type="date" name="to" value="<?= $value('to') ?>"></div>
         <div class="col-12 col-sm-6 col-md-3 col-xl-2"><label class="form-label"><i class="fa-solid fa-user-check me-1" aria-hidden="true"></i>Prüfer</label><select class="form-select" name="examiner"><option value="">Alle Prüfer</option><?php foreach ($examiners as $examiner): ?><option value="<?= htmlspecialchars((string) ($examiner['value'] ?? ''), ENT_QUOTES) ?>"<?= (string) ($filters['examiner'] ?? '') === (string) ($examiner['value'] ?? '') ? ' selected' : '' ?>><?= htmlspecialchars((string) ($examiner['label'] ?? $examiner['value'] ?? '')) ?></option><?php endforeach; ?></select></div>

@@ -27,6 +27,10 @@ if (InspectionEvaluationService::rslLimit(12.6) !== 0.5) throw new RuntimeExcept
 if (InspectionEvaluationService::requiredMeasurementKeys('Klasse II') !== ['RISO', 'IBER']) {
     throw new RuntimeException('Importierte Schutzklassenbezeichnung wurde nicht zentral normalisiert.');
 }
+$legacySql = InspectionEvaluationService::sqlStatusExpression('i');
+if (!str_contains($legacySql, "i.classification = 'legacy'")) {
+    throw new RuntimeException('Legacy-Prüfungen werden im Prüfstatus nicht als abgeschlossen behandelt.');
+}
 
 $failedMeasurements = $measurements;
 $failedMeasurements[0]['numeric_value'] = 0.51;

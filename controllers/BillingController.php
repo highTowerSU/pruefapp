@@ -24,10 +24,26 @@ final class BillingController
         $buildings = R::findAll('building', ' ORDER BY name ');
         $floors = R::findAll('floor', ' ORDER BY sort_order, name ');
         $rooms = R::findAll('room', ' ORDER BY name ');
+        $roomLabels = [];
+        foreach ($rooms as $room) {
+            $floor = R::load('floor', (int) $room->floor_id);
+            $building = R::load('building', (int) $floor->building_id);
+            $site = R::load('site', (int) $building->site_id);
+            $customer = R::load('customer', (int) $site->customer_id);
+            $area = (int) ($room->area_id ?? 0) > 0 ? R::load('area', (int) $room->area_id) : null;
+            $identifier = StructureController::roomIdentifier($room, $floor, $area);
+            $roomLabels[(int) $room->id] = implode(' · ', array_filter([
+                trim((string) ($customer->name ?? '')),
+                trim((string) ($site->name ?? '')),
+                trim((string) ($building->name ?? '')),
+                $identifier,
+                trim((string) ($room->name ?? '')),
+            ]));
+        }
         $examinerOptions = InspectionFilterService::examinerOptions();
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
-        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
+        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
         unset($_SESSION['billing_message']);
         return $isHx ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content] : [200, [], render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content])];
     }

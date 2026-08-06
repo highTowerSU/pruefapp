@@ -54,6 +54,8 @@ final class InspectionEvaluationService
             throw new InvalidArgumentException('Ungültiger SQL-Alias für den Prüfstatus.');
         }
         return "CASE "
+            . "WHEN {$alias}.classification = 'legacy' AND {$alias}.result_status IN ('failed','durchgefallen','nicht bestanden','failed_test','nok') THEN 'failed' "
+            . "WHEN {$alias}.classification = 'legacy' THEN 'passed' "
             . "WHEN {$alias}.result_status IN ('passed','bestanden','ok','gut') THEN 'passed' "
             . "WHEN {$alias}.result_status IN ('failed','durchgefallen','nicht bestanden','failed_test','nok') THEN 'failed' "
             . "WHEN {$alias}.result_status IN ('in_progress','ausstehend','offen','pending') OR {$alias}.status IN ('draft','measurement_pending','in_progress') THEN 'in_progress' "
