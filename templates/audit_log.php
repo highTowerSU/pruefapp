@@ -254,8 +254,15 @@ $actionPresentation = static function (string $action): array {
   if (!window.pruefappAuditSummaryControlsBound) {
     window.pruefappAuditSummaryControlsBound = true;
     document.addEventListener('click', event => {
-      if (event.target.closest('.audit-panel-summary label, .audit-panel-summary input')) event.stopPropagation();
-    });
+      const control = event.target.closest('.audit-panel-summary input[type="checkbox"], .audit-panel-summary label');
+      if (!control) return;
+      const checkbox = control.matches('input') ? control : (control.querySelector('input[type="checkbox"]') || document.getElementById(control.htmlFor));
+      if (!checkbox || checkbox.disabled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      checkbox.checked = !checkbox.checked;
+      checkbox.dispatchEvent(new Event('change', {bubbles: true}));
+    }, true);
   }
   const setup = ([panelId, toggleId, key]) => {
     const panel = document.getElementById(panelId); const toggle = document.getElementById(toggleId);

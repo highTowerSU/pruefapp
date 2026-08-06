@@ -13,7 +13,7 @@ $checks = [
     [str_contains($template, 'data-run-show-all="cron"') && str_contains($template, 'data-run-show-all="import"'), 'Run tables lack an all-show action.'],
     [str_contains($template, 'hx-push-url="true"'), 'Audit navigation does not synchronize the URL.'],
     [str_contains($template, "panel.setAttribute('hx-trigger', 'every 30s')"), 'Auto-refresh is not HTMX based.'],
-    [str_contains($template, 'pruefappAuditSummaryControlsBound') && str_contains($template, "event.target.closest('.audit-panel-summary label, .audit-panel-summary input')"), 'Audit-Aktualisierungsschalter löst beim Anklicken weiterhin die Ausklappbox aus.'],
+    [str_contains($template, 'pruefappAuditSummaryControlsBound') && str_contains($template, "event.target.closest('.audit-panel-summary input[type=\"checkbox\"], .audit-panel-summary label')") && str_contains($template, "checkbox.dispatchEvent(new Event('change', {bubbles: true}))"), 'Audit-Aktualisierungsschalter löst beim Anklicken weiterhin die Ausklappbox aus.'],
     [!str_contains($template, 'location.reload'), 'Audit template still performs a full page reload.'],
     [!preg_match('/<meta[^>]+refresh/i', $template), 'Audit template contains a meta refresh.'],
     [str_contains($controller, "cron_runs"), 'Controller does not support multiple Cron runs.'],
