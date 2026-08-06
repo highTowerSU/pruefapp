@@ -5,6 +5,7 @@ declare(strict_types=1);
 $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
 $worker = (string) file_get_contents(dirname(__DIR__) . '/bin/phoenix_sync_worker.php');
 $jobs = (string) file_get_contents(dirname(__DIR__) . '/lib/BackgroundJobService.php');
+$importService = (string) file_get_contents(dirname(__DIR__) . '/lib/ElectricalInspectionImportService.php');
 $template = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_import.php');
 
 foreach ([
@@ -20,6 +21,8 @@ foreach ([
     [$template, 'pruefappImportAutoRefreshBound'],
     [$template, "event.target?.id !== 'import-auto-refresh'"],
     [$template, 'Benachrichtigungen'],
+    [$importService, 'if ($hasBenning && $odsPath === null)'],
+    [$importService, 'importPendingMeasurements($path, trim((string) ($defaults[\'test_date\'] ?? \'\')))'],
 ] as [$source, $needle]) {
     if (!str_contains($source, $needle)) throw new RuntimeException('Messdatenimport läuft nicht vollständig über Hintergrundjob, Cron und Benachrichtigung: ' . $needle);
 }

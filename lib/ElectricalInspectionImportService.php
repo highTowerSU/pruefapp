@@ -298,6 +298,14 @@ final class ElectricalInspectionImportService
         }
 
         $odsPath = $this->matchingOdsPath($path);
+        // A Benning CSV can legitimately arrive without its companion ODS.
+        // In that situation it contains measurement data, but no reliable
+        // device master data.  Do not create guessed devices: attach it to
+        // the already imported inspection via its stable test date and
+        // Speicherplatz instead.
+        if ($hasBenning && $odsPath === null) {
+            return $this->importPendingMeasurements($path, trim((string) ($defaults['test_date'] ?? '')));
+        }
         $ods = $this->readOds($odsPath);
         $result = ['imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => []];
         $rows = $headerlessRows ?? null;
