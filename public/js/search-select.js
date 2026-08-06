@@ -14,13 +14,19 @@
         return;
       }
 
+      const externalLabel = (select.id && document.querySelector(`label[for="${CSS.escape(select.id)}"]`))
+        || (select.previousElementSibling && select.previousElementSibling.tagName === 'LABEL' ? select.previousElementSibling : null);
+      const placeholder = externalLabel
+        ? ''
+        : (Object.prototype.hasOwnProperty.call(select.dataset, 'placeholder') ? select.dataset.placeholder : 'Auswählen und suchen');
+
       new window.TomSelect(select, {
         allowEmptyOption: true,
         closeAfterSelect: true,
         create: false,
         maxOptions: null,
         openOnFocus: true,
-        placeholder: Object.prototype.hasOwnProperty.call(select.dataset, 'placeholder') ? select.dataset.placeholder : 'Auswählen und suchen',
+        placeholder,
         searchField: ['text'],
         selectOnTab: true,
         render: {
