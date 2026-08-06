@@ -140,7 +140,7 @@ class AdminController
                 ];
             }
         }
-        $jobs = array_values(array_map(static fn(array $job): array => [
+        $presentImportJob = static fn(array $job): array => [
             'id' => (string) ($job['id'] ?? ''),
             'type' => (string) ($job['type'] ?? ''),
             'label' => BackgroundJobService::label((string) ($job['type'] ?? '')),
@@ -148,7 +148,12 @@ class AdminController
             'current' => (int) ($job['current'] ?? 0),
             'total' => (int) ($job['total'] ?? 0),
             'message' => (string) ($job['message'] ?? ''),
-        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['directory_import', 'pending_measurement_import', 'phoenix_sync'], true))));
+            'created_at' => (string) ($job['created_at'] ?? ''),
+            'finished_at' => (string) ($job['finished_at'] ?? ''),
+        ];
+        $isImportJob = static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['directory_import', 'pending_measurement_import', 'phoenix_sync'], true);
+        $jobs = array_values(array_map($presentImportJob, array_filter(BackgroundJobService::pending(200), $isImportJob)));
+        $recentJobs = array_values(array_map($presentImportJob, array_filter(BackgroundJobService::latest(40), $isImportJob)));
 
         return [200, $headers, json_encode([
             'ok' => true,
@@ -160,6 +165,7 @@ class AdminController
             'csv_ods_pairs' => $pairs,
             'sample_files' => $files,
             'pending_import_jobs' => $jobs,
+            'recent_import_jobs' => $recentJobs,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 

@@ -11,6 +11,7 @@ foreach ([
     [str_contains($controller, 'RecursiveDirectoryIterator'), 'Importdateien werden nicht rekursiv geprüft.'],
     [str_contains($controller, 'csv_without_matching_ods_count'), 'CSV/ODS-Paarprüfung fehlt.'],
     [str_contains($controller, 'pending_import_jobs'), 'Wartende Importaufgaben werden nicht ausgegeben.'],
+    [str_contains($controller, 'recent_import_jobs'), 'Abgeschlossene oder fehlgeschlagene Importaufgaben sind nicht diagnosierbar.'],
     [!str_contains($controller, 'file_get_contents($file->getPathname())'), 'Der Diagnoseendpunkt darf keine Importdateiinhalte auslesen.'],
 ] as [$ok, $message]) {
     if (!$ok) throw new RuntimeException($message);
