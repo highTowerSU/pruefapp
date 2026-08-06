@@ -27,6 +27,17 @@ final class InspectionMigrationService
                 (string) ($row['result_status'] ?? ''),
                 (string) ($row['status'] ?? '')
             );
+            $sourceStatus = self::sourceStatus($row, $classification);
+            if ($classification === 'migrated_import'
+                && $oldStatus === InspectionEvaluationService::DATA_MISSING
+                && in_array($sourceStatus, [InspectionEvaluationService::PASSED, InspectionEvaluationService::FAILED], true)
+            ) {
+                // A previous migration may have marked a completed import as
+                // incomplete solely because old source formats did not carry
+                // every individual checklist answer. Preserve the verified
+                // source result from the immutable snapshot during reruns.
+                $oldStatus = $sourceStatus;
+            }
             $catalogId = self::activeCatalogId();
             $result = [
                 'status' => $oldStatus,
@@ -53,7 +64,7 @@ final class InspectionMigrationService
                 $result['reason'] = 'Das Prüfdatum fehlt; der Datensatz kann nicht als Legacy oder aktuelle Prüfung eingeordnet werden.';
                 InspectionDataService::addDiagnostic($inspectionId, 'test_date_missing', $result['reason']);
             } else {
-                $answers = self::answers($row, $catalogId, $oldStatus);
+                $answers = self::answers($row, $catalogId, $oldStatus, $classification);
                 $measurements = self::measurements($row);
                 InspectionDataService::replaceAnswers($inspectionId, $answers, $catalogId);
                 InspectionDataService::replaceMeasurements($inspectionId, $measurements, self::evaluationInput($row));
@@ -131,6 +142,23 @@ final class InspectionMigrationService
     }
 
     /** @param array<string,mixed> $row */
+    private static function sourceStatus(array $row, string $classification): string
+    {
+        if ($classification !== 'migrated_import') {
+            return InspectionEvaluationService::normalizeStatus((string) ($row['result_status'] ?? ''), (string) ($row['status'] ?? ''));
+        }
+        $snapshot = R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) ($row['id'] ?? 0)]);
+        $original = json_decode((string) $snapshot, true);
+        if (is_array($original)) {
+            return InspectionEvaluationService::normalizeStatus(
+                (string) ($original['result_status'] ?? ''),
+                (string) ($original['status'] ?? '')
+            );
+        }
+        return InspectionEvaluationService::normalizeStatus((string) ($row['result_status'] ?? ''), (string) ($row['status'] ?? ''));
+    }
+
+    /** @param array<string,mixed> $row */
     private static function backup(array $row, string $classification): void
     {
         if ((int) R::getCell('SELECT COUNT(*) FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]) > 0) {
@@ -176,7 +204,7 @@ final class InspectionMigrationService
     }
 
     /** @param array<string,mixed> $row @return list<array<string,mixed>> */
-    private static function answers(array $row, int $catalogId, string $oldStatus): array
+    private static function answers(array $row, int $catalogId, string $oldStatus, string $classification): array
     {
         $catalog = R::getAll("SELECT * FROM inspection_catalog_item WHERE version_id = ? AND input_type = 'boolean' ORDER BY sort_order, id", [$catalogId]);
         $checklist = json_decode((string) ($row['checklist_json'] ?? ''), true);
@@ -211,7 +239,10 @@ final class InspectionMigrationService
         foreach ($catalog as $item) {
             $value = trim((string) ($mapped[$item['item_key']] ?? ''));
             $outcome = InspectionEvaluationService::normalizeOutcome($value);
-            if ($outcome === 'missing' && $sourcePassed && $oldStatus === InspectionEvaluationService::PASSED) {
+            if ($outcome === 'missing'
+                && $oldStatus === InspectionEvaluationService::PASSED
+                && ($sourcePassed || $classification === 'migrated_import')
+            ) {
                 $value = 'Aus dem abgeschlossenen Quellsystem als bestanden überliefert';
                 $outcome = 'passed';
             }

@@ -102,6 +102,15 @@ try {
         throw new RuntimeException('Quelldaten wurden vor der Migration nicht vollständig gesichert.');
     }
 
+    // A former migration could have stored data_missing although the imported
+    // source explicitly recorded a completed result. A rerun must recover the
+    // source result from the immutable snapshot instead of keeping it open.
+    R::exec("UPDATE inspection SET result_status = 'data_missing', status = 'data_missing' WHERE id = ?", [$importedId]);
+    InspectionMigrationService::migrate($importedId);
+    if ((string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$importedId]) !== 'passed') {
+        throw new RuntimeException('Die erneute Importmigration hat das überlieferte bestandene Ergebnis nicht wiederhergestellt.');
+    }
+
     InspectionMigrationService::migrate($importedId);
     if ((int) R::getCell('SELECT COUNT(*) FROM inspection_source_snapshot WHERE inspection_id = ?', [$importedId]) !== 1) {
         throw new RuntimeException('Wiederholte Migration hat doppelte Sicherungen erzeugt.');

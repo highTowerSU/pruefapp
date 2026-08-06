@@ -23,6 +23,7 @@ final class BackgroundJobService
         'measurement_migration' => 'Messdaten-Aufbereitung',
         'inspection_data_migration' => 'Prüfungsdaten migrieren',
         'legacy_classification_migration' => 'Legacy-Prüfungen klassifizieren',
+        'import_result_reconciliation' => 'Import-Ergebnisse abgleichen',
         'inspection_pdf_zip' => 'Ausgewählte Prüfberichte',
     ];
 
@@ -77,7 +78,7 @@ final class BackgroundJobService
         if ($job === null) return;
         JobQueue::finish($jobId, 'done', $result, $message !== '' ? $message : self::label($job['type']) . ' abgeschlossen.');
         $owner = (int) $job['owner_user_id'];
-        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration'], true) ? self::adminUserIds() : []);
+        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation'], true) ? self::adminUserIds() : []);
         if ($recipients !== []) {
             NotificationRepository::publish($recipients, self::label($job['type']) . ' abgeschlossen', $message ?: 'Die Aufgabe wurde erfolgreich abgeschlossen.', [
                 'category' => str_contains($job['type'], 'import') || $job['type'] === 'phoenix_sync' ? 'import' : 'background_job',
@@ -211,6 +212,7 @@ final class BackgroundJobService
         return match ($type) {
             'directory_import', 'phoenix_sync' => 40,
             'legacy_classification_migration' => 50,
+            'import_result_reconciliation' => 45,
             'inspection_data_migration' => 40,
             'examiner_migration', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration' => 30,
             'pdf_regenerate', 'missing_reports' => 20,

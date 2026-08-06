@@ -33,6 +33,7 @@ final class MaintenanceJobHandler
             'measurement_migration' => self::measurementMigration($checkpoint, $current, $total, $tick),
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
+            'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             default => throw new InvalidArgumentException('Unbekannte Wartungsaufgabe: ' . $type),
         };
     }
@@ -78,6 +79,38 @@ final class MaintenanceJobHandler
         set_app_config('legacy_classification_migration_version', '2');
         set_app_config('legacy_classification_migration_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['migrated' => $migrated, 'errors' => $errors, 'processed' => $current];
+    }
+
+    /** Re-evaluates completed imports affected by the former checklist-only migration rule. */
+    private static function importResultReconciliation(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $reconciled = max(0, (int) ($checkpoint['reconciled'] ?? 0));
+        $errors = is_array($checkpoint['errors'] ?? null) ? $checkpoint['errors'] : [];
+        $eligible = "classification = 'migrated_import' AND result_status = 'data_missing'";
+        if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
+
+        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            try {
+                $result = InspectionMigrationService::migrate($lastId);
+                $reconciled++;
+                $message = ($result['status'] ?? '') === InspectionEvaluationService::DATA_MISSING
+                    ? 'Importprüfung bleibt offen; das Quellergebnis ist nicht eindeutig bestätigt.'
+                    : 'Überliefertes Quellergebnis wurde mit den Prüfdaten abgeglichen.';
+            } catch (Throwable $exception) {
+                $errors[] = ['inspection_id' => $lastId, 'error' => $exception->getMessage()];
+                $errors = array_slice($errors, -50);
+                $message = 'Abgleich der Importprüfung fehlgeschlagen; der Datensatz wird erneut versucht.';
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'reconciled' => $reconciled, 'errors' => $errors];
+            $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
+        }
+
+        set_app_config('import_result_reconciliation_version', '2');
+        set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+        return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */

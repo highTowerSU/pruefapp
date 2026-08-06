@@ -122,6 +122,19 @@ try {
             set_app_config('legacy_classification_migration_version', '2');
         }
     }
+    $importReconciliationVersion = trim((string) get_app_config('import_result_reconciliation_version', ''));
+    $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
+    if ($importReconciliationVersion !== '2' || $importsToReconcile > 0) {
+        if ($importsToReconcile > 0) {
+            BackgroundJobService::enqueue(
+                'import_result_reconciliation',
+                ['type' => 'import_result_reconciliation'],
+                ['total' => $importsToReconcile, 'dedupe_key' => 'maintenance:import-result-reconciliation:v2', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('import_result_reconciliation_version', '2');
+        }
+    }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
     if ($inspectionDataMigrationVersion !== '1') {
         $total = (int) R::getCell('SELECT COUNT(*) FROM inspection');
