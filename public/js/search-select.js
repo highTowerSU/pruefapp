@@ -20,7 +20,7 @@
         create: false,
         maxOptions: null,
         openOnFocus: true,
-        placeholder: select.dataset.placeholder || 'Auswählen und suchen',
+        placeholder: Object.prototype.hasOwnProperty.call(select.dataset, 'placeholder') ? select.dataset.placeholder : 'Auswählen und suchen',
         searchField: ['text'],
         selectOnTab: true,
         render: {
