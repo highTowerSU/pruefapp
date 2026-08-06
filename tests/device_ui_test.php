@@ -14,7 +14,7 @@ $deviceOverviewPosition = strpos($navbar, 'Geräteübersicht</a>');
 $checks = [
     [$lookupPosition !== false && $filterPosition !== false && $lookupPosition < $filterPosition, 'Die Prüfungssuche steht nicht vor den Gerätefiltern.'],
     [str_contains($template, 'id="inspection-device-number"') && str_contains($template, 'autofocus'), 'Das Scannerfeld mit Autofokus fehlt.'],
-    [str_contains($template, "window.addEventListener('hashchange', focusScanner)") && str_contains($template, "event.preventDefault()") && str_contains($template, "getOrCreateInstance(toggle).hide()") && str_contains($template, "document.addEventListener('hidden.bs.dropdown', focusScanner)"), 'Der Scanneranker wird nicht ohne erneute Navigation fokussiert.'],
+    [str_contains($template, "window.addEventListener('hashchange', focusScanner)") && str_contains($template, "window.addEventListener('DOMContentLoaded', focusScanner)") && str_contains($template, "window.addEventListener('pageshow', focusScanner)") && str_contains($template, "event.preventDefault()") && str_contains($template, "getOrCreateInstance(toggle).hide()") && str_contains($template, "document.addEventListener('shown.bs.collapse', focusScanner)"), 'Der Scanneranker wird nach Navigation oder Bootstrap-Initialisierung nicht fokussiert.'],
     [str_contains($template, 'class="row g-3 device-form"'), 'Das gemeinsame Geräteformular besitzt nicht das geordnete Raster.'],
     [substr_count($template, '$form(') >= 2, 'Neuanlage und Bearbeitung verwenden nicht denselben Formular-Renderer.'],
     [!str_contains($template, 'fieldOrder') && !str_contains($template, 'const order ='), 'Die Formularreihenfolge wird weiterhin nachträglich per JavaScript verändert.'],

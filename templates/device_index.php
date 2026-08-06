@@ -159,12 +159,16 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       if (window.location.hash !== '#device-inspection-lookup') return;
       window.clearTimeout(scannerFocusTimer);
       scannerFocusTimer = window.setTimeout(() => {
+        if (document.visibilityState === 'hidden') return;
         panel.scrollIntoView({block: 'start'});
         numberInput.focus({preventScroll: true});
         numberInput.select();
-      }, 100);
+      }, 150);
     };
     window.addEventListener('hashchange', focusScanner);
+    window.addEventListener('DOMContentLoaded', focusScanner);
+    window.addEventListener('pageshow', focusScanner);
+    window.addEventListener('load', focusScanner);
     document.querySelectorAll('a[href$="#device-inspection-lookup"]').forEach(link => link.addEventListener('click', event => {
       const target = new URL(link.href, window.location.href);
       if (target.pathname !== window.location.pathname) return;
@@ -175,6 +179,8 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       focusScanner();
     }));
     document.addEventListener('hidden.bs.dropdown', focusScanner);
+    document.addEventListener('shown.bs.collapse', focusScanner);
+    document.addEventListener('shown.bs.dropdown', focusScanner);
     focusScanner();
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');
