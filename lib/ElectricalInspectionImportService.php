@@ -59,6 +59,10 @@ final class ElectricalInspectionImportService
             }
         }
 
+        if ((int) $stats['files'] === 0) {
+            throw new InvalidArgumentException('Keine Importdateien gefunden. Erwartet werden JSON, JSONL oder CSV; PDF-Dateien bitte als PDF-Quellverzeichnis angeben.');
+        }
+
         $this->persistImportLog($stats);
         audit_log('import_abgeschlossen', [
             '_correlation_id' => $defaults['_audit_correlation_id'],

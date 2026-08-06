@@ -13,6 +13,7 @@ foreach ([
     [$controller, 'move_uploaded_file($tmp, $storedFile)'],
     [$worker, "'pending_measurement_import'"],
     [$worker, 'importPendingMeasurements($realCsvPath'],
+    [$worker, 'Keine Importdateien gefunden.'],
     [$jobs, "'pending_measurement_import' => 'Messdaten importieren'"],
     [$template, 'Im Hintergrund importieren'],
     [$template, 'zentral als Hintergrundaufgaben verarbeitet'],

@@ -261,6 +261,9 @@ try {
                 sort($files, SORT_NATURAL | SORT_FLAG_CASE);
             }
         }
+        if ($files === []) {
+            throw new RuntimeException('Keine Importdateien gefunden. Das Importverzeichnis benötigt JSON, JSONL oder CSV; PDF-Dateien gehören in „PDF-Quellverzeichnis“.');
+        }
         $fileIndex = min((int) ($checkpoint['file_index'] ?? 0), count($files));
         $byteOffset = max(0, (int) ($checkpoint['byte_offset'] ?? 0));
         $stats = is_array($checkpoint['stats'] ?? null) ? $checkpoint['stats'] : ['files' => 0, 'imported' => 0, 'updated' => 0, 'devices' => 0, 'reports' => 0, 'skipped' => 0, 'errors' => []];
