@@ -22,6 +22,7 @@ $tests = [
     'user_reminder_test.php',
     'device_ui_test.php',
     'user_customer_access_test.php',
+    'navbar_sticky_test.php',
 ];
 $failed = 0;
 foreach ($tests as $test) {

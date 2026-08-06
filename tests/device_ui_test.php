@@ -22,7 +22,7 @@ $checks = [
     [!str_contains($template, 'fieldOrder') && !str_contains($template, 'const order ='), 'Die Formularreihenfolge wird weiterhin nachträglich per JavaScript verändert.'],
     [$newInspectionPosition !== false && $deviceOverviewPosition !== false && $newInspectionPosition < $deviceOverviewPosition, 'Neue Prüfung ist nicht der erste Eintrag im Geräte-Dropdown.'],
     [str_contains($downloads, 'badge text-bg-secondary') && !str_contains($downloads, 'badge text-bg-light border text-body-secondary ms-1">Historie'), 'Das Historie-Badge hat keinen sicheren Dark-Mode-Kontrast.'],
-    [str_contains($navbar, 'navbar-themed sticky-top'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
+    [str_contains($navbar, 'sticky-top app-navbar-shell') && str_contains($navbar, 'navbar-themed'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
     [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', " . '$roomLabels'), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
     [str_contains($searchSelect, "querySelectorAll('select:not([data-no-search])')") && str_contains($searchSelect, "plugins: ['dropdown_input']") && str_contains($searchSelect, 'if (select.tomselect)') && str_contains($searchSelect, 'externalLabel') && substr_count($template, 'plugins: [\'dropdown_input\']') >= 3, 'Nicht alle Dropdown-Selects verwenden das Dropdown-Input-Plugin.'],
     [str_contains($template, '$latestInspection = $deviceInspections[0]') && !str_contains($template, 'foreach ($deviceInspections as $inspectionForBadge)'), 'Das Gerätebadge wertet nicht ausschließlich die letzte Prüfung aus.'],

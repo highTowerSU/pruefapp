@@ -5,7 +5,8 @@ $navBackgroundColor = $navColors['background'] ?? '#0D6EFD';
 $navTextColor = $navColors['text'] ?? '#FFFFFF';
 $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $navTextColor);
 ?>
-<nav class="navbar navbar-expand-lg navbar-themed sticky-top mb-4 noprint" style="<?= htmlspecialchars($navStyle, ENT_QUOTES) ?>">
+<header class="sticky-top app-navbar-shell noprint">
+<nav class="navbar navbar-expand-lg navbar-themed" style="<?= htmlspecialchars($navStyle, ENT_QUOTES) ?>">
   <div class="container-fluid app-nav-container">
     <?php
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -240,3 +241,4 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     </div>
   </div>
 </nav>
+</header>
