@@ -16,6 +16,7 @@ $tests = [
     'billing_v1_test.php',
     'inspection_evaluation_test.php',
     'inspection_migration_test.php',
+    'pending_measurement_job_test.php',
     'inspection_filter_test.php',
     'user_reminder_test.php',
     'device_ui_test.php',

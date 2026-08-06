@@ -236,6 +236,18 @@ try {
         $stats = ['files' => max(0, count($index) - 1), 'output' => $zipPath, 'all_reports' => $all];
         BackgroundJobService::complete($jobId, ['stats' => $stats, 'output' => $zipPath], 'Der ZIP-Export steht zum Download bereit.');
         @unlink($workPath); exit(0);
+    } elseif (($payload['type'] ?? '') === 'pending_measurement_import') {
+        $csvPath = trim((string) ($payload['csv_path'] ?? ''));
+        $uploadRoot = realpath(app_data_root() . '/uploads/pending-measurements') ?: '';
+        $realCsvPath = realpath($csvPath) ?: '';
+        if ($uploadRoot === '' || $realCsvPath === '' || !str_starts_with($realCsvPath, $uploadRoot . DIRECTORY_SEPARATOR) || !is_file($realCsvPath)) {
+            throw new RuntimeException('Die hochgeladene Messdaten-CSV wurde nicht gefunden.');
+        }
+        $stats = (new ElectricalInspectionImportService())->importPendingMeasurements($realCsvPath, trim((string) ($payload['test_date'] ?? '')));
+        $message = (int) ($stats['updated'] ?? 0) . ' bestehende Prüfung(en) mit Messdaten aktualisiert; ' . (int) ($stats['skipped'] ?? 0) . ' Zeile(n) ohne passende Prüfung übersprungen.';
+        if ((int) ($stats['cable_length_required'] ?? 0) > 0) $message .= ' Bei ' . (int) $stats['cable_length_required'] . ' Messung(en) wird noch die Kabellänge benötigt.';
+        $progress(1, 1, '', $message);
+        @unlink($realCsvPath);
     } elseif (($payload['type'] ?? '') === 'directory_import') {
         $source = realpath((string) ($payload['directory'] ?? '')) ?: '';
         if ($source === '' || (!is_file($source) && !is_dir($source))) throw new RuntimeException('Importquelle wurde nicht gefunden.');

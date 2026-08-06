@@ -443,10 +443,11 @@ final class InspectionController
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         if ($phoenixJob !== '') {
             $job = self::readPhoenixJob($phoenixJob);
-            if (($job['state'] ?? '') === 'done') { $stats = $job['stats'] ?? null; $message = 'Phoenix-Sync abgeschlossen.'; }
-            elseif (($job['state'] ?? '') === 'error') $message = 'Phoenix-Sync fehlgeschlagen: ' . (string) ($job['error'] ?? 'Unbekannter Fehler');
-            elseif (($job['state'] ?? '') === 'cancelled' || ($job['state'] ?? '') === 'cancel_requested') $message = 'Phoenix-Sync wurde abgebrochen.';
-            else $message = 'Phoenix-Sync läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
+            $jobLabel = BackgroundJobService::label((string) ($job['type'] ?? 'phoenix_sync'));
+            if (($job['state'] ?? '') === 'done') { $stats = $job['stats'] ?? null; $message = $jobLabel . ' abgeschlossen.'; }
+            elseif (($job['state'] ?? '') === 'error') $message = $jobLabel . ' fehlgeschlagen: ' . (string) ($job['error'] ?? 'Unbekannter Fehler');
+            elseif (($job['state'] ?? '') === 'cancelled' || ($job['state'] ?? '') === 'cancel_requested') $message = $jobLabel . ' wurde abgebrochen.';
+            else $message = $jobLabel . ' läuft noch im Hintergrund. Diese Seite aktualisiert sich automatisch.';
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($_POST['action'] ?? '') === 'migrate_examiner_attribution') {
@@ -471,9 +472,17 @@ final class InspectionController
                     $date = trim((string) ($_POST['measurement_date'] ?? ''));
                     $tmp = (string) ($_FILES['measurement_csv']['tmp_name'] ?? '');
                     if ($tmp === '' || !is_uploaded_file($tmp)) throw new InvalidArgumentException('CSV-Datei fehlt.');
-                    $stats = (new ElectricalInspectionImportService())->importPendingMeasurements($tmp, $date);
-                    $message = (int) $stats['updated'] . ' bestehende Prüfung(en) mit Messdaten aktualisiert; ' . (int) $stats['skipped'] . ' Zeile(n) ohne passende Prüfung übersprungen.';
-                    if ((int) ($stats['cable_length_required'] ?? 0) > 0) $message .= ' Bei ' . (int) $stats['cable_length_required'] . ' Messung(en) wird wegen des Schutzleitergrenzwerts noch die Kabellänge benötigt.';
+                    $uploadRoot = app_data_root() . '/uploads/pending-measurements';
+                    if (!is_dir($uploadRoot) && !mkdir($uploadRoot, 0770, true) && !is_dir($uploadRoot)) throw new RuntimeException('Uploadverzeichnis konnte nicht angelegt werden.');
+                    $storedFile = $uploadRoot . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.csv';
+                    if (!move_uploaded_file($tmp, $storedFile)) throw new RuntimeException('CSV-Datei konnte nicht für die Hintergrundverarbeitung gespeichert werden.');
+                    $job = BackgroundJobService::enqueue('pending_measurement_import', [
+                        'type' => 'pending_measurement_import',
+                        'csv_path' => $storedFile,
+                        'test_date' => $date,
+                        'owner_user_id' => (int) (current_user()->id ?? 0),
+                    ], ['cancellable' => true]);
+                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
                 } catch (Throwable $exception) { $message = 'Messdatenimport nicht möglich: ' . $exception->getMessage(); }
             }
             if (($_POST['action'] ?? '') === 'directory_import_job') {
@@ -494,32 +503,22 @@ final class InspectionController
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
-            $directory = trim((string) ($_POST['directory'] ?? ''));
-            $reportsDirectory = trim((string) ($_POST['reports_directory'] ?? ''));
             if (isset($_FILES['csv'], $_FILES['ods']) && is_array($_FILES['csv']) && is_array($_FILES['ods'])) {
                 try {
                     $directory = self::savePairUpload($_FILES['csv'], $_FILES['ods']);
-                    $message = 'CSV/ODS-Paar hochgeladen und wird importiert.';
+                    $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0), 'test_date' => trim((string) ($_POST['default_test_date'] ?? ''))];
+                    $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true);
+                    if (is_array($rules)) $defaults['import_rules'] = $rules;
+                    $job = BackgroundJobService::enqueue('directory_import', [
+                        'type' => 'directory_import',
+                        'directory' => $directory,
+                        'defaults' => $defaults,
+                        'owner_user_id' => (int) (current_user()->id ?? 0),
+                    ]);
+                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
                 } catch (Throwable $exception) {
                     $message = 'Upload nicht möglich: ' . $exception->getMessage();
-                    $directory = '';
                 }
-            }
-            if ($directory === '') {
-                $importContent = render_template('inspection_import.php', ['message' => $message, 'stats' => $stats, 'jobs' => self::phoenixJobs(), 'importLogs' => self::importLogs(), 'cron' => self::cronStatus(), 'examinerUsers' => $examinerUsers, 'pendingMeasurementsByDate' => self::pendingMeasurementsByDate()]);
-                if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $importContent];
-                return [200, [], render_template('layout.php', ['title' => 'Prüfungen importieren', 'content' => $importContent])];
-            }
-            try {
-                $defaults = ['inspection_type' => trim((string) ($_POST['default_inspection_type'] ?? '')), 'examiner' => trim((string) ($_POST['default_examiner'] ?? '')), 'next_due_date' => trim((string) ($_POST['default_next_due_date'] ?? '')), 'next_due_offset_days' => (int) ($_POST['default_next_due_offset_days'] ?? 0)];
-                $rules = json_decode((string) ($_POST['import_rules'] ?? '[]'), true);
-                if (is_array($rules)) $defaults['import_rules'] = $rules;
-                $defaults = array_filter($defaults, static fn($value): bool => $value !== '' && $value !== 0);
-                $stats = (new ElectricalInspectionImportService())->importDirectory($directory, $reportsDirectory !== '' ? $reportsDirectory : null, $defaults);
-                $message = ($message ? $message . ' ' : '') . sprintf('%d Prüfungen importiert, %d aktualisiert, %d Geräte neu angelegt.', $stats['imported'], $stats['updated'], $stats['devices']);
-                if (!empty($stats['errors'])) $message .= ' Hinweis: ' . implode(' | ', array_slice($stats['errors'], 0, 3));
-            } catch (Throwable $exception) {
-                $message = 'Import nicht möglich: ' . $exception->getMessage();
             }
         }
 

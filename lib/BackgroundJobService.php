@@ -21,6 +21,7 @@ final class BackgroundJobService
         'phoenix_pdf_restore' => 'Original-PDFs wiederherstellen',
         'report_migration' => 'PDF-Aufbereitung',
         'measurement_migration' => 'Messdaten-Aufbereitung',
+        'pending_measurement_import' => 'Messdaten importieren',
         'inspection_data_migration' => 'Prüfungsdaten migrieren',
         'legacy_classification_migration' => 'Legacy-Prüfungen klassifizieren',
         'import_result_reconciliation' => 'Import-Ergebnisse abgleichen',
@@ -247,7 +248,7 @@ final class BackgroundJobService
     {
         return in_array($type, ['pdf_zip', 'pdf_bundle', 'inspection_pdf_zip'], true)
             ? url_for('geraete/zip/' . $publicId . '/download')
-            : (in_array($type, ['directory_import', 'phoenix_sync'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
+            : (in_array($type, ['directory_import', 'phoenix_sync', 'pending_measurement_import'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
     }
 
     /** @param array<string,mixed> $job @param array<string,mixed> $details */
