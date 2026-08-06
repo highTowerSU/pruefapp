@@ -64,7 +64,7 @@ $actionPresentation = static function (string $action): array {
 
 <details class="card mb-4" id="audit-events-panel">
 <summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-body-secondary" aria-hidden="true"></i><span>Ereignisprotokoll</span></span><span class="badge text-bg-primary"><?= (int) ($pagination['total_entries'] ?? count($entries)) ?></span></summary>
-<div class="audit-panel-controls"><label class="small fw-normal mb-0" for="audit-events-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-events-auto-refresh"> automatisch aktualisieren</label></div>
+<div class="audit-panel-controls" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()"><label class="small fw-normal mb-0" for="audit-events-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-events-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <form method="get" action="<?= htmlspecialchars(url_for('admin/audit-log'), ENT_QUOTES) ?>" hx-get="<?= htmlspecialchars(url_for('admin/audit-log'), ENT_QUOTES) ?>" hx-target="#audit-events-panel" hx-select="#audit-events-panel" hx-swap="outerHTML" hx-push-url="true" class="card card-body bg-body-tertiary mb-3">
     <div class="row g-3 align-items-end">
@@ -215,7 +215,8 @@ $actionPresentation = static function (string $action): array {
 </div>
 </details>
 <section class="card mb-4" id="audit-tasks-panel">
-<div class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-list-check text-body-secondary" aria-hidden="true"></i><span>Hintergrundaufgaben</span></span><span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="audit-tasks-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-tasks-auto-refresh"> automatisch aktualisieren</label><span class="badge text-bg-info"><?= count($cronPendingJobs) ?></span></span></div>
+<div class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-list-check text-body-secondary" aria-hidden="true"></i><span>Hintergrundaufgaben</span></span><span class="badge text-bg-info ms-auto"><?= count($cronPendingJobs) ?></span></div>
+<div class="audit-panel-controls" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()"><label class="small fw-normal mb-0" for="audit-tasks-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-tasks-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <?php if (!empty($cronPendingJobs)): ?>
 <div class="table-responsive"><table class="table table-sm mb-0 align-middle"><thead><tr><th>Aufgabe</th><th>Status</th><th>Fortschritt</th><th>Datensatz</th><th>Meldung</th><th>Aktion</th></tr></thead><tbody>
@@ -229,7 +230,7 @@ $actionPresentation = static function (string $action): array {
 </section>
 <details class="card mb-4" id="audit-cron-panel"<?= !empty($cronRunFilters) ? ' open' : '' ?> >
 <summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock text-body-secondary" aria-hidden="true"></i><span>Prüfapp-Cron</span></span><span class="badge text-bg-info"><?= (int) ($cronTotal ?? count($cronLog)) ?></span></summary>
-<div class="audit-panel-controls"><label class="small fw-normal mb-0" for="audit-cron-show-debug"><input class="form-check-input me-1" type="checkbox" id="audit-cron-show-debug"> Debug-Meldungen anzeigen</label><label class="small fw-normal mb-0" for="audit-cron-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-cron-auto-refresh"> automatisch aktualisieren</label></div>
+<div class="audit-panel-controls" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()"><label class="small fw-normal mb-0" for="audit-cron-show-debug"><input class="form-check-input me-1" type="checkbox" id="audit-cron-show-debug"> Debug-Meldungen anzeigen</label><label class="small fw-normal mb-0" for="audit-cron-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-cron-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <p class="text-body-secondary">Letzte Cron-Läufe, Berichtserzeugung und Hintergrundjobs.</p>
 <?php if (!empty($cronRunFilters)): ?><div class="alert alert-primary py-2 d-flex flex-wrap align-items-center justify-content-between gap-2"><span><i class="fa-solid fa-filter me-1" aria-hidden="true"></i><?= count($cronRunFilters) === 1 ? 'Cron-Lauf' : count($cronRunFilters) . ' Cron-Läufe' ?> ausgewählt: <span class="font-monospace"><?= htmlspecialchars(implode(', ', $cronRunFilters)) ?></span></span><a class="btn btn-sm btn-outline-primary" href="<?= htmlspecialchars(url_for('admin/audit-log#audit-cron-panel'), ENT_QUOTES) ?>" hx-get="<?= htmlspecialchars(url_for('admin/audit-log#audit-cron-panel'), ENT_QUOTES) ?>" hx-target="#audit-cron-panel" hx-select="#audit-cron-panel" hx-swap="outerHTML" hx-push-url="true"><i class="fa-solid fa-filter-circle-xmark me-1" aria-hidden="true"></i>Filter löschen</a></div><?php endif; ?>
@@ -316,13 +317,13 @@ $actionPresentation = static function (string $action): array {
 })();
 </script>
 <style>
-#audit-events-panel,#audit-cron-panel,#audit-revisions-panel{position:relative}.audit-panel-summary{justify-content:flex-start!important;text-align:left!important;padding-right:15rem}.audit-panel-summary>span:first-child{min-width:0;justify-content:flex-start;text-align:left}.audit-panel-summary>span:last-child{margin-left:auto}.audit-panel-summary>span:first-child>i{flex:0 0 auto}.audit-panel-controls{position:absolute;z-index:2;top:.55rem;right:.9rem;display:flex;align-items:center;gap:.85rem}.audit-panel-controls label{white-space:nowrap}@media(max-width:767.98px){.audit-panel-summary{padding-right:1rem}.audit-panel-controls{position:static;padding:.25rem .75rem .5rem;justify-content:flex-end;flex-wrap:wrap}}
+#audit-events-panel,#audit-tasks-panel,#audit-cron-panel,#audit-revisions-panel{position:relative}.audit-panel-summary{justify-content:flex-start!important;text-align:left!important;padding-right:15rem}.audit-panel-summary>span:first-child{min-width:0;justify-content:flex-start;text-align:left}.audit-panel-summary>span:last-child{margin-left:auto}.audit-panel-summary>span:first-child>i{flex:0 0 auto}.audit-panel-controls{position:absolute;z-index:3;top:.55rem;right:.9rem;display:flex;align-items:center;gap:.85rem}.audit-panel-controls label{white-space:nowrap;cursor:pointer}.audit-panel-controls input{cursor:pointer}@media(max-width:767.98px){.audit-panel-summary{padding-right:1rem}.audit-panel-controls{position:static;padding:.25rem .75rem .5rem;justify-content:flex-end;flex-wrap:wrap}}
 #audit-page-sections{display:flex;flex-direction:column;gap:0}#audit-page-sections>#audit-tasks-panel{order:1}#audit-page-sections>#audit-cron-panel{order:2}#audit-page-sections>#audit-import-runs,#audit-page-sections>#audit-events-panel{order:3}#audit-page-sections>#audit-revisions-panel{order:4}.audit-inline-detail td{background:var(--bs-tertiary-bg);border-left:4px solid var(--bs-primary)}
 </style>
 
 <details class="card mb-4" id="audit-revisions-panel">
 <summary class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-body-secondary" aria-hidden="true"></i><span>Datenrevisionen (ReBean)</span></span><span class="badge text-bg-secondary"><?= (int) ($revisionTotal ?? count($revisions)) ?></span></summary>
-<div class="audit-panel-controls"><label class="small fw-normal mb-0" for="audit-revisions-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-revisions-auto-refresh"> automatisch aktualisieren</label></div>
+<div class="audit-panel-controls" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()"><label class="small fw-normal mb-0" for="audit-revisions-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-revisions-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">
 <?php if (empty($revisions)): ?>
     <p class="text-body-secondary">Es wurden noch keine Datenänderungen revisioniert.</p>
