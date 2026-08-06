@@ -44,13 +44,32 @@ class AdminController
             );
             $row['expected_legacy'] = trim((string) ($row['test_date'] ?? '')) !== ''
                 && (string) $row['test_date'] < '2025-01-01';
+            $snapshot = json_decode((string) R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]), true);
+            $row['source_snapshot_status'] = is_array($snapshot)
+                ? InspectionEvaluationService::normalizeStatus((string) ($snapshot['result_status'] ?? ''), (string) ($snapshot['status'] ?? ''))
+                : '';
+            $snapshot = json_decode((string) R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]), true);
+            $row['source_snapshot_status'] = is_array($snapshot)
+                ? InspectionEvaluationService::normalizeStatus((string) ($snapshot['result_status'] ?? ''), (string) ($snapshot['status'] ?? ''))
+                : '';
         }
         unset($row);
         $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
+        $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
+        $maintenanceJobs = array_values(array_map(static fn(array $job): array => [
+            'id' => (string) ($job['id'] ?? ''),
+            'type' => (string) ($job['type'] ?? ''),
+            'state' => (string) ($job['state'] ?? ''),
+            'step' => (int) ($job['step'] ?? 0),
+            'total' => (int) ($job['total'] ?? 0),
+            'message' => (string) ($job['message'] ?? ''),
+        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['legacy_classification_migration', 'import_result_reconciliation'], true))));
         return [200, $headers, json_encode([
             'ok' => true,
             'query' => $query,
             'legacy_unclassified_count' => $unclassified,
+            'import_result_reconciliation_count' => $importsToReconcile,
+            'maintenance_jobs' => $maintenanceJobs,
             'rows' => $rows,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
@@ -84,13 +103,16 @@ class AdminController
         $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
         $migration = BackgroundJobService::pending(200);
         $legacyJob = null;
+        $importReconciliationJob = null;
         foreach ($migration as $job) {
             if (($job['type'] ?? '') === 'legacy_classification_migration') {
                 $legacyJob = $job;
                 break;
             }
+            if (($job['type'] ?? '') === 'import_result_reconciliation') $importReconciliationJob = $job;
         }
-        $content = render_template('admin_inspection_debug.php', compact('query', 'rows', 'unclassified', 'legacyJob'));
+        $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
+        $content = render_template('admin_inspection_debug.php', compact('query', 'rows', 'unclassified', 'legacyJob', 'importsToReconcile', 'importReconciliationJob'));
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', ['title' => 'Prüfungsdiagnose', 'content' => $content])];
     }
