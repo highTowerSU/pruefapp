@@ -6,7 +6,7 @@ $unreadCount = count(array_filter($notifications, static fn(array $entry): bool 
 ?>
 <?php if (!$fragment): ?>
 <div id="notifications-dropdown-content">
-  <button class="btn btn-outline-navbar position-relative" type="button" id="notificationsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Benachrichtigungen" title="Benachrichtigungen">
+  <button class="btn btn-outline-navbar position-relative" type="button" id="notificationsDropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-label="Benachrichtigungen" title="Benachrichtigungen">
     <i class="fa-solid fa-bell" aria-hidden="true"></i><?= render_template('_notification_badge.php', ['unreadCount' => $unreadCount]) ?>
   </button>
   <ul id="notifications-dropdown-menu" class="dropdown-menu dropdown-menu-end p-2 notification-menu" aria-labelledby="notificationsDropdown" hx-get="<?= htmlspecialchars(url_for('downloads/benachrichtigungen'), ENT_QUOTES) ?>" hx-trigger="shown.bs.dropdown from:#notificationsDropdown" hx-target="this" hx-swap="innerHTML">

@@ -251,6 +251,12 @@ $actionPresentation = static function (string $action): array {
 <script>
 (() => {
   const configs = [['audit-tasks-panel', 'audit-tasks-auto-refresh', 'pruefapp-audit-tasks-refresh'], ['audit-events-panel', 'audit-events-auto-refresh', 'pruefapp-audit-events-refresh'], ['audit-cron-panel', 'audit-cron-auto-refresh', 'pruefapp-audit-cron-refresh'], ['audit-revisions-panel', 'audit-revisions-auto-refresh', 'pruefapp-audit-revisions-refresh']];
+  if (!window.pruefappAuditSummaryControlsBound) {
+    window.pruefappAuditSummaryControlsBound = true;
+    document.addEventListener('click', event => {
+      if (event.target.closest('.audit-panel-summary label, .audit-panel-summary input')) event.stopPropagation();
+    });
+  }
   const setup = ([panelId, toggleId, key]) => {
     const panel = document.getElementById(panelId); const toggle = document.getElementById(toggleId);
     if (!panel || !toggle || toggle.dataset.bound === '1') return;
