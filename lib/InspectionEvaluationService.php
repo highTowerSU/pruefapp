@@ -57,7 +57,11 @@ final class InspectionEvaluationService
             throw new InvalidArgumentException('Ungültiger SQL-Alias für den Prüfstatus.');
         }
         return "CASE "
-            . "WHEN {$alias}.classification = 'legacy' THEN 'legacy' "
+            // The classification migration is resumable. Until every imported
+            // row has been tagged, reports from 2024 and earlier are still
+            // legacy records by definition and must never be treated as
+            // incomplete current inspections.
+            . "WHEN {$alias}.classification = 'legacy' OR (COALESCE({$alias}.test_date, '') <> '' AND {$alias}.test_date < '2025-01-01') THEN 'legacy' "
             . "WHEN {$alias}.result_status IN ('passed','bestanden','ok','gut') THEN 'passed' "
             . "WHEN {$alias}.result_status IN ('failed','durchgefallen','nicht bestanden','failed_test','nok') THEN 'failed' "
             . "WHEN {$alias}.result_status IN ('in_progress','ausstehend','offen','pending') OR {$alias}.status IN ('draft','measurement_pending','in_progress') THEN 'in_progress' "
