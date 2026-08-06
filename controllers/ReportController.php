@@ -232,7 +232,7 @@ final class ReportController
         if (trim((string) ($q['to'] ?? '')) !== '') { $where[] = 'EXISTS (SELECT 1 FROM inspection ito WHERE ito.device_id=d.id AND ito.test_date <= ?)'; $args[] = trim((string) $q['to']); }
         $inspectionStatus = trim((string) ($q['inspection_status'] ?? ''));
         $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id=d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
-        if (in_array($inspectionStatus, ['failed', 'passed', 'in_progress', 'data_missing'], true)) {
+        if (in_array($inspectionStatus, ['failed', 'passed', 'in_progress', 'data_missing', 'legacy'], true)) {
             $where[] = $latestStatus . ' = ?';
             $args[] = $inspectionStatus;
         } elseif ($inspectionStatus === 'pending') $where[] = $latestStatus . " IN ('in_progress','data_missing')";

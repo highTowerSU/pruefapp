@@ -14,6 +14,7 @@ final class InspectionEvaluationService
     public const IN_PROGRESS = 'in_progress';
     public const PASSED = 'passed';
     public const FAILED = 'failed';
+    public const LEGACY = 'legacy';
 
     /** @return array<string,array{label:string,class:string,icon:string}> */
     public static function statuses(): array
@@ -23,6 +24,7 @@ final class InspectionEvaluationService
             self::IN_PROGRESS => ['label' => 'In Bearbeitung', 'class' => 'info text-dark', 'icon' => 'fa-hourglass-half'],
             self::PASSED => ['label' => 'Bestanden', 'class' => 'success', 'icon' => 'fa-circle-check'],
             self::FAILED => ['label' => 'Nicht bestanden', 'class' => 'danger', 'icon' => 'fa-circle-xmark'],
+            self::LEGACY => ['label' => 'Legacy', 'class' => 'secondary', 'icon' => 'fa-file-archive'],
         ];
     }
 
@@ -32,6 +34,7 @@ final class InspectionEvaluationService
         if (in_array($normalized, [self::DATA_MISSING, self::IN_PROGRESS, self::PASSED, self::FAILED], true)) {
             return $normalized;
         }
+        if ($normalized === self::LEGACY) return self::LEGACY;
         if (in_array($normalized, ['bestanden', 'ok', 'gut', 'success', 'successful'], true)) {
             return self::PASSED;
         }
@@ -54,8 +57,7 @@ final class InspectionEvaluationService
             throw new InvalidArgumentException('Ungültiger SQL-Alias für den Prüfstatus.');
         }
         return "CASE "
-            . "WHEN {$alias}.classification = 'legacy' AND {$alias}.result_status IN ('failed','durchgefallen','nicht bestanden','failed_test','nok') THEN 'failed' "
-            . "WHEN {$alias}.classification = 'legacy' THEN 'passed' "
+            . "WHEN {$alias}.classification = 'legacy' THEN 'legacy' "
             . "WHEN {$alias}.result_status IN ('passed','bestanden','ok','gut') THEN 'passed' "
             . "WHEN {$alias}.result_status IN ('failed','durchgefallen','nicht bestanden','failed_test','nok') THEN 'failed' "
             . "WHEN {$alias}.result_status IN ('in_progress','ausstehend','offen','pending') OR {$alias}.status IN ('draft','measurement_pending','in_progress') THEN 'in_progress' "
@@ -71,7 +73,7 @@ final class InspectionEvaluationService
 
     public static function isCompleted(?string $status): bool
     {
-        return in_array(self::normalizeStatus($status), [self::PASSED, self::FAILED], true);
+        return in_array(self::normalizeStatus($status), [self::PASSED, self::FAILED, self::LEGACY], true);
     }
 
     public static function reportAllowed(?string $status, string $classification = ''): bool

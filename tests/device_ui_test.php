@@ -26,7 +26,7 @@ $checks = [
     [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', " . '$roomLabels'), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
     [str_contains($searchSelect, "querySelectorAll('select:not([data-no-search])')") && str_contains($searchSelect, "plugins: ['dropdown_input']") && str_contains($searchSelect, 'if (select.tomselect)') && str_contains($searchSelect, 'externalLabel') && substr_count($template, 'plugins: [\'dropdown_input\']') >= 3, 'Nicht alle Dropdown-Selects verwenden das Dropdown-Input-Plugin.'],
     [str_contains($template, '$latestInspection = $deviceInspections[0]') && !str_contains($template, 'foreach ($deviceInspections as $inspectionForBadge)'), 'Das Gerätebadge wertet nicht ausschließlich die letzte Prüfung aus.'],
-    [str_contains($template, '$badgeResultStatus = $latestInspection ?') && str_contains($template, 'InspectionEvaluationService::DATA_MISSING;'), 'Geräte ohne Prüfung werden nicht als fehlende Daten angezeigt.'],
+    [str_contains($template, '$badgeResultStatus = $latestInspection ?') && str_contains($template, ": '';") && !str_contains($template, '$inspectionPending = !$latestInspection'), 'Geräte ohne Prüfung werden fälschlich als fehlende Daten angezeigt.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

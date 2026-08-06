@@ -86,9 +86,7 @@ class DeviceController
         if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
         $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
         if (in_array($inspectionStatus, ['failed', 'passed', 'in_progress', 'data_missing', 'legacy'], true)) {
-            $where[] = $inspectionStatus === 'data_missing'
-                ? '(' . $latestStatus . ' = ? OR NOT EXISTS (SELECT 1 FROM inspection im WHERE im.device_id = d.id))'
-                : $latestStatus . ' = ?';
+            $where[] = $latestStatus . ' = ?';
             $paramsQuery[] = $inspectionStatus;
         } elseif ($inspectionStatus === 'pending') {
             $where[] = $latestStatus . " IN ('in_progress','data_missing')";
@@ -384,9 +382,7 @@ class DeviceController
         $status = trim((string) ($filters['inspection_status'] ?? ''));
         $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
         if (in_array($status, ['failed', 'passed', 'in_progress', 'data_missing', 'legacy'], true)) {
-            $where[] = $status === 'data_missing'
-                ? '(' . $latestStatus . ' = ? OR NOT EXISTS (SELECT 1 FROM inspection im WHERE im.device_id = d.id))'
-                : $latestStatus . ' = ?';
+            $where[] = $latestStatus . ' = ?';
             $params[] = $status;
         } elseif ($status === 'pending') $where[] = $latestStatus . " IN ('in_progress','data_missing')";
         elseif ($status === 'completed') $where[] = $latestStatus . " IN ('passed','failed','legacy')";
