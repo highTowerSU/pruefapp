@@ -151,6 +151,8 @@
 .navbar-themed {
   background-color: var(--navbar-bg, var(--bs-primary));
   color: var(--navbar-color, var(--bs-body-color));
+  z-index: 1030;
+  box-shadow: 0 .15rem .5rem rgba(0, 0, 0, .14);
 }
 
 .navbar-themed .navbar-brand,

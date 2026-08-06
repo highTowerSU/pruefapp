@@ -38,19 +38,36 @@ final class UserReminderService
             self::markDedupeRead($signatureKey, $userId);
         }
 
-        $yesterday = $now->modify('-1 day')->format('Y-m-d');
+        $today = $now->format('Y-m-d');
         $identities = self::identities($user);
-        $missing = self::missingInspections($identities, $yesterday);
-        if ($missing > 0) {
+        $missing = self::missingInspections($identities, $today);
+        if ($missing !== []) {
             $identity = $identities[0] ?? '';
-            $query = http_build_query(['from' => $yesterday, 'to' => $yesterday, 'examiner' => $identity, 'result_status' => 'open']);
+            $firstDate = (string) ($missing[0]['test_date'] ?? $today);
+            $query = http_build_query(['from' => $firstDate, 'to' => $now->modify('-1 day')->format('Y-m-d'), 'examiner' => $identity, 'result_status' => 'open']);
             $actionUrl = url_for('pruefungen?' . $query);
-            $message = $missing . ' Prüfung' . ($missing === 1 ? '' : 'en') . ' vom ' . (new DateTimeImmutable($yesterday))->format('d.m.Y') . ' enthalten noch fehlende Daten oder sind nicht abgeschlossen.';
-            $dedupeKey = 'inspection-missing:user:' . $userId . ':' . $yesterday;
-            $reminders[] = self::reminder('Prüfdaten vom Vortag fehlen', $message, 'warning', $actionUrl, 'inspection');
+            $grouped = [];
+            foreach ($missing as $item) {
+                $date = (string) ($item['test_date'] ?? '');
+                $grouped[$date][] = $item;
+            }
+            $lines = [];
+            foreach ($grouped as $date => $items) {
+                $label = (new DateTimeImmutable($date))->format('d.m.Y');
+                $lines[] = $label . ': ' . count($items) . ' Prüfung' . (count($items) === 1 ? '' : 'en');
+                foreach (array_slice($items, 0, 10) as $item) {
+                    $number = trim((string) ($item['inspection_number'] ?? '')) ?: ('#' . (int) ($item['inspection_id'] ?? 0));
+                    $device = trim((string) ($item['device_name'] ?? ''));
+                    $lines[] = '  · ' . $number . ($device !== '' ? ' · ' . $device : '');
+                }
+                if (count($items) > 10) $lines[] = '  · … weitere ' . (count($items) - 10);
+            }
+            $message = count($missing) . ' offene Prüfung' . (count($missing) === 1 ? '' : 'en') . " mit fehlenden Daten oder ohne Abschluss:\n" . implode("\n", $lines);
+            $dedupeKey = 'inspection-missing:user:' . $userId . ':open-v2';
+            $reminders[] = self::reminder('Offene Prüfdaten', $message, 'warning', $actionUrl, 'inspection', $missing);
             NotificationRepository::publish(
                 [$userId],
-                'Prüfdaten vom Vortag fehlen',
+                'Offene Prüfdaten',
                 $message,
                 ['dedupe_key' => $dedupeKey, 'category' => 'inspection', 'severity' => 'warning', 'action_url' => $actionUrl]
             );
@@ -65,18 +82,28 @@ final class UserReminderService
     }
 
     /** @param list<string> $identities */
-    private static function missingInspections(array $identities, string $date): int
+    /** @return list<array{inspection_id:int,test_date:string,inspection_number:string,device_name:string}> */
+    private static function missingInspections(array $identities, string $beforeDate): array
     {
-        if ($identities === []) return 0;
-        $where = ["i.test_date = ?", InspectionEvaluationService::sqlStatusExpression('i') . " IN ('in_progress','data_missing')"];
-        $args = [$date];
+        if ($identities === []) return [];
+        $where = ["i.test_date < ?", "COALESCE(i.test_date, '') <> ''", InspectionEvaluationService::sqlStatusExpression('i') . " IN ('in_progress','data_missing')"];
+        $args = [$beforeDate];
         $clauses = [];
         foreach ($identities as $identity) {
             $clauses[] = 'LOWER(TRIM(COALESCE(i.examiner, \'\'))) = ?';
             $args[] = strtolower($identity);
         }
         $where[] = '(' . implode(' OR ', $clauses) . ')';
-        return (int) R::getCell('SELECT COUNT(*) FROM inspection i WHERE ' . implode(' AND ', $where), $args);
+        $rows = R::getAll(
+            'SELECT i.id AS inspection_id, i.test_date, COALESCE(i.external_number, \'\') AS inspection_number, COALESCE(d.name, \'\') AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE ' . implode(' AND ', $where) . ' ORDER BY i.test_date ASC, i.id ASC',
+            $args
+        );
+        return array_map(static fn (array $row): array => [
+            'inspection_id' => (int) ($row['inspection_id'] ?? 0),
+            'test_date' => (string) ($row['test_date'] ?? ''),
+            'inspection_number' => (string) ($row['inspection_number'] ?? ''),
+            'device_name' => (string) ($row['device_name'] ?? ''),
+        ], $rows);
     }
 
     /** @return list<string> */
@@ -94,16 +121,18 @@ final class UserReminderService
         return array_values($seen);
     }
 
-    /** @return array{title:string,message:string,severity:string,action_url:string,category:string} */
-    private static function reminder(string $title, string $message, string $severity, string $actionUrl, string $category): array
+    /** @return array{title:string,message:string,severity:string,action_url:string,category:string,details?:list<array{inspection_id:int,test_date:string,inspection_number:string,device_name:string}>} */
+    private static function reminder(string $title, string $message, string $severity, string $actionUrl, string $category, array $details = []): array
     {
-        return [
+        $reminder = [
             'title' => $title,
             'message' => $message,
             'severity' => $severity,
             'action_url' => $actionUrl,
             'category' => $category,
         ];
+        if ($details !== []) $reminder['details'] = $details;
+        return $reminder;
     }
 
     private static function markDedupeRead(string $dedupeKey, int $userId): void

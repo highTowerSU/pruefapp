@@ -229,7 +229,7 @@ $assetVersion = app_asset_version();
 <?php foreach ($loginReminders as $loginReminder): ?>
   <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
     <i class="fa-solid fa-triangle-exclamation mt-1" aria-hidden="true"></i>
-    <div class="flex-grow-1"><strong><?= htmlspecialchars((string) ($loginReminder['title'] ?? 'Hinweis')) ?></strong><div><?= htmlspecialchars((string) ($loginReminder['message'] ?? '')) ?></div></div>
+    <div class="flex-grow-1"><strong><?= htmlspecialchars((string) ($loginReminder['title'] ?? 'Hinweis')) ?></strong><div class="text-pre-line"><?= nl2br(htmlspecialchars((string) ($loginReminder['message'] ?? '')), false) ?></div><?php if (is_array($loginReminder['details'] ?? null) && $loginReminder['details'] !== []): ?><details class="mt-2"><summary class="small">Prüfungen anzeigen</summary><ul class="small mb-0 mt-1 ps-3"><?php foreach ($loginReminder['details'] as $detail): ?><li><?= htmlspecialchars((string) ($detail['test_date'] ?? '')) ?> · <?= htmlspecialchars((string) ($detail['inspection_number'] ?? '')) ?><?= trim((string) ($detail['device_name'] ?? '')) !== '' ? ' · ' . htmlspecialchars((string) $detail['device_name']) : '' ?></li><?php endforeach; ?></ul></details><?php endif; ?></div>
     <?php if (trim((string) ($loginReminder['action_url'] ?? '')) !== ''): ?><a class="btn btn-sm btn-warning text-dark text-nowrap" href="<?= htmlspecialchars((string) $loginReminder['action_url'], ENT_QUOTES) ?>">Öffnen</a><?php endif; ?>
   </div>
 <?php endforeach; ?>
