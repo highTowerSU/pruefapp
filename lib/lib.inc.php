@@ -1203,6 +1203,10 @@ $requestPath = normalize_request_path(parse_url($_SERVER['REQUEST_URI'] ?? '', P
 
 $freiePfade = [
     '#^/uebermitteln(/|$)#',
+    // This diagnostic endpoint performs its own mandatory header-secret
+    // verification in AdminController. It must not trigger the interactive
+    // login redirect before that check can run.
+    '#^/api/debug/inspection$#',
 ];
 
 $istFreieRoute = false;
