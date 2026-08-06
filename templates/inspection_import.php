@@ -71,31 +71,37 @@
 <script>document.addEventListener('DOMContentLoaded',function(){const form=document.querySelector('form[name="directory-import"], form[action=""]');const directory=document.getElementById('directory');const reports=document.getElementById('reports_directory');if(!directory||!reports)return;try{if(!directory.value)directory.value=localStorage.getItem('pruefapp-import-directory')||'';if(!reports.value)reports.value=localStorage.getItem('pruefapp-reports-directory')||'';}catch(_){}const save=()=>{try{localStorage.setItem('pruefapp-import-directory',directory.value);localStorage.setItem('pruefapp-reports-directory',reports.value);}catch(_){}};directory.form?.addEventListener('submit',save);reports.form?.addEventListener('submit',save);});</script>
 <script>
 (() => {
-  const toggle = document.getElementById('import-auto-refresh');
-  const panel = document.getElementById('inspection-import-panel');
-  if (!toggle || !panel) return;
   const key = 'pruefapp-import-auto-refresh';
-  try { toggle.checked = localStorage.getItem(key) === '1'; } catch (_) {}
-  const restoreDetails = () => { const open = JSON.parse(sessionStorage.getItem('pruefapp-import-open-details') || '[]'); panel.querySelectorAll('details').forEach((node, index) => { if (open.includes(index)) node.open = true; }); };
-  const saveDetails = () => { try { sessionStorage.setItem('pruefapp-import-open-details', JSON.stringify([...panel.querySelectorAll('details')].map((node, index) => node.open ? index : -1).filter(index => index >= 0))); } catch (_) {} };
-  const enable = () => {
-    try { localStorage.setItem(key, toggle.checked ? '1' : '0'); } catch (_) {}
-    if (!toggle.checked) return;
-    saveDetails();
-    if (window.htmx) {
-      panel.setAttribute('hx-get', window.location.href);
-      panel.setAttribute('hx-trigger', 'every 30s');
-      panel.setAttribute('hx-target', '#inspection-import-panel');
-      panel.setAttribute('hx-select', '#inspection-import-panel');
-      panel.setAttribute('hx-swap', 'outerHTML');
-      window.htmx.process(panel);
-    }
+  const panel = () => document.getElementById('inspection-import-panel');
+  const saveDetails = () => { const current = panel(); if (!current) return; try { sessionStorage.setItem('pruefapp-import-open-details', JSON.stringify([...current.querySelectorAll('details')].map((node, index) => node.open ? index : -1).filter(index => index >= 0))); } catch (_) {} };
+  const restoreDetails = () => { const current = panel(); if (!current) return; try { const open = JSON.parse(sessionStorage.getItem('pruefapp-import-open-details') || '[]'); current.querySelectorAll('details').forEach((node, index) => { if (open.includes(index)) node.open = true; }); } catch (_) {} };
+  const configure = () => {
+    const current = panel(); const toggle = document.getElementById('import-auto-refresh');
+    if (!current || !toggle) return;
+    let enabled = false; try { enabled = localStorage.getItem(key) === '1'; } catch (_) {}
+    toggle.checked = enabled;
+    if (!enabled || !window.htmx) return;
+    current.setAttribute('hx-get', window.location.href);
+    current.setAttribute('hx-trigger', 'every 30s');
+    current.setAttribute('hx-target', '#inspection-import-panel');
+    current.setAttribute('hx-select', '#inspection-import-panel');
+    current.setAttribute('hx-swap', 'outerHTML');
+    window.htmx.process(current);
   };
-  toggle.addEventListener('change', enable);
-  document.body.addEventListener('htmx:beforeRequest', saveDetails);
-  document.body.addEventListener('htmx:afterSwap', restoreDetails);
-  restoreDetails();
-  enable();
+  if (!window.pruefappImportAutoRefreshBound) {
+    window.pruefappImportAutoRefreshBound = true;
+    document.addEventListener('change', event => {
+      if (event.target?.id !== 'import-auto-refresh') return;
+      try { localStorage.setItem(key, event.target.checked ? '1' : '0'); } catch (_) {}
+      configure();
+    });
+    document.body.addEventListener('htmx:beforeRequest', saveDetails);
+    document.body.addEventListener('htmx:afterSwap', event => {
+      if (event.target?.id !== 'inspection-import-panel') return;
+      restoreDetails(); configure();
+    });
+  }
+  restoreDetails(); configure();
 })();
 </script>
 <?php if (!empty($_GET['phoenix_job'])): ?><script>

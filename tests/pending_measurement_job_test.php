@@ -16,6 +16,8 @@ foreach ([
     [$jobs, "'pending_measurement_import' => 'Messdaten importieren'"],
     [$template, 'Im Hintergrund importieren'],
     [$template, 'zentral als Hintergrundaufgaben verarbeitet'],
+    [$template, 'pruefappImportAutoRefreshBound'],
+    [$template, "event.target?.id !== 'import-auto-refresh'"],
     [$template, 'Benachrichtigungen'],
 ] as [$source, $needle]) {
     if (!str_contains($source, $needle)) throw new RuntimeException('Messdatenimport läuft nicht vollständig über Hintergrundjob, Cron und Benachrichtigung: ' . $needle);
