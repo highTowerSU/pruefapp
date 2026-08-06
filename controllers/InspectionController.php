@@ -348,7 +348,7 @@ final class InspectionController
             if ($allowed === []) $where[] = '1=0';
             else { $where[] = 'c.id IN (' . implode(',', array_fill(0, count($allowed), '?')) . ')'; array_push($args, ...$allowed); }
         }
-        if (current_user_has_role('customer')) {
+        if (current_user_is_customer()) {
             $where[] = InspectionEvaluationService::sqlStatusExpression('i') . " IN ('passed','failed')";
         }
         if ($filters['customer_id'] > 0) { $where[] = 'c.id=?'; $args[] = $filters['customer_id']; }
@@ -666,7 +666,7 @@ final class InspectionController
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
-        if (current_user_has_role('customer') && !InspectionEvaluationService::isCompleted((string) $inspection->result_status)) return [404, [], 'Prüfung nicht gefunden'];
+        if (current_user_is_customer() && !InspectionEvaluationService::isCompleted((string) $inspection->result_status)) return [404, [], 'Prüfung nicht gefunden'];
         if ((int) ($device->room_id ?? 0) > 0) {
             $room = R::load('room', (int) $device->room_id);
             $floor = R::load('floor', (int) ($room->floor_id ?? 0));

@@ -133,7 +133,7 @@ class DeviceController
         $inspections = [];
         foreach ($devices as $device) {
             $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
-            if (current_user_has_role('customer')) {
+            if (current_user_is_customer()) {
                 $inspections[(int) $device->id] = array_values(array_filter(
                     $inspections[(int) $device->id],
                     static fn($inspection): bool => InspectionEvaluationService::isCompleted((string) ($inspection->result_status ?? ''))

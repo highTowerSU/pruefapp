@@ -937,6 +937,16 @@ function current_user_is_superadmin(): bool
 }
 
 /**
+ * Customer visibility rules must not use RolePolicy::allows(): administrators
+ * intentionally inherit customer permissions there.  This helper answers the
+ * different question whether the signed-in account is actually a customer.
+ */
+function current_user_is_customer(): bool
+{
+    return strtolower(trim((string) current_user_role())) === 'customer';
+}
+
+/**
  * Returns recent background jobs visible to the current user.
  *
  * Superadmins can see all jobs; other users only see jobs they started.

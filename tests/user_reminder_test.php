@@ -20,6 +20,7 @@ $admin = (string) file_get_contents(dirname(__DIR__) . '/controllers/AdminContro
 $users = (string) file_get_contents(dirname(__DIR__) . '/templates/admin_user_list.php');
 $index = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $inspection = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
+$device = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 foreach (['login_reminders', 'loginReminder'] as $needle) {
     if (!str_contains($layout, $needle)) throw new RuntimeException("Login-Hinweis fehlt im Layout: {$needle}");
 }
@@ -42,6 +43,12 @@ if (!str_contains($admin, 'UserReminderService::afterLogin($target)') || !str_co
 }
 if (!str_contains($inspection, "result_status'] === 'open'")) {
     throw new RuntimeException('Der Link für offene Vortagsprüfungen besitzt keinen kombinierten Statusfilter.');
+}
+if (!str_contains($lib, 'function current_user_is_customer')
+    || !str_contains($device, 'if (current_user_is_customer())')
+    || !str_contains($inspection, 'if (current_user_is_customer())')
+) {
+    throw new RuntimeException('Offene Prüfungen werden für Admins nicht zuverlässig von Kundensicht getrennt.');
 }
 
 echo "PASS: Prüferhinweise werden rollenbezogen und serverseitig vorbereitet\n";
