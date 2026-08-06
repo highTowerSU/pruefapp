@@ -37,6 +37,9 @@ foreach (['loginAs', 'stopLoginAs', 'impersonator_user_id'] as $needle) {
 if (!str_contains($users, 'Als Nutzer/in anmelden') || !str_contains($index, "'/admin/nutzer/{id}/login-as'")) {
     throw new RuntimeException('Superadmin-Aktion für Nutzeranmeldung fehlt.');
 }
+if (!str_contains($admin, 'UserReminderService::afterLogin($target)') || !str_contains($admin, "'Location' => url_for()")) {
+    throw new RuntimeException('Nutzeranmeldung führt nicht mit Login-Hinweisen zur Startseite.');
+}
 if (!str_contains($inspection, "result_status'] === 'open'")) {
     throw new RuntimeException('Der Link für offene Vortagsprüfungen besitzt keinen kombinierten Statusfilter.');
 }

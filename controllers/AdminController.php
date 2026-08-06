@@ -289,8 +289,14 @@ class AdminController
             'email' => (string) ($target->email ?? ''),
             'name' => (string) ($target->name ?? ''),
         ];
+        try {
+            $_SESSION['login_reminders'] = UserReminderService::afterLogin($target);
+        } catch (Throwable $reminderError) {
+            error_log('Prüferhinweise konnten bei der Nutzeranmeldung nicht erstellt werden: ' . $reminderError->getMessage());
+            $_SESSION['login_reminders'] = [];
+        }
         $_SESSION['meldung'] = 'Du bist jetzt als ' . trim((string) ($target->name ?: $target->email ?: 'Nutzer/in')) . ' angemeldet.';
-        return [303, ['Location' => url_for('geraete')], ''];
+        return [303, ['Location' => url_for()], ''];
     }
 
     public static function stopLoginAs(array $params, bool $isHx): array
