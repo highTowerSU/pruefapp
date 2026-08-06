@@ -22,7 +22,7 @@ $checks = [
     [$newInspectionPosition !== false && $deviceOverviewPosition !== false && $newInspectionPosition < $deviceOverviewPosition, 'Neue Prüfung ist nicht der erste Eintrag im Geräte-Dropdown.'],
     [str_contains($downloads, 'badge text-bg-secondary') && !str_contains($downloads, 'badge text-bg-light border text-body-secondary ms-1">Historie'), 'Das Historie-Badge hat keinen sicheren Dark-Mode-Kontrast.'],
     [str_contains($navbar, 'navbar-themed sticky-top'), 'Die Hauptnavigation bleibt beim Scrollen nicht sichtbar.'],
-    [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', $roomLabels"), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
+    [str_contains($filterRenderer, '$roomLabels') && str_contains($filterRenderer, "'number', " . '$roomLabels'), 'Der Raumfilter verwendet nicht den zusammengesetzten Raumnamen.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
