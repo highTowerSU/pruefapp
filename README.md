@@ -106,9 +106,10 @@ return [
 Die Datei sollte nur für den betreibenden Benutzer und den Webserver lesbar
 sein. Installationsspezifische Werte und Secrets gehören nicht ins Repository.
 
-Für die ausschließlich technische, JSON-basierte Prüfungsdiagnose kann dort
-`api_debug_secret` (alternativ die Umgebungsvariable
-`PRUEFAPP_API_DEBUG_SECRET`) gesetzt werden. Der Endpunkt
+Das Secret für die ausschließlich technische, JSON-basierte Prüfungsdiagnose
+wird in der Superadmin-Konfiguration unter „Technischer Debug-Zugang“ erzeugt
+und verwaltet. `PRUEFAPP_API_DEBUG_SECRET` bleibt ausschließlich ein
+Installations-Fallback. Der Endpunkt
 `/pruefapp/api/debug/inspection?q=<Nummer>` akzeptiert das Geheimnis nur im
 Header `X-Api-Debug-Secret`; er ist nicht für Browser-Links oder die allgemeine
 Anwendungsoberfläche bestimmt.

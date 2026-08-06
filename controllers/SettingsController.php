@@ -33,6 +33,8 @@ class SettingsController
         $errors = [];
         $databaseWizard = null;
         $updateResult = null;
+        $apiDebugSecretOnce = (string) ($_SESSION['api_debug_secret_once'] ?? '');
+        unset($_SESSION['api_debug_secret_once']);
         if ($_SERVER['REQUEST_METHOD'] === 'GET' && $values['auto_update_enabled'] === '1') {
             try {
                 $updateResult = Updater::updateIfNeeded(dirname(__DIR__), true);
@@ -43,6 +45,18 @@ class SettingsController
         $skipGeneralSave = false;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'generate_api_debug_secret') {
+                $secret = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+                set_app_config('api_debug_secret', $secret);
+                $_SESSION['api_debug_secret_once'] = $secret;
+                $_SESSION['meldung'] = 'API-Debug-Secret wurde erzeugt. Es wird nur jetzt einmal angezeigt.';
+                return [303, ['Location' => url_for('admin/konfiguration')], ''];
+            }
+            if (($_POST['action'] ?? '') === 'disable_api_debug_secret') {
+                set_app_config('api_debug_secret', null);
+                $_SESSION['meldung'] = 'API-Debug-Zugang wurde deaktiviert.';
+                return [303, ['Location' => url_for('admin/konfiguration')], ''];
+            }
             if (($_POST['action'] ?? '') === 'update_app') {
                 $skipGeneralSave = true;
                 try {
@@ -176,6 +190,8 @@ class SettingsController
             'databaseWizard' => $databaseWizard,
             'updateResult' => $updateResult,
             'migrationStatus' => self::migrationStatus(),
+            'apiDebugSecretEnabled' => trim((string) get_app_config('api_debug_secret', '')) !== '',
+            'apiDebugSecretOnce' => $apiDebugSecretOnce,
         ]);
 
         if ($isHx) {

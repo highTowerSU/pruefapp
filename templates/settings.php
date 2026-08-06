@@ -8,6 +8,8 @@
 /** @var array<string, mixed>|null $databaseWizard */
 /** @var array<string, list<string>>|null $updateResult */
 /** @var array<string, mixed>|null $migrationStatus */
+/** @var bool $apiDebugSecretEnabled */
+/** @var string $apiDebugSecretOnce */
 ?>
 
 <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
@@ -69,6 +71,20 @@
     <button type="submit" class="btn btn-primary">Speichern</button>
   </div>
 </form>
+
+<details class="card shadow-sm mt-4">
+  <summary class="card-header fw-semibold"><i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Technischer Debug-Zugang</summary>
+  <div class="card-body">
+    <p class="text-body-secondary small">Nur für die gezielte Serverdiagnose durch autorisierte technische Unterstützung. Der Zugang funktioniert ausschließlich mit einem HTTP-Header, wird nicht in URLs übertragen und kann hier jederzeit neu erzeugt oder deaktiviert werden.</p>
+    <?php if (!empty($apiDebugSecretOnce)): ?><div class="alert alert-warning"><strong>Secret jetzt sicher kopieren.</strong><br><code class="user-select-all text-break"><?= htmlspecialchars($apiDebugSecretOnce, ENT_QUOTES) ?></code><div class="small mt-2">Nach dem Verlassen oder Neuladen dieser Seite wird es nicht erneut angezeigt.</div></div><?php endif; ?>
+    <p class="mb-3">Status: <?php if (!empty($apiDebugSecretEnabled)): ?><span class="badge text-bg-success"><i class="fa-solid fa-lock me-1" aria-hidden="true"></i>aktiv</span><?php else: ?><span class="badge text-bg-secondary">deaktiviert</span><?php endif; ?></p>
+    <div class="btn-group" role="group" aria-label="Debug-Zugang verwalten">
+      <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>"><input type="hidden" name="action" value="generate_api_debug_secret"><button class="btn btn-warning" type="submit" onclick="return confirm('Neues Debug-Secret erzeugen? Ein bisheriges Secret verliert sofort seine Gültigkeit.');"><i class="fa-solid fa-key me-1" aria-hidden="true"></i><?= !empty($apiDebugSecretEnabled) ? 'Secret erneuern' : 'Secret erzeugen' ?></button></form>
+      <?php if (!empty($apiDebugSecretEnabled)): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>"><input type="hidden" name="action" value="disable_api_debug_secret"><button class="btn btn-outline-danger" type="submit" onclick="return confirm('API-Debug-Zugang wirklich deaktivieren?');"><i class="fa-solid fa-ban me-1" aria-hidden="true"></i>Deaktivieren</button></form><?php endif; ?>
+    </div>
+    <div class="form-text mt-3">Diagnose-Endpunkt: <code>/pruefapp/api/debug/inspection?q=100016494</code> mit Header <code>X-Api-Debug-Secret</code>.</div>
+  </div>
+</details>
 
 <details class="card shadow-sm mt-4">
   <summary class="card-header fw-semibold"><i class="fa-solid fa-arrows-rotate me-1" aria-hidden="true"></i>Anwendung aktualisieren</summary>
