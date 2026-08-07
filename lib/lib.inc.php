@@ -1114,6 +1114,12 @@ function current_user_can_manage_participants(): bool
     return current_user_has_role('admin', 'editor');
 }
 
+/** Rechnungsdaten dürfen nur Administration und Buchhaltung verwalten. */
+function current_user_can_manage_billing(): bool
+{
+    return current_user_has_role('admin', 'accountant');
+}
+
 function available_user_roles(): array
 {
     return \Ceneos\PhpBase\Auth\RolePolicy::labels();

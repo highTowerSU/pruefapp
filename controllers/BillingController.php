@@ -9,7 +9,7 @@ final class BillingController
 {
     public static function index(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_can_manage_billing()) return forbidden_response();
         $preselectedIds = ($_GET['preselect'] ?? '') === '1' ? array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_preselect_inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0)) : [];
         if ($preselectedIds !== []) unset($_SESSION['billing_preselect_inspection_ids']);
         $allRows = self::rows($preselectedIds, $_GET);
@@ -50,7 +50,7 @@ final class BillingController
 
     public static function export(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_can_manage_billing()) return forbidden_response();
         $ids = array_values(array_filter(array_map('intval', (array) ($_POST['inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0));
         $action = (string) ($_POST['action'] ?? 'csv');
         if (in_array($action, ['set_billable', 'set_not_billable'], true)) {
@@ -113,7 +113,7 @@ final class BillingController
 
     public static function eligibility(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_can_manage_billing()) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden.'];
         $eligibility = trim((string) ($_POST['eligibility'] ?? ''));
@@ -155,7 +155,7 @@ final class BillingController
 
     public static function invoice(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_can_manage_billing()) return forbidden_response();
         $id = (int) ($params['id'] ?? 0);
         $invoice = R::load('billing_invoice', $id);
         if (!$invoice->id) return [404, [], 'Rechnung nicht gefunden.'];

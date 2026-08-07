@@ -267,7 +267,7 @@ class DeviceController
                 'buildingSiteIds' => $buildingSiteIds,
                 'floorBuildingIds' => $floorBuildingIds,
                 'roomFloorIds' => $roomFloorIds,
-                'canManage' => current_user_has_role('admin'),
+                'canManage' => current_user_has_role('admin', 'editor'),
                 'canBulkManage' => current_user_is_superadmin(),
                 'showArchived' => $showArchived,
                 'manufacturerOptions' => $manufacturerOptions,
@@ -312,7 +312,7 @@ class DeviceController
 
     public static function save(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $id = (int) ($_POST['id'] ?? 0);
         $device = $id > 0 ? R::load('device', $id) : R::dispense('device');
         if ($id === 0) {
@@ -366,7 +366,7 @@ class DeviceController
     /** Copies only non-empty device master data from the latest inspection. */
     public static function copyLatestInspectionData(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $id = (int) ($params['id'] ?? 0);
         $device = $id > 0 ? R::load('device', $id) : null;
         $location = url_for('geraete?device_id=' . $id . '#geraet-' . $id);

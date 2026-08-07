@@ -130,6 +130,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php endif; ?>
               </ul>
             </li>
+          <?php endif; ?>
+          <?php if (current_user_can_manage_billing()): ?>
             <li class="nav-item"><a href="<?= htmlspecialchars($billingUrl, ENT_QUOTES) ?>" class="nav-link<?= $billingActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-coins me-1" aria-hidden="true"></i>Abrechnung</a></li>
           <?php endif; ?>
           <?php if (current_user_has_role('admin') || current_user_is_superadmin()): ?>
