@@ -108,7 +108,7 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
         }
 
-        set_app_config('import_result_reconciliation_version', '3');
+        set_app_config('import_result_reconciliation_version', '4');
         set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
     }

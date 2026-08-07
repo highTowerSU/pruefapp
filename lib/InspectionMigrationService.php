@@ -16,6 +16,10 @@ final class InspectionMigrationService
         }
         $row = R::getRow('SELECT * FROM inspection WHERE id = ?', [$inspectionId]);
         $classification = self::classification($row);
+        $attributedExaminer = self::attributedExaminer($row);
+        if ($attributedExaminer !== '') {
+            $row['examiner'] = $attributedExaminer;
+        }
 
         R::begin();
         try {
@@ -100,10 +104,11 @@ final class InspectionMigrationService
                 $activeReportPath = '';
             }
             R::exec(
-                'UPDATE inspection SET classification = ?, catalog_version_id = ?, result_status = ?, result_reason_code = ?, result_reason_text = ?, warming_device_snapshot = ?, cable_length_m = ?, rsl_limit_ohm = ?, report_path = ?, status = ?, updated_at = ? WHERE id = ?',
+                'UPDATE inspection SET classification = ?, catalog_version_id = ?, examiner = ?, result_status = ?, result_reason_code = ?, result_reason_text = ?, warming_device_snapshot = ?, cable_length_m = ?, rsl_limit_ohm = ?, report_path = ?, status = ?, updated_at = ? WHERE id = ?',
                 [
                     $classification,
                     $classification === 'legacy' ? null : $catalogId,
+                    (string) ($row['examiner'] ?? ''),
                     $result['status'],
                     $result['reason_code'],
                     $result['reason'],
@@ -129,6 +134,25 @@ final class InspectionMigrationService
             'reason' => $result['reason'],
             'missing' => $result['missing'],
         ];
+    }
+
+    /**
+     * Imported Benning/Phoenix rows sometimes lack the examiner field. Keep
+     * the documented historic attribution in one backend migration rule so an
+     * otherwise complete import does not become falsely incomplete.
+     *
+     * @param array<string,mixed> $row
+     */
+    private static function attributedExaminer(array $row): string
+    {
+        $examiner = trim((string) ($row['examiner'] ?? ''));
+        $placeholder = strtolower($examiner);
+        $needsAttribution = $examiner === '' || $examiner === '—' || in_array($placeholder, ['info@ceneos.net', 'info@ceneos.de'], true);
+        if (!$needsAttribution) return $examiner;
+        if (!in_array((string) ($row['source_type'] ?? ''), ['csv', 'json'], true)) return $examiner;
+        $year = (int) substr(trim((string) ($row['test_date'] ?? '')), 0, 4);
+        if (in_array($year, [2023, 2024], true)) return 'bdebertshaeuser@koenigsbl.au';
+        return $year >= 2025 ? 'edebertshaeuser@koenigsbl.au' : $examiner;
     }
 
     /** @param array<string,mixed> $row */

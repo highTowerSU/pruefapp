@@ -57,7 +57,7 @@ try {
     $imported->source_file = 'phoenix.jsonl';
     $imported->external_number = 'NEU-25';
     $imported->test_date = '2025-01-01';
-    $imported->examiner = 'pruefer@example.test';
+    $imported->examiner = '';
     $imported->protection_class = 'I';
     $imported->result_status = 'bestanden';
     $imported->status = 'completed';
@@ -88,6 +88,9 @@ try {
     $importedRow = R::getRow('SELECT * FROM inspection WHERE id = ?', [$importedId]);
     if (($importedRow['classification'] ?? '') !== 'migrated_import' || ($importedRow['result_status'] ?? '') !== 'passed') {
         throw new RuntimeException('Importierte Prüfung wurde nicht kanonisch bewertet.');
+    }
+    if (($importedRow['examiner'] ?? '') !== 'edebertshaeuser@koenigsbl.au') {
+        throw new RuntimeException('Importierte Prüfung ohne Prüfer wurde nicht nach der dokumentierten Regel zugeordnet.');
     }
     if (trim((string) ($importedRow['report_path'] ?? '')) !== '') {
         throw new RuntimeException('Import-Original wurde fälschlich als aktueller Prüfapp-Bericht aktiviert.');
