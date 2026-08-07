@@ -204,6 +204,51 @@ try {
     ) {
         throw new RuntimeException('Überlieferte CSV- oder Phoenix-Ergebnisse werden nicht wiederhergestellt.');
     }
+
+    // A late CSV measurement import must enrich an existing unfinished annual
+    // inspection, not leave a second artificial "-2" inspection behind.
+    $open = R::dispense('inspection');
+    $open->device_id = $deviceId;
+    $open->dedupe_key = 'open-manual';
+    $open->source_type = 'manual';
+    $open->external_number = '100012579-26';
+    $open->test_date = '2026-08-04';
+    $open->result_status = 'in_progress';
+    $open->status = 'in_progress';
+    $open->raw_json = '{}';
+    $open->checklist_json = '[]';
+    $open->measurements_json = '[]';
+    $openId = (int) R::store($open);
+    $duplicate = R::dispense('inspection');
+    $duplicate->device_id = $deviceId;
+    $duplicate->dedupe_key = 'late-csv-import';
+    $duplicate->source_type = 'csv';
+    $duplicate->source_file = 'AK_Elektro-26_08_03.csv';
+    $duplicate->external_number = '100012579-26-2';
+    $duplicate->test_date = '2026-08-06';
+    $duplicate->inspection_type = 'Klasse II';
+    $duplicate->protection_class = 'II';
+    $duplicate->result_status = 'data_missing';
+    $duplicate->status = 'data_missing';
+    $duplicate->classification = 'migrated_import';
+    $duplicate->raw_json = '{"Prüfergebnis":"bestanden"}';
+    $duplicate->csv_row_json = '{"Prüfergebnis":"bestanden"}';
+    $duplicate->checklist_json = '[]';
+    $duplicate->measurements_json = '[]';
+    R::store($duplicate);
+    $reconciliationMessages = [];
+    MaintenanceJobHandler::run(
+        ['type' => 'import_result_reconciliation', 'checkpoint' => [], 'current' => 0, 'total' => 1],
+        static function (array $checkpoint, int $current, int $total, string $number, string $message) use (&$reconciliationMessages): void {
+            $reconciliationMessages[] = $number . ': ' . $message . ' ' . json_encode($checkpoint);
+        }
+    );
+    $remainingDuplicate = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number = '100012579-26-2'");
+    $mergedSource = (string) R::getCell('SELECT source_type FROM inspection WHERE id = ?', [$openId]);
+    $mergedType = (string) R::getCell('SELECT inspection_type FROM inspection WHERE id = ?', [$openId]);
+    if ($remainingDuplicate !== 0 || $mergedSource !== 'csv' || $mergedType !== 'Schutzklasse II') {
+        throw new RuntimeException("Später Messdatenimport wurde nicht in die offene Ausgangsprüfung zusammengeführt ({$remainingDuplicate}, {$mergedSource}, {$mergedType}; " . implode(' | ', $reconciliationMessages) . ').');
+    }
     $controllerSource = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
     $importTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_import.php');
     if (!str_contains($controllerSource, 'i.test_date DESC')

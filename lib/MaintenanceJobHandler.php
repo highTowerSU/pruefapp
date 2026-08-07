@@ -93,11 +93,14 @@ final class MaintenanceJobHandler
         while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
             $lastId = (int) $row['id'];
             try {
-                $result = InspectionMigrationService::migrate($lastId);
+                $canonicalId = self::mergeOpenImportDuplicate($lastId);
+                $result = InspectionMigrationService::migrate($canonicalId);
                 $reconciled++;
-                $message = ($result['status'] ?? '') === InspectionEvaluationService::DATA_MISSING
+                $message = $canonicalId !== $lastId
+                    ? 'Importdaten wurden in die bereits offene Prüfung übernommen; keine zweite Prüfung angelegt.'
+                    : (($result['status'] ?? '') === InspectionEvaluationService::DATA_MISSING
                     ? 'Importprüfung bleibt offen; das Quellergebnis ist nicht eindeutig bestätigt.'
-                    : 'Überliefertes Quellergebnis wurde mit den Prüfdaten abgeglichen.';
+                    : 'Überliefertes Quellergebnis wurde mit den Prüfdaten abgeglichen.');
             } catch (Throwable $exception) {
                 $errors[] = ['inspection_id' => $lastId, 'error' => $exception->getMessage()];
                 $errors = array_slice($errors, -50);
@@ -108,9 +111,84 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
         }
 
-        set_app_config('import_result_reconciliation_version', '4');
+        set_app_config('import_result_reconciliation_version', '5');
         set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
+    }
+
+    /**
+     * Merge an import-created numerical suffix (for example -26-2) back into
+     * the existing unfinished inspection with the canonical number. Completed
+     * inspections, different devices and rows with reports are never touched.
+     */
+    private static function mergeOpenImportDuplicate(int $duplicateId): int
+    {
+        $duplicate = R::load('inspection', $duplicateId);
+        if (!(int) $duplicate->id || !in_array((string) $duplicate->source_type, ['csv', 'json'], true)) return $duplicateId;
+        $number = trim((string) $duplicate->external_number);
+        if (!preg_match('/^(.*)-([2-9][0-9]*)$/', $number, $match)) return $duplicateId;
+        $canonical = R::findOne('inspection', "device_id = ? AND external_number = ? AND id <> ?
+            AND TRIM(COALESCE(report_path, '')) = ''
+            AND (COALESCE(result_status, '') IN ('', 'in_progress', 'data_missing', 'pending')
+                OR COALESCE(status, '') IN ('', 'in_progress', 'data_missing', 'pending', 'draft'))
+            ORDER BY id ASC", [(int) $duplicate->device_id, $match[1], $duplicateId]);
+        if ($canonical === null) return $duplicateId;
+
+        R::begin();
+        try {
+            // Preserve the earlier manual/open state before replacing it with
+            // the authoritative import data.
+            InspectionMigrationService::migrate((int) $canonical->id);
+            foreach ([
+                'dedupe_key', 'source_type', 'source_file', 'legacy_number', 'storage_slot',
+                'cable_length_m', 'rsl_limit_ohm', 'test_date', 'next_due_date',
+                'result_status', 'inspection_type', 'examiner', 'protection_class',
+                'device_type', 'manufacturer', 'device_model', 'room_snapshot',
+                'measurements_json', 'checklist_json', 'raw_json', 'csv_row_json',
+            ] as $field) {
+                $canonical->{$field} = $duplicate->{$field};
+            }
+            $canonical->inspection_type = self::canonicalInspectionType(
+                (string) $canonical->inspection_type,
+                (string) $canonical->protection_class
+            );
+            $canonical->updated_at = date(DATE_ATOM);
+            foreach (['inspection_answer', 'inspection_measurement', 'inspection_diagnostic'] as $table) {
+                R::exec("DELETE FROM {$table} WHERE inspection_id = ?", [(int) $canonical->id]);
+                R::exec("DELETE FROM {$table} WHERE inspection_id = ?", [$duplicateId]);
+            }
+            R::trash($duplicate);
+            // The imported dedupe key belongs to the duplicate until it has
+            // been removed; only then can it safely become the canonical key.
+            R::store($canonical);
+            R::commit();
+        } catch (Throwable $exception) {
+            R::rollback();
+            throw $exception;
+        }
+        audit_log('import_pruefung_zusammengefuehrt', [
+            '_category' => 'import',
+            'canonical_inspection_id' => (int) $canonical->id,
+            'canonical_inspection_number' => (string) $canonical->external_number,
+            'duplicate_inspection_id' => $duplicateId,
+            'duplicate_inspection_number' => $number,
+        ]);
+        return (int) $canonical->id;
+    }
+
+    private static function canonicalInspectionType(string $type, string $protectionClass): string
+    {
+        if (preg_match('/\b(?:schutzklasse|klasse|sk)\s*(i{1,3}|[123])\b/ui', trim($type), $match)) {
+            $token = strtoupper($match[1]);
+            return 'Schutzklasse ' . match ($token) {
+                '1', 'I' => 'I',
+                '2', 'II' => 'II',
+                default => 'III',
+            };
+        }
+        return in_array($protectionClass, ['I', 'II', 'III'], true) && trim($type) === ''
+            ? 'Schutzklasse ' . $protectionClass
+            : trim($type);
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */

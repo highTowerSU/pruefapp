@@ -449,6 +449,12 @@ final class ElectricalInspectionImportService
             $legacyDedupe = hash('sha256', implode('|', [$sourceType, $rawExternal, $slot, $date, (string) ($record['result_status'] ?? '')]));
             $inspection = R::findOne('inspection', ' dedupe_key = ? ', [$legacyDedupe]);
         }
+        // A measurement export can arrive shortly after the inspector opened
+        // the same annual inspection manually. It supplements that unfinished
+        // row; it must never create a misleading "-2" inspection.
+        if ($inspection === null) {
+            $inspection = $this->findOpenInspectionForImport((int) $deviceResult['device']->id, $external);
+        }
         $created = $inspection === null;
         $inspection ??= R::dispense('inspection');
         $inspection->device_id = (int) $deviceResult['device']->id;
@@ -472,9 +478,12 @@ final class ElectricalInspectionImportService
         }
         if ($nextDue === '' && (int) ($record['next_due_offset_days'] ?? 0) > 0 && $date !== '') $nextDue = date('Y-m-d', strtotime($date . ' +' . (int) $record['next_due_offset_days'] . ' days'));
         $inspection->next_due_date = $nextDue;
-        $inspection->inspection_type = $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? '');
         $derivedProtectionClass = $this->protectionClassFromRecord($record);
         if ($derivedProtectionClass !== '') $inspection->protection_class = $derivedProtectionClass;
+        $inspection->inspection_type = $this->canonicalInspectionType(
+            $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? ''),
+            $derivedProtectionClass
+        );
         $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
         $inspection->result_status = InspectionEvaluationService::normalizeStatus(
             (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null))
@@ -764,6 +773,33 @@ final class ElectricalInspectionImportService
             $candidate = $base . '-' . $suffix++;
         }
         return $candidate;
+    }
+
+    private function findOpenInspectionForImport(int $deviceId, string $external): ?\RedBeanPHP\OODBBean
+    {
+        if ($deviceId <= 0 || $external === '') return null;
+        return R::findOne('inspection', "device_id = ? AND external_number = ?
+            AND TRIM(COALESCE(report_path, '')) = ''
+            AND (COALESCE(result_status, '') IN ('', 'in_progress', 'data_missing', 'pending')
+                OR COALESCE(status, '') IN ('', 'in_progress', 'data_missing', 'pending', 'draft'))
+            ORDER BY id DESC", [$deviceId, $external]);
+    }
+
+    private function canonicalInspectionType(string $type, string $protectionClass): string
+    {
+        $value = trim($type);
+        $normalized = mb_strtolower($value);
+        if (preg_match('/\b(?:schutzklasse|klasse|sk)\s*(i{1,3}|[123])\b/u', $normalized, $match)) {
+            $token = strtoupper($match[1]);
+            return 'Schutzklasse ' . match ($token) {
+                '1', 'I' => 'I',
+                '2', 'II' => 'II',
+                default => 'III',
+            };
+        }
+        return in_array($protectionClass, ['I', 'II', 'III'], true) && $value === ''
+            ? 'Schutzklasse ' . $protectionClass
+            : $value;
     }
 
     private function applyImportRules(array $record): array
