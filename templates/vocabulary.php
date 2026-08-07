@@ -1,7 +1,7 @@
 <section class="card shadow-sm" id="vocabulary-review-panel" data-action-nav="Stammdaten bereinigen" data-action-icon="fa-spell-check">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h1 class="h5 mb-0"><i class="fa-solid fa-spell-check me-2" aria-hidden="true"></i>Stammdaten bereinigen</h1>
-    <span class="badge text-bg-primary"><?= count($reviews) ?> offen</span>
+    <span class="d-flex align-items-center gap-2"><label class="small fw-normal mb-0" for="vocabulary-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="vocabulary-auto-refresh">automatisch aktualisieren</label><span class="badge text-bg-primary"><?= count($reviews) ?> offen</span></span>
   </div>
   <div class="card-body">
     <p class="text-body-secondary">KI-Vorschläge ändern nichts automatisch. Prüfe die Zusammenführung vor dem Freigeben; Rohimportdaten und Legacy-PDFs bleiben unverändert.</p>
@@ -17,3 +17,25 @@
     <?php endforeach; ?>
   </div>
 </section>
+<script>
+(() => {
+  const panel = document.getElementById('vocabulary-review-panel');
+  const control = document.getElementById('vocabulary-auto-refresh');
+  if (!panel || !control) return;
+  const storageKey = 'pruefapp:vocabulary-auto-refresh';
+  const read = () => { try { return localStorage.getItem(storageKey) === '1'; } catch (_) { return false; } };
+  const write = value => { try { localStorage.setItem(storageKey, value ? '1' : '0'); } catch (_) {} };
+  const stop = () => { if (window.pruefappVocabularyRefreshTimer) window.clearInterval(window.pruefappVocabularyRefreshTimer); window.pruefappVocabularyRefreshTimer = null; };
+  const refresh = () => {
+    if (!control.checked || typeof window.htmx?.ajax !== 'function') return;
+    window.htmx.ajax('GET', '<?= htmlspecialchars(url_for('admin/stammdaten'), ENT_QUOTES) ?>', {target: '#vocabulary-review-panel', swap: 'outerHTML'});
+  };
+  const configure = () => {
+    stop(); write(control.checked);
+    if (control.checked) window.pruefappVocabularyRefreshTimer = window.setInterval(refresh, 10000);
+  };
+  control.checked = read();
+  control.addEventListener('change', configure);
+  configure();
+})();
+</script>
