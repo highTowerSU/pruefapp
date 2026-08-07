@@ -48,7 +48,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Zusätzliche Angaben</h2></div>
     <div class="col-12"><label class="form-label" for="device-description-<?= $formKey ?>"><i class="fa-solid fa-comment icon-slot me-1" aria-hidden="true"></i>Kurzbeschreibung</label><textarea class="form-control" id="device-description-<?= $formKey ?>" name="description" rows="2" maxlength="240" placeholder="Funktion, Bauart oder Einsatz des Geräts"><?= htmlspecialchars((string) $device->description) ?></textarea><div class="form-text">Wird direkt in der Geräteübersicht angezeigt, maximal 240 Zeichen.</div></div>
     <div class="col-md-6"><label class="form-label" for="device-comment-<?= $formKey ?>"><i class="fa-solid fa-comment icon-slot me-1" aria-hidden="true"></i>Kommentar</label><textarea class="form-control" id="device-comment-<?= $formKey ?>" name="comment" placeholder="Interne Hinweise und Bemerkungen"><?= htmlspecialchars((string) $device->comment) ?></textarea></div>
-    <div class="col-md-6"><label class="form-label" for="device-metadata-<?= $formKey ?>"><i class="fa-solid fa-code icon-slot me-1" aria-hidden="true"></i>Metadaten (JSON-Objekt, optional)</label><textarea class="form-control font-monospace" id="device-metadata-<?= $formKey ?>" name="metadata_json" placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></div>
+    <div class="col-md-6"><label class="form-label"><i class="fa-solid fa-sliders icon-slot me-1" aria-hidden="true"></i>Zusatzattribute</label><div class="border rounded p-2 metadata-visual-editor" data-metadata-editor><div class="metadata-visual-rows d-grid gap-2"></div><button class="btn btn-sm btn-outline-secondary mt-2" type="button" data-metadata-add><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Attribut hinzufügen</button><details class="mt-2"><summary class="small text-body-secondary">JSON-Ansicht für Fortgeschrittene</summary><textarea class="form-control font-monospace mt-2" id="device-metadata-<?= $formKey ?>" name="metadata_json" data-metadata-json placeholder='z. B. {"kostenstelle":"1000"}'><?= htmlspecialchars($metadataValue) ?></textarea></details></div><div class="form-text">Text, Zahl, Datum, Ja/Nein oder MAC-Adresse; die Daten werden weiterhin als kompatibles JSON gespeichert.</div></div>
     <div class="col-12 text-end d-flex justify-content-end gap-2"><button class="btn btn-secondary btn-sm" name="save_only" value="1"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Speichern</button><?php if ($formKey > 0): ?><a class="btn btn-primary btn-sm" href="<?= htmlspecialchars(url_for('geraete/' . $formKey . '/pruefungen/neu'), ENT_QUOTES) ?>"><i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Neue Prüfung anlegen</a><?php else: ?><button class="btn btn-primary btn-sm" name="save_and_inspect" value="1"><i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Speichern und neue Prüfung</button><?php endif; ?></div>
   </form>
 <?php }; ?>
@@ -391,6 +391,43 @@ document.addEventListener('click', event => {
   if (!link || !window.htmx) return;
   event.preventDefault();
   htmx.ajax('GET', link.href, {target: '#device-page', select: '#device-page', swap: 'outerHTML', pushUrl: true});
+});
+</script>
+<script>
+document.querySelectorAll('[data-metadata-editor]').forEach(editor => {
+  if (editor.dataset.bound === '1') return;
+  editor.dataset.bound = '1';
+  const rows = editor.querySelector('.metadata-visual-rows');
+  const json = editor.querySelector('[data-metadata-json]');
+  const inferType = value => typeof value === 'boolean' ? 'boolean' : (typeof value === 'number' ? 'number' : (/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? 'date' : (/^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i.test(String(value)) ? 'mac' : 'text')));
+  const sync = () => {
+    const values = {};
+    rows.querySelectorAll('[data-metadata-row]').forEach(row => {
+      const key = row.querySelector('[data-metadata-key]').value.trim();
+      const type = row.querySelector('[data-metadata-type]').value;
+      let value = row.querySelector('[data-metadata-value]').value.trim();
+      if (!key) return;
+      if (type === 'number') value = value === '' ? '' : Number(value.replace(',', '.'));
+      if (type === 'boolean') value = value === 'true';
+      if (type === 'mac') value = value.toUpperCase().replace(/-/g, ':');
+      values[key] = value;
+    });
+    json.value = Object.keys(values).length ? JSON.stringify(values) : '';
+  };
+  const add = (key = '', value = '', type = inferType(value)) => {
+    const row = document.createElement('div'); row.className = 'input-group input-group-sm'; row.dataset.metadataRow = '1';
+    row.innerHTML = `<input class="form-control" data-metadata-key placeholder="Name" aria-label="Attributname"><select class="form-select" data-metadata-type aria-label="Datentyp"><option value="text">Text</option><option value="number">Zahl</option><option value="date">Datum</option><option value="boolean">Ja/Nein</option><option value="mac">MAC-Adresse</option></select><input class="form-control" data-metadata-value placeholder="Wert" aria-label="Attributwert"><button class="btn btn-outline-danger" type="button" data-metadata-remove aria-label="Attribut entfernen"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
+    row.querySelector('[data-metadata-key]').value = key; row.querySelector('[data-metadata-type]').value = type;
+    const input = row.querySelector('[data-metadata-value]'); input.value = type === 'boolean' ? String(Boolean(value)) : String(value ?? '');
+    if (type === 'date') input.type = 'date'; if (type === 'number') input.type = 'number';
+    rows.appendChild(row);
+  };
+  try { const existing = JSON.parse(json.value || '{}'); if (existing && typeof existing === 'object' && !Array.isArray(existing)) Object.entries(existing).forEach(([key, value]) => add(key, value)); } catch (_) {}
+  if (!rows.children.length) add();
+  editor.querySelector('[data-metadata-add]').addEventListener('click', () => { add(); sync(); });
+  rows.addEventListener('click', event => { if (event.target.closest('[data-metadata-remove]')) { event.target.closest('[data-metadata-row]').remove(); if (!rows.children.length) add(); sync(); } });
+  rows.addEventListener('input', sync); rows.addEventListener('change', event => { const row = event.target.closest('[data-metadata-row]'); if (event.target.matches('[data-metadata-type]') && row) { const value = row.querySelector('[data-metadata-value]'); value.type = event.target.value === 'date' ? 'date' : (event.target.value === 'number' ? 'number' : 'text'); } sync(); });
+  editor.closest('form')?.addEventListener('submit', sync);
 });
 </script>
 </div>

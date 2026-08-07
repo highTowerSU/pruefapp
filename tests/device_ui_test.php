@@ -31,6 +31,7 @@ $checks = [
     [str_contains($template, '$latestInspection = $deviceInspections[0]') && !str_contains($template, 'foreach ($deviceInspections as $inspectionForBadge)'), 'Das Gerätebadge wertet nicht ausschließlich die letzte Prüfung aus.'],
     [str_contains($template, '$badgeResultStatus = $latestInspection ?') && str_contains($template, ": '';") && !str_contains($template, '$inspectionPending = !$latestInspection'), 'Geräte ohne Prüfung werden fälschlich als fehlende Daten angezeigt.'],
     [str_contains($template, 'copy_latest_inspection_data') && str_contains($deviceController, 'geraet_stammdaten_aus_pruefung_uebernommen'), 'Die Übernahme von Geräte-Stammdaten aus der letzten Prüfung fehlt.'],
+    [str_contains($template, 'data-metadata-editor') && str_contains($template, 'MAC-Adresse') && str_contains($template, 'data-metadata-json'), 'Der visuelle Editor für Geräte-Zusatzattribute fehlt.'],
     [str_contains($inspectionTemplate, 'name="metadata_notes"') && str_contains($inspectionController, "'metadata_notes'"), 'Die Prüfungsbemerkung wird nicht serverseitig gespeichert.'],
 ];
 
