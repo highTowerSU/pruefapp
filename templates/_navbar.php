@@ -183,7 +183,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
             $hasKeycloakLink = $keycloakAccountUrl !== null;
           ?>
           <div class="d-flex align-items-center gap-2">
-            <div class="dropdown">
+            <div class="dropdown navbar-hover-dropdown">
               <button class="btn btn-outline-navbar dropdown-toggle d-flex align-items-center gap-2"
                       type="button"
                       id="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>"
@@ -229,12 +229,12 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
         <?php endif; ?>
 
         <?php if ($authUser !== null): ?>
-          <div class="dropdown">
+          <div class="dropdown navbar-hover-dropdown">
             <?= render_template('_notifications_dropdown.php', ['notifications' => current_user_notifications(6), 'downloadsUrl' => $downloadsUrl]) ?>
           </div>
         <?php endif; ?>
 
-        <div class="btn-group" role="group">
+        <div class="btn-group navbar-hover-dropdown" role="group">
           <button type="button" class="btn btn-outline-navbar" id="themeCycleButton" aria-label="Theme umschalten">
             <i class="fas fa-circle-half-stroke" data-theme-icon></i>
           </button>

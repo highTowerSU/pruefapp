@@ -485,6 +485,30 @@ $assetVersion = app_asset_version();
                 if (actionBlocksChanged) buildActionNavigation();
             }).observe(document.body, {childList: true, subtree: true});
 
+            // Desktop users can open the utility menus on the right (profile,
+            // notifications and theme) exactly like the primary navigation.
+            // Bootstrap is used instead of CSS-only display so dropdown events
+            // and HTMX notification refreshes continue to work.
+            const enableUtilityDropdownHover = () => {
+                if (!window.matchMedia('(min-width: 992px) and (hover: hover) and (pointer: fine)').matches || !window.bootstrap?.Dropdown) return;
+                document.querySelectorAll('.navbar-hover-dropdown').forEach(container => {
+                    if (container.dataset.hoverDropdownBound === '1') return;
+                    const toggle = container.querySelector('[data-bs-toggle="dropdown"]');
+                    if (!toggle) return;
+                    container.dataset.hoverDropdownBound = '1';
+                    let closeTimer = 0;
+                    const dropdown = window.bootstrap.Dropdown.getOrCreateInstance(toggle);
+                    container.addEventListener('mouseenter', () => {
+                        window.clearTimeout(closeTimer);
+                        dropdown.show();
+                    });
+                    container.addEventListener('mouseleave', () => {
+                        closeTimer = window.setTimeout(() => dropdown.hide(), 180);
+                    });
+                });
+            };
+            enableUtilityDropdownHover();
+
             document.body.addEventListener('htmx:beforeSwap', (event) => {
                 const detail = event.detail;
 
