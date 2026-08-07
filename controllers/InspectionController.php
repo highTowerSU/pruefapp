@@ -26,11 +26,14 @@ final class InspectionController
     {
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $user = current_user();
-        $typeCode = InspectionTypeService::normalize((string) ($_REQUEST['inspection_type_code'] ?? InspectionTypeService::ELECTRICAL));
-        $permission = InspectionTypeService::permissionForUser($user, $typeCode);
-        if (!$permission['allowed']) {
-            $_SESSION['fehlermeldung'] = $permission['message'];
+        $selection = InspectionTypeService::permittedTypeForUser($user, (string) ($_REQUEST['inspection_type_code'] ?? InspectionTypeService::ELECTRICAL));
+        if ($selection['selected'] === null) {
+            $_SESSION['fehlermeldung'] = (string) $selection['requested_permission']['message'];
             return [303, ['Location' => url_for('profil')], ''];
+        }
+        $typeCode = (string) $selection['selected']['code'];
+        if ($selection['used_fallback']) {
+            $_SESSION['meldung'] = 'Die gewünschte Prüfart ist aktuell nicht freigegeben. Stattdessen wurde „' . (string) $selection['selected']['name'] . '“ geöffnet.';
         }
         $examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
         $device = R::load('device', (int) ($params['deviceId'] ?? 0));

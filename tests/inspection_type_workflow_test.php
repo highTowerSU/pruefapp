@@ -6,12 +6,14 @@ $schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $types = (string) file_get_contents(dirname(__DIR__) . '/lib/InspectionTypeService.php');
 $findings = (string) file_get_contents(dirname(__DIR__) . '/lib/DeviceFindingService.php');
 $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
+$deviceTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/device_index.php');
 $profile = (string) file_get_contents(dirname(__DIR__) . '/controllers/ProfileController.php');
 $ladder = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_ladder_edit.php');
 
 $checks = [
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS inspection_type') && str_contains($schema, 'CREATE TABLE IF NOT EXISTS user_qualification') && str_contains($schema, 'CREATE TABLE IF NOT EXISTS device_finding'), 'Prüfarten, Befähigungen oder Mängel sind nicht persistierbar.'],
     [str_contains($types, 'permissionForUser') && str_contains($types, 'examinerEligibility') && str_contains($types, 'requires_confirmation') && str_contains($types, 'examiner_has_report_signature'), 'Prüfberechtigungen werden nicht vollständig serverseitig bewertet.'],
+    [str_contains($types, 'permittedTypeForUser') && str_contains($controller, 'InspectionTypeService::permittedTypeForUser') && str_contains($deviceTemplate, 'preferredFallbackReason') && str_contains($deviceTemplate, 'data-bs-toggle="popover"'), 'Eine nicht zulässige vorausgewählte Prüfart wird nicht nachvollziehbar auf eine erlaubte Prüfart zurückgeführt.'],
     [str_contains($controller, 'InspectionTypeService::LADDER') && str_contains($controller, 'editLadder') && str_contains($controller, 'failed_action'), 'Leiterprüfung oder dokumentierte Fehlmaßnahme fehlen im Workflow.'],
     [str_contains($findings, "['green', 'orange', 'red']") && str_contains($findings, '$blocked'), 'Gerätehinweise und Sperrmängel werden nicht getrennt nachverfolgt.'],
     [str_contains($profile, 'save_qualification') && str_contains($profile, 'confirm_qualification') && str_contains($profile, 'certificate_requirement_codes') && str_contains($profile, 'qualification_ids') && str_contains($profile, 'upload_followup') && str_contains($profile, 'validity_days'), 'Befähigungen oder zugeordnete Unterweisungsnachweise fehlen im Profil.'],

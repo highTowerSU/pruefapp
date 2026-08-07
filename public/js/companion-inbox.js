@@ -79,8 +79,6 @@
   };
   const bindInputs = (root) => {
     document.querySelectorAll('[data-companion-for]').forEach((button) => {
-      if (root.dataset.hasActiveConnection !== '1') { button.classList.add('d-none'); return; }
-      button.classList.remove('d-none');
       if (button.dataset.companionBound) return;
       button.dataset.companionBound = '1';
       button.addEventListener('click', (event) => {
@@ -92,9 +90,9 @@
         if (old && button.getAttribute('aria-describedby')) { old.dispose(); return; }
         if (old) old.dispose();
         closePopovers(button);
-        const content = root.dataset.hasActiveConnection === '1'
+        const content = root?.dataset.hasActiveConnection === '1'
           ? `<div hx-get="${root.dataset.inboxUrl}?field=${encodeURIComponent(button.dataset.companionFor)}" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Werte laden …</span></div>`
-          : '<span class="small">Noch kein Smartphone verbunden. Im Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Handy öffnen.</span>';
+          : `<div class="small">Noch kein Smartphone verbunden.<br><a class="btn btn-sm btn-primary mt-2" href="${button.dataset.companionConnectUrl || '/pruefapp/profil#companion-sessions'}"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Companion-App verbinden</a></div>`;
         const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
         popover.show();
         window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
@@ -124,13 +122,14 @@
     });
   };
   const openDraftPhotoChoices = (button, form, root) => {
-    if (!root) return;
     activeDraftForm = form;
     activeDraftType = button.closest('.btn-group')?.querySelector('[data-open-typeplate]') ? 'type_plate' : '';
     activeDraftTrigger = button.closest('.btn-group')?.querySelector('[data-open-typeplate]') || button;
     const old = window.bootstrap?.Popover.getInstance(button);
     if (old) old.dispose();
-    const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
+    const content = root?.dataset.hasActiveConnection === '1'
+      ? `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`
+      : '<div class="small">Noch kein Smartphone verbunden.<br><a class="btn btn-sm btn-primary mt-2" href="/pruefapp/profil#companion-sessions"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Companion-App verbinden</a></div>';
     const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
     popover.show();
     window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
@@ -168,18 +167,18 @@
         previewDevicePhoto(form, blob);
         resetPasteLabel();
       });
-      if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
-      form.querySelectorAll('[data-companion-draft-photo]').forEach((choice) => choice.classList.toggle('d-none', !root || root.dataset.hasActiveConnection !== '1'));
+      if (photo.closest('[data-media-upload-component]')) return;
       button.addEventListener('click', () => {
         openDraftPhotoChoices(button, form, root);
       });
     });
   };
   const openMediaUploadPhotoChoices = (button, component, root) => {
-    if (!root) return;
     activeMediaUploadComponent = component;
     window.bootstrap?.Popover.getInstance(button)?.dispose();
-    const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo&picker=upload" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
+    const content = root?.dataset.hasActiveConnection === '1'
+      ? `<div hx-get="${root.dataset.inboxUrl}?kind=photo&picker=upload" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`
+      : `<div class="small">Noch kein Smartphone verbunden.<br><a class="btn btn-sm btn-primary mt-2" href="${button.dataset.companionConnectUrl || '/pruefapp/profil#companion-sessions'}"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Companion-App verbinden</a></div>`;
     const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
     popover.show();
     window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
@@ -202,7 +201,6 @@
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], `eingefuegtes-foto-${Date.now()}.${extension}`, {type: blob.type})); input.files = transfer.files;
         previewMediaUpload(component, blob); resetPaste();
       });
-      if (!root || root.dataset.hasActiveConnection !== '1') companion?.classList.add('d-none'); else companion?.classList.remove('d-none');
       companion?.addEventListener('click', () => openMediaUploadPhotoChoices(companion, component, root));
     });
   };
@@ -211,7 +209,7 @@
     if (!button || button.dataset.companionPhotoBound) return;
     const form = button.closest('form.device-form');
     const root = document.querySelector('[data-companion-inbox]');
-    if (!form || !root || root.dataset.hasActiveConnection !== '1') return;
+    if (!form) return;
     openDraftPhotoChoices(button, form, root);
   });
   document.addEventListener('click', (event) => {

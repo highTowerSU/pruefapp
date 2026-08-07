@@ -127,6 +127,28 @@ final class InspectionTypeService
         ];
     }
 
+    /**
+     * Resolve a requested/default inspection type to one the current user can
+     * actually start.  Controllers use this same decision as the device UI.
+     *
+     * @return array{requested:array<string,mixed>|null,requested_permission:array<string,mixed>,selected:array<string,mixed>|null,used_fallback:bool}
+     */
+    public static function permittedTypeForUser(object $user, string $requestedCode): array
+    {
+        $requestedCode = self::normalize($requestedCode);
+        $requested = self::find($requestedCode);
+        $requestedPermission = self::permissionForUser($user, $requestedCode);
+        if ($requested !== null && $requestedPermission['allowed']) {
+            return ['requested' => $requested, 'requested_permission' => $requestedPermission, 'selected' => $requested, 'used_fallback' => false];
+        }
+        foreach (self::active() as $type) {
+            if (self::permissionForUser($user, (string) $type['code'])['allowed']) {
+                return ['requested' => $requested, 'requested_permission' => $requestedPermission, 'selected' => $type, 'used_fallback' => true];
+            }
+        }
+        return ['requested' => $requested, 'requested_permission' => $requestedPermission, 'selected' => null, 'used_fallback' => false];
+    }
+
     /** @return array<string,mixed> */
     public static function deviceAttributes(int $deviceId, string $type): array
     {

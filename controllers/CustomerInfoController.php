@@ -15,7 +15,7 @@ final class CustomerInfoController
             'customer' => $customer,
             'infos' => $infos,
             'canManage' => current_user_has_role('admin'),
-        ]));
+        ]), $isHx);
     }
 
     public static function edit(array $params, bool $isHx): array
@@ -24,7 +24,7 @@ final class CustomerInfoController
         $customer = self::customer($params);
         $info = R::load('customerinfo', (int) ($params['infoId'] ?? 0));
         if ($customer === null || !$info->id || (int) $info->customer_id !== (int) $customer->id) return [404, [], 'Kundeninfo nicht gefunden'];
-        return self::page('Kundeninfo bearbeiten', render_template('customer_info_edit.php', ['customer' => $customer, 'info' => $info]));
+        return self::page('Kundeninfo bearbeiten', render_template('customer_info_edit.php', ['customer' => $customer, 'info' => $info]), $isHx);
     }
 
     public static function view(array $params, bool $isHx): array
@@ -38,7 +38,7 @@ final class CustomerInfoController
             'info' => $info,
             'markdown' => self::markdown((string) $info->markdown),
             'canManage' => current_user_has_role('admin'),
-        ]));
+        ]), $isHx);
     }
 
     public static function save(array $params, bool $isHx): array
@@ -155,8 +155,9 @@ final class CustomerInfoController
         return $customer->id ? $customer : null;
     }
 
-    private static function page(string $title, string $content): array
+    private static function page(string $title, string $content, bool $isHx = false): array
     {
+        if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', ['title' => $title, 'content' => $content])];
     }
 
