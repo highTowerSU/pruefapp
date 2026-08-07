@@ -38,9 +38,7 @@ class DeviceController
             $tokens = [
                 self::token($customer),
                 self::token($site),
-                self::token($building),
                 StructureController::roomIdentifier($room, $floor, $area),
-                (string) $room->name,
             ];
             $roomLabels[(int) $room->id] = implode(' · ', array_filter($tokens));
         }

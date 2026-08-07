@@ -35,9 +35,7 @@ final class BillingController
             $roomLabels[(int) $room->id] = implode(' · ', array_filter([
                 trim((string) ($customer->name ?? '')),
                 trim((string) ($site->name ?? '')),
-                trim((string) ($building->name ?? '')),
                 $identifier,
-                trim((string) ($room->name ?? '')),
             ]));
         }
         $examinerOptions = InspectionFilterService::examinerOptions();
