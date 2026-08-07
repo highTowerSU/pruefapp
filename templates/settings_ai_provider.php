@@ -5,7 +5,7 @@
     <p class="small text-body-secondary">Ein Provider kann später auch für weitere KI-Aufgaben genutzt werden. Die Stammdatenprüfung übermittelt nur kurze Hersteller-, Modell- und Bezeichnungswerte und erzeugt ausschließlich Freigabevorschläge.</p>
     <?php if ($message !== ''): ?><div class="alert alert-success py-2"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i><?= htmlspecialchars($message, ENT_QUOTES) ?></div><?php endif; ?>
     <?php if ($error !== ''): ?><div class="alert alert-danger py-2"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i><?= htmlspecialchars($error, ENT_QUOTES) ?></div><?php endif; ?>
-    <div class="d-flex flex-wrap align-items-end gap-2 mb-3"><div class="flex-grow-1"><label class="form-label mb-1" for="ai-provider-choice">Provider</label><select class="form-select" id="ai-provider-choice" hx-get="<?= htmlspecialchars(url_for('admin/konfiguration/ki-provider'), ENT_QUOTES) ?>" hx-target="#settings-ai-panel" hx-swap="outerHTML" hx-trigger="change" name="provider_id"><option value="0">Neuen Provider anlegen</option><?php foreach ($providers as $item): ?><option value="<?= (int) $item->id ?>"<?= (int) $provider->id === (int) $item->id ? ' selected' : '' ?>><?= htmlspecialchars((string) $item->name, ENT_QUOTES) ?></option><?php endforeach; ?></select></div><button class="btn btn-outline-secondary" type="button" hx-get="<?= htmlspecialchars(url_for('admin/konfiguration/ki-provider?provider_id=0'), ENT_QUOTES) ?>" hx-target="#settings-ai-panel" hx-swap="outerHTML"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Provider hinzufügen</button></div>
+    <div class="d-flex flex-wrap align-items-end gap-2 mb-3"><div class="flex-grow-1"><label class="form-label mb-1" for="ai-provider-choice">Provider</label><select class="form-select" id="ai-provider-choice" hx-get="<?= htmlspecialchars(url_for('admin/konfiguration/ki-provider'), ENT_QUOTES) ?>" hx-target="#settings-ai-panel" hx-swap="outerHTML" hx-trigger="change" name="provider_id"><option value="0">Neuen Provider anlegen</option><?php foreach ($providers as $item): ?><option value="<?= (int) $item->id ?>"<?= (int) $provider->id === (int) $item->id ? ' selected' : '' ?>><?= htmlspecialchars((string) $item->name, ENT_QUOTES) ?></option><?php endforeach; ?></select></div><div><label class="form-label mb-1" for="ai-provider-preset">Voreinstellung</label><select class="form-select" id="ai-provider-preset" data-ai-provider-preset><option value="">Keine auswählen</option><option value="innogpt">innoGPT</option><option value="ionos">IONOS AI Model Hub</option><option value="ovh">OVHcloud AI Endpoints</option></select></div><button class="btn btn-outline-secondary" type="button" hx-get="<?= htmlspecialchars(url_for('admin/konfiguration/ki-provider?provider_id=0'), ENT_QUOTES) ?>" hx-target="#settings-ai-panel" hx-swap="outerHTML"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Provider hinzufügen</button></div>
     <form id="ai-provider-form" method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration/ki-provider'), ENT_QUOTES) ?>" hx-post="<?= htmlspecialchars(url_for('admin/konfiguration/ki-provider'), ENT_QUOTES) ?>" hx-target="#settings-ai-panel" hx-swap="outerHTML" class="row g-3 ai-provider-form">
       <input type="hidden" name="provider_id" value="<?= (int) $provider->id ?>">
       <div class="col-md-4"><label class="form-label" for="ai-provider-name">Name</label><input class="form-control" id="ai-provider-name" name="name" value="<?= htmlspecialchars((string) $provider->name, ENT_QUOTES) ?>" placeholder="z. B. innoGPT"></div>
@@ -19,3 +19,25 @@
     </form>
   </div>
 </section>
+<script>
+(() => {
+  const panel = document.getElementById('settings-ai-panel');
+  const select = panel?.querySelector('[data-ai-provider-preset]');
+  if (!panel || !select || select.dataset.bound === '1') return;
+  select.dataset.bound = '1';
+  const presets = {
+    innogpt: {name: 'innoGPT', base_url: 'https://app.innogpt.de/api/ext/v1', header_name: 'Authorization', pricing_url: 'https://docs.innogpt.de/en/help/articles/8468742-usage-limits-andamp-fair-use-policy'},
+    ionos: {name: 'IONOS AI Model Hub', base_url: 'https://openai.inference.de-txl.ionos.com/v1', header_name: 'Authorization', pricing_url: 'https://docs.ionos.com/cloud/ai/ai-model-hub/ai-model-hub'},
+    ovh: {name: 'OVHcloud AI Endpoints', base_url: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', header_name: 'Authorization', pricing_url: 'https://help.ovhcloud.com/csm/en-au-public-cloud-ai-endpoints-code-assistant?id=kb_article_view&sysparm_article=KB0067282'}
+  };
+  select.addEventListener('change', () => {
+    const preset = presets[select.value];
+    if (!preset) return;
+    Object.entries(preset).forEach(([name, value]) => {
+      const field = panel.querySelector(`[name="${name}"]`);
+      if (field) field.value = value;
+    });
+    panel.querySelector('[name="api_token"]')?.focus();
+  });
+})();
+</script>
