@@ -116,9 +116,9 @@
     </section>
   </div>
   </div><?php endif; ?>
-  <div class="col-12 col-xl-5">
-    <section class="card shadow-sm">
-      <div class="card-header fw-semibold" id="qualifications"><i class="fa-solid fa-certificate me-2" aria-hidden="true"></i>Befähigungen &amp; Nachweise</div>
+  <div class="col-12">
+    <section class="card shadow-sm" id="qualification-card">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center gap-2" id="qualifications"><span><i class="fa-solid fa-certificate me-2" aria-hidden="true"></i>Befähigungen &amp; Nachweise</span><span class="small text-body-secondary">Nachweise und Folgeunterweisungen</span></div>
       <div class="card-body">
         <p class="small text-body-secondary">Lege zuerst eine Befähigung an. Der erste PDF-Nachweis gehört zu dieser Befähigung; spätere Unterweisungen werden darunter als eigene Liste ergänzt.</p>
         <?php if ($certificates === []): ?><p class="text-body-secondary mb-3">Noch keine Befähigung angelegt.</p><?php else: ?>
@@ -142,6 +142,47 @@
 </div>
 <style>.signature-pad{touch-action:none;background:linear-gradient(135deg,#fff 0%,#fbfbff 100%);box-shadow:inset 0 0 1.5rem rgba(53,71,184,.06)}.signature-pad canvas{display:block;width:100%;height:220px;cursor:crosshair;touch-action:none}.qualification-followup-form,.list-group-item form:has([name="followup_date"]){display:grid;grid-template-columns:minmax(10rem,1fr) minmax(11rem,1.1fr) minmax(12rem,1.4fr) minmax(8rem,.8fr);gap:.75rem;align-items:end}.qualification-followup-form .form-label,.list-group-item form:has([name="followup_date"]) .form-label{display:block;white-space:nowrap}.qualification-followup-form .form-control,.list-group-item form:has([name="followup_date"]) .form-control{min-width:0}.qualification-followup-form .qualification-followup-action,.list-group-item form:has([name="followup_date"]) [class*="col-"]:last-child{display:flex;align-items:end}.qualification-followup-form .qualification-followup-action .btn,.list-group-item form:has([name="followup_date"]) [class*="col-"]:last-child .btn{width:100%}.list-group-item form:has([name="followup_date"])>[class*="col-"]{width:auto;padding-inline:0}@media(max-width:900px){.qualification-followup-form,.list-group-item form:has([name="followup_date"]){grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:575.98px){.qualification-followup-form,.list-group-item form:has([name="followup_date"]){grid-template-columns:1fr}.qualification-followup-form .form-label,.list-group-item form:has([name="followup_date"]) .form-label{white-space:normal}}</style>
 <style>.list-group-item form:has([name="followup_date"])>[class*="col-"]:first-of-type .form-label{font-size:0}.list-group-item form:has([name="followup_date"])>[class*="col-"]:first-of-type .form-label:after{content:'Datum';font-size:.875rem}</style>
+<style>
+#qualification-card .qualification-item{transition:background-color .15s ease}
+#qualification-card .qualification-item:hover{background-color:var(--bs-tertiary-bg)}
+#qualification-card .qualification-item .qualification-extra{display:none}
+#qualification-card .qualification-item.is-expanded .qualification-extra{display:block}
+#qualification-card .qualification-item .qualification-toggle{white-space:nowrap}
+#qualification-card .qualification-create summary{cursor:pointer;list-style:none}
+#qualification-card .qualification-create summary::-webkit-details-marker{display:none}
+</style>
+<script>
+(() => {
+  const card = document.getElementById('qualification-card');
+  if (!card) return;
+  card.querySelectorAll('.list-group > .list-group-item').forEach((item) => {
+    const header = item.querySelector(':scope > .d-flex');
+    const info = header?.firstElementChild;
+    if (!header || !info) return;
+    const extras = [info.querySelector('.mt-1'), info.querySelector('.mt-2'), item.querySelector(':scope > .border-top'), item.querySelector(':scope > form')].filter(Boolean);
+    extras.forEach((element) => element.classList.add('qualification-extra'));
+    const actions = header.querySelector(':scope > .d-flex.gap-1') || header;
+    const toggle = document.createElement('button');
+    toggle.type = 'button'; toggle.className = 'btn btn-sm btn-secondary qualification-toggle';
+    toggle.innerHTML = '<i class="fa-solid fa-chevron-down me-1" aria-hidden="true"></i>Details';
+    toggle.addEventListener('click', () => {
+      const expanded = item.classList.toggle('is-expanded');
+      toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      toggle.innerHTML = expanded ? '<i class="fa-solid fa-chevron-up me-1" aria-hidden="true"></i>Weniger' : '<i class="fa-solid fa-chevron-down me-1" aria-hidden="true"></i>Details';
+    });
+    actions.prepend(toggle);
+  });
+  const createForm = card.querySelector('form input[name="action"][value="upload_certificate"]')?.closest('form');
+  if (createForm && !createForm.closest('details')) {
+    const details = document.createElement('details');
+    details.className = 'qualification-create mt-3';
+    details.innerHTML = '<summary class="btn btn-primary"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Neue Befähigung anlegen</summary>';
+    createForm.classList.add('border', 'rounded-3', 'p-3', 'mt-3');
+    details.appendChild(createForm);
+    card.querySelector('.card-body').appendChild(details);
+  }
+})();
+</script>
 <script>
 (() => {
   const canvas = document.getElementById('signature-pad');
