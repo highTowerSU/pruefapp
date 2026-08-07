@@ -440,9 +440,8 @@ class AdminController
                     $validProof = false;
                     foreach ($qualificationsByUser[(int) $user['id']][(string) $requirement['code']] ?? [] as $qualification) {
                         if (!empty($requirement['requires_confirmation']) && empty($qualification['confirmed_at'])) continue;
-                        $expiresAt = trim((string) ($qualification['expires_at'] ?? ''));
-                        if ($expiresAt === '' && (int) ($requirement['validity_days'] ?? 0) > 0 && trim((string) ($qualification['issued_at'] ?? '')) !== '') $expiresAt = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . (int) $requirement['validity_days'] . ' days'));
-                        if ($expiresAt === '' || $expiresAt >= $today) { $validProof = true; break; }
+                        $expiryState = InspectionTypeService::qualificationExpiry($qualification, $requirement, $today);
+                        if ($expiryState['state'] !== 'expired') { $validProof = true; break; }
                     }
                     if (!$validProof) $missing[] = (string) $requirement['name'];
                 }

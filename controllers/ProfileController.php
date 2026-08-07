@@ -335,11 +335,17 @@ final class ProfileController
         $qualifications = R::getAll('SELECT q.*, r.name AS requirement_name, t.name AS inspection_type_name FROM user_qualification q LEFT JOIN inspection_type_requirement r ON r.code=q.requirement_code LEFT JOIN inspection_type t ON t.code=r.inspection_type_code WHERE q.oauthuser_id = ? ORDER BY q.id DESC', [(int) $user->id]);
         $qualificationById = [];
         foreach ($qualifications as $qualification) $qualificationById[(int) ($qualification['id'] ?? 0)] = $qualification;
+        $requirementsByCode = [];
+        foreach ($qualificationRequirements as $requirement) $requirementsByCode[(string) ($requirement['code'] ?? '')] = $requirement;
         foreach ($certificates as &$certificate) {
             $ids = array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? []))));
             $linked = array_values(array_filter(array_map(static fn(int $id): ?array => $qualificationById[$id] ?? null, $ids)));
             $certificate['qualification_status'] = $linked !== [] && count(array_filter($linked, static fn(array $q): bool => empty($q['confirmed_at']))) === 0 ? 'confirmed' : 'pending';
-            $certificate['qualification_expired'] = $linked !== [] && count(array_filter($linked, static fn(array $q): bool => !empty($q['expires_at']) && (string) $q['expires_at'] < date('Y-m-d'))) > 0;
+            $states = array_map(static function (array $qualification) use ($requirementsByCode): array {
+                return InspectionTypeService::qualificationExpiry($qualification, $requirementsByCode[(string) ($qualification['requirement_code'] ?? '')] ?? []);
+            }, $linked);
+            $certificate['qualification_expired'] = count(array_filter($states, static fn(array $state): bool => $state['state'] === 'expired')) > 0;
+            $certificate['qualification_grace'] = !$certificate['qualification_expired'] && count(array_filter($states, static fn(array $state): bool => $state['state'] === 'grace')) > 0;
         }
         unset($certificate);
         $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);

@@ -46,15 +46,39 @@ final class InspectionTypeService
         );
     }
 
-    /** @return array{allowed:bool,message:string,requirements:list<array<string,mixed>>,missing:list<string>} */
+    /**
+     * Determine the expiry state of a qualification.  A quarter of the
+     * configured validity is retained as a clearly labelled grace period;
+     * this is not an automatic renewal.
+     *
+     * @return array{expires_at:string,grace_until:string,state:string,grace_days:int}
+     */
+    public static function qualificationExpiry(array $qualification, array $requirement, ?string $today = null): array
+    {
+        $validity = (int) ($requirement['validity_days'] ?? 0);
+        $expiry = trim((string) ($qualification['expires_at'] ?? ''));
+        if ($expiry === '' && $validity > 0 && trim((string) ($qualification['issued_at'] ?? '')) !== '') {
+            $expiry = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . $validity . ' days'));
+        }
+        if ($validity < 1 || $expiry === '') return ['expires_at' => $expiry, 'grace_until' => '', 'state' => 'valid', 'grace_days' => 0];
+        $graceDays = max(1, (int) ceil($validity * 0.25));
+        $graceUntil = (new DateTimeImmutable($expiry))->modify('+' . $graceDays . ' days')->format('Y-m-d');
+        $current = $today ?: date('Y-m-d');
+        $state = $current <= $expiry ? 'valid' : ($current <= $graceUntil ? 'grace' : 'expired');
+        return ['expires_at' => $expiry, 'grace_until' => $graceUntil, 'state' => $state, 'grace_days' => $graceDays];
+    }
+
+    /** @return array{allowed:bool,message:string,requirements:list<array<string,mixed>>,missing:list<string>,warnings:list<string>,grace:bool} */
     public static function examinerEligibility(object $user, string $type): array
     {
         $type = self::normalize($type);
         $requirements = R::getAll('SELECT * FROM inspection_type_requirement WHERE inspection_type_code = ? AND active = 1 ORDER BY sort_order, id', [$type]);
         if ($requirements === []) {
-            return ['allowed' => true, 'message' => '', 'requirements' => [], 'missing' => []];
+            return ['allowed' => true, 'message' => '', 'requirements' => [], 'missing' => [], 'warnings' => [], 'grace' => false];
         }
         $missing = [];
+        $warnings = [];
+        $inGrace = false;
         foreach ($requirements as $requirement) {
             $qualification = R::getRow(
                 'SELECT * FROM user_qualification WHERE oauthuser_id = ? AND requirement_code = ? ORDER BY confirmed_at DESC, id DESC LIMIT 1',
@@ -65,16 +89,14 @@ final class InspectionTypeService
                 continue;
             }
             $confirmed = empty($requirement['requires_confirmation']) || !empty($qualification['confirmed_at']);
-            $expiry = trim((string) ($qualification['expires_at'] ?? ''));
-            if ($expiry === '' && !empty($requirement['validity_days']) && trim((string) ($qualification['issued_at'] ?? '')) !== '') {
-                $expiry = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . (int) $requirement['validity_days'] . ' days'));
-            }
-            $valid = empty($requirement['validity_days']) ? true : ($expiry !== '' && $expiry >= date('Y-m-d'));
-            if (!$confirmed || !$valid) $missing[] = (string) $requirement['name'];
+            $expiryState = self::qualificationExpiry($qualification, $requirement);
+            if (!$confirmed) $missing[] = (string) $requirement['name'];
+            elseif ($expiryState['state'] === 'expired') $missing[] = (string) $requirement['name'];
+            elseif ($expiryState['state'] === 'grace') { $inGrace = true; $warnings[] = (string) $requirement['name'] . ' ist seit ' . date('d.m.Y', strtotime($expiryState['expires_at'])) . ' abgelaufen; Kulanzfrist bis ' . date('d.m.Y', strtotime($expiryState['grace_until'])) . '.'; }
         }
         return $missing === []
-            ? ['allowed' => true, 'message' => '', 'requirements' => $requirements, 'missing' => []]
-            : ['allowed' => false, 'message' => 'Für diese Prüfart fehlen bestätigte oder gültige Nachweise: ' . implode(', ', $missing) . '.', 'requirements' => $requirements, 'missing' => $missing];
+            ? ['allowed' => true, 'message' => $warnings === [] ? '' : implode(' ', $warnings), 'requirements' => $requirements, 'missing' => [], 'warnings' => $warnings, 'grace' => $inGrace]
+            : ['allowed' => false, 'message' => 'Für diese Prüfart fehlen bestätigte oder gültige Nachweise: ' . implode(', ', $missing) . '.', 'requirements' => $requirements, 'missing' => $missing, 'warnings' => $warnings, 'grace' => false];
     }
 
     /**
@@ -97,9 +119,11 @@ final class InspectionTypeService
         $missing = array_values(array_unique($missing));
         return [
             'allowed' => $missing === [],
-            'message' => $missing === [] ? '' : 'Für diese Prüfart fehlen: ' . implode(', ', $missing) . '.',
+            'message' => $missing === [] ? ($eligibility['message'] ?? '') : 'Für diese Prüfart fehlen: ' . implode(', ', $missing) . '.',
             'requirements' => $eligibility['requirements'],
             'missing' => $missing,
+            'warnings' => $eligibility['warnings'] ?? [],
+            'grace' => (bool) ($eligibility['grace'] ?? false),
         ];
     }
 

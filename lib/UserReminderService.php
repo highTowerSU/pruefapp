@@ -23,6 +23,7 @@ final class UserReminderService
 
         $permissionKey = 'inspection-permission-missing:user:' . $userId . ':v1';
         $expiredTypes = [];
+        $graceTypes = [];
         foreach (InspectionTypeService::active() as $inspectionType) {
             foreach (InspectionTypeService::examinerEligibility($user, (string) $inspectionType['code'])['requirements'] as $requirement) {
                 if ((int) ($requirement['validity_days'] ?? 0) < 1) continue;
@@ -32,8 +33,11 @@ final class UserReminderService
                 if ($expiresAt === '' && trim((string) ($qualification['issued_at'] ?? '')) !== '') {
                     $expiresAt = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . (int) $requirement['validity_days'] . ' days'));
                 }
-                if ($expiresAt !== '' && $expiresAt < $now->format('Y-m-d')) {
-                    $expiredTypes[] = (string) $inspectionType['name'] . ': ' . (string) $requirement['name'] . ' (abgelaufen am ' . (new DateTimeImmutable($expiresAt))->format('d.m.Y') . ')';
+                $expiryState = InspectionTypeService::qualificationExpiry($qualification, $requirement, $now->format('Y-m-d'));
+                if ($expiryState['state'] === 'expired') {
+                    $expiredTypes[] = (string) $inspectionType['name'] . ': ' . (string) $requirement['name'] . ' (abgelaufen am ' . (new DateTimeImmutable($expiryState['expires_at']))->format('d.m.Y') . ')';
+                } elseif ($expiryState['state'] === 'grace') {
+                    $graceTypes[] = (string) $inspectionType['name'] . ': ' . (string) $requirement['name'] . ' (Kulanzfrist bis ' . (new DateTimeImmutable($expiryState['grace_until']))->format('d.m.Y') . ')';
                 }
             }
         }
@@ -46,6 +50,10 @@ final class UserReminderService
                 $message,
                 ['dedupe_key' => $permissionKey, 'category' => 'profile', 'severity' => 'warning', 'action_url' => url_for('profil')]
             );
+        } elseif ($graceTypes !== []) {
+            $message = 'Folgende Prüfberechtigungsnachweise sind abgelaufen, befinden sich aber noch in der Kulanzfrist (25 % der Gültigkeitsdauer):\n' . implode("\n", array_values(array_unique($graceTypes))) . '\n\nBitte aktualisiere die Nachweise im Profil.';
+            $reminders[] = self::reminder('Prüfberechtigung in Kulanzfrist', $message, 'warning', url_for('profil'), 'profile');
+            NotificationRepository::publish([$userId], 'Prüfberechtigung in Kulanzfrist', $message, ['dedupe_key' => 'inspection-permission-grace:user:' . $userId . ':v1', 'category' => 'profile', 'severity' => 'warning', 'action_url' => url_for('profil')]);
         } else {
             self::markDedupeRead($permissionKey, $userId);
         }

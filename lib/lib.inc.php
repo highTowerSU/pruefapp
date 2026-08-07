@@ -534,18 +534,13 @@ function seed_inspection_types(): void
     // qualification workflow was being introduced. Activate the safety gates
     // once; later Superadmin changes in the GUI remain authoritative.
     if (get_app_config('inspection_requirements_v1_activated') !== '1') {
-        R::exec("UPDATE inspection_type_requirement SET active = 1 WHERE code IN ('electrical_basic', 'electrical_instruction', 'electrical_vefk', 'ladder_basic', 'ladder_instruction')");
+        R::exec("UPDATE inspection_type_requirement SET active = 1 WHERE code IN ('electrical_basic', 'electrical_instruction', 'ladder_basic', 'ladder_instruction')");
         set_app_config('inspection_requirements_v1_activated', '1');
     }
     // VEFK is a tenant responsibility/assignment, not a personal document type.
-    if (get_app_config('electrical_vefk_document_type_removed') !== '1') {
-        R::exec("UPDATE inspection_type_requirement SET active = 0 WHERE code = 'electrical_vefk'");
-        set_app_config('electrical_vefk_document_type_removed', '1');
-    }
     foreach ([
         ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', null, 1, 10],
         ['electrical', 'electrical_instruction', 'Elektro-Unterweisung', 365, 0, 20],
-        ['electrical', 'electrical_vefk', 'VEFK-Zuordnung / Beauftragung', 365, 1, 30],
         ['ladder', 'ladder_basic', 'Befähigte Person Leitern/Tritte', null, 1, 10],
         ['ladder', 'ladder_instruction', 'Leiter-Unterweisung', 365, 0, 20],
     ] as [$type, $code, $name, $validity, $confirmation, $sort]) {
@@ -553,6 +548,11 @@ function seed_inspection_types(): void
             R::exec('INSERT INTO inspection_type_requirement (inspection_type_code, code, name, validity_days, requires_confirmation, active, sort_order) VALUES (?, ?, ?, ?, ?, 1, ?)', [$type, $code, $name, $validity, $confirmation, $sort]);
         }
     }
+    // VEFK is a tenant responsibility/assignment, not a personal document
+    // type. Keep legacy rows for data traceability, but never expose them as
+    // an active qualification requirement.
+    R::exec("UPDATE inspection_type_requirement SET active = 0 WHERE code = 'electrical_vefk'");
+    set_app_config('electrical_vefk_document_type_removed', '1');
     $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
     if ($ladderCatalog > 0) return;
     R::exec('INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)', ['ladder-v1', 'Leiterprüfung Version 1', 'ladder', $now, $now]);
