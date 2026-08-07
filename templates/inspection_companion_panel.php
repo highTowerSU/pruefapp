@@ -1,6 +1,6 @@
 <?php
 $isConnected = ($session['state'] ?? '') === 'connected';
-$pairUrl = !empty($session['token']) ? url_for('companion/' . $session['token']) : '';
+$pairUrl = !empty($session['token']) ? absolute_url_for('companion/' . $session['token']) : '';
 $pairQrUrl = !empty($session['token']) ? url_for('companion/' . $session['token'] . '/qr') : '';
 ?>
 <section class="card shadow-sm mb-3" id="inspection-companion-panel" data-action-nav="Prüf-Companion" data-action-icon="fa-mobile-screen-button"<?= $session !== [] ? ' hx-get="' . htmlspecialchars(url_for('admin/pruefungen/' . (int) $inspection->id . '/companion/status'), ENT_QUOTES) . '" hx-trigger="every 4s" hx-swap="outerHTML"' : '' ?>>

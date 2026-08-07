@@ -61,7 +61,7 @@ final class InspectionCompanionController
             return [
                 200,
                 ['Content-Type' => 'image/svg+xml; charset=utf-8', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff'],
-                ServerQrCodeService::svg(url_for('companion/' . $token)),
+                ServerQrCodeService::svg(absolute_url_for('companion/' . $token)),
             ];
         } catch (Throwable $e) {
             error_log('[pruefapp] Companion QR: ' . $e->getMessage());
