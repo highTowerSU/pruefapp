@@ -13,6 +13,7 @@ class SettingsController
         $id = max(0, (int) ($_REQUEST['provider_id'] ?? get_app_config('vocabulary_ai_provider_id', '0')));
         $message = '';
         $error = '';
+        $diagnostic = null;
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $action = (string) ($_POST['action'] ?? 'save');
@@ -27,6 +28,9 @@ class SettingsController
                 if ($action === 'test') {
                     $models = AiProviderService::refreshModels($provider);
                     $message = $models === [] ? 'Verbindung hergestellt; der Anbieter lieferte keine Modellliste. Das Modell kann manuell eingetragen werden.' : count($models) . ' Modelle geladen.';
+                } elseif ($action === 'diagnose') {
+                    $diagnostic = AiProviderService::diagnose($provider, trim((string) ($_POST['vocabulary_ai_model'] ?? get_app_config('vocabulary_ai_model', ''))));
+                    $message = 'KI-Testanfrage erfolgreich. Das Antwortmodell wurde vom Anbieter bestätigt.';
                 } elseif ($action === 'oauth') {
                     $_SESSION['vocabulary_oauth_provider_id'] = (int) $provider->id;
                     return [303, ['Location' => VocabularyOAuthService::begin($provider)], ''];
@@ -49,7 +53,7 @@ class SettingsController
         $content = render_template('settings_ai_provider.php', [
             'providers' => $providers, 'provider' => $provider, 'models' => (int) $provider->id > 0 ? AiProviderService::models($provider) : [], 'pricingUrl' => (int) $provider->id > 0 ? AiProviderService::pricingUrl($provider) : '',
             'enabled' => get_app_config('vocabulary_ai_enabled', '0') === '1', 'selectedProviderId' => (int) get_app_config('vocabulary_ai_provider_id', '0'),
-            'selectedModel' => (string) get_app_config('vocabulary_ai_model', ''), 'message' => $message, 'error' => $error,
+            'selectedModel' => (string) get_app_config('vocabulary_ai_model', ''), 'message' => $message, 'error' => $error, 'diagnostic' => $diagnostic,
         ]);
         if ($isHx) return [200, [], $content];
         return [303, ['Location' => url_for('admin/konfiguration#settings-ai-panel')], ''];

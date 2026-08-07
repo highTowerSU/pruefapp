@@ -78,6 +78,37 @@ final class AiProviderService
         return $models;
     }
 
+    /** @return array{model:string,content:string} */
+    public static function diagnose(object $provider, string $model): array
+    {
+        $model = trim($model);
+        if ($model === '') {
+            throw new InvalidArgumentException('Bitte zuerst ein Modell für die Stammdatenprüfung auswählen.');
+        }
+        $header = (string) $provider->auth_mode === 'oauth'
+            ? 'Authorization'
+            : (trim((string) $provider->header_name) ?: 'Authorization');
+        $response = (new OpenAiCompatibleClient(
+            (string) $provider->base_url,
+            self::accessToken($provider),
+            $header,
+            25
+        ))->chatCompletions([
+            'model' => $model,
+            'temperature' => 0,
+            'max_tokens' => 24,
+            'messages' => [[
+                'role' => 'user',
+                'content' => 'Antworte ausschließlich mit OK.',
+            ]],
+        ]);
+        $content = trim((string) ($response['choices'][0]['message']['content'] ?? ''));
+        return [
+            'model' => trim((string) ($response['model'] ?? $model)) ?: $model,
+            'content' => mb_strimwidth($content, 0, 240, '…', 'UTF-8'),
+        ];
+    }
+
     public static function accessToken(object $provider): string
     {
         if ((string) $provider->auth_mode === 'oauth') return VocabularyOAuthService::accessToken($provider);
