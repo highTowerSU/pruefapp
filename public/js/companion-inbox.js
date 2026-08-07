@@ -42,6 +42,28 @@
         popover.show();
         window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
       });
+      // Desktop users can inspect incoming values without an extra click. Touch
+      // devices keep the ordinary click interaction.
+      if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+        let closeTimer = null;
+        const cancelClose = () => { if (closeTimer) { window.clearTimeout(closeTimer); closeTimer = null; } };
+        const scheduleClose = () => {
+          cancelClose();
+          closeTimer = window.setTimeout(() => window.bootstrap?.Popover.getInstance(button)?.dispose(), 260);
+        };
+        button.addEventListener('mouseenter', () => {
+          cancelClose();
+          if (!window.bootstrap?.Popover.getInstance(button)?.tip) button.click();
+          const tipId = button.getAttribute('aria-describedby');
+          const tip = tipId ? document.getElementById(tipId) : null;
+          if (tip && !tip.dataset.companionHoverBound) {
+            tip.dataset.companionHoverBound = '1';
+            tip.addEventListener('mouseenter', cancelClose);
+            tip.addEventListener('mouseleave', scheduleClose);
+          }
+        });
+        button.addEventListener('mouseleave', scheduleClose);
+      }
     });
   };
   document.addEventListener('click', (event) => {
