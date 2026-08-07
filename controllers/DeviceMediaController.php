@@ -21,7 +21,7 @@ final class DeviceMediaController
 
     public static function uploadDevice(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $deviceId = (int) ($params['id'] ?? 0);
         return self::upload($deviceId, null, $isHx);
     }
@@ -86,7 +86,7 @@ final class DeviceMediaController
 
     public static function delete(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $media = R::getRow('SELECT * FROM device_media WHERE id = ?', [(int) ($params['id'] ?? 0)]);
         $device = $media === [] ? null : R::load('device', (int) $media['device_id']);
         if ($media === [] || !$device || !$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Foto nicht gefunden'];
@@ -94,11 +94,38 @@ final class DeviceMediaController
         R::exec('DELETE FROM device_media_analysis WHERE media_id = ?', [(int) $media['id']]);
         R::exec('DELETE FROM device_media WHERE id = ?', [(int) $media['id']]);
         audit_log('geraetefoto_geloescht', ['device_id' => (int) $device->id, 'media_id' => (int) $media['id']]);
-        return [200, [], self::panel((int) $device->id)];
+        return [200, [], self::mediaPanel($media)];
+    }
+
+    public static function update(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        $media = R::getRow('SELECT * FROM device_media WHERE id = ?', [(int) ($params['id'] ?? 0)]);
+        $device = $media === [] ? null : R::load('device', (int) $media['device_id']);
+        if ($media === [] || !$device || !$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Foto nicht gefunden'];
+        $type = (string) ($_POST['media_type'] ?? 'condition');
+        if (!in_array($type, ['condition', 'type_plate', 'defect', 'disposal', 'other'], true)) $type = 'condition';
+        $caption = mb_substr(trim((string) ($_POST['caption'] ?? '')), 0, 1000);
+        R::exec('UPDATE device_media SET media_type = ?, caption = ? WHERE id = ?', [$type, $caption, (int) $media['id']]);
+        $media['media_type'] = $type;
+        $media['caption'] = $caption;
+        audit_log('geraetefoto_aktualisiert', ['device_id' => (int) $device->id, 'inspection_id' => (int) ($media['inspection_id'] ?? 0), 'media_id' => (int) $media['id']]);
+        return $isHx ? [200, [], self::mediaPanel($media)] : [303, ['Location' => url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)], ''];
     }
 
     public static function panel(int $deviceId): string
     {
-        return render_template('device_media_panel.php', ['deviceId' => $deviceId, 'media' => DeviceMediaService::forDevice($deviceId), 'canManageMedia' => current_user_has_role('admin')]);
+        return render_template('device_media_panel.php', ['deviceId' => $deviceId, 'media' => DeviceMediaService::forDevice($deviceId), 'canManageMedia' => current_user_has_role('admin', 'editor')]);
+    }
+
+    /** @param array<string,mixed> $media */
+    private static function mediaPanel(array $media): string
+    {
+        $inspectionId = (int) ($media['inspection_id'] ?? 0);
+        if ($inspectionId > 0) {
+            $inspection = R::load('inspection', $inspectionId);
+            return render_template('inspection_media_panel.php', ['inspection' => $inspection, 'inspectionMedia' => DeviceMediaService::forInspection($inspectionId)]);
+        }
+        return self::panel((int) $media['device_id']);
     }
 }

@@ -41,6 +41,20 @@ final class StructureMediaController
         return [200, [], self::panel($type, (int) $entity->id)];
     }
 
+    public static function update(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $media = R::getRow('SELECT * FROM structure_media WHERE id = ?', [(int) ($params['mediaId'] ?? 0)]);
+        [$type, $entity] = $media === [] ? ['', null] : self::entity(['type' => $media['structure_type'], 'id' => $media['structure_id']]);
+        if ($media === [] || $entity === null) return [404, [], 'Foto nicht gefunden'];
+        $mediaType = (string) ($_POST['media_type'] ?? 'condition');
+        if (!in_array($mediaType, ['condition', 'defect', 'disposal', 'other'], true)) $mediaType = 'condition';
+        R::exec('UPDATE structure_media SET media_type = ?, caption = ? WHERE id = ?', [$mediaType, mb_substr(trim((string) ($_POST['caption'] ?? '')), 0, 1000), (int) $media['id']]);
+        StructureMediaService::forgetCache();
+        audit_log('strukturfoto_aktualisiert', ['type' => $type, 'structure_id' => (int) $entity->id, 'media_id' => (int) $media['id']]);
+        return [200, [], self::panel($type, (int) $entity->id)];
+    }
+
     public static function panel(string $type, int $entityId): string
     {
         return render_template('structure_media_panel.php', ['type' => $type, 'entityId' => $entityId, 'media' => StructureMediaService::forEntity($type, $entityId), 'canManageMedia' => current_user_has_role('admin')]);
