@@ -74,8 +74,8 @@ final class MaintenanceJobHandler
             $afterKey = (string) ($row['source_key'] ?? '');
             $current++;
             $known = $value === '' || DeviceVocabularyService::isNotRecognizable($value)
-                || R::findOne('device_vocabulary_alias', ' field_name = ? AND source_key = ? AND active = 1 ', [$field, $afterKey])
-                || R::findOne('device_vocabulary_review', ' field_name = ? AND LOWER(TRIM(source_value)) = ? ', [$field, $afterKey]);
+                || DeviceVocabularyService::aliasFor($field, $afterKey) !== null
+                || DeviceVocabularyService::reviewFor($field, $afterKey) !== null;
             $message = 'Bereits entschiedener oder nicht relevanter Wert wurde übersprungen.';
             if (!$known) {
                 $reviewId = DeviceVocabularyService::storeSuggestion($field, $value, DeviceVocabularyService::suggest($field, $value));

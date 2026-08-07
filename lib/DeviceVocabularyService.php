@@ -25,8 +25,8 @@ final class DeviceVocabularyService
         if ($value === '') return '';
         if (self::isNotRecognizable($value)) return self::NOT_RECOGNIZABLE;
 
-        $alias = R::findOne('device_vocabulary_alias', ' field_name = ? AND source_key = ? AND active = 1 ', [$field, self::normalizeKey($value)]);
-        return $alias ? trim((string) $alias->canonical_value) : $value;
+        $alias = self::aliasFor($field, self::normalizeKey($value));
+        return $alias !== null ? trim((string) $alias['canonical_value']) : $value;
     }
 
     public static function isNotRecognizable(string $value): bool
@@ -99,8 +99,8 @@ final class DeviceVocabularyService
             $value = trim((string) ($values[$field] ?? ''));
             if ($value === '' || self::isNotRecognizable($value)) continue;
             $key = self::normalizeKey($value);
-            if (R::findOne('device_vocabulary_alias', ' field_name = ? AND source_key = ? AND active = 1 ', [$field, $key])) continue;
-            if (R::findOne('device_vocabulary_review', ' field_name = ? AND LOWER(TRIM(source_value)) = ? ', [$field, $key])) continue;
+            if (self::aliasFor($field, $key) !== null) continue;
+            if (self::reviewFor($field, $key) !== null) continue;
             $dedupe = 'vocabulary:' . $field . ':' . hash('sha256', $key);
             BackgroundJobService::enqueue('vocabulary_suggestion', ['type' => 'vocabulary_suggestion', 'field' => $field, 'value' => $value], [
                 'owner_user_id' => $ownerUserId,
@@ -133,17 +133,15 @@ final class DeviceVocabularyService
     public static function storeSuggestion(string $field, string $value, array $proposal): int
     {
         self::assertField($field);
-        $review = R::findOne('device_vocabulary_review', ' field_name = ? AND source_value = ? AND status = ? ', [$field, $value, 'pending']) ?: R::dispense('device_vocabulary_review');
-        $review->field_name = $field;
-        $review->source_value = $value;
-        $review->suggested_value = (string) $proposal['canonical_value'];
-        $review->confidence = (float) $proposal['confidence'];
-        $review->reason = (string) $proposal['reason'];
-        $review->provider_model = (string) $proposal['provider_model'];
-        $review->status = 'pending';
-        $review->updated_at = date(DATE_ATOM);
-        if (!$review->created_at) $review->created_at = $review->updated_at;
-        return (int) R::store($review);
+        $review = R::getRow("SELECT id FROM device_vocabulary_review WHERE field_name = ? AND source_value = ? AND status = 'pending' LIMIT 1", [$field, $value]);
+        $now = date(DATE_ATOM);
+        $params = [(string) $proposal['canonical_value'], (float) $proposal['confidence'], (string) $proposal['reason'], (string) $proposal['provider_model'], $now];
+        if ($review !== []) {
+            R::exec('UPDATE device_vocabulary_review SET suggested_value = ?, confidence = ?, reason = ?, provider_model = ?, updated_at = ? WHERE id = ?', [...$params, (int) $review['id']]);
+            return (int) $review['id'];
+        }
+        R::exec("INSERT INTO device_vocabulary_review (field_name, source_value, suggested_value, confidence, reason, provider_model, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)", [$field, $value, ...$params, $now]);
+        return (int) R::getInsertID();
     }
 
     /** @return array{updated_devices:int,updated_inspections:int} */
@@ -155,15 +153,13 @@ final class DeviceVocabularyService
         if ($sourceKey === '' || $canonical === '') throw new InvalidArgumentException('Quell- und Zielwert sind erforderlich.');
         R::begin();
         try {
-            $alias = R::findOne('device_vocabulary_alias', ' field_name = ? AND source_key = ? ', [$field, $sourceKey]) ?: R::dispense('device_vocabulary_alias');
-            $alias->field_name = $field;
-            $alias->source_key = $sourceKey;
-            $alias->canonical_value = $canonical;
-            $alias->active = 1;
-            $alias->approved_by = $userId;
-            $alias->updated_at = date(DATE_ATOM);
-            if (!$alias->created_at) $alias->created_at = $alias->updated_at;
-            R::store($alias);
+            $now = date(DATE_ATOM);
+            $alias = R::getRow('SELECT id FROM device_vocabulary_alias WHERE field_name = ? AND source_key = ? LIMIT 1', [$field, $sourceKey]);
+            if ($alias !== []) {
+                R::exec('UPDATE device_vocabulary_alias SET canonical_value = ?, active = 1, approved_by = ?, updated_at = ? WHERE id = ?', [$canonical, $userId, $now, (int) $alias['id']]);
+            } else {
+                R::exec('INSERT INTO device_vocabulary_alias (field_name, source_key, canonical_value, active, approved_by, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?, ?)', [$field, $sourceKey, $canonical, $userId, $now, $now]);
+            }
             $deviceCount = R::exec('UPDATE device SET ' . $field . ' = ?, updated_at = ? WHERE LOWER(TRIM(COALESCE(' . $field . ", ''))) = ?", [$canonical, date(DATE_ATOM), $sourceKey]);
             $inspectionColumn = $field === 'name' ? 'device_type' : $field;
             $inspectionCount = R::exec('UPDATE inspection SET ' . $inspectionColumn . ' = ?, updated_at = ? WHERE LOWER(TRIM(COALESCE(' . $inspectionColumn . ", ''))) = ?", [$canonical, date(DATE_ATOM), $sourceKey]);
@@ -210,5 +206,19 @@ final class DeviceVocabularyService
     private static function assertField(string $field): void
     {
         if (!in_array($field, self::FIELDS, true)) throw new InvalidArgumentException('Unbekanntes Stammdatenfeld.');
+    }
+
+    /** @return array<string,mixed>|null */
+    public static function aliasFor(string $field, string $sourceKey): ?array
+    {
+        $row = R::getRow('SELECT id, canonical_value FROM device_vocabulary_alias WHERE field_name = ? AND source_key = ? AND active = 1 LIMIT 1', [$field, $sourceKey]);
+        return $row === [] ? null : $row;
+    }
+
+    /** @return array<string,mixed>|null */
+    public static function reviewFor(string $field, string $sourceKey): ?array
+    {
+        $row = R::getRow('SELECT id FROM device_vocabulary_review WHERE field_name = ? AND LOWER(TRIM(source_value)) = ? LIMIT 1', [$field, $sourceKey]);
+        return $row === [] ? null : $row;
     }
 }

@@ -23,6 +23,7 @@ $tests = [
     'signature_gate_test.php',
     'device_ui_test.php',
     'device_vocabulary_test.php',
+    'vocabulary_storage_test.php',
     'ai_provider_ui_test.php',
     'vocabulary_oauth_test.php',
     'user_customer_access_test.php',
