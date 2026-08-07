@@ -549,9 +549,9 @@ function seed_inspection_types(): void
         }
     }
     // VEFK is a tenant responsibility/assignment, not a personal document
-    // type. Keep legacy rows for data traceability, but never expose them as
-    // an active qualification requirement.
-    R::exec("UPDATE inspection_type_requirement SET active = 0 WHERE code = 'electrical_vefk'");
+    // type. Remove the obsolete personal requirement and its old links.
+    R::exec("DELETE FROM user_qualification WHERE requirement_code = 'electrical_vefk'");
+    R::exec("DELETE FROM inspection_type_requirement WHERE code = 'electrical_vefk'");
     set_app_config('electrical_vefk_document_type_removed', '1');
     $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
     if ($ladderCatalog > 0) return;
