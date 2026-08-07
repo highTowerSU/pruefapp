@@ -65,6 +65,10 @@
   };
   const closePopovers = (except = null) => document.querySelectorAll('[data-companion-for]').forEach((button) => { if (button !== except) window.bootstrap?.Popover.getInstance(button)?.dispose(); });
   const closeDraftPhotoPopovers = () => document.querySelectorAll('[data-companion-draft-photo]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
+  const closeInbox = () => {
+    const inbox = document.querySelector('[data-companion-inbox]');
+    if (inbox?.open) inbox.open = false;
+  };
   const applyValue = (input, value) => {
     if (input.tomselect) {
       if (!input.tomselect.options[value]) input.tomselect.addOption({value, text: value});
@@ -342,8 +346,9 @@
     if (!event.target.closest('[data-companion-for], .popover')) closePopovers();
     if (!event.target.closest('[data-companion-draft-photo], .popover')) closeDraftPhotoPopovers();
     if (!event.target.closest('[data-companion-upload-photo], .popover')) document.querySelectorAll('[data-companion-upload-photo]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
+    if (!event.target.closest('[data-companion-inbox]')) closeInbox();
   });
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closePopovers(); closeDraftPhotoPopovers(); } });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closePopovers(); closeDraftPhotoPopovers(); closeInbox(); } });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
     bindDraftPhotoSelectors(root);
