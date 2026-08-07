@@ -85,9 +85,14 @@ final class InspectionCompanionInboxService
 
     public static function cleanupExpired(): int
     {
-        $rows = R::getAll("SELECT ci.path FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE s.expires_at < ? AND ci.kind = 'photo'", [date(DATE_ATOM, time() - 86400)]);
+        // Keep originals usable for the whole Companion session, including after
+        // a photo has been copied into a device draft. A deliberately ended or
+        // expired session receives a 30 minute recovery window.
+        $cutoff = date(DATE_ATOM, time() - 1800);
+        $expiredSql = "(s.expires_at < ? OR (s.state = 'disconnected' AND s.disconnected_at IS NOT NULL AND s.disconnected_at < ?))";
+        $rows = R::getAll("SELECT ci.path FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE {$expiredSql} AND ci.kind = 'photo'", [$cutoff, $cutoff]);
         foreach ($rows as $row) if (is_file((string) $row['path'])) @unlink((string) $row['path']);
-        return R::exec("DELETE FROM inspection_companion_item WHERE session_id IN (SELECT id FROM inspection_companion_session WHERE expires_at < ?)", [date(DATE_ATOM, time() - 86400)]);
+        return R::exec("DELETE FROM inspection_companion_item WHERE session_id IN (SELECT id FROM inspection_companion_session s WHERE {$expiredSql})", [$cutoff, $cutoff]);
     }
 
     private static function add(array $session, string $kind, string $value, string $mediaType = '', string $caption = '', string $path = '', string $name = '', string $mime = '', int $bytes = 0): int

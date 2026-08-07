@@ -80,6 +80,7 @@ $prune = static function () use ($logPath, $debug): void {
         $historyDays = max(7, min(3650, (int) (get_app_config('background_history_days', '180') ?? 180)));
         NotificationRepository::pruneOlderThan($historyDays);
         JobQueue::pruneFinished($historyDays);
+        InspectionCompanionInboxService::cleanupExpired();
         $auditRows = max(1000, min(5000000, (int) (get_app_config('audit_log_max_rows', '250000') ?? 250000)));
         (new AuditTrailRepository())->pruneToMaxRows($auditRows);
     } catch (Throwable $exception) {

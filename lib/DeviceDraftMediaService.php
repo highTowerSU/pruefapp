@@ -59,7 +59,8 @@ final class DeviceDraftMediaService
         return $mediaId;
     }
 
-    /** Move an unassigned Companion photo into the same short-lived device draft. */
+    /** Copy an unassigned Companion photo into the short-lived device draft.
+     * The Companion original remains reusable until its session is cleaned up. */
     public static function stageCompanionPhoto(int $itemId, int $userId, ?string $forcedType = null): array
     {
         $item = R::getRow("SELECT ci.* FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE ci.id = ? AND ci.kind = 'photo' AND s.owner_user_id = ?", [$itemId, $userId]);
@@ -71,7 +72,7 @@ final class DeviceDraftMediaService
         $directory = app_data_root() . '/device-drafts/' . $userId;
         if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) throw new RuntimeException('Das Fotoverzeichnis konnte nicht angelegt werden.');
         $target = $directory . '/' . $token . '.' . $extensions[$mime];
-        if (!@rename((string) $item['path'], $target)) throw new RuntimeException('Das Companion-Foto konnte nicht in den Geräteentwurf übernommen werden.');
+        if (!@copy((string) $item['path'], $target)) throw new RuntimeException('Das Companion-Foto konnte nicht in den Geräteentwurf übernommen werden.');
         @chmod($target, 0660);
         $type = in_array($forcedType, ['type_plate', 'condition', 'defect', 'disposal', 'other'], true) ? $forcedType : (in_array((string) $item['media_type'], ['type_plate', 'condition', 'defect', 'disposal', 'other'], true) ? (string) $item['media_type'] : 'condition');
         $proposal = null;

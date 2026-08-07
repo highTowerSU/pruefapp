@@ -5,6 +5,7 @@ declare(strict_types=1);
 $schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $service = (string) file_get_contents(dirname(__DIR__) . '/lib/InspectionCompanionService.php');
 $inboxService = (string) file_get_contents(dirname(__DIR__) . '/lib/InspectionCompanionInboxService.php');
+$draftMediaService = (string) file_get_contents(dirname(__DIR__) . '/lib/DeviceDraftMediaService.php');
 $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionCompanionController.php');
 $profileController = (string) file_get_contents(dirname(__DIR__) . '/controllers/ProfileController.php');
 $mobile = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_mobile.php');
@@ -34,6 +35,7 @@ $checks = [
     [str_contains($controller, 'function barcodePhoto') && str_contains($controller, 'zbarimg') && str_contains($mobile, 'barcode-foto'), 'Es gibt keinen serverseitigen Barcode-Foto-Fallback.'],
     [str_contains($workspace, 'companion-workspace-camera-scan') && str_contains($workspace, 'BarcodeDetector') && str_contains($workspace, 'facingMode'), 'Der allgemeine Companion-Arbeitsplatz kann Barcodes nicht per Browser-Kamera scannen.'],
     [str_contains($controller, '$_GET[\'field\']') && str_contains($choices, 'data-companion-choose') && str_contains($layout, 'companion-inbox.js'), 'Companion-Feldwerte werden nicht gezielt per HTMX nachgeladen.'],
+    [str_contains($draftMediaService, 'stageCompanionPhoto') && str_contains($draftMediaService, '@copy((string) $item[\'path\']') && str_contains($inboxService, 'time() - 1800'), 'Ein Companion-Foto bleibt nach der Übernahme nicht bis zum Sitzungsende wiederverwendbar.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);
