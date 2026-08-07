@@ -204,7 +204,9 @@ final class InspectionController
                     $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
                     $canChooseOtherExaminer = current_user_has_role('admin');
                     $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
-                    return [422, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia'))])];
+                    $companionSession = InspectionCompanionService::activeForInspection((int) $inspection->id, (int) current_user()->id);
+                    if ($companionSession !== []) $companionSession['token'] = (string) ($_SESSION['inspection_companion_tokens'][(int) $inspection->id] ?? '');
+                    return [422, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia', 'companionSession'))])];
                 }
                 $target = $complete
                     ? 'admin/pruefungen/' . (int) $inspection->id
@@ -215,7 +217,9 @@ final class InspectionController
         $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
         $canChooseOtherExaminer = current_user_has_role('admin');
         $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia'))])];
+        $companionSession = InspectionCompanionService::activeForInspection((int) $inspection->id, (int) current_user()->id);
+        if ($companionSession !== []) $companionSession['token'] = (string) ($_SESSION['inspection_companion_tokens'][(int) $inspection->id] ?? '');
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia', 'companionSession'))])];
     }
 
     /** @param array<string,string> $checklist */
@@ -318,7 +322,9 @@ final class InspectionController
             }
         }
         $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
-        return [200, [], render_template('layout.php', ['title' => 'Leiterprüfung bearbeiten', 'content' => render_template('inspection_ladder_edit.php', compact('inspection', 'device', 'attributes', 'catalog', 'answersByKey', 'error', 'inspectionMedia'))])];
+        $companionSession = InspectionCompanionService::activeForInspection((int) $inspection->id, (int) current_user()->id);
+        if ($companionSession !== []) $companionSession['token'] = (string) ($_SESSION['inspection_companion_tokens'][(int) $inspection->id] ?? '');
+        return [200, [], render_template('layout.php', ['title' => 'Leiterprüfung bearbeiten', 'content' => render_template('inspection_ladder_edit.php', compact('inspection', 'device', 'attributes', 'catalog', 'answersByKey', 'error', 'inspectionMedia', 'companionSession'))])];
     }
 
     public static function index(array $params, bool $isHx): array

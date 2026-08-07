@@ -45,6 +45,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - **Befähigungen:** Die Berechtigung für eine Prüftyp kann über konfigurierbare Nachweise, Unterweisungen und Superadmin-Bestätigungen abgesichert werden. Aktivierte Anforderungen werden serverseitig vor dem Anlegen und Abschließen geprüft.
 - **Unterweisungsnachweise:** Ein PDF-Nachweis kann gezielt einer oder mehreren Prüfarten zugeordnet werden. Er erfüllt nur die zugeordneten Unterweisungsanforderungen; Profil, Login-Hinweise und die Auswahl „Neue Prüfung“ verwenden dieselbe serverseitige Berechtigungsprüfung.
 - **Fotodokumentation:** Geräte, Prüfungen und Mängel können optional mit Fotos dokumentiert werden. Typenschildfotos lassen sich über den konfigurierten KI-Anbieter auswerten; Felder werden ausschließlich nach ausdrücklicher Übernahme in Stammdaten geschrieben.
+- **Prüf-Companion:** Ein Desktop-Prüfplatz kann für zehn Minuten mit dem mobilen Browser desselben Nutzerkontos gekoppelt werden. Das Smartphone überträgt Barcode-Scans und Fotos direkt an die jeweilige Prüfung; die Kopplung lässt sich jederzeit trennen.
 - **Mängel und Hinweise:** Grüne Hinweise sowie orange/rote Mängel werden dem Gerät zugeordnet. Orange Mängel erhalten eine Nachverfolgungsfrist, rote Mängel markieren das Gerät als gesperrt; ein fehlgeschlagener Bericht bleibt erzeugbar und abrechenbar.
 - **Bestehend:** Die Authentifizierung über Keycloak und `login.koenigsbl.au` bleibt unverändert nutzbar.
 

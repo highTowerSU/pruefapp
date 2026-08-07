@@ -43,6 +43,7 @@ require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/DeviceMediaController.php';
 require_once __DIR__ . '/controllers/VocabularyController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
+require_once __DIR__ . '/controllers/InspectionCompanionController.php';
 require_once __DIR__ . '/controllers/CustomerInfoController.php';
 require_once __DIR__ . '/controllers/ReportController.php';
 require_once __DIR__ . '/controllers/BillingController.php';
@@ -121,6 +122,12 @@ $routes = [
     ['POST', '/geraete/fotos/{id}/typenschild-analysieren', fn($params, $isHx) => DeviceMediaController::analyseTypePlate($params, $isHx)],
     ['POST', '/geraete/fotos/{id}/loeschen', fn($params, $isHx) => DeviceMediaController::delete($params, $isHx)],
     ['POST', '/pruefungen/{id}/fotos', fn($params, $isHx) => DeviceMediaController::uploadInspection($params, $isHx)],
+    ['GET', '/admin/pruefungen/{id}/companion', fn($params, $isHx) => InspectionCompanionController::panel($params, $isHx)],
+    ['POST', '/admin/pruefungen/{id}/companion', fn($params, $isHx) => InspectionCompanionController::panel($params, $isHx)],
+    ['GET', '/admin/pruefungen/{id}/companion/status', fn($params, $isHx) => InspectionCompanionController::status($params, $isHx)],
+    ['GET', '/companion/{token}', fn($params, $isHx) => InspectionCompanionController::open($params, $isHx)],
+    ['POST', '/companion/{token}/barcode', fn($params, $isHx) => InspectionCompanionController::barcode($params, $isHx)],
+    ['POST', '/companion/{token}/fotos', fn($params, $isHx) => InspectionCompanionController::photo($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['GET', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],
     ['POST', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],

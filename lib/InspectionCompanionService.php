@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+use RedBeanPHP\R;
+
+/** Short-lived, same-user pairing between an inspection workspace and a mobile browser. */
+final class InspectionCompanionService
+{
+    public static function create(int $inspectionId, int $ownerUserId): array
+    {
+        R::exec("UPDATE inspection_companion_session SET state = 'disconnected', disconnected_at = ? WHERE inspection_id = ? AND owner_user_id = ? AND state IN ('pending', 'connected')", [date(DATE_ATOM), $inspectionId, $ownerUserId]);
+        $token = bin2hex(random_bytes(24));
+        $now = date(DATE_ATOM);
+        R::exec('INSERT INTO inspection_companion_session (inspection_id, owner_user_id, token_hash, state, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)', [$inspectionId, $ownerUserId, hash('sha256', $token), 'pending', $now, date(DATE_ATOM, time() + 600)]);
+        return ['token' => $token, 'expires_at' => date(DATE_ATOM, time() + 600)];
+    }
+
+    public static function activeForInspection(int $inspectionId, int $ownerUserId): array
+    {
+        $row = R::getRow("SELECT * FROM inspection_companion_session WHERE inspection_id = ? AND owner_user_id = ? AND state IN ('pending', 'connected') AND expires_at > ? ORDER BY id DESC LIMIT 1", [$inspectionId, $ownerUserId, date(DATE_ATOM)]);
+        return $row === [] ? [] : $row;
+    }
+
+    public static function byToken(string $token): array
+    {
+        if (!preg_match('/^[a-f0-9]{48}$/', $token)) return [];
+        $row = R::getRow("SELECT * FROM inspection_companion_session WHERE token_hash = ? AND state IN ('pending', 'connected') AND expires_at > ? LIMIT 1", [hash('sha256', $token), date(DATE_ATOM)]);
+        return $row === [] ? [] : $row;
+    }
+
+    public static function connect(array $session, int $userId): void
+    {
+        if ((int) $session['owner_user_id'] !== $userId) throw new RuntimeException('Der Companion muss mit demselben Nutzerkonto geöffnet werden.');
+        R::exec("UPDATE inspection_companion_session SET state = 'connected', companion_user_id = ?, connected_at = COALESCE(connected_at, ?), last_activity_at = ? WHERE id = ?", [$userId, date(DATE_ATOM), date(DATE_ATOM), (int) $session['id']]);
+    }
+
+    public static function touch(array $session, ?string $barcode = null): void
+    {
+        R::exec('UPDATE inspection_companion_session SET latest_barcode = ?, last_activity_at = ? WHERE id = ?', [$barcode ?? (string) $session['latest_barcode'], date(DATE_ATOM), (int) $session['id']]);
+    }
+
+    public static function disconnect(int $inspectionId, int $ownerUserId): void
+    {
+        R::exec("UPDATE inspection_companion_session SET state = 'disconnected', disconnected_at = ? WHERE inspection_id = ? AND owner_user_id = ? AND state IN ('pending', 'connected')", [date(DATE_ATOM), $inspectionId, $ownerUserId]);
+    }
+}

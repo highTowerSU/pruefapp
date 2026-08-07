@@ -188,6 +188,8 @@ $assetVersion = app_asset_version();
         .structure-filter-item > details > summary { transition: border-color .15s ease, box-shadow .15s ease; }
         .structure-filter-item > details[open] { border-color: var(--app-primary) !important; box-shadow: 0 .2rem .65rem color-mix(in srgb, var(--app-primary), transparent 82%); }
         .alert, .card, .table-responsive { border-radius: .65rem; }
+        #page-action-navigation { min-height: 2.65rem; transition: opacity .18s ease, transform .18s ease; }
+        #page-action-navigation.action-nav-empty { opacity: 0; pointer-events: none; transform: translateY(-.2rem); }
         #page-action-navigation .btn { white-space: nowrap; }
         @media (max-width: 575.98px) {
             .card-body { padding: .85rem; }
@@ -235,7 +237,7 @@ $assetVersion = app_asset_version();
   </div>
 <?php endforeach; ?>
 
-    <nav id="page-action-navigation" class="d-none mb-3" aria-label="Schnellzugriff auf Aktionen"></nav>
+    <nav id="page-action-navigation" class="action-nav-empty mb-3" aria-label="Schnellzugriff auf Aktionen" aria-hidden="true"></nav>
 
     <?= $content ?>
 </div>
@@ -457,7 +459,8 @@ $assetVersion = app_asset_version();
                 // bereits eindeutig. Die Kopfzeile ist nur bei mehreren
                 // Sprungzielen eine echte Orientierungshilfe.
                 if (unique.length < 2) {
-                    navigation.classList.add('d-none');
+                    navigation.classList.add('action-nav-empty');
+                    navigation.setAttribute('aria-hidden', 'true');
                     navigation.replaceChildren();
                     return;
                 }
@@ -476,7 +479,8 @@ $assetVersion = app_asset_version();
                     toolbar.append(link);
                 });
                 navigation.replaceChildren(toolbar);
-                navigation.classList.remove('d-none');
+                navigation.classList.remove('action-nav-empty');
+                navigation.setAttribute('aria-hidden', 'false');
             };
             buildActionNavigation();
             new MutationObserver(records => {
