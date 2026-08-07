@@ -150,10 +150,21 @@ final class InspectionCompanionController
         $itemId = (int) ($params['id'] ?? 0);
         $deviceId = (int) ($_POST['device_id'] ?? 0);
         $inspectionId = (int) ($_POST['inspection_id'] ?? 0) ?: null;
+        $inspectionNumber = trim((string) ($_POST['inspection_number'] ?? ''));
+        if ($inspectionNumber !== '') {
+            $inspection = R::findOne('inspection', ' external_number = ? ORDER BY id DESC ', [$inspectionNumber]);
+            if (!$inspection) return [404, [], 'Prüfung nicht gefunden.'];
+            $inspectionId = (int) $inspection->id;
+            $deviceId = (int) $inspection->device_id;
+        }
+        if ($deviceId <= 0 && trim((string) ($_POST['device_number'] ?? '')) !== '') {
+            $device = R::findOne('device', ' external_number = ? ', [trim((string) $_POST['device_number'])]);
+            $deviceId = $device ? (int) $device->id : 0;
+        }
         $device = R::load('device', $deviceId);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Gerät nicht gefunden.'];
         try {
-            $mediaId = InspectionCompanionInboxService::adoptPhoto($itemId, (int) current_user()->id, $deviceId, $inspectionId, (int) current_user()->id);
+            $mediaId = InspectionCompanionInboxService::adoptPhoto($itemId, (int) current_user()->id, $deviceId, $inspectionId, (int) current_user()->id, (string) ($_POST['media_type'] ?? ''));
             audit_log('pruef_companion_foto_uebernommen', ['companion_item_id' => $itemId, 'device_id' => $deviceId, 'inspection_id' => $inspectionId, 'media_id' => $mediaId]);
         } catch (Throwable $e) { return [422, [], '<div class="alert alert-danger py-2 mb-0">' . htmlspecialchars($e->getMessage()) . '</div>']; }
         return [200, [], self::renderInbox((int) current_user()->id)];

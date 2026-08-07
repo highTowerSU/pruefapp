@@ -136,6 +136,34 @@
       window.prompt('Bitte kopieren:', value);
     }
   });
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-companion-photo-adopt]');
+    if (!button) return;
+    const modal = document.getElementById('companion-photo-adopt-modal');
+    const form = modal?.querySelector('[data-companion-photo-adopt-form]');
+    if (!modal || !form || !window.bootstrap) return;
+    form.querySelector('[name="item_id"]').value = button.dataset.companionPhotoAdopt || '';
+    form.querySelector('[data-companion-photo-adopt-error]')?.classList.add('d-none');
+    window.bootstrap.Modal.getOrCreateInstance(modal).show();
+  });
+  document.addEventListener('submit', async (event) => {
+    const form = event.target.closest('[data-companion-photo-adopt-form]');
+    if (!form) return;
+    event.preventDefault();
+    const root = document.querySelector('[data-companion-inbox]');
+    const itemId = form.querySelector('[name="item_id"]')?.value || '';
+    const error = form.querySelector('[data-companion-photo-adopt-error]');
+    if (!root || !itemId) return;
+    try {
+      const response = await fetch(`${root.dataset.inboxUrl}/${itemId}/foto-uebernehmen`, {method: 'POST', headers: {'Accept': 'text/html'}, body: new FormData(form)});
+      const html = await response.text();
+      if (!response.ok) throw new Error(html || 'Foto konnte nicht zugeordnet werden.');
+      window.bootstrap?.Modal.getInstance(form.closest('.modal'))?.hide();
+      refresh(root);
+    } catch (failure) {
+      if (error) { error.textContent = String(failure.message || failure); error.classList.remove('d-none'); }
+    }
+  });
   document.addEventListener('click', async (event) => {
     const choice = event.target.closest('[data-companion-draft-photo-choose]');
     if (!choice || !activeDraftForm) return;

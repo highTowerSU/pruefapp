@@ -60,7 +60,7 @@ final class InspectionCompanionInboxService
     }
 
     /** Move a staged phone photo into ordinary device media only when explicitly attached. */
-    public static function adoptPhoto(int $itemId, int $ownerUserId, int $deviceId, ?int $inspectionId, int $actorId): int
+    public static function adoptPhoto(int $itemId, int $ownerUserId, int $deviceId, ?int $inspectionId, int $actorId, ?string $mediaType = null): int
     {
         $item = R::getRow("SELECT ci.* FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE ci.id = ? AND ci.kind = 'photo' AND s.owner_user_id = ?", [$itemId, $ownerUserId]);
         if ($item === [] || !is_file((string) $item['path'])) throw new RuntimeException('Dieses Companion-Foto ist nicht mehr verfügbar.');
@@ -68,9 +68,10 @@ final class InspectionCompanionInboxService
         if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) throw new RuntimeException('Das Fotoverzeichnis konnte nicht angelegt werden.');
         $extension = pathinfo((string) $item['path'], PATHINFO_EXTENSION) ?: 'jpg';
         $targetPath = $directory . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
-        if (!@rename((string) $item['path'], $targetPath)) throw new RuntimeException('Das Companion-Foto konnte nicht übernommen werden.');
+        if (!@copy((string) $item['path'], $targetPath)) throw new RuntimeException('Das Companion-Foto konnte nicht übernommen werden.');
         @chmod($targetPath, 0660);
-        R::exec('INSERT INTO device_media (device_id, inspection_id, media_type, caption, path, original_name, mime, bytes, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [$deviceId, $inspectionId, $item['media_type'], $item['caption'], $targetPath, $item['original_name'], $item['mime'], (int) $item['bytes'], $actorId, date(DATE_ATOM)]);
+        $mediaType = in_array($mediaType, ['type_plate', 'condition', 'defect', 'disposal', 'other'], true) ? $mediaType : (string) $item['media_type'];
+        R::exec('INSERT INTO device_media (device_id, inspection_id, media_type, caption, path, original_name, mime, bytes, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [$deviceId, $inspectionId, $mediaType, $item['caption'], $targetPath, $item['original_name'], $item['mime'], (int) $item['bytes'], $actorId, date(DATE_ATOM)]);
         $mediaId = (int) R::getInsertID();
         self::markUsed($itemId, $ownerUserId, 'Foto übernommen');
         return $mediaId;
@@ -78,7 +79,7 @@ final class InspectionCompanionInboxService
 
     public static function cleanupExpired(): int
     {
-        $rows = R::getAll("SELECT ci.path FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE s.expires_at < ? AND ci.status = 'pending' AND ci.kind = 'photo'", [date(DATE_ATOM, time() - 86400)]);
+        $rows = R::getAll("SELECT ci.path FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE s.expires_at < ? AND ci.kind = 'photo'", [date(DATE_ATOM, time() - 86400)]);
         foreach ($rows as $row) if (is_file((string) $row['path'])) @unlink((string) $row['path']);
         return R::exec("DELETE FROM inspection_companion_item WHERE session_id IN (SELECT id FROM inspection_companion_session WHERE expires_at < ?)", [date(DATE_ATOM, time() - 86400)]);
     }
