@@ -32,5 +32,9 @@ foreach ($sources as $label => $source) {
 if (!str_contains($sources['Import'], 'id="report-regeneration" data-action-nav="Berichte neu erzeugen"')) {
     throw new RuntimeException('Die Berichtserzeugung ist nicht als auffindbarer Import-Aktionsbereich markiert.');
 }
+if (!str_contains($sources['Profil'], 'id="qualification-card" data-action-nav="Befähigungen &amp; Nachweise"')
+    || !str_contains($sources['Profil'], 'id="derived-inspection-permissions" data-action-nav="Abgeleitete Prüfberechtigungen"')) {
+    throw new RuntimeException('Befähigungen und abgeleitete Prüfberechtigungen fehlen im Profil-Schnellzugriff.');
+}
 
 echo "PASS: Gemeinsamer Schnellzugriff verlinkt die Aktionsbereiche\n";

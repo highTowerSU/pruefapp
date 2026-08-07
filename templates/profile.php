@@ -121,7 +121,7 @@
   </div>
   </div><?php endif; ?>
   <div class="col-12">
-    <section class="card shadow-sm" id="qualification-card">
+    <section class="card shadow-sm" id="qualification-card" data-action-nav="Befähigungen &amp; Nachweise" data-action-icon="fa-certificate">
       <div class="card-header fw-semibold d-flex justify-content-between align-items-center gap-2" id="qualifications"><span><i class="fa-solid fa-certificate me-2" aria-hidden="true"></i>Befähigungen &amp; Nachweise</span><span class="small text-body-secondary">Nachweise und Folgeunterweisungen</span></div>
       <div class="card-body">
         <p class="small text-body-secondary">Lege zuerst eine Befähigung an. Der erste PDF-Nachweis gehört zu dieser Befähigung; spätere Unterweisungen werden darunter als eigene Liste ergänzt.</p>
@@ -136,7 +136,7 @@
   </div>
 </div>
 
-<div class="card mt-4">
+<div class="card mt-4" id="derived-inspection-permissions" data-action-nav="Abgeleitete Prüfberechtigungen" data-action-icon="fa-user-shield">
   <div class="card-header fw-semibold"><i class="fa-solid fa-certificate me-2" aria-hidden="true"></i>Abgeleitete Prüfberechtigungen</div>
   <div class="card-body">
     <p class="small text-body-secondary">Diese Einträge werden aus den zugeordneten Unterweisungsnachweisen abgeleitet. Alte Einzel-Nachweise bleiben zur Kompatibilität sichtbar.</p>
