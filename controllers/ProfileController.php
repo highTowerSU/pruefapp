@@ -26,6 +26,9 @@ final class ProfileController
             if (!$canEdit) return forbidden_response();
             $action = trim((string) ($_POST['action'] ?? 'upload_signature'));
             if ($action === 'create_companion_workspace') {
+                // A pairing token belongs to the actual user's work session,
+                // never to an administrator viewing somebody else's profile.
+                if ($adminView) return forbidden_response();
                 $created = InspectionCompanionService::createWorkspace((int) $user->id);
                 $_SESSION['profile_companion_token'] = $created['token'];
                 audit_log('pruef_companion_arbeitsplatz_erstellt', ['oauthuser_id' => (int) $user->id]);
@@ -33,6 +36,7 @@ final class ProfileController
                 return [303, ['Location' => $profileUrl . '#companion-sessions'], ''];
             }
             if ($action === 'disconnect_companion') {
+                if ($adminView) return forbidden_response();
                 InspectionCompanionService::disconnectSession((int) ($_POST['companion_session_id'] ?? 0), (int) $user->id);
                 audit_log('pruef_companion_getrennt', ['oauthuser_id' => (int) $user->id, 'session_id' => (int) ($_POST['companion_session_id'] ?? 0)]);
                 $_SESSION['meldung'] = 'Companion-Verbindung wurde beendet.';
