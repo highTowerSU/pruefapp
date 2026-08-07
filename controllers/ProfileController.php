@@ -342,7 +342,7 @@ final class ProfileController
             $inspectionPermissions[(string) $inspectionType['code']] = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
         }
         $qualificationRequirements = R::getAll('SELECT r.*, t.name AS inspection_type_name FROM inspection_type_requirement r JOIN inspection_type t ON t.code = r.inspection_type_code WHERE r.active = 1 ORDER BY t.sort_order, r.sort_order');
-        $qualifications = R::getAll('SELECT q.*, r.name AS requirement_name, t.name AS inspection_type_name FROM user_qualification q LEFT JOIN inspection_type_requirement r ON r.code=q.requirement_code LEFT JOIN inspection_type t ON t.code=r.inspection_type_code WHERE q.oauthuser_id = ? ORDER BY q.id DESC', [(int) $user->id]);
+        $qualifications = R::getAll('SELECT q.*, r.name AS requirement_name, t.name AS inspection_type_name, confirmer.name AS confirmed_by_name FROM user_qualification q LEFT JOIN inspection_type_requirement r ON r.code=q.requirement_code LEFT JOIN inspection_type t ON t.code=r.inspection_type_code LEFT JOIN oauthuser confirmer ON confirmer.id=q.confirmed_by WHERE q.oauthuser_id = ? ORDER BY q.id DESC', [(int) $user->id]);
         $qualificationById = [];
         foreach ($qualifications as $qualification) $qualificationById[(int) ($qualification['id'] ?? 0)] = $qualification;
         $requirementsByCode = [];
@@ -356,6 +356,12 @@ final class ProfileController
             }, $linked);
             $certificate['qualification_expired'] = count(array_filter($states, static fn(array $state): bool => $state['state'] === 'expired')) > 0;
             $certificate['qualification_grace'] = !$certificate['qualification_expired'] && count(array_filter($states, static fn(array $state): bool => $state['state'] === 'grace')) > 0;
+            $expiryDates = array_values(array_filter(array_map(static fn(array $state): string => (string) ($state['expires_at'] ?? ''), $states)));
+            $certificate['qualification_expires_at'] = $expiryDates === [] ? '' : min($expiryDates);
+            $confirmed = array_values(array_filter($linked, static fn(array $qualification): bool => !empty($qualification['confirmed_at'])));
+            $latestConfirmation = $confirmed[0] ?? [];
+            $certificate['confirmed_by_name'] = (string) ($latestConfirmation['confirmed_by_name'] ?? 'Administration');
+            $certificate['confirmed_at'] = (string) ($latestConfirmation['confirmed_at'] ?? '');
         }
         unset($certificate);
         $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);

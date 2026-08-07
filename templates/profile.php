@@ -140,10 +140,11 @@
     <p class="small text-body-secondary border-top pt-3 mb-0"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Prüfberechtigungen werden ausschließlich aus den oben hochgeladenen und zugeordneten Nachweisen abgeleitet. Eine manuelle Doppelpflege ist nicht erforderlich.</p>
   </div>
 </div>
-<?php $followupCodeMap = []; foreach ($certificates as $certificate): $codes = []; foreach ((array) ($certificate['qualification_ids'] ?? []) as $qualificationId): foreach ($qualifications as $qualification): if ((int) ($qualification['id'] ?? 0) === (int) $qualificationId && (string) ($qualification['requirement_code'] ?? '') !== '') $codes[] = (string) $qualification['requirement_code']; endforeach; endforeach; $followupCodeMap[(string) ($certificate['id'] ?? '')] = array_values(array_unique($codes)); endforeach; ?>
+<?php $followupCodeMap = []; $certificateStateMap = []; foreach ($certificates as $certificate): $codes = []; foreach ((array) ($certificate['qualification_ids'] ?? []) as $qualificationId): foreach ($qualifications as $qualification): if ((int) ($qualification['id'] ?? 0) === (int) $qualificationId && (string) ($qualification['requirement_code'] ?? '') !== '') $codes[] = (string) $qualification['requirement_code']; endforeach; endforeach; $certificateId = (string) ($certificate['id'] ?? ''); $followupCodeMap[$certificateId] = array_values(array_unique($codes)); $certificateStateMap[$certificateId] = ['expired' => !empty($certificate['qualification_expired']), 'grace' => !empty($certificate['qualification_grace']), 'confirmed' => ($certificate['qualification_status'] ?? '') === 'confirmed', 'expires_at' => (string) ($certificate['qualification_expires_at'] ?? ''), 'confirmed_by' => (string) ($certificate['confirmed_by_name'] ?? ''), 'confirmed_at' => (string) ($certificate['confirmed_at'] ?? '')]; endforeach; ?>
 <script type="application/json" id="qualification-followup-code-map"><?= htmlspecialchars(json_encode($followupCodeMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_NOQUOTES) ?></script>
+<script type="application/json" id="qualification-state-map"><?= htmlspecialchars(json_encode($certificateStateMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_NOQUOTES) ?></script>
 <style>.signature-pad{touch-action:none;background:linear-gradient(135deg,#fff 0%,#fbfbff 100%);box-shadow:inset 0 0 1.5rem rgba(53,71,184,.06)}.signature-pad canvas{display:block;width:100%;height:220px;cursor:crosshair;touch-action:none}.qualification-followup-form,.list-group-item form:has([name="followup_date"]){display:grid;grid-template-columns:minmax(10rem,1fr) minmax(11rem,1.1fr) minmax(12rem,1.4fr) minmax(8rem,.8fr);gap:.75rem;align-items:end}.qualification-followup-form .form-label,.list-group-item form:has([name="followup_date"]) .form-label{display:block;white-space:nowrap}.qualification-followup-form .form-control,.list-group-item form:has([name="followup_date"]) .form-control{min-width:0}.qualification-followup-form .qualification-followup-action,.list-group-item form:has([name="followup_date"]) [class*="col-"]:last-child{display:flex;align-items:end}.qualification-followup-form .qualification-followup-action .btn,.list-group-item form:has([name="followup_date"]) [class*="col-"]:last-child .btn{width:100%}.list-group-item form:has([name="followup_date"])>[class*="col-"]{width:auto;padding-inline:0}@media(max-width:900px){.qualification-followup-form,.list-group-item form:has([name="followup_date"]){grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:575.98px){.qualification-followup-form,.list-group-item form:has([name="followup_date"]){grid-template-columns:1fr}.qualification-followup-form .form-label,.list-group-item form:has([name="followup_date"]) .form-label{white-space:normal}}</style>
-<style>.list-group-item form:has([name="followup_date"])>[class*="col-"]:first-of-type .form-label{font-size:0}.list-group-item form:has([name="followup_date"])>[class*="col-"]:first-of-type .form-label:after{content:'Datum';font-size:.875rem}</style>
+<style>.list-group-item form:has([name="followup_date"])>div[class*="col-"]:first-of-type .form-label{font-size:0}.list-group-item form:has([name="followup_date"])>div[class*="col-"]:first-of-type .form-label:after{content:'Datum';font-size:.875rem}</style>
 <style>
 #qualification-card .qualification-item{transition:background-color .15s ease}
 #qualification-card .qualification-item:hover{background-color:var(--bs-tertiary-bg)}
@@ -151,7 +152,8 @@
 #qualification-card .qualification-item.is-expanded .qualification-extra{display:block}
 #qualification-card .qualification-item .qualification-followup-form-collapsed{display:none!important}
 #qualification-card .qualification-item .qualification-followup-form-visible{display:grid!important}
-#qualification-card .qualification-item .qualification-toggle{white-space:nowrap}
+#qualification-card .qualification-item .qualification-toggle{white-space:nowrap;align-self:flex-start;padding:.25rem .45rem}
+#qualification-card .qualification-item .d-flex.gap-1{align-items:flex-start}
 #qualification-card .qualification-item fieldset[data-followup-scope]{grid-column:1 / -1;margin:0;padding:.5rem .75rem;border:1px solid var(--bs-border-color);border-radius:.375rem}
 #qualification-card .qualification-create summary{cursor:pointer;list-style:none}
 #qualification-card .qualification-create summary::-webkit-details-marker{display:none}
@@ -162,11 +164,13 @@
   if (!card) return;
   let followupCodeMap = {};
   try { followupCodeMap = JSON.parse(document.getElementById('qualification-followup-code-map')?.textContent || '{}'); } catch (_) {}
+  let certificateStateMap = {};
+  try { certificateStateMap = JSON.parse(document.getElementById('qualification-state-map')?.textContent || '{}'); } catch (_) {}
   const labels = {electrical_basic: 'Elektroprüfung', ladder_basic: 'Leitern & Tritte'};
   card.querySelectorAll('form input[name="certificate_id"]').forEach((formInput) => {
     const form = formInput.closest('form');
     const codes = followupCodeMap[formInput.value] || [];
-    if (!form || !codes.length || form.querySelector('[data-followup-scope]')) return;
+    if (!form || !form.querySelector('input[name="action"][value="upload_followup"]') || !codes.length || form.querySelector('[data-followup-scope]')) return;
     const scope = document.createElement('fieldset');
     scope.dataset.followupScope = '1'; scope.className = 'col-12';
     scope.innerHTML = '<legend class="form-label small mb-1">Gilt diese Folgeunterweisung für</legend>' + codes.map((code) => '<label class="form-check form-check-inline small"><input class="form-check-input" type="checkbox" name="followup_requirement_codes[]" value="' + code.replace(/"/g, '&quot;') + '" checked><span class="form-check-label">' + (labels[code] || code) + '</span></label>').join('');
@@ -177,6 +181,17 @@
     const header = item.querySelector(':scope > .d-flex');
     const info = header?.firstElementChild;
     if (!header || !info) return;
+    const certificateId = item.querySelector('input[name="certificate_id"]')?.value || '';
+    const state = certificateStateMap[certificateId] || {};
+    const typeBadges = info.querySelectorAll('.mt-1 .badge');
+    const stateClass = state.expired ? 'text-bg-danger' : (state.grace ? 'text-bg-warning text-dark' : 'text-bg-success');
+    const stateTitle = state.expired ? 'Befähigung nicht mehr gültig' : (state.grace ? 'Gültig in der Kulanzfrist' + (state.expires_at ? '; regulär abgelaufen am ' + state.expires_at : '') : 'Befähigung gültig');
+    typeBadges.forEach((badge) => { badge.className = 'badge me-1 ' + stateClass; badge.title = stateTitle; });
+    const confirmationBadge = info.querySelector('.mt-2 .badge');
+    if (confirmationBadge && state.confirmed && !state.expired && !state.grace) {
+      confirmationBadge.innerHTML = '<i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Geprüft';
+      confirmationBadge.title = 'Geprüft von ' + (state.confirmed_by || 'Administration') + (state.confirmed_at ? ' am ' + state.confirmed_at.slice(0, 10).split('-').reverse().join('.') : '');
+    }
     const extras = [info.querySelector('.mt-1'), info.querySelector('.mt-2'), item.querySelector(':scope > .border-top'), item.querySelector(':scope > form')].filter(Boolean);
     extras.forEach((element) => element.classList.add('qualification-extra'));
     const followupForm = item.querySelector(':scope > form');
