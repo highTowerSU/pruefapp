@@ -28,15 +28,10 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     <div class="col-md-4"><label class="form-label" for="serial-number-<?= $formKey ?>"><i class="fa-solid fa-hashtag icon-slot me-1" aria-hidden="true"></i>Seriennummer</label><input class="form-control" id="serial-number-<?= $formKey ?>" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"></div>
 
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Gerätedaten</h2></div>
-    <div class="col-md-3"><label class="form-label" for="manufacturer-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Hersteller</label><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" autocomplete="organization" value="<?= htmlspecialchars($currentManufacturer) ?>"></div>
-    <div class="col-md-3"><label class="form-label" for="device-model-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Typ / Modell</label><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"></div>
-    <div class="col-md-6">
-      <div class="d-flex justify-content-between align-items-center gap-2">
-        <label class="form-label mb-1" for="device-name-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätebezeichnung</label>
-        <span class="d-flex gap-2"><button type="button" class="btn btn-link btn-sm p-0" data-copy-device-name><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>passende Bezeichnung übernehmen</button><?php if ($formKey > 0): ?><button class="btn btn-link btn-sm p-0" name="copy_latest_inspection_data" value="1" title="Übernimmt Hersteller, Typ/Modell und Gerätebezeichnung aus der letzten Prüfung"><i class="fa-solid fa-copy me-1" aria-hidden="true"></i>aus letzter Prüfung übernehmen</button><?php endif; ?></span>
-      </div>
-      <input class="form-control" id="device-name-<?= $formKey ?>" name="name" required value="<?= htmlspecialchars((string) $device->name) ?>">
-    </div>
+    <div class="col-lg-4"><label class="form-label" for="manufacturer-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Hersteller</label><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" autocomplete="organization" value="<?= htmlspecialchars($currentManufacturer) ?>"></div>
+    <div class="col-lg-4"><label class="form-label" for="device-model-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Typ / Modell</label><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"></div>
+    <div class="col-lg-4"><label class="form-label" for="device-name-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätebezeichnung</label><input class="form-control" id="device-name-<?= $formKey ?>" name="name" required value="<?= htmlspecialchars((string) $device->name) ?>"></div>
+    <div class="col-12 device-form-actions"><div class="d-flex flex-wrap align-items-center gap-2"><button type="button" class="btn btn-sm btn-outline-primary" data-copy-device-name disabled><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i><span data-copy-device-name-label>Passende Bezeichnung nach Modellwahl</span></button><?php if ($formKey > 0): ?><button type="submit" class="btn btn-sm btn-outline-secondary" formaction="<?= htmlspecialchars(url_for('geraete/' . $formKey . '/stammdaten-aus-letzter-pruefung'), ENT_QUOTES) ?>" formmethod="post" formnovalidate title="Übernimmt Hersteller, Typ/Modell und Gerätebezeichnung aus der letzten Prüfung"><i class="fa-solid fa-copy me-1" aria-hidden="true"></i>Stammdaten aus letzter Prüfung übernehmen</button><?php endif; ?></div></div>
 
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Standort und Kennzeichnung</h2></div>
     <div class="col-md-8">
@@ -85,7 +80,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
 <?php endif; ?>
     <?php if ($canManage): ?><details id="device-new-panel" data-action-nav="Neues Gerät" data-action-icon="fa-plus" class="card device-card mb-4"><summary class="card-header device-card-summary d-flex align-items-center gap-2"><i class="fa-solid fa-plus-circle text-primary" aria-hidden="true"></i><strong>Neues Gerät</strong><span class="small text-body-secondary device-new-caption">Gerätedaten anlegen</span></summary><div class="card-body"><?php $form(null, (string) ($newNumber ?? '')); ?></div></details><?php endif; ?>
 <style>
-.device-form{--bs-gutter-y:1.25rem}.device-form-heading{margin-top:.5rem}.device-form .form-label{font-weight:600}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:44px}.device-form [data-copy-device-name]{font-size:.78rem;text-decoration:none}.device-form [data-copy-device-name]:hover{text-decoration:underline}.device-form .ts-wrapper{width:100%}.device-form .ts-control{padding:.65rem .75rem}.device-form textarea.form-control{min-height:90px}.device-form .col-12.text-end{padding-top:.5rem}.device-form .col-12.text-end .btn{min-height:44px}.vstack.gap-3>.card>summary{cursor:pointer}.vstack.gap-3>.card>summary:focus-visible{outline:3px solid var(--bs-primary);outline-offset:-3px}
+.device-form{--bs-gutter-y:1.25rem}.device-form-heading{margin-top:.5rem}.device-form .form-label{font-weight:600}.device-form .form-control,.device-form .form-select,.device-form .ts-control{min-height:44px}.device-form-actions{margin-top:-.45rem}.device-form .ts-wrapper{width:100%}.device-form .ts-control{padding:.65rem .75rem}.device-form textarea.form-control{min-height:90px}.device-form .col-12.text-end{padding-top:.5rem}.device-form .col-12.text-end .btn{min-height:44px}.vstack.gap-3>.card>summary{cursor:pointer}.vstack.gap-3>.card>summary:focus-visible{outline:3px solid var(--bs-primary);outline-offset:-3px}
 .device-option-card{display:flex;align-items:center;gap:.65rem;padding:.7rem .8rem;border:1px solid var(--bs-border-color);border-radius:.65rem;background:var(--bs-tertiary-bg);min-height:44px}.device-option-card .form-check-input{float:none;margin:0}.device-option-card .form-check-label{cursor:pointer;flex:1}.device-option-icon{width:2rem;height:2rem;background:var(--bs-warning-bg-subtle);color:var(--bs-warning-text-emphasis)}
 .device-export-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.65rem 1rem;padding:.35rem 0}.device-export-toolbar + .device-export-toolbar{border-top:1px solid var(--bs-border-color);margin-top:.5rem;padding-top:.85rem}.device-export-toolbar .btn{white-space:nowrap}.device-export-toolbar .btn-group-label{font-weight:600;color:var(--bs-secondary-color)}.device-export-toolbar .ts-wrapper{min-width:13rem}.device-export-toolbar .ts-control{min-height:2.25rem;white-space:nowrap;overflow:hidden}.device-export-toolbar .ts-control .item{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .device-export-toolbar .btn-group>.btn:not(:last-child){border-right-color:rgba(255,255,255,.55)}
@@ -124,11 +119,12 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       };
       const refresh = async (field, currentValue = '') => {
         const control = selects[field];
-        if (!control) return;
+        if (!control) return [];
         const values = field === 'manufacturer' ? (vocabularyOptions.manufacturer || []) : await loadOptions(field);
         control.clearOptions();
         control.addOptions(values.map(value => ({value: String(value), text: String(value)})));
         if (currentValue && values.some(value => String(value).toLocaleLowerCase() === String(currentValue).toLocaleLowerCase())) control.setValue(currentValue, true);
+        return values;
       };
       [['manufacturer', 'Hersteller'], ['device_model', 'Modell'], ['name', 'Gerätebezeichnung']].forEach(([field, label]) => {
         const input = form.querySelector(`[name="${field}"]`);
@@ -150,21 +146,35 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           else if (typed !== '') { selects[field].control_input.value = ''; selects[field].wrapper.classList.add('is-invalid'); window.setTimeout(() => selects[field].wrapper.classList.remove('is-invalid'), 1600); }
         });
       });
+      const button = form.querySelector('[data-copy-device-name]');
+      const buttonLabel = form.querySelector('[data-copy-device-name-label]');
+      const updateNameSuggestion = (values) => {
+        if (!button || !buttonLabel) return;
+        const current = String(selects.name?.getValue() || '').trim().toLocaleLowerCase();
+        const candidates = values.filter(value => String(value).trim() !== '' && String(value).trim().toLocaleLowerCase() !== current);
+        const suggestion = candidates.length === 1 ? String(candidates[0]) : '';
+        button.dataset.suggestedName = suggestion;
+        button.disabled = suggestion === '';
+        buttonLabel.textContent = suggestion !== ''
+          ? `„${suggestion}“ übernehmen`
+          : (values.length > 1 ? 'Bezeichnung im Feld auswählen' : 'Passende Bezeichnung nach Modellwahl');
+      };
+      const refreshName = async (currentValue = '') => updateNameSuggestion(await refresh('name', currentValue));
       const initialModel = selects.device_model?.getValue() || '';
       const initialName = selects.name?.getValue() || '';
-      refresh('device_model', initialModel).then(() => refresh('name', initialName));
+      refresh('device_model', initialModel).then(() => refreshName(initialName));
       selects.manufacturer?.on('change', async () => {
         const oldModel = selects.device_model.getValue();
         await refresh('device_model', oldModel);
-        await refresh('name', selects.name.getValue());
+        await refreshName(selects.name.getValue());
       });
-      selects.device_model?.on('change', async () => refresh('name', selects.name.getValue()));
-      const button = form.querySelector('[data-copy-device-name]');
+      selects.device_model?.on('change', async () => refreshName(selects.name.getValue()));
       if (button) button.addEventListener('click', () => {
-        const suggestion = [selects.manufacturer?.getValue(), selects.device_model?.getValue()].filter(Boolean).join(' ');
+        const suggestion = String(button.dataset.suggestedName || '').trim();
         if (!suggestion) return;
         if (selects.name.getValue() && !window.confirm('Gerätebezeichnung ersetzen?')) return;
         selects.name.setValue(suggestion, true);
+        updateNameSuggestion([]);
       });
     });
   };

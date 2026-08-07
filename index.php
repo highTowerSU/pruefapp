@@ -114,6 +114,7 @@ $routes = [
     ['POST', '/geraete/massenaktion', fn($params, $isHx) => DeviceController::bulkAction($params, $isHx)],
     ['GET', '/geraete/suche', fn($params, $isHx) => DeviceController::lookup($params, $isHx)],
     ['GET', '/geraete/stammdaten-optionen', fn($params, $isHx) => DeviceController::vocabularyOptions($params, $isHx)],
+    ['POST', '/geraete/{id}/stammdaten-aus-letzter-pruefung', fn($params, $isHx) => DeviceController::copyLatestInspectionData($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['GET', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],
     ['POST', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],

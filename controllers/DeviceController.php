@@ -304,23 +304,6 @@ class DeviceController
             if (R::findOne('device', ' external_number = ? ', [$externalNumber])) { $_SESSION['fehlermeldung'] = 'Diese Gerätenummer ist bereits vorhanden.'; return [303, ['Location' => url_for('geraete?device_id=' . (int) R::findOne('device', ' external_number = ? ', [$externalNumber])->id)], '']; }
             $device->external_number = $externalNumber;
         }
-        if ($id > 0 && isset($_POST['copy_latest_inspection_data'])) {
-            $latest = R::findOne('inspection', "device_id = ? AND result_status IN ('passed', 'failed', 'bestanden', 'nicht bestanden') ORDER BY test_date DESC, id DESC", [$id]);
-            $latest ??= R::findOne('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [$id]);
-            if ($latest === null) {
-                $_SESSION['fehlermeldung'] = 'Für dieses Gerät gibt es noch keine Prüfung, aus der Stammdaten übernommen werden können.';
-                return [303, ['Location' => url_for('geraete?device_id=' . $id)], ''];
-            }
-            foreach (['name' => 'device_type', 'manufacturer' => 'manufacturer', 'device_model' => 'device_model'] as $target => $source) {
-                $value = trim((string) ($latest->$source ?? ''));
-                if ($value !== '') $_POST[$target] = $value;
-            }
-            audit_log('geraet_stammdaten_aus_pruefung_uebernommen', [
-                'device_id' => $id,
-                'inspection_id' => (int) $latest->id,
-                'inspection_number' => (string) $latest->external_number,
-            ]);
-        }
         $vocabulary = DeviceVocabularyService::canonicalizeDeviceValues([
             'name' => (string) ($_POST['name'] ?? ''),
             'manufacturer' => (string) ($_POST['manufacturer'] ?? ''),
@@ -360,7 +343,47 @@ class DeviceController
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
         if (isset($_POST['save_and_inspect'])) return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], ''];
         $_SESSION['meldung'] = 'Gerät gespeichert.';
-        return [303, ['Location' => url_for('geraete')], ''];
+        return [303, ['Location' => url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)], ''];
+    }
+
+    /** Copies only non-empty device master data from the latest inspection. */
+    public static function copyLatestInspectionData(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $id = (int) ($params['id'] ?? 0);
+        $device = $id > 0 ? R::load('device', $id) : null;
+        $location = url_for('geraete?device_id=' . $id . '#geraet-' . $id);
+        if ($device === null || !$device->id) {
+            $_SESSION['fehlermeldung'] = 'Gerät nicht gefunden.';
+            return [303, ['Location' => url_for('geraete')], ''];
+        }
+        $latest = R::findOne('inspection', "device_id = ? AND result_status IN ('passed', 'failed', 'bestanden', 'nicht bestanden') ORDER BY test_date DESC, id DESC", [$id]);
+        $latest ??= R::findOne('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [$id]);
+        if ($latest === null) {
+            $_SESSION['fehlermeldung'] = 'Für dieses Gerät gibt es noch keine Prüfung, aus der Stammdaten übernommen werden können.';
+            return [303, ['Location' => $location], ''];
+        }
+        $copied = [];
+        foreach (['name' => 'device_type', 'manufacturer' => 'manufacturer', 'device_model' => 'device_model'] as $target => $source) {
+            $value = trim((string) ($latest->$source ?? ''));
+            if ($value === '') continue;
+            $device->$target = DeviceVocabularyService::canonicalize($target, $value);
+            $copied[] = $target;
+        }
+        if ($copied === []) {
+            $_SESSION['fehlermeldung'] = 'Die letzte Prüfung enthält keine übernehmbaren Stammdaten.';
+            return [303, ['Location' => $location], ''];
+        }
+        $device->updated_at = date(DATE_ATOM);
+        R::store($device);
+        audit_log('geraet_stammdaten_aus_pruefung_uebernommen', [
+            'device_id' => $id,
+            'inspection_id' => (int) $latest->id,
+            'inspection_number' => (string) $latest->external_number,
+            'fields' => $copied,
+        ]);
+        $_SESSION['meldung'] = 'Stammdaten aus Prüfung ' . ((string) ($latest->external_number ?: $latest->id)) . ' übernommen.';
+        return [303, ['Location' => $location], ''];
     }
 
     public static function bulkAction(array $params, bool $isHx): array
