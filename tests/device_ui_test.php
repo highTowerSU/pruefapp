@@ -7,6 +7,7 @@ $navbar = (string) file_get_contents(dirname(__DIR__) . '/templates/_navbar.php'
 $downloads = (string) file_get_contents(dirname(__DIR__) . '/templates/downloads.php');
 $filterRenderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
 $searchSelect = (string) file_get_contents(dirname(__DIR__) . '/public/js/search-select.js');
+$customCss = (string) file_get_contents(dirname(__DIR__) . '/public/css/custom.css');
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 $inspectionController = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
 $inspectionTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_edit.php');
@@ -34,6 +35,7 @@ $checks = [
     [!str_contains($template, 'stammdaten-aus-letzter-pruefung') && !str_contains($template, 'Stammdaten aus letzter Prüfung übernehmen'), 'Die irreführende Übernahme aus einer Prüfung wird weiterhin bei Bestandsgeräten angeboten.'],
     [str_contains($template, 'data-copy-device-name-label') && str_contains($template, 'updateNameSuggestion'), 'Die passende Gerätebezeichnung wird nach der Modellauswahl nicht eindeutig benannt.'],
     [str_contains($template, 'dropdown-toggle-split') && str_contains($template, 'preferredInspectionType') && str_contains($template, 'Neue <?= htmlspecialchars((string) $preferred[\'name\']) ?>'), 'Neue Prüfungen verwenden nicht die zuletzt verwendete Prüfart als Split-Schaltfläche.'],
+    [str_contains($customCss, '.device-form > .col-12.text-end > .btn-group') && str_contains($customCss, '.dropdown-toggle-split { flex: 0 0 auto; }'), 'Der Geräteaktions-Split-Button kann auf schmalen Ansichten auseinanderbrechen.'],
     [str_contains($template, 'data-metadata-editor') && str_contains($template, 'MAC-Adresse') && str_contains($template, 'data-metadata-json'), 'Der visuelle Editor für Geräte-Zusatzattribute fehlt.'],
     [str_contains($template, 'const normalizeMac') && str_contains($template, 'AA:BB:CC:DD:EE:FF') && str_contains($template, 'maxlength="80"') && str_contains($template, 'maxlength="500"'), 'MAC-Adressen und Zeichengrenzen werden im Zusatzattribut-Editor nicht benutzerfreundlich behandelt.'],
     [str_contains($filterRenderer, 'data-device-details-action="expand"') && str_contains($filterRenderer, 'data-device-details-action="collapse"') && str_contains($filterRenderer, "if (\$context === 'device')") && str_contains($template, 'details.device-card[id^="geraet-"]'), 'Die Geräteliste bietet keine direkten Ein- und Ausklapp-Schalter neben dem Filter-Reset.'],

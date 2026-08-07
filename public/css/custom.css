@@ -392,6 +392,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .card-body { padding: 1rem; }
   .btn-group { flex-wrap: wrap; }
   .btn-group > .btn { flex: 1 1 auto; }
+  /* The primary action and its dropdown arrow are one split control, not
+     two wrapping actions. Device creation needs this even on a phone. */
+  .device-form > .col-12.text-end > .btn-group { flex-wrap: nowrap; }
+  .device-form > .col-12.text-end > .btn-group > .dropdown-toggle-split { flex: 0 0 auto; }
   .d-flex.gap-2 > .btn,
   .d-flex.gap-3 > .btn { max-width: 100%; }
   .page-header { margin-bottom: 1rem !important; }
@@ -399,6 +403,14 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .table th, .table td { white-space: normal; }
   details.card > summary.card-header { min-height: 2.9rem; display: flex; align-items: center; }
 }
+
+/* Keep the device action's main action and chevron visually attached at every
+   viewport size; generic mobile button groups are allowed to wrap. */
+.device-form > .col-12.text-end > .btn-group {
+  display: inline-flex;
+  flex-wrap: nowrap;
+}
+.device-form > .col-12.text-end > .btn-group > .dropdown-toggle-split { flex: 0 0 auto; }
 
 .stat-tile {
   display: flex;
