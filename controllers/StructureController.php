@@ -103,6 +103,8 @@ class StructureController
                 R::exec('DELETE FROM device WHERE room_id IN (' . $marks . ')', $roomIds);
                 RoomMediaService::deleteForRooms($roomIds);
             }
+            if ($cascade) foreach ($descendants as $childType => $childIds) StructureMediaService::deleteEntities($childType, $childIds);
+            StructureMediaService::deleteEntities($type, [$id]);
             if ($cascade) foreach (['room', 'area', 'floor', 'building', 'site', 'customer'] as $table) foreach ($descendants[$table] ?? [] as $childId) R::exec("DELETE FROM {$table} WHERE id = ?", [$childId]);
             R::trash($entity);
         }
@@ -143,8 +145,10 @@ class StructureController
                 R::exec('DELETE FROM device WHERE room_id IN (' . $marks . ')', $roomIds);
                 RoomMediaService::deleteForRooms($roomIds);
             }
+            foreach ($descendants as $childType => $childIds) StructureMediaService::deleteEntities($childType, $childIds);
             foreach (['room', 'area', 'floor', 'building', 'site', 'customer'] as $table) foreach ($descendants[$table] ?? [] as $childId) R::exec("DELETE FROM {$table} WHERE id = ?", [$childId]);
         }
+        StructureMediaService::deleteEntities($type, [$id]);
         if ($type === 'room') {
             RoomMediaService::deleteForRooms([$id]);
             R::exec('DELETE FROM inspection WHERE device_id IN (SELECT id FROM device WHERE room_id = ?)', [$id]);

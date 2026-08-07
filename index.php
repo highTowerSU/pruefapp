@@ -42,6 +42,7 @@ require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/DeviceMediaController.php';
 require_once __DIR__ . '/controllers/RoomMediaController.php';
+require_once __DIR__ . '/controllers/StructureMediaController.php';
 require_once __DIR__ . '/controllers/VocabularyController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/InspectionCompanionController.php';
@@ -110,6 +111,9 @@ $routes = [
     ['POST', '/struktur/raeume/{id}/fotos', fn($params, $isHx) => RoomMediaController::upload($params, $isHx)],
     ['GET', '/struktur/raeume/fotos/{id}', fn($params, $isHx) => RoomMediaController::file($params, $isHx)],
     ['POST', '/struktur/raeume/fotos/{id}/loeschen', fn($params, $isHx) => RoomMediaController::delete($params, $isHx)],
+    ['POST', '/struktur/{type}/{id}/fotos', fn($params, $isHx) => StructureMediaController::upload($params, $isHx)],
+    ['GET', '/struktur/fotos/{mediaId}', fn($params, $isHx) => StructureMediaController::file($params, $isHx)],
+    ['POST', '/struktur/fotos/{mediaId}/loeschen', fn($params, $isHx) => StructureMediaController::delete($params, $isHx)],
     ['POST', '/struktur/{type}/{id}/loeschen', fn($params, $isHx) => StructureController::delete($params, $isHx)],
     ['GET', '/geraete', fn($params, $isHx) => DeviceController::index($params, $isHx)],
     ['GET', '/pruefungen', fn($params, $isHx) => InspectionController::index($params, $isHx)],

@@ -380,7 +380,15 @@ class DeviceController
         }
         DeviceVocabularyService::enqueueReview($vocabulary, (int) (current_user()->id ?? 0));
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
-        if (isset($_POST['save_and_inspect'])) return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], ''];
+        if (isset($_POST['save_and_inspect'])) {
+            $requestedType = (string) $_POST['save_and_inspect'];
+            $selection = InspectionTypeService::permittedTypeForUser(current_user(), $requestedType);
+            if (empty($selection['selected'])) {
+                $_SESSION['fehlermeldung'] = (string) (($selection['requested_permission']['message'] ?? '') ?: 'Für diese Prüfart fehlt aktuell die Berechtigung.');
+                return [303, ['Location' => url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)], ''];
+            }
+            return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu?inspection_type_code=' . rawurlencode((string) $selection['selected']['code']))], ''];
+        }
         $_SESSION['meldung'] = 'Gerät gespeichert.';
         return [303, ['Location' => url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)], ''];
     }
