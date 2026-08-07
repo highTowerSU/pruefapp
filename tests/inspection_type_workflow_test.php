@@ -14,7 +14,7 @@ $checks = [
     [str_contains($types, 'permissionForUser') && str_contains($types, 'examinerEligibility') && str_contains($types, 'requires_confirmation') && str_contains($types, 'examiner_has_report_signature'), 'Prüfberechtigungen werden nicht vollständig serverseitig bewertet.'],
     [str_contains($controller, 'InspectionTypeService::LADDER') && str_contains($controller, 'editLadder') && str_contains($controller, 'failed_action'), 'Leiterprüfung oder dokumentierte Fehlmaßnahme fehlen im Workflow.'],
     [str_contains($findings, "['green', 'orange', 'red']") && str_contains($findings, '$blocked'), 'Gerätehinweise und Sperrmängel werden nicht getrennt nachverfolgt.'],
-    [str_contains($profile, 'save_qualification') && str_contains($profile, 'confirm_qualification') && str_contains($profile, 'certificate_inspection_types') && str_contains($profile, 'qualification_ids'), 'Befähigungen oder zugeordnete Unterweisungsnachweise fehlen im Profil.'],
+    [str_contains($profile, 'save_qualification') && str_contains($profile, 'confirm_qualification') && str_contains($profile, 'certificate_requirement_codes') && str_contains($profile, 'qualification_ids'), 'Befähigungen oder zugeordnete Unterweisungsnachweise fehlen im Profil.'],
     [str_contains($ladder, 'Hinweis · Grün') && str_contains($ladder, 'Mangel · Orange') && str_contains($ladder, 'Mangel · Rot'), 'Die Leiterprüfung bildet die geforderte Mängelampel nicht ab.'],
 ];
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);

@@ -59,15 +59,26 @@ final class ProfileController
                 $date = self::validDate((string) ($_POST['certificate_date'] ?? ''));
                 $kind = mb_substr(trim((string) ($_POST['certificate_kind'] ?? 'Folgeunterweisung')), 0, 80);
                 $title = mb_substr(trim((string) ($_POST['certificate_title'] ?? '')), 0, 240);
-                $selectedTypes = array_values(array_unique(array_filter(array_map('trim', (array) ($_POST['certificate_inspection_types'] ?? [])))));
-                $availableTypes = array_column(InspectionTypeService::active(), 'code');
-                $selectedTypes = array_values(array_filter($selectedTypes, static fn(string $code): bool => in_array($code, $availableTypes, true)));
+                $selectedRequirementCodes = array_values(array_unique(array_filter(array_map('trim', (array) ($_POST['certificate_requirement_codes'] ?? [])))));
+                $availableRequirements = R::getAll('SELECT r.*, t.name AS inspection_type_name FROM inspection_type_requirement r JOIN inspection_type t ON t.code = r.inspection_type_code WHERE r.active = 1 ORDER BY t.sort_order, r.sort_order');
+                $requirementsByCode = [];
+                foreach ($availableRequirements as $requirement) $requirementsByCode[(string) $requirement['code']] = $requirement;
+                $selectedRequirements = array_values(array_filter(array_map(static fn(string $code): ?array => $requirementsByCode[$code] ?? null, $selectedRequirementCodes)));
+                // Compatibility with older forms: a selected inspection type means its
+                // ordinary instruction requirement, never an additional VEFK requirement.
+                if ($selectedRequirements === []) {
+                    $selectedTypesLegacy = array_values(array_unique(array_filter(array_map('trim', (array) ($_POST['certificate_inspection_types'] ?? [])))));
+                    foreach ($availableRequirements as $requirement) {
+                        if (in_array((string) $requirement['inspection_type_code'], $selectedTypesLegacy, true) && str_ends_with((string) $requirement['code'], '_instruction')) $selectedRequirements[] = $requirement;
+                    }
+                }
+                $selectedTypes = array_values(array_unique(array_map(static fn(array $requirement): string => (string) $requirement['inspection_type_code'], $selectedRequirements)));
                 if (!is_array($upload) || (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || $date === false || $date === '') {
                     $_SESSION['fehlermeldung'] = 'Bitte ein PDF und ein gültiges Datum auswählen.';
                     return [303, ['Location' => $profileUrl], ''];
                 }
-                if ($selectedTypes === []) {
-                    $_SESSION['fehlermeldung'] = 'Bitte mindestens eine Prüfart auswählen, für die dieser Unterweisungsnachweis gilt.';
+                if ($selectedRequirements === []) {
+                    $_SESSION['fehlermeldung'] = 'Bitte mindestens eine konkrete Nachweisart und Prüfart auswählen.';
                     return [303, ['Location' => $profileUrl], ''];
                 }
                 $tmp = (string) ($upload['tmp_name'] ?? '');
@@ -90,33 +101,22 @@ final class ProfileController
                 }
                 @chmod($target, 0660);
                 $qualificationIds = [];
-                foreach ($selectedTypes as $typeCode) {
-                    $requirements = R::getAll("SELECT * FROM inspection_type_requirement WHERE inspection_type_code = ? AND active = 1 AND code LIKE '%_instruction' ORDER BY sort_order, id", [$typeCode]);
-                    foreach ($requirements as $requirement) {
-                        $expiresAt = '';
-                        if ((int) ($requirement['validity_days'] ?? 0) > 0) {
-                            $expiresAt = date('Y-m-d', strtotime($date . ' +' . (int) $requirement['validity_days'] . ' days'));
-                        }
-                        R::exec('INSERT INTO user_qualification (oauthuser_id, requirement_code, issued_at, expires_at, proof_path, proof_name, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-                            (int) $user->id,
-                            (string) $requirement['code'],
-                            $date,
-                            $expiresAt,
-                            $target,
-                            mb_substr((string) ($upload['name'] ?? 'Unterweisungsnachweis.pdf'), 0, 240),
-                            'Unterweisungsnachweis: ' . ($title !== '' ? $title : $kind),
-                            date(DATE_ATOM),
-                            date(DATE_ATOM),
-                        ]);
-                        $qualificationIds[] = (int) R::getInsertID();
-                    }
+                foreach ($selectedRequirements as $requirement) {
+                    $expiresAt = '';
+                    if ((int) ($requirement['validity_days'] ?? 0) > 0) $expiresAt = date('Y-m-d', strtotime($date . ' +' . (int) $requirement['validity_days'] . ' days'));
+                    R::exec('INSERT INTO user_qualification (oauthuser_id, requirement_code, issued_at, expires_at, proof_path, proof_name, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+                        (int) $user->id, (string) $requirement['code'], $date, $expiresAt, $target,
+                        mb_substr((string) ($upload['name'] ?? 'Unterweisungsnachweis.pdf'), 0, 240),
+                        'Unterweisungsnachweis: ' . ($title !== '' ? $title : $kind), date(DATE_ATOM), date(DATE_ATOM),
+                    ]);
+                    $qualificationIds[] = (int) R::getInsertID();
                 }
                 $certificates = self::certificates($user);
                 $certificates[] = ['id' => $certificateId, 'kind' => $kind !== '' ? $kind : 'Folgeunterweisung', 'date' => $date, 'title' => $title, 'path' => $target, 'name' => mb_substr((string) ($upload['name'] ?? 'Nachweis.pdf'), 0, 240), 'inspection_type_codes' => $selectedTypes, 'qualification_ids' => $qualificationIds, 'created_at' => date(DATE_ATOM)];
                 $user->instruction_certificates_json = json_encode($certificates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 $user->instruction_updated_at = date(DATE_ATOM);
                 R::store($user);
-                audit_log('unterweisungsnachweis_gespeichert', ['oauthuser_id' => (int) $user->id, 'art' => $kind, 'pruefarten' => $selectedTypes]);
+                audit_log('unterweisungsnachweis_gespeichert', ['oauthuser_id' => (int) $user->id, 'art' => $kind, 'pruefarten' => $selectedTypes, 'nachweise' => $selectedRequirementCodes]);
                 $queuedReports = self::queueMissingReportsForExaminer($user);
                 $_SESSION['meldung'] = 'Unterweisungsnachweis gespeichert und den gewählten Prüfarten zugeordnet.' . ($queuedReports > 0 ? ' ' . $queuedReports . ' fertige Prüfberichte werden nun im Hintergrund erzeugt.' : '');
                 return [303, ['Location' => $profileUrl], ''];
