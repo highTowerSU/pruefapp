@@ -107,22 +107,58 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   const siteLabels = <?= json_encode($safeSiteLabels, JSON_UNESCAPED_UNICODE) ?>;
   const buildingLabels = <?= json_encode($safeBuildingLabels, JSON_UNESCAPED_UNICODE) ?>;
   const customerLabels = <?= json_encode(array_reduce($customers, static function (array $out, $customer): array { $code = is_scalar($customer->code ?? null) ? (string) $customer->code : ''; $name = is_scalar($customer->name ?? null) ? (string) $customer->name : ''; $out[(int) $customer->id] = $code !== '' ? $code . ' · ' . $name : $name; return $out; }, []), JSON_UNESCAPED_UNICODE) ?>;
-  const vocabularyOptions = <?= json_encode(['manufacturer' => array_values($manufacturerOptions), 'device_model' => array_values($modelOptions ?? []), 'name' => array_values($nameOptions ?? [])], JSON_UNESCAPED_UNICODE) ?>;
+  const vocabularyOptions = <?= json_encode(['manufacturer' => array_values($manufacturerOptions)], JSON_UNESCAPED_UNICODE) ?>;
+  const vocabularyEndpoint = <?= json_encode(url_for('geraete/stammdaten-optionen'), JSON_UNESCAPED_UNICODE) ?>;
   const initializeDeviceVocabulary = () => {
     if (typeof window.TomSelect !== 'function') return;
     document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
       const selects = {};
+      const loadOptions = async (field) => {
+        const query = new URLSearchParams({field});
+        if (field !== 'manufacturer') query.set('manufacturer', selects.manufacturer?.getValue() || '');
+        if (field === 'name') query.set('model', selects.device_model?.getValue() || '');
+        const response = await fetch(`${vocabularyEndpoint}?${query.toString()}`, {headers: {'Accept': 'application/json'}});
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data.items) ? data.items : [];
+      };
+      const refresh = async (field, currentValue = '') => {
+        const control = selects[field];
+        if (!control) return;
+        const values = field === 'manufacturer' ? (vocabularyOptions.manufacturer || []) : await loadOptions(field);
+        control.clearOptions();
+        control.addOptions(values.map(value => ({value: String(value), text: String(value)})));
+        if (currentValue && values.some(value => String(value).toLocaleLowerCase() === String(currentValue).toLocaleLowerCase())) control.setValue(currentValue, true);
+      };
       [['manufacturer', 'Hersteller'], ['device_model', 'Modell'], ['name', 'Gerätebezeichnung']].forEach(([field, label]) => {
         const input = form.querySelector(`[name="${field}"]`);
         if (!input || input.tomselect) return;
-        const options = (vocabularyOptions[field] || []).map(value => ({value: String(value), text: String(value)}));
+        const initialValue = input.value;
+        const options = field === 'manufacturer' ? (vocabularyOptions.manufacturer || []).map(value => ({value: String(value), text: String(value)})) : [];
         selects[field] = new window.TomSelect(input, {
           plugins: ['dropdown_input'], options, create: value => String(value).trim(), createOnBlur: false,
           maxItems: 1, maxOptions: null, openOnFocus: true, selectOnTab: true, closeAfterSelect: true,
           placeholder: `${label} suchen oder mit Enter neu anlegen`,
           render: { option: (data, escape) => `<div${data.value === 'Nicht erkennbar' ? ' class="fw-semibold"' : ''}>${escape(data.text)}</div>` }
         });
+        if (initialValue) selects[field].setValue(initialValue, true);
+        input.addEventListener('blur', () => {
+          const typed = selects[field].control_input.value.trim();
+          if (!typed || selects[field].getValue()) return;
+          const exact = Object.values(selects[field].options).find(option => String(option.value).localeCompare(typed, undefined, {sensitivity: 'accent'}) === 0);
+          if (exact) selects[field].setValue(exact.value, true);
+          else if (typed !== '') { selects[field].control_input.value = ''; selects[field].wrapper.classList.add('is-invalid'); window.setTimeout(() => selects[field].wrapper.classList.remove('is-invalid'), 1600); }
+        });
       });
+      const initialModel = selects.device_model?.getValue() || '';
+      const initialName = selects.name?.getValue() || '';
+      refresh('device_model', initialModel).then(() => refresh('name', initialName));
+      selects.manufacturer?.on('change', async () => {
+        const oldModel = selects.device_model.getValue();
+        await refresh('device_model', oldModel);
+        await refresh('name', selects.name.getValue());
+      });
+      selects.device_model?.on('change', async () => refresh('name', selects.name.getValue()));
       const button = form.querySelector('[data-copy-device-name]');
       if (button) button.addEventListener('click', () => {
         const suggestion = [selects.manufacturer?.getValue(), selects.device_model?.getValue()].filter(Boolean).join(' ');

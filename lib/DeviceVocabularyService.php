@@ -67,9 +67,34 @@ final class DeviceVocabularyService
         return $out;
     }
 
+    /** @return list<string> */
+    public static function contextOptions(string $field, string $manufacturer = '', string $model = ''): array
+    {
+        self::assertField($field);
+        if ($field === 'manufacturer') return self::options()['manufacturer'];
+        $manufacturer = self::canonicalize('manufacturer', $manufacturer);
+        if ($manufacturer === '') return [];
+        $column = $field === 'device_model' ? 'device_model' : 'name';
+        $sql = 'SELECT DISTINCT ' . $column . ' AS value FROM device WHERE LOWER(TRIM(COALESCE(manufacturer, \'\'))) = ? AND TRIM(COALESCE(' . $column . ', \'\')) <> \'\'';
+        $params = [self::normalizeKey($manufacturer)];
+        if ($field === 'name') {
+            $model = self::canonicalize('device_model', $model);
+            if ($model === '') return [];
+            $sql .= ' AND LOWER(TRIM(COALESCE(device_model, \'\'))) = ?';
+            $params[] = self::normalizeKey($model);
+        }
+        $sql .= ' ORDER BY value';
+        $values = [];
+        foreach (R::getAll($sql, $params) as $row) {
+            $value = self::canonicalize($field, (string) ($row['value'] ?? ''));
+            if ($value !== '') $values[$value] = $value;
+        }
+        return array_values($values);
+    }
+
     public static function enqueueReview(array $values, int $ownerUserId = 0): void
     {
-        if (get_app_config('vocabulary_ai_enabled', '0') !== '1') return;
+        if (get_app_config('vocabulary_ai_enabled', '0') !== '1' || AiProviderService::selectedVocabularyProvider() === null) return;
         foreach (self::FIELDS as $field) {
             $value = trim((string) ($values[$field] ?? ''));
             if ($value === '' || self::isNotRecognizable($value)) continue;
@@ -118,11 +143,12 @@ final class DeviceVocabularyService
     public static function suggest(string $field, string $value): array
     {
         self::assertField($field);
-        $baseUrl = rtrim((string) get_app_config('vocabulary_ai_base_url', ''), '/');
-        $token = self::providerToken();
+        $provider = AiProviderService::selectedVocabularyProvider();
+        $baseUrl = rtrim((string) ($provider->base_url ?? ''), '/');
+        $token = $provider ? AiProviderService::accessToken($provider) : '';
         $model = trim((string) get_app_config('vocabulary_ai_model', ''));
         if ($baseUrl === '' || $token === '' || $model === '') throw new RuntimeException('Die KI-Stammdatenprüfung ist noch nicht vollständig konfiguriert.');
-        $headerName = get_app_config('vocabulary_ai_auth_mode', 'token') === 'oauth' ? 'Authorization' : (trim((string) get_app_config('vocabulary_ai_header', 'Authorization')) ?: 'Authorization');
+        $headerName = (string) ($provider->auth_mode ?? '') === 'oauth' ? 'Authorization' : (trim((string) ($provider->header_name ?? 'Authorization')) ?: 'Authorization');
         $payload = ['model' => $model, 'temperature' => 0, 'messages' => [
             ['role' => 'system', 'content' => 'Du prüfst ausschließlich deutsche technische Stammdaten. Antworte nur als JSON mit canonical_value, confidence (0 bis 1) und reason. Schlage nur eine bekannte, eindeutig bessere Schreibweise vor; bei Unsicherheit canonical_value leer lassen.'],
             ['role' => 'user', 'content' => json_encode(['field' => $field, 'value' => $value, 'known_values' => array_slice(self::options()[$field], 0, 300)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
@@ -142,12 +168,6 @@ final class DeviceVocabularyService
         if ($baseUrl === '' || trim($token) === '') throw new InvalidArgumentException('Basis-URL und Token sind erforderlich.');
         $headerName = trim($headerName) ?: 'Authorization';
         return (new OpenAiCompatibleClient($baseUrl, $token, $headerName, 15))->models();
-    }
-
-    private static function providerToken(): string
-    {
-        if (get_app_config('vocabulary_ai_auth_mode', 'token') === 'oauth') return VocabularyOAuthService::accessToken();
-        return trim((string) get_app_config('vocabulary_ai_token', ''));
     }
 
     private static function assertField(string $field): void

@@ -72,6 +72,7 @@ require_once __DIR__ . '/InspectionFilterService.php';
 require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
+require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
 require_once __DIR__ . '/VocabularyOAuthService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
@@ -231,6 +232,7 @@ function initialize_database(): void
         $GLOBALS['pruefapp_database_path'] = $configuredDsn;
         R::freeze(false);
         ensure_structure_schema();
+        AiProviderService::ensureSchema();
         RevisionSupport::enableFor(
             ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'customer', 'site', 'building', 'floor', 'area', 'room', 'device', 'inspection', 'inspectionanswer', 'inspectionmeasurement', 'inspectiondiagnostic', 'inspectionsourcesnapshot', 'inspectionreportasset', 'customerinfo']
         );
@@ -287,6 +289,7 @@ function initialize_database(): void
     $GLOBALS['pruefapp_database_path'] = $dbPath;
     R::freeze(false);
     ensure_structure_schema();
+    AiProviderService::ensureSchema();
 
     RevisionSupport::enableFor(
         [

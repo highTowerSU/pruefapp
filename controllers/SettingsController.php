@@ -7,6 +7,52 @@ use Ceneos\PhpBase\Update\Updater;
 
 class SettingsController
 {
+    public static function aiProvider(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $id = max(0, (int) ($_REQUEST['provider_id'] ?? get_app_config('vocabulary_ai_provider_id', '0')));
+        $message = '';
+        $error = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            try {
+                $action = (string) ($_POST['action'] ?? 'save');
+                $provider = AiProviderService::save($id, [
+                    'name' => (string) ($_POST['name'] ?? ''), 'base_url' => (string) ($_POST['base_url'] ?? ''),
+                    'header_name' => (string) ($_POST['header_name'] ?? 'Authorization'), 'auth_mode' => (string) ($_POST['auth_mode'] ?? 'token'),
+                    'api_token' => (string) ($_POST['api_token'] ?? ''), 'pricing_url' => (string) ($_POST['pricing_url'] ?? ''),
+                    'oauth_authorization_url' => (string) ($_POST['oauth_authorization_url'] ?? ''), 'oauth_token_url' => (string) ($_POST['oauth_token_url'] ?? ''),
+                    'oauth_client_id' => (string) ($_POST['oauth_client_id'] ?? ''), 'oauth_client_secret' => (string) ($_POST['oauth_client_secret'] ?? ''), 'oauth_scopes' => (string) ($_POST['oauth_scopes'] ?? ''),
+                ]);
+                if (filter_var((string) $provider->base_url, FILTER_VALIDATE_URL) === false) throw new RuntimeException('Bitte eine gültige OpenAI-kompatible Basis-URL angeben.');
+                if ($action === 'test') {
+                    $models = AiProviderService::refreshModels($provider);
+                    $message = $models === [] ? 'Verbindung hergestellt; der Anbieter lieferte keine Modellliste. Das Modell kann manuell eingetragen werden.' : count($models) . ' Modelle geladen.';
+                } elseif ($action === 'oauth') {
+                    $_SESSION['vocabulary_oauth_provider_id'] = (int) $provider->id;
+                    return [303, ['Location' => VocabularyOAuthService::begin($provider)], ''];
+                } else {
+                    set_app_config('vocabulary_ai_provider_id', (string) $provider->id);
+                    set_app_config('vocabulary_ai_model', trim((string) ($_POST['vocabulary_ai_model'] ?? '')) ?: null);
+                    set_app_config('vocabulary_ai_enabled', isset($_POST['vocabulary_ai_enabled']) ? '1' : '0');
+                    $message = 'KI-Provider und Stammdatenprüfung wurden gespeichert.';
+                }
+                $id = (int) $provider->id;
+            } catch (Throwable $exception) {
+                $error = $exception->getMessage();
+            }
+        }
+        $providers = AiProviderService::all();
+        $provider = AiProviderService::find($id);
+        if ($provider === null || (int) $provider->id === 0) $provider = (object) ['id' => 0, 'name' => '', 'base_url' => '', 'header_name' => 'Authorization', 'auth_mode' => 'token', 'api_token' => '', 'pricing_url' => '', 'oauth_authorization_url' => '', 'oauth_token_url' => '', 'oauth_client_id' => '', 'oauth_client_secret' => '', 'oauth_scopes' => '', 'oauth_access_token' => ''];
+        $content = render_template('settings_ai_provider.php', [
+            'providers' => $providers, 'provider' => $provider, 'models' => (int) $provider->id > 0 ? AiProviderService::models($provider) : [],
+            'enabled' => get_app_config('vocabulary_ai_enabled', '0') === '1', 'selectedProviderId' => (int) get_app_config('vocabulary_ai_provider_id', '0'),
+            'selectedModel' => (string) get_app_config('vocabulary_ai_model', ''), 'message' => $message, 'error' => $error,
+        ]);
+        if ($isHx) return [200, [], $content];
+        return [303, ['Location' => url_for('admin/konfiguration#settings-ai-panel')], ''];
+    }
+
     public static function general(array $params, bool $isHx): array
     {
         if (!current_user_is_superadmin()) {
@@ -75,7 +121,8 @@ class SettingsController
                     $token = (string) ($_POST['vocabulary_ai_token'] ?? '');
                     if (get_app_config('vocabulary_ai_auth_mode', 'token') === 'oauth') {
                         $header = 'Authorization';
-                        $token = VocabularyOAuthService::accessToken();
+                        $provider = AiProviderService::selectedVocabularyProvider();
+                        $token = $provider ? VocabularyOAuthService::accessToken($provider) : '';
                     } elseif ($token === '') {
                         $token = (string) get_app_config('vocabulary_ai_token', '');
                     }
@@ -91,7 +138,10 @@ class SettingsController
             }
             if (($_POST['action'] ?? '') === 'begin_vocabulary_oauth') {
                 try {
-                    return [303, ['Location' => VocabularyOAuthService::begin()], ''];
+                    $provider = AiProviderService::selectedVocabularyProvider();
+                    if ($provider === null) throw new RuntimeException('Bitte zuerst einen KI-Provider speichern.');
+                    $_SESSION['vocabulary_oauth_provider_id'] = (int) $provider->id;
+                    return [303, ['Location' => VocabularyOAuthService::begin($provider)], ''];
                 } catch (Throwable $exception) {
                     $_SESSION['fehlermeldung'] = 'OAuth-Verbindung konnte nicht gestartet werden: ' . $exception->getMessage();
                     return [303, ['Location' => url_for('admin/konfiguration#settings-ai-panel')], ''];
@@ -164,15 +214,16 @@ class SettingsController
             $values['cron_job_slice_seconds'] = trim((string) ($_POST['cron_job_slice_seconds'] ?? '30'));
             $values['cron_job_lease_seconds'] = trim((string) ($_POST['cron_job_lease_seconds'] ?? '180'));
             $values['background_history_days'] = trim((string) ($_POST['background_history_days'] ?? '180'));
-            $values['vocabulary_ai_enabled'] = isset($_POST['vocabulary_ai_enabled']) ? '1' : '0';
-            $values['vocabulary_ai_base_url'] = trim((string) ($_POST['vocabulary_ai_base_url'] ?? ''));
-            $values['vocabulary_ai_header'] = trim((string) ($_POST['vocabulary_ai_header'] ?? 'Authorization')) ?: 'Authorization';
-            $values['vocabulary_ai_model'] = trim((string) ($_POST['vocabulary_ai_model'] ?? ''));
-            $values['vocabulary_ai_auth_mode'] = ($_POST['vocabulary_ai_auth_mode'] ?? 'token') === 'oauth' ? 'oauth' : 'token';
-            $values['vocabulary_ai_oauth_authorization_url'] = trim((string) ($_POST['vocabulary_ai_oauth_authorization_url'] ?? ''));
-            $values['vocabulary_ai_oauth_token_url'] = trim((string) ($_POST['vocabulary_ai_oauth_token_url'] ?? ''));
-            $values['vocabulary_ai_oauth_client_id'] = trim((string) ($_POST['vocabulary_ai_oauth_client_id'] ?? ''));
-            $values['vocabulary_ai_oauth_scopes'] = trim((string) ($_POST['vocabulary_ai_oauth_scopes'] ?? ''));
+            $legacyAiForm = array_key_exists('vocabulary_ai_enabled', $_POST) || array_key_exists('vocabulary_ai_base_url', $_POST);
+            $values['vocabulary_ai_enabled'] = $legacyAiForm ? (isset($_POST['vocabulary_ai_enabled']) ? '1' : '0') : $values['vocabulary_ai_enabled'];
+            $values['vocabulary_ai_base_url'] = trim((string) ($_POST['vocabulary_ai_base_url'] ?? $values['vocabulary_ai_base_url']));
+            $values['vocabulary_ai_header'] = trim((string) ($_POST['vocabulary_ai_header'] ?? $values['vocabulary_ai_header'])) ?: 'Authorization';
+            $values['vocabulary_ai_model'] = trim((string) ($_POST['vocabulary_ai_model'] ?? $values['vocabulary_ai_model']));
+            $values['vocabulary_ai_auth_mode'] = ($_POST['vocabulary_ai_auth_mode'] ?? $values['vocabulary_ai_auth_mode']) === 'oauth' ? 'oauth' : 'token';
+            $values['vocabulary_ai_oauth_authorization_url'] = trim((string) ($_POST['vocabulary_ai_oauth_authorization_url'] ?? $values['vocabulary_ai_oauth_authorization_url']));
+            $values['vocabulary_ai_oauth_token_url'] = trim((string) ($_POST['vocabulary_ai_oauth_token_url'] ?? $values['vocabulary_ai_oauth_token_url']));
+            $values['vocabulary_ai_oauth_client_id'] = trim((string) ($_POST['vocabulary_ai_oauth_client_id'] ?? $values['vocabulary_ai_oauth_client_id']));
+            $values['vocabulary_ai_oauth_scopes'] = trim((string) ($_POST['vocabulary_ai_oauth_scopes'] ?? $values['vocabulary_ai_oauth_scopes']));
 
             $cronRows = filter_var($values['cron_log_max_rows'], FILTER_VALIDATE_INT);
             $cronBytes = filter_var($values['cron_log_max_bytes'], FILTER_VALIDATE_INT);
@@ -284,7 +335,10 @@ class SettingsController
         if (!current_user_is_superadmin()) return forbidden_response();
         try {
             if (!empty($_GET['error'])) throw new RuntimeException((string) ($_GET['error_description'] ?? $_GET['error']));
-            VocabularyOAuthService::complete(trim((string) ($_GET['code'] ?? '')), trim((string) ($_GET['state'] ?? '')));
+            $provider = AiProviderService::find((int) ($_SESSION['vocabulary_oauth_provider_id'] ?? 0));
+            unset($_SESSION['vocabulary_oauth_provider_id']);
+            if ($provider === null || (int) $provider->id === 0) throw new RuntimeException('Der zugehörige KI-Provider wurde nicht gefunden.');
+            VocabularyOAuthService::complete($provider, trim((string) ($_GET['code'] ?? '')), trim((string) ($_GET['state'] ?? '')));
             $_SESSION['meldung'] = 'OAuth-Verbindung wurde hergestellt. Der Zugriffstoken wird bei Bedarf automatisch erneuert.';
         } catch (Throwable $exception) {
             $_SESSION['fehlermeldung'] = 'OAuth-Verbindung fehlgeschlagen: ' . $exception->getMessage();

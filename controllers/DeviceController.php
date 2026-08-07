@@ -6,6 +6,17 @@ use RedBeanPHP\R;
 
 class DeviceController
 {
+    public static function vocabularyOptions(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('editor')) return forbidden_response();
+        $field = (string) ($_GET['field'] ?? 'manufacturer');
+        try {
+            $values = DeviceVocabularyService::contextOptions($field, (string) ($_GET['manufacturer'] ?? ''), (string) ($_GET['model'] ?? ''));
+            return [200, ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'], json_encode(['items' => $values], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+        } catch (Throwable $exception) {
+            return [422, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE)];
+        }
+    }
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user()) return [303, ['Location' => url_for('login.php')], ''];
