@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use RedBeanPHP\R;
+use Ceneos\PhpBase\Integration\OpenAiCompatibleClient;
 
 /** Central, server-side canonicalisation for device master data. */
 final class DeviceVocabularyService
@@ -122,18 +123,11 @@ final class DeviceVocabularyService
         $model = trim((string) get_app_config('vocabulary_ai_model', ''));
         if ($baseUrl === '' || $token === '' || $model === '') throw new RuntimeException('Die KI-Stammdatenprüfung ist noch nicht vollständig konfiguriert.');
         $headerName = get_app_config('vocabulary_ai_auth_mode', 'token') === 'oauth' ? 'Authorization' : (trim((string) get_app_config('vocabulary_ai_header', 'Authorization')) ?: 'Authorization');
-        $headerValue = $headerName === 'Authorization' ? 'Bearer ' . $token : $token;
         $payload = ['model' => $model, 'temperature' => 0, 'messages' => [
             ['role' => 'system', 'content' => 'Du prüfst ausschließlich deutsche technische Stammdaten. Antworte nur als JSON mit canonical_value, confidence (0 bis 1) und reason. Schlage nur eine bekannte, eindeutig bessere Schreibweise vor; bei Unsicherheit canonical_value leer lassen.'],
             ['role' => 'user', 'content' => json_encode(['field' => $field, 'value' => $value, 'known_values' => array_slice(self::options()[$field], 0, 300)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
         ]];
-        $ch = curl_init($baseUrl . '/chat/completions');
-        if ($ch === false) throw new RuntimeException('KI-Verbindung konnte nicht geöffnet werden.');
-        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_TIMEOUT => 25, CURLOPT_HTTPHEADER => [$headerName . ': ' . $headerValue, 'Content-Type: application/json', 'Accept: application/json'], CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
-        $body = curl_exec($ch); $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $error = curl_error($ch); curl_close($ch);
-        if ($body === false || $error !== '') throw new RuntimeException('KI-Netzwerkfehler: ' . ($error ?: 'unbekannt'));
-        if ($status < 200 || $status >= 300) throw new RuntimeException('KI-Anbieter antwortet mit HTTP ' . $status . '.');
-        $decoded = json_decode((string) $body, true);
+        $decoded = (new OpenAiCompatibleClient($baseUrl, $token, $headerName))->chatCompletions($payload);
         $content = (string) ($decoded['choices'][0]['message']['content'] ?? '');
         $content = preg_replace('/^```(?:json)?\s*|\s*```$/', '', trim($content)) ?? '';
         $proposal = json_decode($content, true);
@@ -147,21 +141,7 @@ final class DeviceVocabularyService
         $baseUrl = rtrim(trim($baseUrl), '/');
         if ($baseUrl === '' || trim($token) === '') throw new InvalidArgumentException('Basis-URL und Token sind erforderlich.');
         $headerName = trim($headerName) ?: 'Authorization';
-        $headerValue = $headerName === 'Authorization' ? 'Bearer ' . $token : $token;
-        $ch = curl_init($baseUrl . '/models');
-        if ($ch === false) throw new RuntimeException('KI-Verbindung konnte nicht geöffnet werden.');
-        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_HTTPHEADER => [$headerName . ': ' . $headerValue, 'Accept: application/json']]);
-        $body = curl_exec($ch); $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $error = curl_error($ch); curl_close($ch);
-        if ($body === false || $error !== '') throw new RuntimeException('KI-Netzwerkfehler: ' . ($error ?: 'unbekannt'));
-        if ($status < 200 || $status >= 300) throw new RuntimeException('Modelle konnten nicht geladen werden (HTTP ' . $status . ').');
-        $decoded = json_decode((string) $body, true);
-        $models = [];
-        foreach ((array) ($decoded['data'] ?? $decoded['models'] ?? []) as $model) {
-            $id = is_array($model) ? (string) ($model['id'] ?? $model['name'] ?? '') : '';
-            if ($id !== '') $models[] = $id;
-        }
-        sort($models, SORT_NATURAL | SORT_FLAG_CASE);
-        return array_values(array_unique($models));
+        return (new OpenAiCompatibleClient($baseUrl, $token, $headerName, 15))->models();
     }
 
     private static function providerToken(): string

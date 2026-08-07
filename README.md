@@ -236,7 +236,10 @@ Vorschläge prüfen und bewusst zusammenführen. Optional kann unter
 InnoGPT, IONOS oder OVH) mit Basis-URL, Token-Header und Modell hinterlegt
 werden. Die KI erhält ausschließlich kurze Stammdatenwerte und erzeugt nur
 Freigabevorschläge; sie verändert keine Geräte oder Prüfungen selbst.
-Neben Token-/API-Key-Anmeldung steht ein generischer OAuth-2.0-Flow mit PKCE
+Der OpenAI-kompatible HTTP-Client und der generische OAuth-2.0-Flow mit PKCE
+kommen aus **CENEOS Base**; die Prüf-App hält nur ihre fachlichen
+Stammdatenvorschläge und die mandantenspezifische Konfiguration. Neben
+Token-/API-Key-Anmeldung steht OAuth mit PKCE
 und Refresh-Token bereit. Autorisierungs- und Token-URL, Client-ID, optionale
 Client-Secret und Scopes werden in der Superadmin-GUI gepflegt; die dort
 angezeigte Callback-URL muss beim jeweiligen Anbieter hinterlegt werden.
