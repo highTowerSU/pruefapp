@@ -478,33 +478,42 @@ document.querySelectorAll('[data-metadata-editor]').forEach(editor => {
   const rows = editor.querySelector('.metadata-visual-rows');
   const json = editor.querySelector('[data-metadata-json]');
   const inferType = value => typeof value === 'boolean' ? 'boolean' : (typeof value === 'number' ? 'number' : (/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? 'date' : (/^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/i.test(String(value)) ? 'mac' : 'text')));
+  const normalizeMac = value => (String(value).toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 12).match(/.{1,2}/g) || []).join(':');
+  const configureValue = (input, type) => {
+    input.type = type === 'date' ? 'date' : (type === 'number' ? 'number' : 'text');
+    input.maxLength = type === 'mac' ? 17 : 500;
+    input.inputMode = type === 'number' ? 'decimal' : 'text';
+    input.placeholder = type === 'mac' ? 'AA:BB:CC:DD:EE:FF' : 'Wert';
+    if (type === 'mac') input.value = normalizeMac(input.value);
+  };
   const sync = () => {
     const values = {};
     rows.querySelectorAll('[data-metadata-row]').forEach(row => {
-      const key = row.querySelector('[data-metadata-key]').value.trim();
+      const key = row.querySelector('[data-metadata-key]').value.trim().slice(0, 80);
       const type = row.querySelector('[data-metadata-type]').value;
-      let value = row.querySelector('[data-metadata-value]').value.trim();
+      const input = row.querySelector('[data-metadata-value]');
+      let value = input.value.trim().slice(0, type === 'mac' ? 17 : 500);
       if (!key) return;
       if (type === 'number') value = value === '' ? '' : Number(value.replace(',', '.'));
       if (type === 'boolean') value = value === 'true';
-      if (type === 'mac') value = value.toUpperCase().replace(/-/g, ':');
+      if (type === 'mac') { value = normalizeMac(value); input.value = value; }
       values[key] = value;
     });
     json.value = Object.keys(values).length ? JSON.stringify(values) : '';
   };
   const add = (key = '', value = '', type = inferType(value)) => {
     const row = document.createElement('div'); row.className = 'input-group input-group-sm'; row.dataset.metadataRow = '1';
-    row.innerHTML = `<input class="form-control" data-metadata-key placeholder="Name" aria-label="Attributname"><select class="form-select" data-metadata-type aria-label="Datentyp"><option value="text">Text</option><option value="number">Zahl</option><option value="date">Datum</option><option value="boolean">Ja/Nein</option><option value="mac">MAC-Adresse</option></select><input class="form-control" data-metadata-value placeholder="Wert" aria-label="Attributwert"><button class="btn btn-outline-danger" type="button" data-metadata-remove aria-label="Attribut entfernen"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
-    row.querySelector('[data-metadata-key]').value = key; row.querySelector('[data-metadata-type]').value = type;
+    row.innerHTML = `<input class="form-control" data-metadata-key maxlength="80" placeholder="Name" aria-label="Attributname"><select class="form-select" data-metadata-type aria-label="Datentyp"><option value="text">Text</option><option value="number">Zahl</option><option value="date">Datum</option><option value="boolean">Ja/Nein</option><option value="mac">MAC-Adresse</option></select><input class="form-control" data-metadata-value maxlength="500" placeholder="Wert" aria-label="Attributwert"><button class="btn btn-danger" type="button" data-metadata-remove aria-label="Attribut entfernen"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
+    row.querySelector('[data-metadata-key]').value = String(key).slice(0, 80); row.querySelector('[data-metadata-type]').value = type;
     const input = row.querySelector('[data-metadata-value]'); input.value = type === 'boolean' ? String(Boolean(value)) : String(value ?? '');
-    if (type === 'date') input.type = 'date'; if (type === 'number') input.type = 'number';
+    configureValue(input, type);
     rows.appendChild(row);
   };
   try { const existing = JSON.parse(json.value || '{}'); if (existing && typeof existing === 'object' && !Array.isArray(existing)) Object.entries(existing).forEach(([key, value]) => add(key, value)); } catch (_) {}
   if (!rows.children.length) add();
   editor.querySelector('[data-metadata-add]').addEventListener('click', () => { add(); sync(); });
   rows.addEventListener('click', event => { if (event.target.closest('[data-metadata-remove]')) { event.target.closest('[data-metadata-row]').remove(); if (!rows.children.length) add(); sync(); } });
-  rows.addEventListener('input', sync); rows.addEventListener('change', event => { const row = event.target.closest('[data-metadata-row]'); if (event.target.matches('[data-metadata-type]') && row) { const value = row.querySelector('[data-metadata-value]'); value.type = event.target.value === 'date' ? 'date' : (event.target.value === 'number' ? 'number' : 'text'); } sync(); });
+  rows.addEventListener('input', sync); rows.addEventListener('change', event => { const row = event.target.closest('[data-metadata-row]'); if (event.target.matches('[data-metadata-type]') && row) configureValue(row.querySelector('[data-metadata-value]'), event.target.value); sync(); });
   editor.closest('form')?.addEventListener('submit', sync);
 });
 </script>
