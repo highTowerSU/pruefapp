@@ -7,6 +7,9 @@ $navbar = (string) file_get_contents(dirname(__DIR__) . '/templates/_navbar.php'
 $downloads = (string) file_get_contents(dirname(__DIR__) . '/templates/downloads.php');
 $filterRenderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
 $searchSelect = (string) file_get_contents(dirname(__DIR__) . '/public/js/search-select.js');
+$deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
+$inspectionController = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
+$inspectionTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_edit.php');
 
 $lookupPosition = strpos($template, 'id="device-inspection-lookup"');
 $filterPosition = strpos($template, "render_common_filter_panel('device'");
@@ -27,6 +30,8 @@ $checks = [
     [str_contains($searchSelect, "querySelectorAll('select:not([data-no-search])')") && str_contains($searchSelect, "plugins: ['dropdown_input']") && str_contains($searchSelect, 'if (select.tomselect)') && str_contains($searchSelect, 'externalLabel') && substr_count($template, 'plugins: [\'dropdown_input\']') >= 3, 'Nicht alle Dropdown-Selects verwenden das Dropdown-Input-Plugin.'],
     [str_contains($template, '$latestInspection = $deviceInspections[0]') && !str_contains($template, 'foreach ($deviceInspections as $inspectionForBadge)'), 'Das Gerätebadge wertet nicht ausschließlich die letzte Prüfung aus.'],
     [str_contains($template, '$badgeResultStatus = $latestInspection ?') && str_contains($template, ": '';") && !str_contains($template, '$inspectionPending = !$latestInspection'), 'Geräte ohne Prüfung werden fälschlich als fehlende Daten angezeigt.'],
+    [str_contains($template, 'copy_latest_inspection_data') && str_contains($deviceController, 'geraet_stammdaten_aus_pruefung_uebernommen'), 'Die Übernahme von Geräte-Stammdaten aus der letzten Prüfung fehlt.'],
+    [str_contains($inspectionTemplate, 'name="metadata_notes"') && str_contains($inspectionController, "'metadata_notes'"), 'Die Prüfungsbemerkung wird nicht serverseitig gespeichert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

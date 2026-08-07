@@ -103,7 +103,7 @@ final class InspectionController
             // Abrechenbarkeit wird ausschließlich in der separaten
             // Abrechnungsansicht gepflegt. Auch manipulierte Formularfelder
             // dürfen sie in der Prüfungsmaske nicht verändern.
-            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'metadata_notes', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
             $submittedNumber = (string) (preg_replace('/-(?:\d{2}|20\d{2})$/', '', $submittedNumber) ?: $submittedNumber);
             if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;

@@ -286,6 +286,23 @@ class DeviceController
             if (R::findOne('device', ' external_number = ? ', [$externalNumber])) { $_SESSION['fehlermeldung'] = 'Diese Gerätenummer ist bereits vorhanden.'; return [303, ['Location' => url_for('geraete?device_id=' . (int) R::findOne('device', ' external_number = ? ', [$externalNumber])->id)], '']; }
             $device->external_number = $externalNumber;
         }
+        if ($id > 0 && isset($_POST['copy_latest_inspection_data'])) {
+            $latest = R::findOne('inspection', "device_id = ? AND result_status IN ('passed', 'failed', 'bestanden', 'nicht bestanden') ORDER BY test_date DESC, id DESC", [$id]);
+            $latest ??= R::findOne('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [$id]);
+            if ($latest === null) {
+                $_SESSION['fehlermeldung'] = 'Für dieses Gerät gibt es noch keine Prüfung, aus der Stammdaten übernommen werden können.';
+                return [303, ['Location' => url_for('geraete?device_id=' . $id)], ''];
+            }
+            foreach (['name' => 'device_type', 'manufacturer' => 'manufacturer', 'device_model' => 'device_model'] as $target => $source) {
+                $value = trim((string) ($latest->$source ?? ''));
+                if ($value !== '') $_POST[$target] = $value;
+            }
+            audit_log('geraet_stammdaten_aus_pruefung_uebernommen', [
+                'device_id' => $id,
+                'inspection_id' => (int) $latest->id,
+                'inspection_number' => (string) $latest->external_number,
+            ]);
+        }
         $name = trim((string) ($_POST['name'] ?? ''));
         $roomId = (int) ($_POST['room_id'] ?? 0);
         if ($name === '' || !$roomId || !R::load('room', $roomId)->id) {

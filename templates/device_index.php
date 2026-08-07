@@ -33,7 +33,7 @@ $form = static function ($device = null, string $newNumber = '') use ($rooms, $r
     <div class="col-md-6">
       <div class="d-flex justify-content-between align-items-center gap-2">
         <label class="form-label mb-1" for="device-name-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätebezeichnung</label>
-        <button type="button" class="btn btn-link btn-sm p-0" data-copy-device-name><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>passende Bezeichnung übernehmen</button>
+        <span class="d-flex gap-2"><button type="button" class="btn btn-link btn-sm p-0" data-copy-device-name><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>passende Bezeichnung übernehmen</button><?php if ($formKey > 0): ?><button class="btn btn-link btn-sm p-0" name="copy_latest_inspection_data" value="1" title="Übernimmt Hersteller, Typ/Modell und Gerätebezeichnung aus der letzten Prüfung"><i class="fa-solid fa-copy me-1" aria-hidden="true"></i>aus letzter Prüfung übernehmen</button><?php endif; ?></span>
       </div>
       <input class="form-control" id="device-name-<?= $formKey ?>" name="name" list="<?= $nameListId ?>" required value="<?= htmlspecialchars((string) $device->name) ?>"><datalist id="<?= $nameListId ?>"></datalist>
     </div>
