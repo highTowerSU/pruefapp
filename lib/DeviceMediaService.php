@@ -107,6 +107,16 @@ final class DeviceMediaService
             'warming_device' => filter_var($proposal['warming_device'] ?? null, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE),
             'confidence' => max(0, min(1, (float) ($proposal['confidence'] ?? 0))),
         ];
+        $actionableValues = array_filter([
+            $proposal['manufacturer'],
+            $proposal['device_model'],
+            $proposal['name'],
+            $proposal['serial_number'],
+            $proposal['inventory_number'],
+        ], static fn($value): bool => trim((string) $value) !== '');
+        if ($actionableValues === []) {
+            throw new RuntimeException('Auf dem Typenschild wurden keine eindeutigen Stammdaten erkannt.');
+        }
         $now = date(DATE_ATOM);
         $existing = R::getRow('SELECT id FROM device_media_analysis WHERE media_id = ?', [$mediaId]);
         if ($existing === []) {
