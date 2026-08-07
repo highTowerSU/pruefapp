@@ -77,6 +77,7 @@ require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
 require_once __DIR__ . '/DeviceMediaService.php';
+require_once __DIR__ . '/DeviceDraftMediaService.php';
 require_once __DIR__ . '/InspectionCompanionService.php';
 require_once __DIR__ . '/InspectionCompanionInboxService.php';
 require_once __DIR__ . '/ServerQrCodeService.php';
@@ -364,6 +365,7 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS device_vocabulary_review (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_value TEXT NOT NULL, suggested_value TEXT NOT NULL DEFAULT '', confidence REAL NULL, reason TEXT NOT NULL DEFAULT '', provider_model TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', decided_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS device_media (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_id INTEGER NULL, device_finding_id INTEGER NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, created_by INTEGER NULL, created_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS device_media_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, media_id INTEGER NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'pending', provider_model TEXT NOT NULL DEFAULT '', proposal_json TEXT NOT NULL DEFAULT '{}', error_message TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS device_draft_media (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE, owner_user_id INTEGER NOT NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, proposal_json TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, expires_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_companion_session (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, owner_user_id INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, state TEXT NOT NULL DEFAULT 'pending', companion_user_id INTEGER NULL, latest_barcode TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, connected_at TEXT NULL, last_activity_at TEXT NULL, expires_at TEXT NOT NULL, disconnected_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_companion_item (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, kind TEXT NOT NULL, value TEXT NOT NULL DEFAULT '', media_type TEXT NOT NULL DEFAULT '', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '', original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', used_target TEXT NOT NULL DEFAULT '', used_at TEXT NULL, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
@@ -384,6 +386,7 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_review_status ON device_vocabulary_review (status, field_name)',
         'CREATE INDEX IF NOT EXISTS idx_device_media_device ON device_media (device_id, created_at)',
         'CREATE INDEX IF NOT EXISTS idx_device_media_inspection ON device_media (inspection_id, created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_device_draft_media_owner ON device_draft_media (owner_user_id, expires_at)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_companion_inspection ON inspection_companion_session (inspection_id, state, expires_at)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_companion_item_session ON inspection_companion_item (session_id, status, id)',
     ];
@@ -399,6 +402,8 @@ function ensure_structure_schema(): void
 
     $answerColumns = R::getColumns('inspection_answer');
     if (!isset($answerColumns['remark'])) R::exec("ALTER TABLE inspection_answer ADD COLUMN remark TEXT NOT NULL DEFAULT ''");
+    $draftMediaColumns = R::getColumns('device_draft_media');
+    if (!isset($draftMediaColumns['proposal_json'])) R::exec("ALTER TABLE device_draft_media ADD COLUMN proposal_json TEXT NOT NULL DEFAULT ''");
 
     if (class_exists(Migrator::class)) {
         Migrator::mark('schema_migration', 1);

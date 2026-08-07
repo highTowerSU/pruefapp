@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $service = (string) file_get_contents(dirname(__DIR__) . '/lib/DeviceMediaService.php');
+$draftService = (string) file_get_contents(dirname(__DIR__) . '/lib/DeviceDraftMediaService.php');
 $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceMediaController.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $deviceTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/device_media_panel.php');
@@ -16,6 +17,7 @@ $checks = [
     [str_contains($routes, '/geraete/{id}/fotos') && str_contains($routes, '/pruefungen/{id}/fotos'), 'Foto-Routen fehlen.'],
     [str_contains($deviceTemplate, 'Typenschild erkennen') && str_contains($deviceTemplate, 'Vorschlag in Formular übernehmen') && str_contains($deviceTemplate, 'hx-post'), 'Geräte-Fotooberfläche oder direkte KI-Rückmeldung fehlen.'],
     [str_contains($inspectionTemplate, 'Fotodokumentation') && str_contains($inspectionTemplate, 'Mangel'), 'Prüfungsfotos können nicht als Mängeldokumentation erfasst werden.'],
+    [str_contains($schema, 'CREATE TABLE IF NOT EXISTS device_draft_media') && str_contains($draftService, 'function stage') && str_contains($draftService, 'function consume') && str_contains($controller, 'stageNewDevice') && str_contains($routes, '/geraete/fotos/vorlaeufig'), 'Neue Geräte unterstützen keinen sicheren Vorab-Upload mit späterer Übernahme.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);

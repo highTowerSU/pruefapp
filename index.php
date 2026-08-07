@@ -117,6 +117,7 @@ $routes = [
     ['GET', '/geraete/suche', fn($params, $isHx) => DeviceController::lookup($params, $isHx)],
     ['GET', '/geraete/stammdaten-optionen', fn($params, $isHx) => DeviceController::vocabularyOptions($params, $isHx)],
     ['POST', '/geraete/{id}/stammdaten-aus-letzter-pruefung', fn($params, $isHx) => DeviceController::copyLatestInspectionData($params, $isHx)],
+    ['POST', '/geraete/fotos/vorlaeufig', fn($params, $isHx) => DeviceMediaController::stageNewDevice($params, $isHx)],
     ['POST', '/geraete/{id}/fotos', fn($params, $isHx) => DeviceMediaController::uploadDevice($params, $isHx)],
     ['GET', '/geraete/fotos/{id}', fn($params, $isHx) => DeviceMediaController::file($params, $isHx)],
     ['POST', '/geraete/fotos/{id}/typenschild-analysieren', fn($params, $isHx) => DeviceMediaController::analyseTypePlate($params, $isHx)],

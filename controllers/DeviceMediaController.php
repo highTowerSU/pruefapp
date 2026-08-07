@@ -6,6 +6,19 @@ use RedBeanPHP\R;
 
 final class DeviceMediaController
 {
+    /** Upload and (for type plates) analyse a photo before a new device is persisted. */
+    public static function stageNewDevice(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        try {
+            $staged = DeviceDraftMediaService::stage((array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'type_plate'), (string) ($_POST['caption'] ?? ''), (int) current_user()->id);
+            audit_log('geraetefoto_vorab_hochgeladen', ['type' => (string) ($_POST['media_type'] ?? 'type_plate')]);
+            return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => true, 'token' => $staged['token'], 'proposal' => $staged['proposal']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        } catch (Throwable $exception) {
+            return [422, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => false, 'error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE)];
+        }
+    }
+
     public static function uploadDevice(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();
