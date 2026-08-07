@@ -26,6 +26,12 @@ final class InspectionCompanionInboxService
         return (int) R::getCell('SELECT COALESCE(MAX(ci.id), 0) FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE s.owner_user_id = ?', [$ownerUserId]);
     }
 
+    /** @return array<string,mixed> */
+    public static function photoForOwner(int $itemId, int $ownerUserId): array
+    {
+        return R::getRow("SELECT ci.* FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE ci.id = ? AND ci.kind = 'photo' AND s.owner_user_id = ?", [$itemId, $ownerUserId]);
+    }
+
     public static function addBarcode(array $session, string $barcode): int
     {
         $barcode = mb_substr(trim($barcode), 0, 255);

@@ -183,6 +183,19 @@ final class InspectionCompanionController
         }
     }
 
+    /** Secure binary source for copying a Companion photo into the browser clipboard. */
+    public static function photoFile(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        $item = InspectionCompanionInboxService::photoForOwner((int) ($params['id'] ?? 0), (int) current_user()->id);
+        if ($item === [] || !is_file((string) $item['path'])) return [404, [], 'Foto nicht gefunden.'];
+        header('Content-Type: ' . (string) $item['mime']);
+        header('Content-Length: ' . filesize((string) $item['path']));
+        header('Cache-Control: private, no-store');
+        readfile((string) $item['path']);
+        exit;
+    }
+
     /** SSE carries only a changed item id. HTMX fetches the protected HTML fragment. */
     public static function events(array $params, bool $isHx): array
     {

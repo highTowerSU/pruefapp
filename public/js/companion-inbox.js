@@ -5,6 +5,19 @@
   let activeDraftForm = null;
   let activeDraftType = '';
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+  const clipboardPng = async (blob) => {
+    if (blob.type === 'image/png') return blob;
+    const image = new Image();
+    const source = URL.createObjectURL(blob);
+    try {
+      await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; image.src = source; });
+      const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      canvas.getContext('2d').drawImage(image, 0, 0);
+      const png = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!png) throw new Error('Foto konnte nicht für die Zwischenablage aufbereitet werden.');
+      return png;
+    } finally { URL.revokeObjectURL(source); }
+  };
 
   const refresh = (root) => {
     if (!root || !window.htmx) return;
@@ -97,6 +110,16 @@
       button.title = 'Foto aus der Companion-App übernehmen';
       button.innerHTML = '<i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Foto auswählen</span>';
       wrapper.append(button);
+      const paste = form.querySelector('[data-device-photo-paste]');
+      paste?.addEventListener('paste', (event) => {
+        const item = [...(event.clipboardData?.items || [])].find((candidate) => candidate.type.startsWith('image/'));
+        if (!item) return;
+        event.preventDefault();
+        const blob = item.getAsFile(); if (!blob) return;
+        const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`, {type: blob.type}));
+        photo.files = transfer.files;
+        paste.textContent = 'Bild eingefügt – jetzt Foto hochladen.';
+      });
       if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
       form.querySelectorAll('[data-companion-draft-photo]').forEach((choice) => choice.classList.toggle('d-none', !root || root.dataset.hasActiveConnection !== '1'));
       button.addEventListener('click', () => {
@@ -137,6 +160,25 @@
       window.setTimeout(() => { button.textContent = previous; }, 1500);
     } catch (_) {
       window.prompt('Bitte kopieren:', value);
+    }
+  });
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-companion-copy-photo]');
+    if (!button) return;
+    const root = document.querySelector('[data-companion-inbox]');
+    if (!root) return;
+    const previous = button.innerHTML;
+    try {
+      const response = await fetch(`${root.dataset.inboxUrl}/${button.dataset.companionCopyPhoto}/foto`, {headers: {'Accept': 'image/*'}});
+      if (!response.ok) throw new Error('Foto konnte nicht geladen werden.');
+      const blob = await response.blob();
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Dieser Browser kann Bilder nicht direkt in die Zwischenablage kopieren.');
+      const png = await clipboardPng(blob);
+      await navigator.clipboard.write([new ClipboardItem({'image/png': png})]);
+      button.innerHTML = '<i class="fa-solid fa-check me-1" aria-hidden="true"></i>Bild kopiert';
+      window.setTimeout(() => { button.innerHTML = previous; }, 1500);
+    } catch (failure) {
+      window.alert(String(failure.message || failure));
     }
   });
   document.addEventListener('click', (event) => {

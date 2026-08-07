@@ -131,6 +131,7 @@ $routes = [
     ['POST', '/companion/eingang/{id}/uebernehmen', fn($params, $isHx) => InspectionCompanionController::useItem($params, $isHx)],
     ['POST', '/companion/eingang/{id}/foto-uebernehmen', fn($params, $isHx) => InspectionCompanionController::adoptPhoto($params, $isHx)],
     ['POST', '/companion/eingang/{id}/foto-zu-entwurf', fn($params, $isHx) => InspectionCompanionController::adoptPhotoForDraft($params, $isHx)],
+    ['GET', '/companion/eingang/{id}/foto', fn($params, $isHx) => InspectionCompanionController::photoFile($params, $isHx)],
     ['GET', '/companion/{token}/qr', fn($params, $isHx) => InspectionCompanionController::qr($params, $isHx)],
     ['GET', '/companion/{token}', fn($params, $isHx) => InspectionCompanionController::open($params, $isHx)],
     ['POST', '/companion/{token}/barcode', fn($params, $isHx) => InspectionCompanionController::barcode($params, $isHx)],
