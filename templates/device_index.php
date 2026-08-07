@@ -441,27 +441,12 @@ document.querySelectorAll('.device-card').forEach(card => {
 </script>
 <script>
 document.addEventListener('click', event => {
-  const button = event.target.closest('[data-toggle-all-devices]');
+  const button = event.target.closest('[data-device-details-action]');
   if (!button) return;
   const cards = [...document.querySelectorAll('#device-page details.device-card[id^="geraet-"]')];
-  const open = cards.some(card => !card.open);
-  cards.forEach(card => { card.open = open; });
-  button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  button.innerHTML = open
-    ? '<i class="fa-solid fa-angles-up me-1" aria-hidden="true"></i><span>Alle einklappen</span>'
-    : '<i class="fa-solid fa-angles-down me-1" aria-hidden="true"></i><span>Alle ausklappen</span>';
+  const expand = button.dataset.deviceDetailsAction === 'expand';
+  cards.forEach(card => { card.open = expand; });
 });
-document.addEventListener('toggle', event => {
-  if (!(event.target instanceof HTMLDetailsElement) || !event.target.matches('#device-page details.device-card[id^="geraet-"]')) return;
-  const button = document.querySelector('[data-toggle-all-devices]');
-  if (!button) return;
-  const cards = [...document.querySelectorAll('#device-page details.device-card[id^="geraet-"]')];
-  const allOpen = cards.length > 0 && cards.every(card => card.open);
-  button.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
-  button.innerHTML = allOpen
-    ? '<i class="fa-solid fa-angles-up me-1" aria-hidden="true"></i><span>Alle einklappen</span>'
-    : '<i class="fa-solid fa-angles-down me-1" aria-hidden="true"></i><span>Alle ausklappen</span>';
-}, true);
 document.addEventListener('click', event => {
   const link = event.target.closest('#device-page .pagination a');
   if (!link || !window.htmx) return;
