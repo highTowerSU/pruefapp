@@ -169,6 +169,24 @@
 </script>
 <script>
 (() => {
+  // Nachweise bleiben als direkter Link verfügbar, werden beim Prüfen aber
+  // zunächst bequem in einer eingebetteten Vorschau geöffnet.
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href*="/profil/nachweis/"]');
+    if (!link || !window.bootstrap?.Modal) return;
+    event.preventDefault();
+    let modal = document.getElementById('qualification-pdf-preview-modal');
+    if (!modal) {
+      document.body.insertAdjacentHTML('beforeend', '<div class="modal fade" id="qualification-pdf-preview-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5"><i class="fa-solid fa-file-pdf me-2 text-danger" aria-hidden="true"></i>PDF-Vorschau</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button></div><div class="modal-body p-0"><iframe class="w-100 border-0" style="height:75vh" title="PDF-Vorschau" loading="lazy"></iframe></div></div></div></div>');
+      modal = document.getElementById('qualification-pdf-preview-modal');
+    }
+    modal.querySelector('iframe').src = link.href;
+    window.bootstrap.Modal.getOrCreateInstance(modal).show();
+  });
+})();
+</script>
+<script>
+(() => {
   const list = document.getElementById('followup-list');
   const add = document.getElementById('add-followup');
   if (!list || !add) return;
