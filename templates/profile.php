@@ -187,14 +187,22 @@
     const state = certificateStateMap[certificateId] || {};
     const typeBadges = info.querySelectorAll('.mt-1 .badge');
     const stateClass = state.expired ? 'text-bg-danger' : (state.grace ? 'text-bg-warning text-dark' : 'text-bg-success');
-    const stateTitle = state.expired ? 'Befähigung nicht mehr gültig' : (state.grace ? 'Gültig in der Kulanzfrist' + (state.expires_at ? '; regulär abgelaufen am ' + state.expires_at : '') : 'Befähigung gültig');
-    typeBadges.forEach((badge) => { badge.className = 'badge me-1 ' + stateClass; badge.title = stateTitle; });
+    const displayDate = value => value ? value.split('-').reverse().join('.') : '—';
+    const stateTitle = state.expired ? 'Befähigung nicht mehr gültig' : (state.grace ? 'Gültig in der Kulanzfrist' + (state.expires_at ? '; regulär abgelaufen am ' + displayDate(state.expires_at) : '') : 'Befähigung gültig');
+    const stateMessage = state.expired
+      ? 'Die Befähigung ist nicht mehr gültig' + (state.expires_at ? ' (Ablauf: ' + displayDate(state.expires_at) + ')' : '') + '. Bitte eine Folgeunterweisung hinterlegen.'
+      : (state.grace ? 'Die reguläre Gültigkeit endete am ' + displayDate(state.expires_at) + '. Die Kulanzfrist läuft noch; bitte die Folgeunterweisung zeitnah aktualisieren.' : 'Die Befähigung ist aktuell gültig' + (state.expires_at ? ' bis ' + displayDate(state.expires_at) : '') + '.');
+    typeBadges.forEach((badge) => {
+      badge.className = 'badge me-1 ' + stateClass; badge.style.cursor = 'pointer'; badge.tabIndex = 0; badge.setAttribute('role', 'button');
+      badge.dataset.bsToggle = 'popover'; badge.dataset.bsTrigger = 'click focus'; badge.dataset.bsPlacement = 'bottom'; badge.dataset.bsContent = stateMessage; badge.dataset.bsTitle = badge.textContent.trim();
+      window.bootstrap?.Popover?.getOrCreateInstance(badge, {container: 'body'});
+    });
     const confirmationBadge = info.querySelector('.mt-2 .badge');
     if (confirmationBadge && state.confirmed && !state.expired && !state.grace) {
       confirmationBadge.innerHTML = '<i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Geprüft';
       confirmationBadge.title = 'Geprüft von ' + (state.confirmed_by || 'Administration') + (state.confirmed_at ? ' am ' + state.confirmed_at.slice(0, 10).split('-').reverse().join('.') : '');
     }
-    const extras = [info.querySelector('.mt-1'), info.querySelector('.mt-2'), item.querySelector(':scope > .border-top'), item.querySelector(':scope > form')].filter(Boolean);
+    const extras = [info.querySelector('.mt-2'), item.querySelector(':scope > .border-top'), item.querySelector(':scope > form')].filter(Boolean);
     extras.forEach((element) => element.classList.add('qualification-extra'));
     const followupForm = item.querySelector(':scope > form');
     if (followupForm) {
@@ -254,25 +262,6 @@
   clear?.addEventListener('click', () => { context.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; field.value = ''; });
   form.addEventListener('submit', () => { field.value = hasInk ? canvas.toDataURL('image/png') : ''; });
   window.addEventListener('resize', scale); scale();
-})();
-</script>
-<script>
-(() => {
-  // Nachweise bleiben als direkter Link verfügbar, werden beim Prüfen aber
-  // zunächst bequem in einer eingebetteten Vorschau geöffnet.
-  document.addEventListener('click', (event) => {
-    const link = event.target.closest('a[href*="/profil/nachweis/"], a[href*="/profil/befaehigung/"]');
-    if (!link || !window.bootstrap?.Modal) return;
-    event.preventDefault();
-    let modal = document.getElementById('qualification-pdf-preview-modal');
-    if (!modal) {
-      document.body.insertAdjacentHTML('beforeend', '<div class="modal fade" id="qualification-pdf-preview-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5"><i class="fa-solid fa-file-pdf me-2 text-danger" aria-hidden="true"></i>PDF-Vorschau</h2><a class="btn btn-sm btn-secondary me-2" data-pdf-fallback target="_blank" rel="noopener"><i class="fa-solid fa-download me-1" aria-hidden="true"></i>Öffnen / herunterladen</a><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button></div><div class="modal-body p-0"><iframe class="w-100 border-0" style="height:75vh" title="PDF-Vorschau" loading="lazy"></iframe><p class="small text-body-secondary p-3 mb-0 d-md-none">Falls die Vorschau auf diesem Gerät nicht erscheint, nutze „Öffnen / herunterladen“.</p></div></div></div></div>');
-      modal = document.getElementById('qualification-pdf-preview-modal');
-    }
-    modal.querySelector('[data-pdf-fallback]').href = link.href;
-    modal.querySelector('iframe').src = link.href;
-    window.bootstrap.Modal.getOrCreateInstance(modal).show();
-  });
 })();
 </script>
 <script>
