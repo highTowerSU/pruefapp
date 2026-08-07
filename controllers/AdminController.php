@@ -26,8 +26,12 @@ class AdminController
 
         $query = trim((string) ($_GET['q'] ?? ''));
         $directory = trim((string) ($_GET['directory'] ?? ''));
+        $summary = trim((string) ($_GET['summary'] ?? ''));
         if ($directory !== '') {
             return self::importDirectoryApiDebug($directory, $headers);
+        }
+        if ($summary === 'inspection-overview') {
+            return self::inspectionOverviewApiDebug($headers);
         }
         if ($query === '' || mb_strlen($query) > 120) {
             return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) oder directory (freigegebener Importpfad) fehlt.'], JSON_UNESCAPED_UNICODE)];
@@ -71,6 +75,41 @@ class AdminController
             'import_result_reconciliation_count' => $importsToReconcile,
             'maintenance_jobs' => $maintenanceJobs,
             'rows' => $rows,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /** Read-only aggregate diagnosis for investigation of import quality. */
+    private static function inspectionOverviewApiDebug(array $headers): array
+    {
+        $statusExpression = InspectionEvaluationService::sqlStatusExpression('i');
+        $statusRows = R::getAll("SELECT {$statusExpression} AS status, COUNT(*) AS count FROM inspection i GROUP BY {$statusExpression}");
+        $sourceRows = R::getAll(
+            "SELECT COALESCE(NULLIF(i.source_type, ''), 'unbekannt') AS source_type,
+                    COALESCE(NULLIF(i.source_file, ''), 'ohne Quelldatei') AS source_file,
+                    COUNT(*) AS count
+             FROM inspection i
+             WHERE {$statusExpression} = 'data_missing'
+             GROUP BY source_type, source_file
+             ORDER BY count DESC, source_file ASC LIMIT 50"
+        );
+        $roomHistories = R::getAll(
+            "SELECT d.id AS device_id, d.external_number, d.legacy_number, d.name,
+                    COUNT(DISTINCT NULLIF(i.room_snapshot, '')) AS room_count,
+                    GROUP_CONCAT(DISTINCT NULLIF(i.room_snapshot, '')) AS rooms,
+                    COUNT(*) AS inspection_count
+             FROM device d
+             JOIN inspection i ON i.device_id = d.id
+             WHERE NULLIF(i.room_snapshot, '') IS NOT NULL
+             GROUP BY d.id
+             HAVING COUNT(DISTINCT NULLIF(i.room_snapshot, '')) > 1
+             ORDER BY room_count DESC, inspection_count DESC, d.id DESC LIMIT 100"
+        );
+        return [200, $headers, json_encode([
+            'ok' => true,
+            'summary' => 'inspection-overview',
+            'status_counts' => $statusRows,
+            'data_missing_by_source' => $sourceRows,
+            'devices_with_multiple_room_snapshots' => $roomHistories,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
