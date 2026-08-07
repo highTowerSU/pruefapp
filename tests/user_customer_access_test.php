@@ -23,8 +23,12 @@ if ($selectiveAssignments !== [1 => false, 2 => false]) {
 }
 
 $template = (string) file_get_contents(dirname(__DIR__) . '/templates/admin_user_list.php');
+ $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/AdminController.php');
 if (!str_contains($template, 'data-customer-access-item') || !str_contains($template, 'coveredByParent')) {
     throw new RuntimeException('Die Nutzeroberfläche deaktiviert abgedeckte Unterkunden nicht.');
+}
+if (!str_contains($template, 'Prüferlaubnis') || !str_contains($template, 'inspection_permissions') || !str_contains($controller, 'requirementsByType')) {
+    throw new RuntimeException('Die Benutzerverwaltung zeigt die serverseitig ermittelte Prüferlaubnis nicht an.');
 }
 
 echo "PASS: Customer access hierarchy is canonicalized in UI and backend\n";

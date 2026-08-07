@@ -369,6 +369,53 @@ class AdminController
             ];
         }, array_values($beans));
 
+        // Display the same server-side prerequisites that are enforced when a
+        // new inspection is created, without issuing queries per table row.
+        $inspectionTypes = InspectionTypeService::active();
+        $requirementsByType = [];
+        foreach (R::getAll('SELECT * FROM inspection_type_requirement WHERE active = 1 ORDER BY inspection_type_code, sort_order, id') as $requirement) {
+            $requirementsByType[(string) $requirement['inspection_type_code']][] = $requirement;
+        }
+        $userIds = array_map(static fn(array $user): int => (int) $user['id'], $users);
+        $qualificationsByUser = [];
+        if ($userIds !== []) {
+            $marks = implode(',', array_fill(0, count($userIds), '?'));
+            foreach (R::getAll("SELECT * FROM user_qualification WHERE oauthuser_id IN ({$marks}) ORDER BY id DESC", $userIds) as $qualification) {
+                $qualificationsByUser[(int) $qualification['oauthuser_id']][(string) $qualification['requirement_code']][] = $qualification;
+            }
+        }
+        $today = date('Y-m-d');
+        foreach ($users as &$user) {
+            $roleAllowsInspection = in_array((string) $user['selected_role'], ['editor', 'admin', 'superadmin'], true);
+            $permissions = [];
+            foreach ($inspectionTypes as $type) {
+                $code = (string) $type['code'];
+                $missing = [];
+                if (!$roleAllowsInspection) $missing[] = 'Rolle erlaubt keine Prüfungen';
+                if (empty($user['report_signature_ready'])) $missing[] = 'Unterschrift fehlt';
+                foreach ($requirementsByType[$code] ?? [] as $requirement) {
+                    $validProof = false;
+                    foreach ($qualificationsByUser[(int) $user['id']][(string) $requirement['code']] ?? [] as $qualification) {
+                        if (!empty($requirement['requires_confirmation']) && empty($qualification['confirmed_at'])) continue;
+                        $expiresAt = trim((string) ($qualification['expires_at'] ?? ''));
+                        if ($expiresAt === '' && (int) ($requirement['validity_days'] ?? 0) > 0 && trim((string) ($qualification['issued_at'] ?? '')) !== '') {
+                            $expiresAt = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . (int) $requirement['validity_days'] . ' days'));
+                        }
+                        if ($expiresAt === '' || $expiresAt >= $today) { $validProof = true; break; }
+                    }
+                    if (!$validProof) $missing[] = (string) $requirement['name'];
+                }
+                $permissions[] = [
+                    'name' => (string) $type['name'],
+                    'icon' => (string) ($type['icon'] ?: 'fa-clipboard-check'),
+                    'allowed' => $missing === [],
+                    'missing' => $missing,
+                ];
+            }
+            $user['inspection_permissions'] = $permissions;
+        }
+        unset($user);
+
         $customers = array_values(R::findAll('customer', ' ORDER BY LOWER(name), id '));
         $content = render_template('admin_user_list.php', [
             'users' => $users,

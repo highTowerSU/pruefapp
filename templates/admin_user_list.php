@@ -16,13 +16,14 @@
                         <th scope="col"><i class="fa-solid fa-building me-1" aria-hidden="true"></i>Kundenzugriff</th>
                         <th scope="col" class="text-nowrap"><i class="fa-solid fa-clock-rotate-left me-1" aria-hidden="true"></i>Letzter Login</th>
                         <th scope="col" class="text-nowrap"><i class="fa-solid fa-user-shield me-1" aria-hidden="true"></i>Rolle</th>
+                        <th scope="col"><i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Prüferlaubnis</th>
                         <th scope="col" class="text-end text-nowrap">Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if (empty($users)): ?>
                     <tr>
-                        <td colspan="5" class="text-center text-body-secondary py-4">Es wurden noch keine Nutzer synchronisiert.</td>
+                        <td colspan="6" class="text-center text-body-secondary py-4">Es wurden noch keine Nutzer synchronisiert.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($users as $user): ?>
@@ -88,6 +89,18 @@
                                 <?php if (!empty($user['role_missing'])): ?>
                                     <div class="small text-warning mt-1">Keine explizite Rolle gesetzt – Standard &bdquo;Betrachter/in&ldquo; aktiv.</div>
                                 <?php endif; ?>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <?php foreach (($user['inspection_permissions'] ?? []) as $permission): $allowed = !empty($permission['allowed']); $missing = implode(', ', (array) ($permission['missing'] ?? [])); ?>
+                                        <span class="badge <?= $allowed ? 'text-bg-success' : 'text-bg-warning text-dark' ?>" title="<?= htmlspecialchars($allowed ? ((string) $permission['name'] . ': Prüfung erlaubt') : ((string) $permission['name'] . ': ' . $missing), ENT_QUOTES) ?>">
+                                            <i class="fa-solid <?= htmlspecialchars((string) ($permission['icon'] ?? 'fa-clipboard-check'), ENT_QUOTES) ?> me-1" aria-hidden="true"></i><?= htmlspecialchars((string) $permission['name']) ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php foreach (($user['inspection_permissions'] ?? []) as $permission): if (!empty($permission['allowed'])) continue; ?>
+                                    <div class="small text-body-secondary mt-1"><i class="fa-solid fa-circle-exclamation me-1" aria-hidden="true"></i><?= htmlspecialchars((string) $permission['name']) ?>: <?= htmlspecialchars(implode(', ', (array) ($permission['missing'] ?? []))) ?></div>
+                                <?php endforeach; ?>
                             </td>
                             <td class="text-end">
                                 <a href="<?= htmlspecialchars(url_for('admin/nutzer/' . (int) $user['id'] . '/profil'), ENT_QUOTES) ?>" class="btn btn-outline-primary btn-sm mb-1">
