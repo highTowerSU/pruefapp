@@ -553,6 +553,29 @@ function seed_inspection_types(): void
     R::exec("DELETE FROM user_qualification WHERE requirement_code = 'electrical_vefk'");
     R::exec("DELETE FROM inspection_type_requirement WHERE code = 'electrical_vefk'");
     set_app_config('electrical_vefk_document_type_removed', '1');
+    // A qualification is the durable permission; follow-up trainings belong
+    // to that qualification instead of appearing as a second permission.
+    if (get_app_config('qualification_followup_model_v1') !== '1') {
+        R::exec("UPDATE user_qualification SET requirement_code = 'electrical_basic' WHERE requirement_code = 'electrical_instruction'");
+        R::exec("UPDATE user_qualification SET requirement_code = 'ladder_basic' WHERE requirement_code = 'ladder_instruction'");
+        R::exec("DELETE FROM inspection_type_requirement WHERE code IN ('electrical_instruction', 'ladder_instruction')");
+        R::exec("UPDATE inspection_type_requirement SET validity_days = 700 WHERE code IN ('electrical_basic', 'ladder_basic') AND (validity_days IS NULL OR validity_days = 0)");
+        foreach (R::getAll("SELECT id, instruction_certificates_json FROM oauthuser WHERE instruction_certificates_json IS NOT NULL AND instruction_certificates_json <> ''") as $profile) {
+            $certificates = json_decode((string) ($profile['instruction_certificates_json'] ?? ''), true);
+            if (!is_array($certificates)) continue;
+            foreach ($certificates as $certificate) {
+                $followups = is_array($certificate['followups'] ?? null) ? $certificate['followups'] : [];
+                usort($followups, static fn(array $a, array $b): int => strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? '')));
+                $latest = trim((string) ($followups[0]['date'] ?? ''));
+                if ($latest === '') continue;
+                foreach (array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? [])))) as $qualificationId) {
+                    $days = (int) R::getCell('SELECT r.validity_days FROM inspection_type_requirement r JOIN user_qualification q ON q.requirement_code = r.code WHERE q.id = ? LIMIT 1', [$qualificationId]);
+                    if ($days > 0) R::exec('UPDATE user_qualification SET expires_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [date('Y-m-d', strtotime($latest . ' +' . $days . ' days')), date(DATE_ATOM), $qualificationId, (int) $profile['id']]);
+                }
+            }
+        }
+        set_app_config('qualification_followup_model_v1', '1');
+    }
     $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
     if ($ladderCatalog > 0) return;
     R::exec('INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)', ['ladder-v1', 'Leiterprüfung Version 1', 'ladder', $now, $now]);

@@ -150,12 +150,22 @@ final class ProfileController
                     if (!move_uploaded_file($tmp, $target)) throw new RuntimeException('Die Folgeunterweisung konnte nicht gespeichert werden.');
                     @chmod($target, 0660);
                     $certificate['followups'][] = ['id' => $followupId, 'date' => $date, 'kind' => mb_substr(trim((string) ($_POST['followup_kind'] ?? 'Folgeunterweisung')), 0, 80), 'title' => mb_substr(trim((string) ($_POST['followup_title'] ?? '')), 0, 240), 'path' => $target, 'name' => mb_substr((string) ($upload['name'] ?? 'Folgeunterweisung.pdf'), 0, 240), 'created_at' => date(DATE_ATOM)];
+                    $selectedCodes = array_values(array_unique(array_filter(array_map('strval', (array) ($_POST['followup_requirement_codes'] ?? [])))));
+                    $linkedCodes = [];
+                    foreach (array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? [])))) as $linkedId) {
+                        $linkedCode = (string) R::getCell('SELECT requirement_code FROM user_qualification WHERE id = ? AND oauthuser_id = ?', [$linkedId, (int) $user->id]);
+                        if ($linkedCode !== '') $linkedCodes[] = $linkedCode;
+                    }
+                    $selectedCodes = array_values(array_intersect($selectedCodes, array_unique($linkedCodes)));
+                    if ($selectedCodes === []) $selectedCodes = array_values(array_unique($linkedCodes));
                     // A current follow-up renews the linked qualification until the
                     // next configured training date; the original certificate remains in history.
                     foreach (array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? [])))) as $qualificationId) {
-                        $requirement = R::getRow('SELECT validity_days FROM inspection_type_requirement r JOIN user_qualification q ON q.requirement_code = r.code WHERE q.id = ? LIMIT 1', [$qualificationId]);
-                        $expiresAt = (int) ($requirement['validity_days'] ?? 0) > 0 ? date('Y-m-d', strtotime($date . ' +' . (int) $requirement['validity_days'] . ' days')) : '';
-                        R::exec('UPDATE user_qualification SET expires_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [$expiresAt, date(DATE_ATOM), $qualificationId, (int) $user->id]);
+                        $requirement = R::getRow('SELECT r.code, r.validity_days FROM inspection_type_requirement r JOIN user_qualification q ON q.requirement_code = r.code WHERE q.id = ? LIMIT 1', [$qualificationId]);
+                        if ($requirement !== [] && in_array((string) $requirement['code'], $selectedCodes, true)) {
+                            $expiresAt = (int) ($requirement['validity_days'] ?? 0) > 0 ? date('Y-m-d', strtotime($date . ' +' . (int) $requirement['validity_days'] . ' days')) : '';
+                            R::exec('UPDATE user_qualification SET expires_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [$expiresAt, date(DATE_ATOM), $qualificationId, (int) $user->id]);
+                        }
                     }
                     $found = true; break;
                 }

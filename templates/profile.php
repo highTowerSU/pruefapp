@@ -140,6 +140,8 @@
     <p class="small text-body-secondary border-top pt-3 mb-0"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Prüfberechtigungen werden ausschließlich aus den oben hochgeladenen und zugeordneten Nachweisen abgeleitet. Eine manuelle Doppelpflege ist nicht erforderlich.</p>
   </div>
 </div>
+<?php $followupCodeMap = []; foreach ($certificates as $certificate): $codes = []; foreach ((array) ($certificate['qualification_ids'] ?? []) as $qualificationId): foreach ($qualifications as $qualification): if ((int) ($qualification['id'] ?? 0) === (int) $qualificationId && (string) ($qualification['requirement_code'] ?? '') !== '') $codes[] = (string) $qualification['requirement_code']; endforeach; endforeach; $followupCodeMap[(string) ($certificate['id'] ?? '')] = array_values(array_unique($codes)); endforeach; ?>
+<script type="application/json" id="qualification-followup-code-map"><?= htmlspecialchars(json_encode($followupCodeMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_NOQUOTES) ?></script>
 <style>.signature-pad{touch-action:none;background:linear-gradient(135deg,#fff 0%,#fbfbff 100%);box-shadow:inset 0 0 1.5rem rgba(53,71,184,.06)}.signature-pad canvas{display:block;width:100%;height:220px;cursor:crosshair;touch-action:none}.qualification-followup-form,.list-group-item form:has([name="followup_date"]){display:grid;grid-template-columns:minmax(10rem,1fr) minmax(11rem,1.1fr) minmax(12rem,1.4fr) minmax(8rem,.8fr);gap:.75rem;align-items:end}.qualification-followup-form .form-label,.list-group-item form:has([name="followup_date"]) .form-label{display:block;white-space:nowrap}.qualification-followup-form .form-control,.list-group-item form:has([name="followup_date"]) .form-control{min-width:0}.qualification-followup-form .qualification-followup-action,.list-group-item form:has([name="followup_date"]) [class*="col-"]:last-child{display:flex;align-items:end}.qualification-followup-form .qualification-followup-action .btn,.list-group-item form:has([name="followup_date"]) [class*="col-"]:last-child .btn{width:100%}.list-group-item form:has([name="followup_date"])>[class*="col-"]{width:auto;padding-inline:0}@media(max-width:900px){.qualification-followup-form,.list-group-item form:has([name="followup_date"]){grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:575.98px){.qualification-followup-form,.list-group-item form:has([name="followup_date"]){grid-template-columns:1fr}.qualification-followup-form .form-label,.list-group-item form:has([name="followup_date"]) .form-label{white-space:normal}}</style>
 <style>.list-group-item form:has([name="followup_date"])>[class*="col-"]:first-of-type .form-label{font-size:0}.list-group-item form:has([name="followup_date"])>[class*="col-"]:first-of-type .form-label:after{content:'Datum';font-size:.875rem}</style>
 <style>
@@ -155,6 +157,18 @@
 (() => {
   const card = document.getElementById('qualification-card');
   if (!card) return;
+  let followupCodeMap = {};
+  try { followupCodeMap = JSON.parse(document.getElementById('qualification-followup-code-map')?.textContent || '{}'); } catch (_) {}
+  const labels = {electrical_basic: 'Elektroprüfung', ladder_basic: 'Leitern & Tritte'};
+  card.querySelectorAll('form input[name="certificate_id"]').forEach((formInput) => {
+    const form = formInput.closest('form');
+    const codes = followupCodeMap[formInput.value] || [];
+    if (!form || !codes.length || form.querySelector('[data-followup-scope]')) return;
+    const scope = document.createElement('fieldset');
+    scope.dataset.followupScope = '1'; scope.className = 'col-12';
+    scope.innerHTML = '<legend class="form-label small mb-1">Gilt diese Folgeunterweisung für</legend>' + codes.map((code) => '<label class="form-check form-check-inline small"><input class="form-check-input" type="checkbox" name="followup_requirement_codes[]" value="' + code.replace(/"/g, '&quot;') + '" checked><span class="form-check-label">' + (labels[code] || code) + '</span></label>').join('');
+    form.insertBefore(scope, form.querySelector('button[type="submit"]')?.closest('[class*="col-"]') || null);
+  });
   card.querySelectorAll('.list-group > .list-group-item').forEach((item) => {
     const header = item.querySelector(':scope > .d-flex');
     const info = header?.firstElementChild;
