@@ -100,6 +100,7 @@ final class DeviceVocabularyService
             if ($value === '' || self::isNotRecognizable($value)) continue;
             $key = self::normalizeKey($value);
             if (R::findOne('device_vocabulary_alias', ' field_name = ? AND source_key = ? AND active = 1 ', [$field, $key])) continue;
+            if (R::findOne('device_vocabulary_review', ' field_name = ? AND LOWER(TRIM(source_value)) = ? ', [$field, $key])) continue;
             $dedupe = 'vocabulary:' . $field . ':' . hash('sha256', $key);
             BackgroundJobService::enqueue('vocabulary_suggestion', ['type' => 'vocabulary_suggestion', 'field' => $field, 'value' => $value], [
                 'owner_user_id' => $ownerUserId,
@@ -107,6 +108,42 @@ final class DeviceVocabularyService
                 'cancellable' => true,
             ]);
         }
+    }
+
+    public static function canSuggest(): bool
+    {
+        $provider = AiProviderService::selectedVocabularyProvider();
+        if (get_app_config('vocabulary_ai_enabled', '0') !== '1' || $provider === null) return false;
+        if (trim((string) $provider->base_url) === '' || trim((string) get_app_config('vocabulary_ai_model', '')) === '') return false;
+        return (string) $provider->auth_mode === 'oauth' || trim((string) $provider->api_token) !== '';
+    }
+
+    /** Starts one resumable scan without creating a job per historic device. */
+    public static function enqueueHistoricalReview(int $ownerUserId): array
+    {
+        if (!self::canSuggest()) throw new RuntimeException('Bitte zuerst Provider, Modell und Aktivierung der Stammdatenprüfung speichern.');
+        return BackgroundJobService::enqueue('vocabulary_review_scan', ['type' => 'vocabulary_review_scan'], [
+            'owner_user_id' => $ownerUserId,
+            'dedupe_key' => 'vocabulary:historical-review',
+            'cancellable' => true,
+            'message' => 'Die vorhandenen Hersteller, Modelle und Gerätebezeichnungen werden geprüft.',
+        ]);
+    }
+
+    public static function storeSuggestion(string $field, string $value, array $proposal): int
+    {
+        self::assertField($field);
+        $review = R::findOne('device_vocabulary_review', ' field_name = ? AND source_value = ? AND status = ? ', [$field, $value, 'pending']) ?: R::dispense('device_vocabulary_review');
+        $review->field_name = $field;
+        $review->source_value = $value;
+        $review->suggested_value = (string) $proposal['canonical_value'];
+        $review->confidence = (float) $proposal['confidence'];
+        $review->reason = (string) $proposal['reason'];
+        $review->provider_model = (string) $proposal['provider_model'];
+        $review->status = 'pending';
+        $review->updated_at = date(DATE_ATOM);
+        if (!$review->created_at) $review->created_at = $review->updated_at;
+        return (int) R::store($review);
     }
 
     /** @return array{updated_devices:int,updated_inspections:int} */

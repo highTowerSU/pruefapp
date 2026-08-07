@@ -35,6 +35,7 @@ final class MaintenanceJobHandler
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
+            'vocabulary_review_scan' => self::vocabularyReviewScan($checkpoint, $current, $total, $tick),
             'vocabulary_normalization' => self::vocabularyNormalization($checkpoint, $current, $total, $tick),
             default => throw new InvalidArgumentException('Unbekannte Wartungsaufgabe: ' . $type),
         };
@@ -47,19 +48,43 @@ final class MaintenanceJobHandler
         $value = trim((string) ($payload['value'] ?? ''));
         if (!in_array($field, DeviceVocabularyService::FIELDS, true) || $value === '') throw new InvalidArgumentException('Ungültige Stammdatenprüfung.');
         $proposal = DeviceVocabularyService::suggest($field, $value);
-        $review = R::findOne('device_vocabulary_review', ' field_name = ? AND source_value = ? AND status = ? ', [$field, $value, 'pending']) ?: R::dispense('device_vocabulary_review');
-        $review->field_name = $field;
-        $review->source_value = $value;
-        $review->suggested_value = (string) $proposal['canonical_value'];
-        $review->confidence = (float) $proposal['confidence'];
-        $review->reason = (string) $proposal['reason'];
-        $review->provider_model = (string) $proposal['provider_model'];
-        $review->status = 'pending';
-        $review->updated_at = date(DATE_ATOM);
-        if (!$review->created_at) $review->created_at = $review->updated_at;
-        R::store($review);
-        $tick(['review_id' => (int) $review->id], max(1, $current + 1), max(1, $total), $value, 'KI-Vorschlag wartet auf Freigabe.');
-        return ['review_id' => (int) $review->id];
+        $reviewId = DeviceVocabularyService::storeSuggestion($field, $value, $proposal);
+        $tick(['review_id' => $reviewId], max(1, $current + 1), max(1, $total), $value, 'KI-Vorschlag wartet auf Freigabe.');
+        return ['review_id' => $reviewId];
+    }
+
+    /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
+    private static function vocabularyReviewScan(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $fields = DeviceVocabularyService::FIELDS;
+        $fieldIndex = max(0, (int) ($checkpoint['field_index'] ?? 0));
+        $afterKey = (string) ($checkpoint['after_key'] ?? '');
+        $created = max(0, (int) ($checkpoint['created'] ?? 0));
+        if ($total <= 0) {
+            foreach ($fields as $field) $total += (int) R::getCell("SELECT COUNT(DISTINCT LOWER(TRIM(COALESCE({$field}, '')))) FROM device WHERE TRIM(COALESCE({$field}, '')) <> ''");
+        }
+        while ($fieldIndex < count($fields)) {
+            $field = $fields[$fieldIndex];
+            $row = R::getRow("SELECT MIN({$field}) AS value, LOWER(TRIM({$field})) AS source_key FROM device WHERE TRIM(COALESCE({$field}, '')) <> '' AND LOWER(TRIM({$field})) > ? GROUP BY LOWER(TRIM({$field})) ORDER BY source_key LIMIT 1", [$afterKey]);
+            if ($row === []) {
+                $fieldIndex++; $afterKey = '';
+                continue;
+            }
+            $value = trim((string) ($row['value'] ?? ''));
+            $afterKey = (string) ($row['source_key'] ?? '');
+            $current++;
+            $known = $value === '' || DeviceVocabularyService::isNotRecognizable($value)
+                || R::findOne('device_vocabulary_alias', ' field_name = ? AND source_key = ? AND active = 1 ', [$field, $afterKey])
+                || R::findOne('device_vocabulary_review', ' field_name = ? AND LOWER(TRIM(source_value)) = ? ', [$field, $afterKey]);
+            $message = 'Bereits entschiedener oder nicht relevanter Wert wurde übersprungen.';
+            if (!$known) {
+                $reviewId = DeviceVocabularyService::storeSuggestion($field, $value, DeviceVocabularyService::suggest($field, $value));
+                $created++;
+                $message = 'KI-Vorschlag wartet auf Freigabe.';
+            }
+            $tick(['field_index' => $fieldIndex, 'after_key' => $afterKey, 'created' => $created], $current, max(1, $total), $value, $message);
+        }
+        return ['processed' => $current, 'created' => $created];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */

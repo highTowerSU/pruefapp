@@ -27,6 +27,7 @@ final class BackgroundJobService
         'import_result_reconciliation' => 'Import-Ergebnisse abgleichen',
         'inspection_pdf_zip' => 'Ausgewählte Prüfberichte',
         'vocabulary_suggestion' => 'KI-Stammdatenprüfung',
+        'vocabulary_review_scan' => 'Stammdaten mit KI prüfen',
         'vocabulary_normalization' => 'Stammdaten vereinheitlichen',
     ];
 
