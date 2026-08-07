@@ -92,15 +92,10 @@
                             </td>
                             <td>
                                 <div class="d-flex flex-wrap gap-1">
-                                    <?php foreach (($user['inspection_permissions'] ?? []) as $permission): $allowed = !empty($permission['allowed']); $missing = implode(', ', (array) ($permission['missing'] ?? [])); ?>
-                                        <span class="badge <?= $allowed ? 'text-bg-success' : 'text-bg-warning text-dark' ?>" title="<?= htmlspecialchars($allowed ? ((string) $permission['name'] . ': Prüfung erlaubt') : ((string) $permission['name'] . ': ' . $missing), ENT_QUOTES) ?>">
-                                            <i class="fa-solid <?= htmlspecialchars((string) ($permission['icon'] ?? 'fa-clipboard-check'), ENT_QUOTES) ?> me-1" aria-hidden="true"></i><?= htmlspecialchars((string) $permission['name']) ?>
-                                        </span>
+                                    <?php foreach (($user['inspection_permissions'] ?? []) as $permission): $allowed = !empty($permission['allowed']); $severity = (string) ($permission['severity'] ?? ($allowed ? 'success' : 'warning')); ?>
+                                        <?php if ($allowed): ?><span class="badge text-bg-success" title="<?= htmlspecialchars((string) $permission['name'] . ': Prüfung erlaubt', ENT_QUOTES) ?>"><i class="fa-solid <?= htmlspecialchars((string) ($permission['icon'] ?? 'fa-clipboard-check'), ENT_QUOTES) ?> me-1" aria-hidden="true"></i><?= htmlspecialchars((string) $permission['name']) ?></span><?php else: ?><details class="d-inline-block inspection-permission-detail"><summary class="badge text-bg-<?= htmlspecialchars($severity, ENT_QUOTES) ?><?= $severity === 'warning' ? ' text-dark' : '' ?>" title="Details zur Prüferlaubnis anzeigen"><i class="fa-solid <?= htmlspecialchars((string) ($permission['icon'] ?? 'fa-clipboard-check'), ENT_QUOTES) ?> me-1" aria-hidden="true"></i><?= htmlspecialchars((string) $permission['name']) ?><i class="fa-solid fa-chevron-down ms-1" aria-hidden="true"></i></summary><div class="inspection-permission-popover small border rounded shadow-sm p-2 mt-1 bg-body" role="status"><strong><?= htmlspecialchars((string) $permission['name']) ?>: nicht erlaubt</strong><ul class="mb-0 ps-3 mt-1"><?php foreach ((array) ($permission['missing'] ?? []) as $reason): ?><li><?= htmlspecialchars((string) $reason) ?></li><?php endforeach; ?></ul></div></details><?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
-                                <?php foreach (($user['inspection_permissions'] ?? []) as $permission): if (!empty($permission['allowed'])) continue; ?>
-                                    <div class="small text-body-secondary mt-1"><i class="fa-solid fa-circle-exclamation me-1" aria-hidden="true"></i><?= htmlspecialchars((string) $permission['name']) ?>: <?= htmlspecialchars(implode(', ', (array) ($permission['missing'] ?? []))) ?></div>
-                                <?php endforeach; ?>
                             </td>
                             <td class="text-end">
                                 <a href="<?= htmlspecialchars(url_for('admin/nutzer/' . (int) $user['id'] . '/profil'), ENT_QUOTES) ?>" class="btn btn-outline-primary btn-sm mb-1">
@@ -128,6 +123,7 @@
         </div>
     </div>
 </div>
+<style>.inspection-permission-detail{position:relative}.inspection-permission-detail>summary{cursor:pointer;list-style:none}.inspection-permission-detail>summary::-webkit-details-marker{display:none}.inspection-permission-popover{position:absolute;z-index:4;min-width:17rem;max-width:24rem}</style>
 <script>
 document.querySelectorAll('.customer-access-form').forEach(form => {
     const items = [...form.querySelectorAll('[data-customer-access-item]')];

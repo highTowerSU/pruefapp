@@ -27,7 +27,7 @@ $template = (string) file_get_contents(dirname(__DIR__) . '/templates/admin_user
 if (!str_contains($template, 'data-customer-access-item') || !str_contains($template, 'coveredByParent')) {
     throw new RuntimeException('Die Nutzeroberfläche deaktiviert abgedeckte Unterkunden nicht.');
 }
-if (!str_contains($template, 'Prüferlaubnis') || !str_contains($template, 'inspection_permissions') || !str_contains($controller, 'requirementsByType')) {
+if (!str_contains($template, 'Prüferlaubnis') || !str_contains($template, 'inspection-permission-detail') || !str_contains($controller, 'withInspectionPermissions') || !str_contains($controller, "summary === 'user-permissions'")) {
     throw new RuntimeException('Die Benutzerverwaltung zeigt die serverseitig ermittelte Prüferlaubnis nicht an.');
 }
 
