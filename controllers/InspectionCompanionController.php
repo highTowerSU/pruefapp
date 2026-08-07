@@ -175,7 +175,7 @@ final class InspectionCompanionController
     {
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         try {
-            $staged = DeviceDraftMediaService::stageCompanionPhoto((int) ($params['id'] ?? 0), (int) current_user()->id);
+            $staged = DeviceDraftMediaService::stageCompanionPhoto((int) ($params['id'] ?? 0), (int) current_user()->id, (string) ($_POST['media_type'] ?? ''));
             audit_log('pruef_companion_foto_in_geraeteentwurf', ['companion_item_id' => (int) ($params['id'] ?? 0), 'media_type' => $staged['media_type']]);
             return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => true] + $staged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         } catch (Throwable $error) {

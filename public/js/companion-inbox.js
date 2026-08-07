@@ -3,6 +3,7 @@
   let stream = null;
   let reconnectTimer = null;
   let activeDraftForm = null;
+  let activeDraftType = '';
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 
   const refresh = (root) => {
@@ -16,6 +17,7 @@
     });
   };
   const closePopovers = (except = null) => document.querySelectorAll('[data-companion-for]').forEach((button) => { if (button !== except) window.bootstrap?.Popover.getInstance(button)?.dispose(); });
+  const closeDraftPhotoPopovers = () => document.querySelectorAll('[data-companion-draft-photo]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
   const applyValue = (input, value) => {
     if (input.tomselect) input.tomselect.setValue(value, true);
     else { input.value = value; input.dispatchEvent(new Event('input', {bubbles: true})); input.dispatchEvent(new Event('change', {bubbles: true})); }
@@ -70,6 +72,7 @@
   const openDraftPhotoChoices = (button, form, root) => {
     if (!root) return;
     activeDraftForm = form;
+    activeDraftType = button.closest('.btn-group')?.querySelector('[data-open-typeplate]') ? 'type_plate' : '';
     const old = window.bootstrap?.Popover.getInstance(button);
     if (old) old.dispose();
     const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
@@ -170,9 +173,12 @@
     const root = document.querySelector('[data-companion-inbox]');
     if (!root) return;
     const itemId = choice.dataset.companionDraftPhotoChoose;
+    closeDraftPhotoPopovers();
     choice.disabled = true;
     try {
-      const response = await fetch(`${root.dataset.inboxUrl}/${itemId}/foto-zu-entwurf`, {method: 'POST', headers: {'Accept': 'application/json'}});
+      const body = new URLSearchParams();
+      if (activeDraftType) body.set('media_type', activeDraftType);
+      const response = await fetch(`${root.dataset.inboxUrl}/${itemId}/foto-zu-entwurf`, {method: 'POST', headers: {'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'}, body});
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Companion-Foto konnte nicht übernommen werden.');
       const token = activeDraftForm.querySelector('[data-draft-photo-token]');
@@ -180,7 +186,17 @@
       const type = activeDraftForm.querySelector('[name="new_device_photo_type"]');
       if (type && data.media_type) { type.value = data.media_type; type.dispatchEvent(new Event('change', {bubbles: true})); }
       const result = activeDraftForm.querySelector('[data-draft-photo-result]');
-      if (result) result.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Companion-Foto wurde in den Geräteentwurf übernommen.</div>';
+      if (result) {
+        const proposal = data.proposal || null;
+        const fields = proposal ? ['manufacturer','device_model','name','serial_number','inventory_number'].filter((key) => String(proposal[key] || '').trim() !== '').map((key) => `<li><strong>${key === 'name' ? 'Bezeichnung' : key === 'device_model' ? 'Modell' : key === 'manufacturer' ? 'Hersteller' : key === 'serial_number' ? 'Seriennummer' : 'Inventar'}:</strong> ${escapeHtml(proposal[key])}</li>`).join('') : '';
+        if (proposal && fields) result.innerHTML = `<div class="alert alert-success py-2 mb-0"><strong><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Typenschildvorschlag bereit</strong><ul class="mb-2 mt-1">${fields}</ul><button class="btn btn-sm btn-primary" type="button" data-companion-draft-apply><i class="fa-solid fa-arrow-down me-1" aria-hidden="true"></i>Vorschlag übernehmen</button></div>`;
+        else result.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Companion-Foto wurde in den Geräteentwurf übernommen.</div>';
+        const apply = result.querySelector('[data-companion-draft-apply]');
+        if (apply && proposal) apply.addEventListener('click', () => {
+          ['manufacturer','device_model','name','serial_number','inventory_number'].forEach((key) => { const value = String(proposal[key] || '').trim(); const field = activeDraftForm.querySelector(`[name="${key}"]`); if (!value || !field) return; if (field.tomselect) field.tomselect.setValue(value, true); else { field.value = value; field.dispatchEvent(new Event('change', {bubbles: true})); } });
+          apply.disabled = true; apply.innerHTML = '<i class="fa-solid fa-check me-1" aria-hidden="true"></i>Vorschlag übernommen';
+        });
+      }
       closePopovers(); refresh(root);
     } catch (error) {
       const result = activeDraftForm.querySelector('[data-draft-photo-result]');
