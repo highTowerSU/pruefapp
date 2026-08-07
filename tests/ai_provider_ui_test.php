@@ -23,6 +23,7 @@ foreach ([
     [str_contains($device, 'exact') && str_contains($device, 'createOnBlur: false'), 'Bekannte Werte bleiben beim Verlassen nicht erhalten oder neue Werte werden nicht explizit bestätigt.'],
     [str_contains($searchSelect, 'htmx:load') && str_contains($customCss, '.ts-hidden-accessible') && !str_contains($customCss, 'select.form-select + .ts-wrapper'), 'TomSelect-Felder werden nach HTMX-Swaps nicht zuverlässig als einzelnes Feld dargestellt.'],
     [str_contains($vocabularyService, 'enqueueHistoricalReview') && str_contains($maintenance, 'vocabularyReviewScan') && str_contains($vocabularyController, '$action === \'scan\'') && str_contains($vocabularyTemplate, 'Prüfung starten') && str_contains($vocabularyTemplate, 'vocabulary-auto-refresh') && str_contains($vocabularyTemplate, 'htmx.ajax'), 'Der manuelle, fortsetzbare KI-Lauf über vorhandene Stammdaten mit Fortschrittsaktualisierung fehlt.'],
+    [str_contains($maintenance, 'vocabularyReviewTotal') && str_contains($maintenance, 'max(1, $current, $total, $computedTotal)'), 'Der KI-Stammdatenlauf prüft beim Fortsetzen seine Gesamtmenge nicht; der Fortschritt kann dadurch über 100 % steigen.'],
     [str_contains($adminController, "\$summary === 'ai'") && str_contains($adminController, 'temporary_model_override') && str_contains($adminController, 'aiProviderApiDebug') && str_contains($adminController, 'AiProviderService::diagnose'), 'Der token-geschützte KI-Diagnoseendpunkt fehlt.'],
 ] as [$ok, $message]) {
     if (!$ok) throw new RuntimeException($message);

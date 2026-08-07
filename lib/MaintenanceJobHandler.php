@@ -60,9 +60,14 @@ final class MaintenanceJobHandler
         $fieldIndex = max(0, (int) ($checkpoint['field_index'] ?? 0));
         $afterKey = (string) ($checkpoint['after_key'] ?? '');
         $created = max(0, (int) ($checkpoint['created'] ?? 0));
-        if ($total <= 0) {
-            foreach ($fields as $field) $total += (int) R::getCell("SELECT COUNT(DISTINCT LOWER(TRIM(COALESCE({$field}, '')))) FROM device WHERE TRIM(COALESCE({$field}, '')) <> ''");
-        }
+        // A scan can resume days after it was queued, while device data has
+        // changed in the meantime.  Never trust the original queue total for
+        // progress: it made a resumed job report e.g. 1459 of 1194.  The
+        // total is recomputed from the exact same distinct-value selection as
+        // the cursor query below and is never allowed to become smaller than
+        // work that was already checkpointed.
+        $computedTotal = self::vocabularyReviewTotal($fields);
+        $total = max(1, $current, $total, $computedTotal);
         while ($fieldIndex < count($fields)) {
             $field = $fields[$fieldIndex];
             $row = R::getRow("SELECT MIN({$field}) AS value, LOWER(TRIM({$field})) AS source_key FROM device WHERE TRIM(COALESCE({$field}, '')) <> '' AND LOWER(TRIM({$field})) > ? GROUP BY LOWER(TRIM({$field})) ORDER BY source_key LIMIT 1", [$afterKey]);
@@ -85,6 +90,31 @@ final class MaintenanceJobHandler
             $tick(['field_index' => $fieldIndex, 'after_key' => $afterKey, 'created' => $created], $current, max(1, $total), $value, $message);
         }
         return ['processed' => $current, 'created' => $created];
+    }
+
+    /**
+     * Counts precisely the source keys traversed by vocabularyReviewScan().
+     *
+     * @param list<string> $fields
+     */
+    private static function vocabularyReviewTotal(array $fields): int
+    {
+        $total = 0;
+        foreach ($fields as $field) {
+            // The field list is a closed service constant.  Retain this guard
+            // nevertheless, as SQL identifiers cannot be supplied as query
+            // parameters.
+            if (!in_array($field, DeviceVocabularyService::FIELDS, true)) continue;
+            $total += (int) R::getCell(
+                "SELECT COUNT(*) FROM (\n"
+                . " SELECT LOWER(TRIM({$field})) AS source_key\n"
+                . " FROM device\n"
+                . " WHERE TRIM(COALESCE({$field}, '')) <> ''\n"
+                . " GROUP BY LOWER(TRIM({$field}))\n"
+                . ') vocabulary_source_keys'
+            );
+        }
+        return $total;
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
