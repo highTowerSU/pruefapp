@@ -31,6 +31,16 @@
     }
     window.bootstrap.Toast.getOrCreateInstance(toast, {delay: 4500}).show();
   };
+  const previewDevicePhoto = (form, source) => {
+    const preview = form.querySelector('[data-device-photo-preview]');
+    if (!preview || !source) return;
+    const oldUrl = preview.dataset.objectUrl || '';
+    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    const url = source instanceof Blob ? URL.createObjectURL(source) : String(source);
+    if (source instanceof Blob) preview.dataset.objectUrl = url; else delete preview.dataset.objectUrl;
+    preview.classList.remove('d-none');
+    preview.innerHTML = `<div class="d-flex align-items-center gap-2"><img src="${url}" class="rounded border" style="width: 88px; height: 64px; object-fit: cover" alt="Vorschau des ausgewählten Fotos"><span class="small text-body-secondary">Foto-Vorschau</span></div>`;
+  };
 
   const refresh = (root) => {
     if (!root || !window.htmx) return;
@@ -128,6 +138,7 @@
       button.innerHTML = '<i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Foto auswählen</span>';
       wrapper.append(button);
       const paste = form.querySelector('[data-device-photo-paste]');
+      photo.addEventListener('change', () => { if (photo.files?.[0]) previewDevicePhoto(form, photo.files[0]); });
       paste?.addEventListener('focus', showPasteToast);
       paste?.addEventListener('click', showPasteToast);
       paste?.addEventListener('paste', (event) => {
@@ -137,6 +148,7 @@
         const blob = item.getAsFile(); if (!blob) return;
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`, {type: blob.type}));
         photo.files = transfer.files;
+        previewDevicePhoto(form, blob);
         paste.textContent = 'Bild eingefügt – jetzt Foto hochladen.';
       });
       if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
@@ -233,7 +245,7 @@
     if (!choice || !activeDraftForm) return;
     const root = document.querySelector('[data-companion-inbox]');
     if (!root) return;
-    const itemId = choice.dataset.companionDraftPhotoChoose;
+      const itemId = choice.dataset.companionDraftPhotoChoose;
     const trigger = activeDraftTrigger;
     const triggerHtml = trigger?.innerHTML || '';
     if (trigger) {
@@ -250,6 +262,7 @@
       if (!response.ok || !data.ok) throw new Error(data.error || 'Companion-Foto konnte nicht übernommen werden.');
       const token = activeDraftForm.querySelector('[data-draft-photo-token]');
       if (token) token.value = data.token || '';
+      previewDevicePhoto(activeDraftForm, `${root.dataset.inboxUrl}/${itemId}/foto`);
       const type = activeDraftForm.querySelector('[name="new_device_photo_type"]');
       if (type && data.media_type) { type.value = data.media_type; type.dispatchEvent(new Event('change', {bubbles: true})); }
       const result = activeDraftForm.querySelector('[data-draft-photo-result]');
