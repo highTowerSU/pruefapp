@@ -246,6 +246,20 @@ label.form-label {
   opacity: 1;
 }
 
+/* Desktop navigation may reveal its primary menus on hover. Touch and
+ * keyboard interaction deliberately retain Bootstrap's regular click/focus
+ * dropdown behaviour. Account, notification and theme menus stay click-only. */
+@media (min-width: 992px) and (hover: hover) and (pointer: fine) {
+  .navbar-themed .navbar-nav > .nav-item.dropdown:hover > .dropdown-menu {
+    display: block;
+    margin-top: 0;
+  }
+
+  .navbar-themed .navbar-nav > .nav-item.dropdown:hover > .dropdown-toggle {
+    opacity: 1;
+  }
+}
+
 /* Keep navigation state and yellow accent icons readable on the light
  * branded navbar as well as in the dark theme. */
 [data-bs-theme="light"] .navbar-themed .nav-link.active,
