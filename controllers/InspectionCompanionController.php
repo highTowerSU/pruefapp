@@ -107,12 +107,18 @@ final class InspectionCompanionController
     public static function photo(array $params, bool $isHx): array
     {
         $session = self::usableSession((string) ($params['token'] ?? ''));
-        if ($session === []) return [410, [], 'Verbindung abgelaufen.'];
+        if ($session === []) {
+            $message = '<div class="alert alert-warning py-2 mb-0"><i class="fa-solid fa-link-slash me-1" aria-hidden="true"></i>Die Companion-Verbindung ist nicht mehr aktiv. Bitte am Prüfplatz neu verbinden.</div>';
+            return $isHx ? [200, [], $message] : [410, [], 'Verbindung abgelaufen.'];
+        }
         try {
             $id = InspectionCompanionInboxService::addPhoto($session, (array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'condition'), (string) ($_POST['caption'] ?? ''));
             audit_log('pruef_companion_foto', ['inspection_id' => (int) $session['inspection_id'], 'companion_item_id' => $id]);
             return [200, [], '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Foto an den Prüfplatz übertragen. Dort wird es bewusst erst nach deiner Auswahl gespeichert.</div>'];
-        } catch (Throwable $e) { return [422, [], '<div class="alert alert-danger py-2 mb-0">' . htmlspecialchars($e->getMessage()) . '</div>']; }
+        } catch (Throwable $e) {
+            $message = '<div class="alert alert-danger py-2 mb-0"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>' . htmlspecialchars($e->getMessage()) . '</div>';
+            return $isHx ? [200, [], $message] : [422, [], $message];
+        }
     }
 
     /** Compact shared desktop inbox; its content is refreshed by an SSE signal. */
