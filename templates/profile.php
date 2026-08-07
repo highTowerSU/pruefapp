@@ -261,14 +261,15 @@
   // Nachweise bleiben als direkter Link verfügbar, werden beim Prüfen aber
   // zunächst bequem in einer eingebetteten Vorschau geöffnet.
   document.addEventListener('click', (event) => {
-    const link = event.target.closest('a[href*="/profil/nachweis/"]');
+    const link = event.target.closest('a[href*="/profil/nachweis/"], a[href*="/profil/befaehigung/"]');
     if (!link || !window.bootstrap?.Modal) return;
     event.preventDefault();
     let modal = document.getElementById('qualification-pdf-preview-modal');
     if (!modal) {
-      document.body.insertAdjacentHTML('beforeend', '<div class="modal fade" id="qualification-pdf-preview-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5"><i class="fa-solid fa-file-pdf me-2 text-danger" aria-hidden="true"></i>PDF-Vorschau</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button></div><div class="modal-body p-0"><iframe class="w-100 border-0" style="height:75vh" title="PDF-Vorschau" loading="lazy"></iframe></div></div></div></div>');
+      document.body.insertAdjacentHTML('beforeend', '<div class="modal fade" id="qualification-pdf-preview-modal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5"><i class="fa-solid fa-file-pdf me-2 text-danger" aria-hidden="true"></i>PDF-Vorschau</h2><a class="btn btn-sm btn-secondary me-2" data-pdf-fallback target="_blank" rel="noopener"><i class="fa-solid fa-download me-1" aria-hidden="true"></i>Öffnen / herunterladen</a><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button></div><div class="modal-body p-0"><iframe class="w-100 border-0" style="height:75vh" title="PDF-Vorschau" loading="lazy"></iframe><p class="small text-body-secondary p-3 mb-0 d-md-none">Falls die Vorschau auf diesem Gerät nicht erscheint, nutze „Öffnen / herunterladen“.</p></div></div></div></div>');
       modal = document.getElementById('qualification-pdf-preview-modal');
     }
+    modal.querySelector('[data-pdf-fallback]').href = link.href;
     modal.querySelector('iframe').src = link.href;
     window.bootstrap.Modal.getOrCreateInstance(modal).show();
   });

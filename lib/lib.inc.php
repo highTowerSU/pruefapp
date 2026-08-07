@@ -534,15 +534,13 @@ function seed_inspection_types(): void
     // qualification workflow was being introduced. Activate the safety gates
     // once; later Superadmin changes in the GUI remain authoritative.
     if (get_app_config('inspection_requirements_v1_activated') !== '1') {
-        R::exec("UPDATE inspection_type_requirement SET active = 1 WHERE code IN ('electrical_basic', 'electrical_instruction', 'ladder_basic', 'ladder_instruction')");
+        R::exec("UPDATE inspection_type_requirement SET active = 1 WHERE code IN ('electrical_basic', 'ladder_basic')");
         set_app_config('inspection_requirements_v1_activated', '1');
     }
     // VEFK is a tenant responsibility/assignment, not a personal document type.
     foreach ([
-        ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', null, 1, 10],
-        ['electrical', 'electrical_instruction', 'Elektro-Unterweisung', 365, 0, 20],
-        ['ladder', 'ladder_basic', 'Befähigte Person Leitern/Tritte', null, 1, 10],
-        ['ladder', 'ladder_instruction', 'Leiter-Unterweisung', 365, 0, 20],
+        ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', 700, 1, 10],
+        ['ladder', 'ladder_basic', 'Befähigte Person Leitern/Tritte', 700, 1, 10],
     ] as [$type, $code, $name, $validity, $confirmation, $sort]) {
         if ((int) R::getCell('SELECT id FROM inspection_type_requirement WHERE inspection_type_code = ? AND code = ?', [$type, $code]) === 0) {
             R::exec('INSERT INTO inspection_type_requirement (inspection_type_code, code, name, validity_days, requires_confirmation, active, sort_order) VALUES (?, ?, ?, ?, ?, 1, ?)', [$type, $code, $name, $validity, $confirmation, $sort]);
@@ -555,10 +553,10 @@ function seed_inspection_types(): void
     set_app_config('electrical_vefk_document_type_removed', '1');
     // A qualification is the durable permission; follow-up trainings belong
     // to that qualification instead of appearing as a second permission.
+    R::exec("UPDATE user_qualification SET requirement_code = 'electrical_basic' WHERE requirement_code = 'electrical_instruction'");
+    R::exec("UPDATE user_qualification SET requirement_code = 'ladder_basic' WHERE requirement_code = 'ladder_instruction'");
+    R::exec("DELETE FROM inspection_type_requirement WHERE code IN ('electrical_instruction', 'ladder_instruction')");
     if (get_app_config('qualification_followup_model_v1') !== '1') {
-        R::exec("UPDATE user_qualification SET requirement_code = 'electrical_basic' WHERE requirement_code = 'electrical_instruction'");
-        R::exec("UPDATE user_qualification SET requirement_code = 'ladder_basic' WHERE requirement_code = 'ladder_instruction'");
-        R::exec("DELETE FROM inspection_type_requirement WHERE code IN ('electrical_instruction', 'ladder_instruction')");
         R::exec("UPDATE inspection_type_requirement SET validity_days = 700 WHERE code IN ('electrical_basic', 'ladder_basic') AND (validity_days IS NULL OR validity_days = 0)");
         foreach (R::getAll("SELECT id, instruction_certificates_json FROM oauthuser WHERE instruction_certificates_json IS NOT NULL AND instruction_certificates_json <> ''") as $profile) {
             $certificates = json_decode((string) ($profile['instruction_certificates_json'] ?? ''), true);
