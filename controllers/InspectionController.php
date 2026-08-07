@@ -828,7 +828,7 @@ final class InspectionController
         $overallResult = trim($overallResult) !== '' ? $overallResult : 'bestanden';
         $normalized = [];
         foreach ($measurements as $measurement) {
-            if (!is_array($measurement)) { $normalized[] = $measurement; continue; }
+            if (!is_array($measurement)) continue;
             $name = strtoupper(trim((string) ($measurement['name'] ?? '')));
             $value = trim((string) ($measurement['value'] ?? ''));
             $unit = trim((string) ($measurement['unit'] ?? ''));
@@ -860,6 +860,9 @@ final class InspectionController
                     $normalized[$last]['voltage'] = $value;
                     continue;
                 }
+            }
+            if (!InspectionEvaluationService::isSupportedMeasurementKey(InspectionEvaluationService::measurementKey($name))) {
+                continue;
             }
             $normalized[] = $measurement;
         }
