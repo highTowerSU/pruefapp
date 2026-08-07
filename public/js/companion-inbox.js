@@ -149,7 +149,7 @@
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`, {type: blob.type}));
         photo.files = transfer.files;
         previewDevicePhoto(form, blob);
-        paste.textContent = 'Bild eingefügt – jetzt Foto hochladen.';
+        paste.innerHTML = '<i class="fa-solid fa-check me-1 text-success" aria-hidden="true"></i>Foto eingefügt · Foto hier einfügen – Strg+V oder Rechtsklick → Einfügen';
       });
       if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
       form.querySelectorAll('[data-companion-draft-photo]').forEach((choice) => choice.classList.toggle('d-none', !root || root.dataset.hasActiveConnection !== '1'));
