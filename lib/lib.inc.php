@@ -68,6 +68,8 @@ require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 require_once __DIR__ . '/InspectionEvaluationService.php';
+require_once __DIR__ . '/InspectionTypeService.php';
+require_once __DIR__ . '/DeviceFindingService.php';
 require_once __DIR__ . '/InspectionFilterService.php';
 require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
@@ -338,8 +340,13 @@ function ensure_structure_schema(): void
         'CREATE TABLE IF NOT EXISTS device (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, name TEXT NOT NULL, serial_number TEXT NULL, inventory_number TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         'CREATE TABLE IF NOT EXISTS inspection (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, dedupe_key TEXT NOT NULL UNIQUE, source_type TEXT NOT NULL, source_file TEXT NULL, external_number TEXT NULL, storage_slot TEXT NULL, test_date TEXT NULL, next_due_date TEXT NULL, result_status TEXT NULL, device_type TEXT NULL, manufacturer TEXT NULL, device_model TEXT NULL, room_snapshot TEXT NULL, measurements_json TEXT NULL, checklist_json TEXT NULL, raw_json TEXT NULL, report_path TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)',
         "CREATE TABLE IF NOT EXISTS inspection_catalog_version (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0, locked_at TEXT NULL, created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS inspection_type (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, icon TEXT NOT NULL DEFAULT '', default_interval_days INTEGER NOT NULL DEFAULT 365, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS inspection_type_requirement (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_type_code TEXT NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL, validity_days INTEGER NULL, requires_confirmation INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, UNIQUE(inspection_type_code, code))",
+        "CREATE TABLE IF NOT EXISTS user_qualification (id INTEGER PRIMARY KEY AUTOINCREMENT, oauthuser_id INTEGER NOT NULL, requirement_code TEXT NOT NULL, issued_at TEXT NULL, expires_at TEXT NULL, proof_path TEXT NOT NULL DEFAULT '', proof_name TEXT NOT NULL DEFAULT '', confirmed_by INTEGER NULL, confirmed_at TEXT NULL, notes TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS device_attribute (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_type_code TEXT NOT NULL, attribute_key TEXT NOT NULL, value_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NULL, UNIQUE(device_id, inspection_type_code, attribute_key))",
+        "CREATE TABLE IF NOT EXISTS device_finding (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, inspection_type_code TEXT NOT NULL, item_key TEXT NOT NULL DEFAULT '', severity TEXT NOT NULL DEFAULT 'green', state TEXT NOT NULL DEFAULT 'open', action TEXT NOT NULL DEFAULT '', due_date TEXT NULL, blocked INTEGER NOT NULL DEFAULT 0, description TEXT NOT NULL DEFAULT '', resolution_note TEXT NOT NULL DEFAULT '', resolved_at TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_catalog_item (id INTEGER PRIMARY KEY AUTOINCREMENT, version_id INTEGER NOT NULL, item_key TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', question TEXT NOT NULL DEFAULT '', criterion TEXT NOT NULL DEFAULT '', input_type TEXT NOT NULL DEFAULT 'boolean', measurement_key TEXT NOT NULL DEFAULT '', required INTEGER NOT NULL DEFAULT 1, applies_to_json TEXT NOT NULL DEFAULT '{}', rule_key TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, UNIQUE(version_id, item_key))",
-        "CREATE TABLE IF NOT EXISTS inspection_answer (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, catalog_version_id INTEGER NULL, item_key TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', question_snapshot TEXT NOT NULL DEFAULT '', criterion_snapshot TEXT NOT NULL DEFAULT '', answer_value TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT 'missing', required INTEGER NOT NULL DEFAULT 1, skip_reason TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, updated_at TEXT NULL, UNIQUE(inspection_id, item_key))",
+        "CREATE TABLE IF NOT EXISTS inspection_answer (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, catalog_version_id INTEGER NULL, item_key TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', question_snapshot TEXT NOT NULL DEFAULT '', criterion_snapshot TEXT NOT NULL DEFAULT '', answer_value TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT 'missing', remark TEXT NOT NULL DEFAULT '', required INTEGER NOT NULL DEFAULT 1, skip_reason TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, updated_at TEXT NULL, UNIQUE(inspection_id, item_key))",
         "CREATE TABLE IF NOT EXISTS inspection_measurement (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, measurement_key TEXT NOT NULL, name_snapshot TEXT NOT NULL DEFAULT '', numeric_value REAL NULL, text_value TEXT NOT NULL DEFAULT '', unit TEXT NOT NULL DEFAULT '', outcome TEXT NOT NULL DEFAULT 'missing', limit_value REAL NULL, limit_unit TEXT NOT NULL DEFAULT '', rule_key TEXT NOT NULL DEFAULT '', rule_version TEXT NOT NULL DEFAULT '1', voltage TEXT NOT NULL DEFAULT '', raw_json TEXT NOT NULL DEFAULT '{}', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_diagnostic (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, code TEXT NOT NULL, severity TEXT NOT NULL DEFAULT 'warning', message TEXT NOT NULL DEFAULT '', details_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_source_snapshot (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL UNIQUE, classification TEXT NOT NULL DEFAULT '', source_type TEXT NOT NULL DEFAULT '', source_file TEXT NOT NULL DEFAULT '', source_row_json TEXT NOT NULL DEFAULT '{}', legacy_row_json TEXT NOT NULL DEFAULT '{}', original_report_path TEXT NOT NULL DEFAULT '', original_report_checksum TEXT NOT NULL DEFAULT '', created_at TEXT NULL)",
@@ -378,6 +385,9 @@ function ensure_structure_schema(): void
         R::exec($statement);
     }
 
+    $answerColumns = R::getColumns('inspection_answer');
+    if (!isset($answerColumns['remark'])) R::exec("ALTER TABLE inspection_answer ADD COLUMN remark TEXT NOT NULL DEFAULT ''");
+
     if (class_exists(Migrator::class)) {
         Migrator::mark('schema_migration', 1);
     } else {
@@ -395,6 +405,7 @@ function ensure_structure_schema(): void
         'area' => ['description' => 'TEXT NULL'],
         'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''", 'room_snapshot' => "TEXT NOT NULL DEFAULT ''", 'device_model' => 'TEXT NULL', 'manufacturer' => 'TEXT NULL', 'warming_device' => 'INTEGER NOT NULL DEFAULT 0', 'archived_at' => 'TEXT NULL'],
+        'inspection_catalog_version' => ['inspection_type_code' => "TEXT NOT NULL DEFAULT 'electrical'"],
         'inspection' => [
             'status' => "TEXT NOT NULL DEFAULT 'in_progress'",
             'classification' => "TEXT NOT NULL DEFAULT ''",
@@ -422,6 +433,10 @@ function ensure_structure_schema(): void
             'billing_status' => "TEXT NOT NULL DEFAULT 'not_exported'",
             'billing_active_invoice_item_id' => 'INTEGER NULL',
             'billing_last_error' => "TEXT NOT NULL DEFAULT ''",
+            'inspection_type_code' => "TEXT NOT NULL DEFAULT 'electrical'",
+            'device_attributes_snapshot_json' => "TEXT NOT NULL DEFAULT '{}'",
+            'failed_action' => "TEXT NOT NULL DEFAULT ''",
+            'customer_hint' => "TEXT NOT NULL DEFAULT ''",
         ],
         'oauthuser_customer' => ['include_descendants' => 'INTEGER NOT NULL DEFAULT 1'],
         'customer' => [
@@ -449,11 +464,14 @@ function ensure_structure_schema(): void
     R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_classification ON inspection (classification, test_date)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billing_invoice_item_inspection ON billing_invoice_item (inspection_id, active)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billing_export_status ON billing_export (status, updated_at)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_device_finding_open ON device_finding (device_id, state, blocked)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_user_qualification_requirement ON user_qualification (oauthuser_id, requirement_code, expires_at)');
     if (get_app_config('billing_v1_initialized') !== '1') {
         R::exec("UPDATE inspection SET billing_eligibility = CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END, billing_status = CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END WHERE billing_eligibility IS NULL OR billing_eligibility = '' OR billing_status IS NULL OR billing_status = ''");
         set_app_config('billing_v1_initialized', '1');
     }
     seed_inspection_catalog();
+    seed_inspection_types();
 }
 
 /** Seed the immutable first catalog version. Text can later be superseded in the GUI. */
@@ -462,8 +480,8 @@ function seed_inspection_catalog(): void
     $versionId = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['electrical-v1']);
     if ($versionId <= 0) {
         R::exec(
-            'INSERT INTO inspection_catalog_version (code, name, active, locked_at, created_at) VALUES (?, ?, 1, ?, ?)',
-            ['electrical-v1', 'Elektroprüfung Version 1', date(DATE_ATOM), date(DATE_ATOM)]
+            'INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)',
+            ['electrical-v1', 'Elektroprüfung Version 1', 'electrical', date(DATE_ATOM), date(DATE_ATOM)]
         );
         $versionId = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['electrical-v1']);
     }
@@ -486,6 +504,48 @@ function seed_inspection_catalog(): void
             'INSERT INTO inspection_catalog_item (version_id, item_key, category, question, criterion, input_type, measurement_key, required, applies_to_json, rule_key, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
             [$versionId, $key, $category, $question, $criterion, $type, $measurement, '{}', $rule, $sort]
         );
+    }
+}
+
+/** Seed the extensible inspection-type catalogue without changing existing records. */
+function seed_inspection_types(): void
+{
+    $now = date(DATE_ATOM);
+    foreach ([
+        ['electrical', 'Elektroprüfung', 'fa-bolt', 365, 10],
+        ['ladder', 'Leitern & Tritte', 'fa-ladder', 365, 20],
+    ] as [$code, $name, $icon, $interval, $sort]) {
+        if ((int) R::getCell('SELECT id FROM inspection_type WHERE code = ?', [$code]) === 0) {
+            R::exec('INSERT INTO inspection_type (code, name, icon, default_interval_days, active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?)', [$code, $name, $icon, $interval, $sort, $now, $now]);
+        }
+    }
+    foreach ([
+        ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', null, 1, 10],
+        ['electrical', 'electrical_instruction', 'Elektro-Unterweisung', 365, 0, 20],
+        ['ladder', 'ladder_basic', 'Befähigte Person Leitern/Tritte', null, 1, 10],
+        ['ladder', 'ladder_instruction', 'Leiter-Unterweisung', 365, 0, 20],
+    ] as [$type, $code, $name, $validity, $confirmation, $sort]) {
+        if ((int) R::getCell('SELECT id FROM inspection_type_requirement WHERE inspection_type_code = ? AND code = ?', [$type, $code]) === 0) {
+            R::exec('INSERT INTO inspection_type_requirement (inspection_type_code, code, name, validity_days, requires_confirmation, active, sort_order) VALUES (?, ?, ?, ?, ?, 0, ?)', [$type, $code, $name, $validity, $confirmation, $sort]);
+        }
+    }
+    $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
+    if ($ladderCatalog > 0) return;
+    R::exec('INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)', ['ladder-v1', 'Leiterprüfung Version 1', 'ladder', $now, $now]);
+    $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
+    $items = [
+        ['general_state', 'Allgemeiner Zustand', 'Ist die Leiter sauber, unbeschädigt und standsicher?', 'Keine Beschädigungen, Verschmutzungen oder instabilen Bauteile.', 10],
+        ['rails', 'Holme und Stützschenkel', 'Sind Holme und Stützschenkel frei von Verformungen, Rissen und scharfen Kanten?', 'Keine Verformungen, Beschädigungen oder Verletzungsgefahr.', 20],
+        ['rungs', 'Sprossen und Stufen', 'Sind Sprossen, Stufen und Plattformen sicher und trittsicher?', 'Verbindung zum Holm und Trittflächen sind intakt.', 30],
+        ['spreaders', 'Spreizsicherung', 'Ist die Spreizsicherung vollständig, befestigt und funktionsfähig?', 'Spreizsicherung ist bei der Leiterart vorhanden und funktionsfähig.', 40],
+        ['fittings', 'Beschlagteile', 'Sind Beschlagteile vollständig und frei von Beschädigung oder Korrosion?', 'Befestigungen und bewegliche Teile sind funktionsfähig.', 50],
+        ['feet', 'Leiterfüße und Rollen', 'Sind Füße, Rollen und Zusatzteile für den Untergrund geeignet?', 'Keine Abnutzung oder Beschädigung mit Beeinträchtigung der Standsicherheit.', 60],
+        ['extensions', 'Ausschiebbare Teile', 'Funktionieren Einrastung, Zugseil und Rollenführung?', 'Nur bei ausziehbaren Leiterarten erforderlich.', 70],
+        ['markings', 'Kennzeichnung', 'Sind Kennzeichnungen und Sicherheitsinformationen vorhanden?', 'Betriebsanleitung/Piktogramme sind erkennbar.', 80],
+        ['overall', 'Gesamtbeurteilung', 'Ist die Leiter verwendungsfähig?', 'Gesamtbeurteilung mit dokumentierter Gefahrenstufe.', 90],
+    ];
+    foreach ($items as [$key, $category, $question, $criterion, $sort]) {
+        R::exec('INSERT INTO inspection_catalog_item (version_id, item_key, category, question, criterion, input_type, required, applies_to_json, sort_order) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)', [$ladderCatalog, $key, $category, $question, $criterion, 'finding', '{}', $sort]);
     }
 }
 

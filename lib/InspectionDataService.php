@@ -43,8 +43,8 @@ final class InspectionDataService
         foreach (array_values($answers) as $position => $answer) {
             R::exec(
                 'INSERT INTO inspection_answer '
-                . '(inspection_id, catalog_version_id, item_key, category, question_snapshot, criterion_snapshot, answer_value, outcome, required, skip_reason, sort_order, created_at, updated_at) '
-                . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                . '(inspection_id, catalog_version_id, item_key, category, question_snapshot, criterion_snapshot, answer_value, outcome, remark, required, skip_reason, sort_order, created_at, updated_at) '
+                . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     $inspectionId,
                     $catalogVersionId,
@@ -54,6 +54,7 @@ final class InspectionDataService
                     (string) ($answer['criterion_snapshot'] ?? $answer['criterion'] ?? ''),
                     (string) ($answer['answer_value'] ?? $answer['result'] ?? ''),
                     (string) ($answer['outcome'] ?? InspectionEvaluationService::normalizeOutcome((string) ($answer['answer_value'] ?? $answer['result'] ?? ''))),
+                    (string) ($answer['remark'] ?? ''),
                     !empty($answer['required']) ? 1 : 0,
                     (string) ($answer['skip_reason'] ?? ''),
                     (int) ($answer['sort_order'] ?? $position),

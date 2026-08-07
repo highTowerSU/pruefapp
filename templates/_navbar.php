@@ -23,6 +23,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $billingUrl = url_for('admin/abrechnung');
     $companyUrl = url_for('mandanten');
     $downloadsUrl = url_for('downloads');
+    $inspectionTypesUrl = url_for('admin/pruefarten');
 
     $pathIsActive = static function (string $url) use ($currentPath): bool {
         $prefix = rtrim($url, '/');
@@ -76,7 +77,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $billingActive = $pathIsActive($billingUrl);
     $companyActive = $pathIsActive($companyUrl);
     $vocabularyActive = $pathIsActive($vocabularyUrl);
-    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive || $vocabularyActive;
+    $inspectionTypesActive = $pathIsActive($inspectionTypesUrl);
+    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive || $vocabularyActive || $inspectionTypesActive;
 
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
@@ -146,6 +148,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-building me-2" aria-hidden="true"></i>Mandanten</a></li>
                   <li><a class="dropdown-item<?= $vocabularyActive ? ' active' : '' ?>" href="<?= htmlspecialchars($vocabularyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-spell-check me-2" aria-hidden="true"></i>Stammdaten bereinigen</a></li>
+                  <li><a class="dropdown-item<?= $inspectionTypesActive ? ' active' : '' ?>" href="<?= htmlspecialchars($inspectionTypesUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clipboard-check me-2" aria-hidden="true"></i>Prüfarten &amp; Befähigungen</a></li>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Konfiguration</a></li>
                 <?php endif; ?>
               </ul>

@@ -228,13 +228,17 @@ final class InspectionEvaluationService
             );
         }
 
-        foreach (self::requiredMeasurementKeys((string) ($inspection['protection_class'] ?? '')) as $requiredKey) {
+        $inspectionType = trim((string) ($inspection['inspection_type_code'] ?? 'electrical')) ?: 'electrical';
+        foreach ($inspectionType === 'electrical' ? self::requiredMeasurementKeys((string) ($inspection['protection_class'] ?? '')) : [] as $requiredKey) {
             if (!isset($measurementMap[$requiredKey]) || $measurementMap[$requiredKey]['outcome'] !== 'passed') {
                 $missing[] = 'Messung ' . self::measurementLabel($requiredKey);
             }
         }
 
-        foreach (['protection_class' => 'Schutzklasse', 'examiner' => 'Prüfer', 'test_date' => 'Prüfdatum'] as $field => $label) {
+        $requiredFields = $inspectionType === 'electrical'
+            ? ['protection_class' => 'Schutzklasse', 'examiner' => 'Prüfer', 'test_date' => 'Prüfdatum']
+            : ['examiner' => 'Prüfer', 'test_date' => 'Prüfdatum'];
+        foreach ($requiredFields as $field => $label) {
             if (trim((string) ($inspection[$field] ?? '')) === '') {
                 $missing[] = $label;
             }

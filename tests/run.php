@@ -15,6 +15,7 @@ $tests = [
     'notifications_htmx_test.php',
     'billing_v1_test.php',
     'inspection_evaluation_test.php',
+    'inspection_type_workflow_test.php',
     'inspection_migration_test.php',
     'pending_measurement_job_test.php',
     'import_directory_debug_api_test.php',

@@ -63,6 +63,21 @@ if ($missingQuestions['status'] !== InspectionEvaluationService::DATA_MISSING
 $editing = InspectionEvaluationService::evaluate($base, [], [], false);
 if ($editing['status'] !== InspectionEvaluationService::IN_PROGRESS) throw new RuntimeException('Zwischenspeicherung muss in Bearbeitung bleiben.');
 
+$ladder = InspectionEvaluationService::evaluate(
+    ['inspection_type_code' => 'ladder', 'examiner' => 'leiter@example.test', 'test_date' => '2026-08-07'],
+    [['item_key' => 'rails', 'question_snapshot' => 'Holme', 'outcome' => 'passed', 'required' => 1]],
+    [],
+    true
+);
+if ($ladder['status'] !== InspectionEvaluationService::PASSED) throw new RuntimeException('Leiterprüfung darf keine Elektro-Messwerte erzwingen.');
+$ladderFailed = InspectionEvaluationService::evaluate(
+    ['inspection_type_code' => 'ladder', 'examiner' => 'leiter@example.test', 'test_date' => '2026-08-07'],
+    [['item_key' => 'rails', 'question_snapshot' => 'Holme', 'outcome' => 'failed', 'required' => 1]],
+    [],
+    true
+);
+if ($ladderFailed['status'] !== InspectionEvaluationService::FAILED) throw new RuntimeException('Orange/rote Leiter-Mängel müssen nicht bestanden ergeben.');
+
 $heating = InspectionEvaluationService::evaluateMeasurement(array_replace($base, ['warming_device_snapshot' => 1]), ['measurement_key' => 'RISO', 'numeric_value' => 0.4]);
 if ($heating['outcome'] !== 'passed' || $heating['limit_value'] !== 0.3) throw new RuntimeException('Wärmegerät-Regel wurde nicht zentral angewendet.');
 

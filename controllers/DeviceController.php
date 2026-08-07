@@ -272,6 +272,7 @@ class DeviceController
                 'zipJob' => $zipJob,
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
+                'inspectionTypes' => InspectionTypeService::active(),
             ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', [

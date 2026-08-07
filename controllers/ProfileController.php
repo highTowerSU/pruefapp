@@ -102,6 +102,45 @@ final class ProfileController
                 $_SESSION['meldung'] = 'Unterweisungsnachweis entfernt.';
                 return [303, ['Location' => $profileUrl], ''];
             }
+            if ($action === 'save_qualification') {
+                $requirementCode = trim((string) ($_POST['requirement_code'] ?? ''));
+                $requirement = R::getRow('SELECT * FROM inspection_type_requirement WHERE code = ? LIMIT 1', [$requirementCode]);
+                $issuedAt = self::validDate((string) ($_POST['qualification_issued_at'] ?? ''));
+                $expiresAt = self::validDate((string) ($_POST['qualification_expires_at'] ?? ''));
+                if ($requirement === [] || $issuedAt === false || $expiresAt === false || $issuedAt === '') {
+                    $_SESSION['fehlermeldung'] = 'Bitte Nachweis und Ausstellungsdatum gültig angeben.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                $proofPath = ''; $proofName = '';
+                $upload = $_FILES['qualification_proof'] ?? null;
+                if (is_array($upload) && (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+                    $tmp = (string) ($upload['tmp_name'] ?? '');
+                    $mime = $tmp !== '' && is_file($tmp) ? (new finfo(FILEINFO_MIME_TYPE))->file($tmp) : '';
+                    if ($mime !== 'application/pdf' || (int) ($upload['size'] ?? 0) > 10 * 1024 * 1024) {
+                        $_SESSION['fehlermeldung'] = 'Der Befähigungsnachweis muss ein PDF bis 10 MB sein.';
+                        return [303, ['Location' => $profileUrl], ''];
+                    }
+                    $directory = app_data_root() . '/user-qualifications/' . (int) $user->id;
+                    if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) throw new RuntimeException('Das Nachweisverzeichnis konnte nicht angelegt werden.');
+                    $proofPath = $directory . '/' . bin2hex(random_bytes(8)) . '.pdf';
+                    if (!move_uploaded_file($tmp, $proofPath)) throw new RuntimeException('Der Befähigungsnachweis konnte nicht gespeichert werden.');
+                    @chmod($proofPath, 0660); $proofName = mb_substr((string) ($upload['name'] ?? 'Nachweis.pdf'), 0, 240);
+                }
+                R::exec('INSERT INTO user_qualification (oauthuser_id, requirement_code, issued_at, expires_at, proof_path, proof_name, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+                    (int) $user->id, $requirementCode, $issuedAt, $expiresAt, $proofPath, $proofName, mb_substr(trim((string) ($_POST['qualification_notes'] ?? '')), 0, 1000), date(DATE_ATOM), date(DATE_ATOM),
+                ]);
+                audit_log('befaehigungsnachweis_gespeichert', ['oauthuser_id' => (int) $user->id, 'requirement_code' => $requirementCode]);
+                $_SESSION['meldung'] = 'Befähigungsnachweis gespeichert.';
+                return [303, ['Location' => $profileUrl], ''];
+            }
+            if ($action === 'confirm_qualification') {
+                if (!current_user_is_superadmin()) return forbidden_response();
+                $qualificationId = (int) ($_POST['qualification_id'] ?? 0);
+                R::exec('UPDATE user_qualification SET confirmed_by = ?, confirmed_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [(int) current_user()->id, date(DATE_ATOM), date(DATE_ATOM), $qualificationId, (int) $user->id]);
+                audit_log('befaehigungsnachweis_bestaetigt', ['oauthuser_id' => (int) $user->id, 'qualification_id' => $qualificationId]);
+                $_SESSION['meldung'] = 'Befähigungsnachweis bestätigt.';
+                return [303, ['Location' => $profileUrl], ''];
+            }
             if ($action === 'delete_signature') {
                 $oldPath = trim((string) ($user->report_signature_path ?? ''));
                 $user->report_signature_path = '';
@@ -182,7 +221,9 @@ final class ProfileController
         $followups = json_decode((string) ($user->instruction_followups_json ?? ''), true);
         $followups = is_array($followups) ? array_values(array_filter($followups, static fn($entry): bool => is_array($entry))) : [];
         $certificates = self::certificates($user);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'canEdit' => $canEdit, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $qualificationRequirements = R::getAll('SELECT r.*, t.name AS inspection_type_name FROM inspection_type_requirement r JOIN inspection_type t ON t.code = r.inspection_type_code WHERE r.active = 1 ORDER BY t.sort_order, r.sort_order');
+        $qualifications = R::getAll('SELECT q.*, r.name AS requirement_name, t.name AS inspection_type_name FROM user_qualification q LEFT JOIN inspection_type_requirement r ON r.code=q.requirement_code LEFT JOIN inspection_type t ON t.code=r.inspection_type_code WHERE q.oauthuser_id = ? ORDER BY q.id DESC', [(int) $user->id]);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'canEdit' => $canEdit, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 
@@ -199,6 +240,24 @@ final class ProfileController
             header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="' . $filename . '"'); header('Content-Length: ' . filesize((string) $certificate['path'])); readfile((string) $certificate['path']); exit;
         }
         return [404, [], 'Nachweis nicht gefunden'];
+    }
+
+    public static function qualificationProof(array $params, bool $isHx): array
+    {
+        $viewer = current_user();
+        if (!$viewer) return [403, [], ''];
+        $targetId = (int) ($params['userId'] ?? 0);
+        if ($targetId > 0) {
+            if (!current_user_has_role('admin')) return forbidden_response();
+        } else {
+            $targetId = (int) $viewer->id;
+        }
+        if ($targetId !== (int) $viewer->id && !current_user_has_role('admin')) return forbidden_response();
+        $qualification = R::getRow('SELECT proof_path, proof_name FROM user_qualification WHERE id = ? AND oauthuser_id = ?', [(int) ($params['qualificationId'] ?? 0), $targetId]);
+        $path = (string) ($qualification['proof_path'] ?? '');
+        if ($qualification === [] || !is_file($path)) return [404, [], 'Nachweis nicht gefunden'];
+        $filename = str_replace('"', '', basename((string) ($qualification['proof_name'] ?: 'befaehigungsnachweis.pdf')));
+        header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="' . $filename . '"'); header('Content-Length: ' . filesize($path)); readfile($path); exit;
     }
 
     private static function certificates($user): array

@@ -45,6 +45,7 @@ require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/CustomerInfoController.php';
 require_once __DIR__ . '/controllers/ReportController.php';
 require_once __DIR__ . '/controllers/BillingController.php';
+require_once __DIR__ . '/controllers/InspectionTypeController.php';
 require_once __DIR__ . '/lib/SevDeskClient.php';
 
 $routes = [
@@ -76,7 +77,9 @@ $routes = [
     ['GET', '/admin/nutzer/{userId}/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
     ['POST', '/admin/nutzer/{userId}/profil', fn($params, $isHx) => ProfileController::index($params, $isHx)],
     ['GET', '/admin/nutzer/{userId}/profil/nachweis/{certificateId}', fn($params, $isHx) => ProfileController::certificate($params, $isHx)],
+    ['GET', '/admin/nutzer/{userId}/profil/befaehigung/{qualificationId}', fn($params, $isHx) => ProfileController::qualificationProof($params, $isHx)],
     ['GET', '/profil/nachweis/{certificateId}', fn($params, $isHx) => ProfileController::certificate($params, $isHx)],
+    ['GET', '/profil/befaehigung/{qualificationId}', fn($params, $isHx) => ProfileController::qualificationProof($params, $isHx)],
     ['GET', '/downloads', fn($params, $isHx) => DownloadController::index($params, $isHx)],
     ['GET', '/downloads/benachrichtigungen', fn($params, $isHx) => DownloadController::notifications($params, $isHx)],
     ['POST', '/downloads/{id}/gelesen', fn($params, $isHx) => DownloadController::markRead($params, $isHx)],
@@ -155,6 +158,8 @@ $routes = [
     ['POST', '/mandanten/{id}/standard', fn($params, $isHx) => TenantController::makeDefault($params, $isHx)],
     ['POST', '/mandanten/{id}/loeschen', fn($params, $isHx) => TenantController::delete($params, $isHx)],
     ['GET', '/admin/konfiguration', fn($params, $isHx) => SettingsController::general($params, $isHx)],
+    ['GET', '/admin/pruefarten', fn($params, $isHx) => InspectionTypeController::index($params, $isHx)],
+    ['POST', '/admin/pruefarten', fn($params, $isHx) => InspectionTypeController::index($params, $isHx)],
     ['POST', '/admin/konfiguration', fn($params, $isHx) => SettingsController::general($params, $isHx)],
     ['GET', '/admin/konfiguration/ki-provider', fn($params, $isHx) => SettingsController::aiProvider($params, $isHx)],
     ['POST', '/admin/konfiguration/ki-provider', fn($params, $isHx) => SettingsController::aiProvider($params, $isHx)],

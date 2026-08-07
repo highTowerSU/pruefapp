@@ -42,7 +42,7 @@ final class InspectionMigrationService
                 // source result from the immutable snapshot during reruns.
                 $oldStatus = $sourceStatus;
             }
-            $catalogId = self::activeCatalogId();
+            $catalogId = self::activeCatalogId(InspectionTypeService::ELECTRICAL);
             $result = [
                 'status' => $oldStatus,
                 'reason_code' => '',
@@ -370,9 +370,9 @@ final class InspectionMigrationService
         return $row;
     }
 
-    private static function activeCatalogId(): int
+    private static function activeCatalogId(string $inspectionType = InspectionTypeService::ELECTRICAL): int
     {
-        $id = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE active = 1 ORDER BY id DESC LIMIT 1');
+        $id = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE inspection_type_code = ? AND active = 1 ORDER BY id DESC LIMIT 1', [$inspectionType]);
         if ($id <= 0) throw new RuntimeException('Kein aktiver Prüfungskatalog vorhanden.');
         return $id;
     }
