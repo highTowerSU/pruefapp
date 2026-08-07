@@ -14,7 +14,7 @@
       target: '#companion-inbox', swap: 'outerHTML', values: {target}
     });
   };
-  const valuesFor = (root, kind) => [...root.querySelectorAll(`[data-companion-item][data-item-kind="${kind}"]`)];
+  const closePopovers = (except = null) => document.querySelectorAll('[data-companion-for]').forEach((button) => { if (button !== except) window.bootstrap?.Popover.getInstance(button)?.dispose(); });
   const applyValue = (input, value) => {
     if (input.tomselect) input.tomselect.setValue(value, true);
     else { input.value = value; input.dispatchEvent(new Event('input', {bubbles: true})); input.dispatchEvent(new Event('change', {bubbles: true})); }
@@ -29,15 +29,18 @@
       button.addEventListener('click', (event) => {
         event.preventDefault();
         const input = document.getElementById(button.dataset.companionFor);
-        const items = valuesFor(root, button.dataset.companionKind || 'barcode');
         if (!input) return;
         const old = window.bootstrap?.Popover.getInstance(button);
         // A field button is a toggle: the second click closes its own menu.
         if (old && button.getAttribute('aria-describedby')) { old.dispose(); return; }
         if (old) old.dispose();
-        const content = items.length ? `<div class="d-grid gap-1">${items.map((item) => `<button type="button" class="btn btn-sm btn-primary text-start" data-companion-choose="${item.dataset.itemId}" data-companion-target="${button.dataset.companionFor}"><i class="fa-solid fa-arrow-down me-1"></i>${escapeHtml(item.dataset.itemValue || item.textContent.trim())}</button>`).join('')}</div>` : (root.dataset.hasActiveConnection === '1' ? '<span class="small">Noch keine passenden Werte vom Smartphone empfangen.</span>' : '<span class="small">Noch kein Smartphone verbunden. Im Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Handy öffnen.</span>');
+        closePopovers(button);
+        const content = root.dataset.hasActiveConnection === '1'
+          ? `<div hx-get="${root.dataset.inboxUrl}?field=${encodeURIComponent(button.dataset.companionFor)}" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Werte laden …</span></div>`
+          : '<span class="small">Noch kein Smartphone verbunden. Im Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Handy öffnen.</span>';
         const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
         popover.show();
+        window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
       });
     });
   };
@@ -46,12 +49,15 @@
     if (!choice) return;
     const root = document.querySelector('[data-companion-inbox]');
     const input = document.getElementById(choice.dataset.companionTarget || '');
-    const item = root?.querySelector(`[data-companion-item][data-item-id="${CSS.escape(choice.dataset.companionChoose)}"]`);
-    if (!root || !input || !item) return;
-    applyValue(input, item.dataset.itemValue || '');
-    consume(root, item.dataset.itemId, input.name || input.id || 'Feld');
-    document.querySelectorAll('[data-companion-for]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
+    if (!root || !input) return;
+    applyValue(input, choice.dataset.companionValue || '');
+    consume(root, choice.dataset.companionChoose, input.name || input.id || 'Feld');
+    closePopovers();
   });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('[data-companion-for], .popover')) closePopovers();
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePopovers(); });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
     if (!root || !window.EventSource) return;

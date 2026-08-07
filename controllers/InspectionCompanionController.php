@@ -119,7 +119,12 @@ final class InspectionCompanionController
     public static function inbox(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
-        return [200, [], self::renderInbox((int) current_user()->id)];
+        $ownerUserId = (int) current_user()->id;
+        $items = InspectionCompanionInboxService::itemsForOwner($ownerUserId);
+        if (trim((string) ($_GET['field'] ?? '')) !== '') {
+            return [200, [], render_template('inspection_companion_choices.php', ['items' => $items, 'field' => (string) $_GET['field']])];
+        }
+        return [200, [], self::renderInbox($ownerUserId)];
     }
 
     public static function useItem(array $params, bool $isHx): array
