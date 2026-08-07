@@ -18,6 +18,8 @@ final class ProfileController
             if (!$user->id) return [404, [], 'Nutzer nicht gefunden'];
         }
         $canEdit = !$adminView || current_user_is_superadmin();
+        $canConfirmQualifications = current_user_has_role('admin')
+            && (!$adminView || (int) ($user->id ?? 0) !== (int) (current_user()->id ?? 0));
         $profileUrl = $adminView ? url_for('admin/nutzer/' . (int) $user->id . '/profil') : url_for('profil');
 
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
@@ -174,11 +176,28 @@ final class ProfileController
                 return [303, ['Location' => $profileUrl], ''];
             }
             if ($action === 'confirm_qualification') {
-                if (!current_user_is_superadmin()) return forbidden_response();
+                if (!current_user_has_role('admin')) return forbidden_response();
                 $qualificationId = (int) ($_POST['qualification_id'] ?? 0);
                 R::exec('UPDATE user_qualification SET confirmed_by = ?, confirmed_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [(int) current_user()->id, date(DATE_ATOM), date(DATE_ATOM), $qualificationId, (int) $user->id]);
                 audit_log('befaehigungsnachweis_bestaetigt', ['oauthuser_id' => (int) $user->id, 'qualification_id' => $qualificationId]);
                 $_SESSION['meldung'] = 'Befähigungsnachweis bestätigt.';
+                return [303, ['Location' => $profileUrl], ''];
+            }
+            if ($action === 'confirm_certificate') {
+                if (!current_user_has_role('admin')) return forbidden_response();
+                $certificateId = trim((string) ($_POST['certificate_id'] ?? ''));
+                $certificate = null;
+                foreach (self::certificates($user) as $candidate) {
+                    if ((string) ($candidate['id'] ?? '') === $certificateId) { $certificate = $candidate; break; }
+                }
+                if ($certificate === null) return [404, [], 'Unterweisungsnachweis nicht gefunden.'];
+                $qualificationIds = array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? []))));
+                if ($qualificationIds !== []) {
+                    $marks = implode(',', array_fill(0, count($qualificationIds), '?'));
+                    R::exec("UPDATE user_qualification SET confirmed_by = ?, confirmed_at = ?, updated_at = ? WHERE oauthuser_id = ? AND id IN ($marks)", array_merge([(int) current_user()->id, date(DATE_ATOM), date(DATE_ATOM), (int) $user->id], $qualificationIds));
+                }
+                audit_log('unterweisungsnachweis_bestaetigt', ['oauthuser_id' => (int) $user->id, 'certificate_id' => $certificateId, 'qualification_ids' => $qualificationIds]);
+                $_SESSION['meldung'] = 'Unterweisung geprüft und den ausgewählten Prüfarten freigegeben.';
                 return [303, ['Location' => $profileUrl], ''];
             }
             if ($action === 'delete_signature') {
@@ -268,7 +287,16 @@ final class ProfileController
         }
         $qualificationRequirements = R::getAll('SELECT r.*, t.name AS inspection_type_name FROM inspection_type_requirement r JOIN inspection_type t ON t.code = r.inspection_type_code WHERE r.active = 1 ORDER BY t.sort_order, r.sort_order');
         $qualifications = R::getAll('SELECT q.*, r.name AS requirement_name, t.name AS inspection_type_name FROM user_qualification q LEFT JOIN inspection_type_requirement r ON r.code=q.requirement_code LEFT JOIN inspection_type t ON t.code=r.inspection_type_code WHERE q.oauthuser_id = ? ORDER BY q.id DESC', [(int) $user->id]);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'canEdit' => $canEdit, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $qualificationById = [];
+        foreach ($qualifications as $qualification) $qualificationById[(int) ($qualification['id'] ?? 0)] = $qualification;
+        foreach ($certificates as &$certificate) {
+            $ids = array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? []))));
+            $linked = array_values(array_filter(array_map(static fn(int $id): ?array => $qualificationById[$id] ?? null, $ids)));
+            $certificate['qualification_status'] = $linked !== [] && count(array_filter($linked, static fn(array $q): bool => empty($q['confirmed_at']))) === 0 ? 'confirmed' : 'pending';
+            $certificate['qualification_expired'] = $linked !== [] && count(array_filter($linked, static fn(array $q): bool => !empty($q['expires_at']) && (string) $q['expires_at'] < date('Y-m-d'))) > 0;
+        }
+        unset($certificate);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 
