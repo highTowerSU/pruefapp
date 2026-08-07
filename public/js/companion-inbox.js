@@ -139,6 +139,8 @@
       const form = photo.closest('form.device-form');
       if (!form || photo.dataset.companionPhotoBound) return;
       photo.dataset.companionPhotoBound = '1';
+      // Shared upload controls already own the one Companion paperclip.
+      if (photo.closest('[data-media-upload-component]')) return;
       const type = form.querySelector('[name="new_device_photo_type"]');
       if (type && type.value === 'type_plate') type.value = 'condition';
       const wrapper = document.createElement('div');

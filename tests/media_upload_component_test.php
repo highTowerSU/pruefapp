@@ -24,7 +24,7 @@ $checks = [
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS room_media') && str_contains($roomService, 'storeUpload') && str_contains($roomController, 'current_user_can_access_customer'), 'Raumfotos werden nicht sicher gespeichert oder berechtigt ausgeliefert.'],
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS structure_media') && str_contains($structureMediaService, 'forEntity') && str_contains($structureMediaController, 'current_user_can_access_customer') && str_contains($structureMediaPanel, "render_template('media_upload_component.php'"), 'Strukturfotos werden nicht sicher über die gemeinsame Foto-Komponente gespeichert.'],
     [str_contains($routes, '/struktur/{type}/{id}/fotos') && str_contains($structure, "StructureMediaController::panel('room'") && str_contains($structure, 'inspection_companion_inbox.php'), 'Strukturfotos oder Companion-Auswahl sind in der Raumansicht nicht erreichbar.'],
-    [str_contains($inboxJs, 'bindMediaUploadComponents') && str_contains($inboxJs, 'data-media-upload-photo-choose') && str_contains($inboxJs, 'picker=upload'), 'Companion-Fotos können nicht in die wiederverwendbare Upload-Komponente übernommen werden.'],
+    [str_contains($inboxJs, 'bindMediaUploadComponents') && str_contains($inboxJs, 'data-media-upload-photo-choose') && str_contains($inboxJs, 'picker=upload') && str_contains($inboxJs, "photo.closest('[data-media-upload-component]')"), 'Companion-Fotos können nicht in die wiederverwendbare Upload-Komponente übernommen werden oder erzeugen doppelte Schaltflächen.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);
