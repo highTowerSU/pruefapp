@@ -3,7 +3,7 @@ $isConnected = ($session['state'] ?? '') === 'connected';
 $pairUrl = !empty($session['token']) ? absolute_url_for('companion/' . $session['token']) : '';
 $pairQrUrl = !empty($session['token']) ? url_for('companion/' . $session['token'] . '/qr') : '';
 ?>
-<section class="card shadow-sm mb-3" id="inspection-companion-panel" data-action-nav="Prüf-Companion" data-action-icon="fa-mobile-screen-button"<?= $session !== [] ? ' hx-get="' . htmlspecialchars(url_for('admin/pruefungen/' . (int) $inspection->id . '/companion/status'), ENT_QUOTES) . '" hx-trigger="every 4s" hx-swap="outerHTML"' : '' ?>>
+<section class="card shadow-sm mb-3" id="inspection-companion-panel" data-action-nav="Prüf-Companion" data-action-icon="fa-mobile-screen-button">
   <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap"><strong><i class="fa-solid fa-mobile-screen-button me-2" aria-hidden="true"></i>Prüf-Companion</strong><?php if ($session !== []): ?><span class="badge text-bg-<?= $isConnected ? 'success' : 'secondary' ?>"><i class="fa-solid <?= $isConnected ? 'fa-link' : 'fa-clock' ?> me-1" aria-hidden="true"></i><?= $isConnected ? 'Mobilgerät verbunden' : 'Warte auf Mobilgerät' ?></span><?php endif; ?></div>
   <div class="card-body">
     <?php if ($session === []): ?>

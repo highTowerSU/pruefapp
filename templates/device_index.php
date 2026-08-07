@@ -21,7 +21,7 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
         <label class="form-label mb-1" for="external-number-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätenummer</label>
         <?php if ($formKey === 0 && $initialNumber === '' && $suggestedDeviceNumber !== ''): ?><button type="button" class="btn btn-link btn-sm p-0" data-suggest-device-number="<?= htmlspecialchars($suggestedDeviceNumber, ENT_QUOTES) ?>">Vorschlag</button><?php endif; ?>
       </div>
-      <input class="form-control" id="external-number-<?= $formKey ?>" name="external_number" value="<?= htmlspecialchars($initialNumber) ?>"<?= $initialNumber !== '' ? ' readonly' : '' ?> required>
+      <div class="input-group"><input class="form-control" id="external-number-<?= $formKey ?>" name="external_number" value="<?= htmlspecialchars($initialNumber) ?>"<?= $initialNumber !== '' ? ' readonly' : '' ?> required><button class="btn btn-secondary" type="button" data-companion-for="external-number-<?= $formKey ?>" title="Letzten Companion-Scan übernehmen"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Scan übernehmen</span></button></div>
       <div class="form-text" data-number-check-hint></div>
     </div>
     <div class="col-md-4"><label class="form-label" for="inventory-number-<?= $formKey ?>"><i class="fa-solid fa-hashtag icon-slot me-1" aria-hidden="true"></i>Inventarnummer</label><input class="form-control" id="inventory-number-<?= $formKey ?>" name="inventory_number" value="<?= htmlspecialchars((string) $device->inventory_number) ?>"></div>
@@ -63,12 +63,14 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
       <div class="input-group">
         <span class="input-group-text" aria-hidden="true"><i class="fa-solid fa-barcode"></i></span>
         <input class="form-control" id="inspection-device-number" inputmode="text" enterkeyhint="search" autocomplete="off" placeholder="Gerätenummer scannen oder eingeben" autofocus>
+        <button class="btn btn-secondary" type="button" data-companion-for="inspection-device-number" title="Letzten Companion-Scan übernehmen"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Scan übernehmen</span></button>
         <button class="btn btn-primary" type="button" id="inspection-device-lookup-button"><i class="fa-solid fa-magnifying-glass me-1" aria-hidden="true"></i>Suchen</button>
       </div>
       <div id="inspection-device-result" class="small mt-2" aria-live="polite"></div>
     </div>
   </div>
 </section>
+<?= render_template('inspection_companion_inbox.php', ['items' => InspectionCompanionInboxService::itemsForOwner((int) current_user()->id)]) ?>
 <?php endif; ?>
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
 <?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'roomLabels', 'examinerOptions')) ?>
