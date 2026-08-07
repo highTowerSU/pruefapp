@@ -4,6 +4,7 @@
   let reconnectTimer = null;
   let activeDraftForm = null;
   let activeDraftType = '';
+  let activeDraftTrigger = null;
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
   const clipboardPng = async (blob) => {
     if (blob.type === 'image/png') return blob;
@@ -32,7 +33,10 @@
   const closePopovers = (except = null) => document.querySelectorAll('[data-companion-for]').forEach((button) => { if (button !== except) window.bootstrap?.Popover.getInstance(button)?.dispose(); });
   const closeDraftPhotoPopovers = () => document.querySelectorAll('[data-companion-draft-photo]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
   const applyValue = (input, value) => {
-    if (input.tomselect) input.tomselect.setValue(value, true);
+    if (input.tomselect) {
+      if (!input.tomselect.options[value]) input.tomselect.addOption({value, text: value});
+      input.tomselect.setValue(value, true);
+    }
     else { input.value = value; input.dispatchEvent(new Event('input', {bubbles: true})); input.dispatchEvent(new Event('change', {bubbles: true})); }
     input.focus();
   };
@@ -86,6 +90,7 @@
     if (!root) return;
     activeDraftForm = form;
     activeDraftType = button.closest('.btn-group')?.querySelector('[data-open-typeplate]') ? 'type_plate' : '';
+    activeDraftTrigger = button.closest('.btn-group')?.querySelector('[data-open-typeplate]') || button;
     const old = window.bootstrap?.Popover.getInstance(button);
     if (old) old.dispose();
     const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
@@ -215,6 +220,12 @@
     const root = document.querySelector('[data-companion-inbox]');
     if (!root) return;
     const itemId = choice.dataset.companionDraftPhotoChoose;
+    const trigger = activeDraftTrigger;
+    const triggerHtml = trigger?.innerHTML || '';
+    if (trigger) {
+      trigger.disabled = true;
+      trigger.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Typenschild wird ausgewertet …';
+    }
     closeDraftPhotoPopovers();
     choice.disabled = true;
     try {
@@ -235,7 +246,7 @@
         else result.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Companion-Foto wurde in den Geräteentwurf übernommen.</div>';
         const apply = result.querySelector('[data-companion-draft-apply]');
         if (apply && proposal) apply.addEventListener('click', () => {
-          ['manufacturer','device_model','name','serial_number','inventory_number'].forEach((key) => { const value = String(proposal[key] || '').trim(); const field = activeDraftForm.querySelector(`[name="${key}"]`); if (!value || !field) return; if (field.tomselect) field.tomselect.setValue(value, true); else { field.value = value; field.dispatchEvent(new Event('change', {bubbles: true})); } });
+          ['manufacturer','device_model','name','serial_number','inventory_number'].forEach((key) => { const value = String(proposal[key] || '').trim(); const field = activeDraftForm.querySelector(`[name="${key}"]`); if (!value || !field) return; applyValue(field, value); });
           apply.disabled = true; apply.innerHTML = '<i class="fa-solid fa-check me-1" aria-hidden="true"></i>Vorschlag übernommen';
         });
       }
@@ -243,6 +254,8 @@
     } catch (error) {
       const result = activeDraftForm.querySelector('[data-draft-photo-result]');
       if (result) result.innerHTML = `<div class="alert alert-danger py-2 mb-0">${escapeHtml(error.message || error)}</div>`;
+    } finally {
+      if (trigger) { trigger.disabled = false; trigger.innerHTML = triggerHtml; }
     }
   });
   document.addEventListener('click', (event) => {
