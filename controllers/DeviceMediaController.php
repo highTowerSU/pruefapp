@@ -13,7 +13,7 @@ final class DeviceMediaController
         try {
             $staged = DeviceDraftMediaService::stage((array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'type_plate'), (string) ($_POST['caption'] ?? ''), (int) current_user()->id);
             audit_log('geraetefoto_vorab_hochgeladen', ['type' => (string) ($_POST['media_type'] ?? 'type_plate')]);
-            return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => true, 'token' => $staged['token'], 'proposal' => $staged['proposal']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+            return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => true, 'token' => $staged['token'], 'proposal' => $staged['proposal'], 'analysis_error' => $staged['analysis_error']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         } catch (Throwable $exception) {
             return [422, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => false, 'error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE)];
         }

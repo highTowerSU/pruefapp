@@ -7,7 +7,7 @@ use RedBeanPHP\R;
 /** Short-lived, user-bound photo staging for a device that does not exist yet. */
 final class DeviceDraftMediaService
 {
-    /** @return array{token:string,proposal:array<string,mixed>|null} */
+    /** @return array{token:string,proposal:array<string,mixed>|null,analysis_error:string} */
     public static function stage(array $upload, string $type, string $caption, int $userId): array
     {
         if ((int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) throw new InvalidArgumentException('Bitte wähle ein Foto aus.');
@@ -25,9 +25,14 @@ final class DeviceDraftMediaService
         $path = $directory . '/' . $token . '.' . $extensions[$mime];
         if (!move_uploaded_file($tmp, $path)) throw new RuntimeException('Das Foto konnte nicht hochgeladen werden.');
         @chmod($path, 0660);
-        $proposal = $type === 'type_plate' ? self::analyseStaged($path, $mime) : null;
+        $proposal = null;
+        $analysisError = '';
+        if ($type === 'type_plate') {
+            try { $proposal = self::analyseStaged($path, $mime); }
+            catch (Throwable $error) { $analysisError = mb_substr($error->getMessage(), 0, 500); }
+        }
         R::exec('INSERT INTO device_draft_media (token_hash, owner_user_id, media_type, caption, path, original_name, mime, bytes, proposal_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [hash('sha256', $token), $userId, $type, mb_substr(trim($caption), 0, 1000), $path, mb_substr((string) ($upload['name'] ?? 'foto.' . $extensions[$mime]), 0, 240), $mime, $size, $proposal ? json_encode($proposal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '', date(DATE_ATOM), date(DATE_ATOM, time() + 86400)]);
-        return ['token' => $token, 'proposal' => $proposal];
+        return ['token' => $token, 'proposal' => $proposal, 'analysis_error' => $analysisError];
     }
 
     public static function consume(string $token, int $userId, int $deviceId): ?int
