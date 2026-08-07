@@ -127,6 +127,9 @@ final class InspectionCompanionController
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $ownerUserId = (int) current_user()->id;
         $items = InspectionCompanionInboxService::itemsForOwner($ownerUserId);
+        if ((string) ($_GET['kind'] ?? '') === 'photo') {
+            return [200, [], render_template('inspection_companion_draft_photo_choices.php', ['items' => $items])];
+        }
         if (trim((string) ($_GET['field'] ?? '')) !== '') {
             return [200, [], render_template('inspection_companion_choices.php', ['items' => $items, 'field' => (string) $_GET['field']])];
         }
@@ -154,6 +157,19 @@ final class InspectionCompanionController
             audit_log('pruef_companion_foto_uebernommen', ['companion_item_id' => $itemId, 'device_id' => $deviceId, 'inspection_id' => $inspectionId, 'media_id' => $mediaId]);
         } catch (Throwable $e) { return [422, [], '<div class="alert alert-danger py-2 mb-0">' . htmlspecialchars($e->getMessage()) . '</div>']; }
         return [200, [], self::renderInbox((int) current_user()->id)];
+    }
+
+    /** Make a phone photo available for a not-yet-persisted device. */
+    public static function adoptPhotoForDraft(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        try {
+            $staged = DeviceDraftMediaService::stageCompanionPhoto((int) ($params['id'] ?? 0), (int) current_user()->id);
+            audit_log('pruef_companion_foto_in_geraeteentwurf', ['companion_item_id' => (int) ($params['id'] ?? 0), 'media_type' => $staged['media_type']]);
+            return [200, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => true] + $staged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        } catch (Throwable $error) {
+            return [422, ['Content-Type' => 'application/json; charset=utf-8'], json_encode(['ok' => false, 'error' => $error->getMessage()], JSON_UNESCAPED_UNICODE)];
+        }
     }
 
     /** SSE carries only a changed item id. HTMX fetches the protected HTML fragment. */

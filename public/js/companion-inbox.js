@@ -2,6 +2,7 @@
   'use strict';
   let stream = null;
   let reconnectTimer = null;
+  let activeDraftForm = null;
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 
   const refresh = (root) => {
@@ -66,6 +67,35 @@
       }
     });
   };
+  const bindDraftPhotoSelectors = (root) => {
+    document.querySelectorAll('[data-stage-device-photo]').forEach((photo) => {
+      const form = photo.closest('form.device-form');
+      if (!form || photo.dataset.companionPhotoBound) return;
+      photo.dataset.companionPhotoBound = '1';
+      const type = form.querySelector('[name="new_device_photo_type"]');
+      if (type && type.value === 'type_plate') type.value = 'condition';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'input-group';
+      photo.replaceWith(wrapper);
+      wrapper.append(photo);
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'btn btn-secondary'; button.dataset.companionDraftPhoto = '1';
+      button.title = 'Foto aus der Companion-App übernehmen';
+      button.innerHTML = '<i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Foto auswählen</span>';
+      wrapper.append(button);
+      if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
+      button.addEventListener('click', () => {
+        if (!root) return;
+        activeDraftForm = form;
+        const old = window.bootstrap?.Popover.getInstance(button);
+        if (old) old.dispose();
+        const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
+        const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
+        popover.show();
+        window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
+      });
+    });
+  };
   document.addEventListener('click', (event) => {
     const choice = event.target.closest('[data-companion-choose]');
     if (!choice) return;
@@ -76,12 +106,36 @@
     consume(root, choice.dataset.companionChoose, input.name || input.id || 'Feld');
     closePopovers();
   });
+  document.addEventListener('click', async (event) => {
+    const choice = event.target.closest('[data-companion-draft-photo-choose]');
+    if (!choice || !activeDraftForm) return;
+    const root = document.querySelector('[data-companion-inbox]');
+    if (!root) return;
+    const itemId = choice.dataset.companionDraftPhotoChoose;
+    choice.disabled = true;
+    try {
+      const response = await fetch(`${root.dataset.inboxUrl}/${itemId}/foto-zu-entwurf`, {method: 'POST', headers: {'Accept': 'application/json'}});
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Companion-Foto konnte nicht übernommen werden.');
+      const token = activeDraftForm.querySelector('[data-draft-photo-token]');
+      if (token) token.value = data.token || '';
+      const type = activeDraftForm.querySelector('[name="new_device_photo_type"]');
+      if (type && data.media_type) type.value = data.media_type;
+      const result = activeDraftForm.querySelector('[data-draft-photo-result]');
+      if (result) result.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Companion-Foto wurde in den Geräteentwurf übernommen.</div>';
+      closePopovers(); refresh(root);
+    } catch (error) {
+      const result = activeDraftForm.querySelector('[data-draft-photo-result]');
+      if (result) result.innerHTML = `<div class="alert alert-danger py-2 mb-0">${escapeHtml(error.message || error)}</div>`;
+    }
+  });
   document.addEventListener('click', (event) => {
     if (!event.target.closest('[data-companion-for], .popover')) closePopovers();
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePopovers(); });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
+    bindDraftPhotoSelectors(root);
     if (!root || !window.EventSource) return;
     if (stream) stream.close();
     stream = new EventSource(root.dataset.eventsUrl);
@@ -92,10 +146,11 @@
       reconnectTimer = setTimeout(connect, 1700);
     };
     bindInputs(root);
+    bindDraftPhotoSelectors(root);
   };
   document.addEventListener('DOMContentLoaded', connect);
   document.body.addEventListener('htmx:afterSwap', (event) => {
     const root = event.target?.matches?.('[data-companion-inbox]') ? event.target : document.querySelector('[data-companion-inbox]');
-    if (root) { bindInputs(root); if (!stream) connect(); }
+    if (root) { bindInputs(root); bindDraftPhotoSelectors(root); if (!stream) connect(); }
   });
 })();

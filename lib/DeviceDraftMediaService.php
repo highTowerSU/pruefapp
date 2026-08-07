@@ -59,6 +59,32 @@ final class DeviceDraftMediaService
         return $mediaId;
     }
 
+    /** Move an unassigned Companion photo into the same short-lived device draft. */
+    public static function stageCompanionPhoto(int $itemId, int $userId): array
+    {
+        $item = R::getRow("SELECT ci.* FROM inspection_companion_item ci JOIN inspection_companion_session s ON s.id = ci.session_id WHERE ci.id = ? AND ci.kind = 'photo' AND ci.status = 'pending' AND s.owner_user_id = ?", [$itemId, $userId]);
+        if ($item === [] || !is_file((string) $item['path'])) throw new RuntimeException('Dieses Companion-Foto ist nicht mehr verfügbar.');
+        $mime = (string) $item['mime'];
+        $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        if (!isset($extensions[$mime])) throw new RuntimeException('Dieses Companion-Foto hat kein unterstütztes Bildformat.');
+        $token = bin2hex(random_bytes(24));
+        $directory = app_data_root() . '/device-drafts/' . $userId;
+        if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) throw new RuntimeException('Das Fotoverzeichnis konnte nicht angelegt werden.');
+        $target = $directory . '/' . $token . '.' . $extensions[$mime];
+        if (!@rename((string) $item['path'], $target)) throw new RuntimeException('Das Companion-Foto konnte nicht in den Geräteentwurf übernommen werden.');
+        @chmod($target, 0660);
+        $type = in_array((string) $item['media_type'], ['type_plate', 'condition', 'defect', 'disposal', 'other'], true) ? (string) $item['media_type'] : 'condition';
+        $proposal = null;
+        $analysisError = '';
+        if ($type === 'type_plate') {
+            try { $proposal = self::analyseStaged($target, $mime); }
+            catch (Throwable $error) { $analysisError = mb_substr($error->getMessage(), 0, 500); }
+        }
+        R::exec('INSERT INTO device_draft_media (token_hash, owner_user_id, media_type, caption, path, original_name, mime, bytes, proposal_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [hash('sha256', $token), $userId, $type, (string) $item['caption'], $target, (string) $item['original_name'], $mime, (int) $item['bytes'], $proposal ? json_encode($proposal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '', date(DATE_ATOM), date(DATE_ATOM, time() + 86400)]);
+        R::exec("UPDATE inspection_companion_item SET status = 'used', used_target = ?, used_at = ? WHERE id = ?", ['Geräteentwurf', date(DATE_ATOM), $itemId]);
+        return ['token' => $token, 'proposal' => $proposal, 'analysis_error' => $analysisError, 'media_type' => $type];
+    }
+
     /** Reuse the established type-plate pipeline without retaining a fake device media record. */
     private static function analyseStaged(string $path, string $mime): ?array
     {
