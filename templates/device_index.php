@@ -1,7 +1,8 @@
 <?php
 require_once dirname(__DIR__) . '/lib/filter_renderer.php';
+$companionConnectionCount ??= 0;
 $displayImportValue = static function ($value): string { if (is_array($value)) { foreach (['brezel_name', 'name', 'email', 'company'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key]; return implode(', ', array_map(static fn($item): string => is_scalar($item) ? (string) $item : '', $value)); } return is_scalar($value) ? (string) $value : ''; };
-$form = static function ($device = null, string $newNumber = '', string $preferredInspectionType = 'electrical') use ($rooms, $roomLabels, $manufacturerOptions, $modelOptions, $nameOptions, $modelOptionsByManufacturer, $nameOptionsByManufacturerModel, $suggestedDeviceNumber, $inspectionTypes, $lastRoomId, $lastRoomLabel): void {
+$form = static function ($device = null, string $newNumber = '', string $preferredInspectionType = 'electrical') use ($rooms, $roomLabels, $manufacturerOptions, $modelOptions, $nameOptions, $modelOptionsByManufacturer, $nameOptionsByManufacturerModel, $suggestedDeviceNumber, $inspectionTypes, $lastRoomId, $lastRoomLabel, $companionConnectionCount): void {
     $device ??= (object) ['id' => 0, 'name' => '', 'room_id' => 0, 'serial_number' => '', 'inventory_number' => '', 'device_model' => '', 'manufacturer' => '', 'warming_device' => 0, 'description' => '', 'comment' => '', 'metadata_json' => '{}'];
     $metadataValue = trim((string) ($device->metadata_json ?? ''));
     if ($metadataValue === '{}') $metadataValue = '';
@@ -15,7 +16,7 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
   <form method="post" action="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>" enctype="multipart/form-data" class="row g-3 device-form">
     <input type="hidden" name="id" value="<?= $formKey ?>">
 
-    <?php if ($formKey === 0): ?><div class="col-12"><a class="btn btn-sm btn-secondary" href="<?= htmlspecialchars(url_for('profil') . '#companion-sessions', ENT_QUOTES) ?>" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Smartphone für Barcode-Scan und Fotos koppeln. Öffnet den Kopplungsbereich im eigenen Profil."><i class="fa-solid fa-mobile-screen-button me-1" aria-hidden="true"></i>Companion-App verbinden</a></div><?php endif; ?>
+    <?php if ($formKey === 0): ?><div class="col-12"><a class="btn btn-sm <?= $companionConnectionCount > 0 ? 'btn-success' : 'btn-secondary' ?>" href="<?= htmlspecialchars(url_for('profil') . '#companion-sessions', ENT_QUOTES) ?>" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="<?= htmlspecialchars($companionConnectionCount > 0 ? $companionConnectionCount . ' Smartphone' . ($companionConnectionCount === 1 ? ' ist' : 'sind') . ' verbunden. Fotos und Scans können direkt übernommen werden.' : 'Smartphone für Barcode-Scan und Fotos koppeln. Öffnet den Kopplungsbereich im eigenen Profil.', ENT_QUOTES) ?>"><i class="fa-solid fa-mobile-screen-button me-1" aria-hidden="true"></i><?= $companionConnectionCount > 0 ? 'Companion-App verbunden' : 'Companion-App verbinden' ?><?php if ($companionConnectionCount > 0): ?><span class="badge text-bg-light text-success ms-1"><?= $companionConnectionCount ?></span><?php endif; ?></a></div><?php endif; ?>
 
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Identifikation</h2></div>
     <div class="col-md-4">

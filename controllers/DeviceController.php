@@ -238,6 +238,7 @@ class DeviceController
         $lastRoomId = (int) ($lastRoom['room_id'] ?? 0);
         $lastRoomLabel = trim((string) ($roomLabels[$lastRoomId] ?? ($lastRoom['name'] ?? '')));
         $user = current_user();
+        $companionConnectionCount = $user ? count(InspectionCompanionService::activeForUser((int) $user->id)) : 0;
         foreach ($inspectionTypes as &$inspectionType) {
             $permission = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
             $inspectionType['allowed'] = $permission['allowed'];
@@ -292,6 +293,7 @@ class DeviceController
                 'inspectionTypes' => $inspectionTypes,
                 'lastRoomId' => $lastRoomId,
                 'lastRoomLabel' => $lastRoomLabel,
+                'companionConnectionCount' => $companionConnectionCount,
                 'mediaByDevice' => $mediaByDevice,
             ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
