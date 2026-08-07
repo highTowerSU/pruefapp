@@ -20,6 +20,8 @@ $checks = [
     [str_contains($profileTemplate, 'id="signature-pad"') && str_contains($profileTemplate, 'pointerdown'), 'Das Profil enthält keine nutzbare Signaturfläche.'],
     [str_contains($users, 'Unterschrift hinterlegt') && str_contains($users, 'Unterschrift fehlt'), 'Die Nutzerverwaltung zeigt den Signaturstatus nicht.'],
     [str_contains($inspectionTypes, 'examinerEligibility($user, $type)') && str_contains($inspectionTypes, 'Technischer Prüfzugang') && !str_contains($inspectionTypes, "current_user_is_superadmin()"), 'Administrative Rollen dürfen Prüfberechtigungen nicht automatisch ersetzen.'],
+    [str_contains($inspectionTypes, "if (\$qualification === [])") && str_contains($inspectionTypes, "\$valid = empty(\$requirement['validity_days']) ? true : (\$expiry !== ''"), 'Fehlende oder abgelaufene Nachweise werden nicht zuverlässig gesperrt.'],
+    [str_contains($lib, 'inspection_requirements_v1_activated') && str_contains($lib, "SET active = 1 WHERE code IN"), 'Die standardmäßigen Nachweisanforderungen werden nicht einmalig aktiviert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

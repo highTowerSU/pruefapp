@@ -60,12 +60,16 @@ final class InspectionTypeService
                 'SELECT * FROM user_qualification WHERE oauthuser_id = ? AND requirement_code = ? ORDER BY confirmed_at DESC, id DESC LIMIT 1',
                 [(int) $user->id, (string) $requirement['code']]
             );
+            if ($qualification === []) {
+                $missing[] = (string) $requirement['name'];
+                continue;
+            }
             $confirmed = empty($requirement['requires_confirmation']) || !empty($qualification['confirmed_at']);
             $expiry = trim((string) ($qualification['expires_at'] ?? ''));
             if ($expiry === '' && !empty($requirement['validity_days']) && trim((string) ($qualification['issued_at'] ?? '')) !== '') {
                 $expiry = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . (int) $requirement['validity_days'] . ' days'));
             }
-            $valid = $expiry === '' || $expiry >= date('Y-m-d');
+            $valid = empty($requirement['validity_days']) ? true : ($expiry !== '' && $expiry >= date('Y-m-d'));
             if (!$confirmed || !$valid) $missing[] = (string) $requirement['name'];
         }
         return $missing === []

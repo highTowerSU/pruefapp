@@ -530,6 +530,13 @@ function seed_inspection_types(): void
             R::exec('UPDATE inspection_type SET icon = ?, updated_at = ? WHERE code = ?', ['fa-stairs', $now, $code]);
         }
     }
+    // Existing installations were seeded with inactive requirements while the
+    // qualification workflow was being introduced. Activate the safety gates
+    // once; later Superadmin changes in the GUI remain authoritative.
+    if (get_app_config('inspection_requirements_v1_activated') !== '1') {
+        R::exec("UPDATE inspection_type_requirement SET active = 1 WHERE code IN ('electrical_basic', 'electrical_instruction', 'electrical_vefk', 'ladder_basic', 'ladder_instruction')");
+        set_app_config('inspection_requirements_v1_activated', '1');
+    }
     foreach ([
         ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', null, 1, 10],
         ['electrical', 'electrical_instruction', 'Elektro-Unterweisung', 365, 0, 20],
@@ -538,7 +545,7 @@ function seed_inspection_types(): void
         ['ladder', 'ladder_instruction', 'Leiter-Unterweisung', 365, 0, 20],
     ] as [$type, $code, $name, $validity, $confirmation, $sort]) {
         if ((int) R::getCell('SELECT id FROM inspection_type_requirement WHERE inspection_type_code = ? AND code = ?', [$type, $code]) === 0) {
-            R::exec('INSERT INTO inspection_type_requirement (inspection_type_code, code, name, validity_days, requires_confirmation, active, sort_order) VALUES (?, ?, ?, ?, ?, 0, ?)', [$type, $code, $name, $validity, $confirmation, $sort]);
+            R::exec('INSERT INTO inspection_type_requirement (inspection_type_code, code, name, validity_days, requires_confirmation, active, sort_order) VALUES (?, ?, ?, ?, ?, 1, ?)', [$type, $code, $name, $validity, $confirmation, $sort]);
         }
     }
     $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
