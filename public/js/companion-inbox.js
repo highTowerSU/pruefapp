@@ -49,14 +49,6 @@
     consume(root, item.dataset.itemId, input.name || input.id || 'Feld');
     document.querySelectorAll('[data-companion-for]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
   });
-  document.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-companion-connect-info]');
-    if (!button || !window.bootstrap) return;
-    const root = document.querySelector('[data-companion-inbox]');
-    const connected = root?.dataset.hasActiveConnection === '1';
-    const old = window.bootstrap.Popover.getInstance(button); if (old) old.dispose();
-    new window.bootstrap.Popover(button, {trigger: 'manual', placement: 'bottom', content: connected ? 'Ein Companion ist verbunden. Neue Werte erscheinen im Companion-Eingang.' : 'Im eigenen Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Smartphone öffnen. Danach stehen Kamera und Barcode-Scan hier bereit.'}).show();
-  });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
     if (!root || !window.EventSource) return;
