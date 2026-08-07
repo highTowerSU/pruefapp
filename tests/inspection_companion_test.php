@@ -12,6 +12,7 @@ $layout = (string) file_get_contents(dirname(__DIR__) . '/templates/layout.php')
 $checks = [
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS inspection_companion_session') && str_contains($schema, 'token_hash'), 'Companion-Sitzungen werden nicht sicher und kurzlebig gespeichert.'],
     [str_contains($service, 'random_bytes(24)') && str_contains($service, "state IN ('pending', 'connected')") && str_contains($service, 'owner_user_id'), 'Die Kopplung besitzt keinen ausreichenden Token-, Ablauf- oder Nutzerbezug.'],
+    [str_contains($service, 'time() + 28800') && str_contains($controller, 'inspectionForCompanion') && str_contains($controller, '$session[\'owner_user_id\']'), 'Die Companion-Kopplung bleibt nicht für die Arbeitsdauer ohne erneuten Login nutzbar.'],
     [str_contains($controller, 'InspectionCompanionService::connect') && str_contains($controller, 'DeviceMediaService::storeUpload') && str_contains($controller, 'pruef_companion_barcode') && str_contains($service, 'owner_user_id'), 'Companion-Scans oder Fotos werden nicht serverseitig abgesichert verarbeitet.'],
     [str_contains($mobile, 'BarcodeDetector') && str_contains($mobile, 'facingMode') && str_contains($mobile, 'capture="environment"'), 'Die mobile Companion-Ansicht unterstützt Scanner oder Kamera nicht.'],
     [str_contains((string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_panel.php'), 'companion-qr-code') && str_contains($layout, 'qrcode.min.js'), 'Der Pairing-Link wird nicht als lokaler QR-Code bereitgestellt.'],

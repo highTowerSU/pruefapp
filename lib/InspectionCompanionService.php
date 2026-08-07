@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use RedBeanPHP\R;
 
-/** Short-lived, same-user pairing between an inspection workspace and a mobile browser. */
+/** Workday pairing between an inspection workspace and a mobile browser. */
 final class InspectionCompanionService
 {
     public static function create(int $inspectionId, int $ownerUserId): array
@@ -12,8 +12,11 @@ final class InspectionCompanionService
         R::exec("UPDATE inspection_companion_session SET state = 'disconnected', disconnected_at = ? WHERE inspection_id = ? AND owner_user_id = ? AND state IN ('pending', 'connected')", [date(DATE_ATOM), $inspectionId, $ownerUserId]);
         $token = bin2hex(random_bytes(24));
         $now = date(DATE_ATOM);
-        R::exec('INSERT INTO inspection_companion_session (inspection_id, owner_user_id, token_hash, state, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)', [$inspectionId, $ownerUserId, hash('sha256', $token), 'pending', $now, date(DATE_ATOM, time() + 600)]);
-        return ['token' => $token, 'expires_at' => date(DATE_ATOM, time() + 600)];
+        // Pair once and keep the phone attached to the laptop workspace for
+        // the working session; the token remains short-lived enough for a
+        // workday but no longer forces repeated QR scans.
+        R::exec('INSERT INTO inspection_companion_session (inspection_id, owner_user_id, token_hash, state, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)', [$inspectionId, $ownerUserId, hash('sha256', $token), 'pending', $now, date(DATE_ATOM, time() + 28800)]);
+        return ['token' => $token, 'expires_at' => date(DATE_ATOM, time() + 28800)];
     }
 
     public static function activeForInspection(int $inspectionId, int $ownerUserId): array

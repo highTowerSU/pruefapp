@@ -34,11 +34,12 @@ final class InspectionCompanionController
 
     public static function open(array $params, bool $isHx): array
     {
-        if (!current_user()) return [303, ['Location' => url_for('login.php')], ''];
         $session = InspectionCompanionService::byToken((string) ($params['token'] ?? ''));
         if ($session === []) return [410, [], 'Diese Companion-Verbindung ist abgelaufen oder wurde getrennt.'];
-        try { InspectionCompanionService::connect($session, (int) current_user()->id); } catch (Throwable $e) { return [403, [], $e->getMessage()]; }
-        $inspection = self::inspection((int) $session['inspection_id']);
+        $viewer = current_user();
+        $viewerId = $viewer ? (int) $viewer->id : (int) $session['owner_user_id'];
+        try { InspectionCompanionService::connect($session, $viewerId); } catch (Throwable $e) { return [403, [], $e->getMessage()]; }
+        $inspection = self::inspectionForCompanion((int) $session['inspection_id']);
         if (!$inspection) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
         return [200, [], render_template('layout.php', ['title' => 'Prüf-Companion', 'content' => render_template('inspection_companion_mobile.php', compact('session', 'inspection', 'device'))])];
@@ -59,10 +60,12 @@ final class InspectionCompanionController
     {
         $session = self::usableSession((string) ($params['token'] ?? ''));
         if ($session === []) return [410, [], 'Verbindung abgelaufen.'];
-        $inspection = self::inspection((int) $session['inspection_id']);
+        $inspection = self::inspectionForCompanion((int) $session['inspection_id']);
         if (!$inspection) return [404, [], 'Prüfung nicht gefunden'];
         try {
-            $id = DeviceMediaService::storeUpload((int) $inspection->device_id, (int) $inspection->id, (array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'condition'), (string) ($_POST['caption'] ?? ''), (int) current_user()->id);
+            $viewer = current_user();
+            $actorId = $viewer ? (int) $viewer->id : (int) $session['owner_user_id'];
+            $id = DeviceMediaService::storeUpload((int) $inspection->device_id, (int) $inspection->id, (array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'condition'), (string) ($_POST['caption'] ?? ''), $actorId);
             InspectionCompanionService::touch($session);
             audit_log('pruef_companion_foto', ['inspection_id' => (int) $inspection->id, 'media_id' => $id]);
             return [200, [], '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Foto gespeichert und am Prüfplatz sichtbar.</div>'];
@@ -71,11 +74,12 @@ final class InspectionCompanionController
 
     private static function usableSession(string $token): array
     {
-        if (!current_user()) return [];
         $session = InspectionCompanionService::byToken($token);
-        if ($session === [] || (int) $session['owner_user_id'] !== (int) current_user()->id) return [];
-        if (self::inspection((int) $session['inspection_id']) === null) return [];
-        InspectionCompanionService::connect($session, (int) current_user()->id);
+        if ($session === []) return [];
+        if (current_user() && (int) $session['owner_user_id'] !== (int) current_user()->id) return [];
+        if (self::inspectionForCompanion((int) $session['inspection_id']) === null) return [];
+        $viewer = current_user();
+        InspectionCompanionService::connect($session, $viewer ? (int) $viewer->id : (int) $session['owner_user_id']);
         return $session;
     }
 
@@ -85,6 +89,14 @@ final class InspectionCompanionController
         if (!$inspection->id) return null;
         $device = R::load('device', (int) $inspection->device_id);
         return $device->id && current_user_can_access_customer(device_customer_id($device)) ? $inspection : null;
+    }
+
+    /** A valid random pairing token is the authorization for mobile requests. */
+    private static function inspectionForCompanion(int $id): ?object
+    {
+        $inspection = R::load('inspection', $id);
+        if (!$inspection->id) return null;
+        return R::load('device', (int) $inspection->device_id)->id ? $inspection : null;
     }
 
     private static function renderPanel(object $inspection): string
