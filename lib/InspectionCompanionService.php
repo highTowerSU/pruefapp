@@ -19,6 +19,12 @@ final class InspectionCompanionService
         return ['token' => $token, 'expires_at' => date(DATE_ATOM, time() + 28800)];
     }
 
+    /** Create a workday pairing before a concrete device or inspection exists. */
+    public static function createWorkspace(int $ownerUserId): array
+    {
+        return self::create(0, $ownerUserId);
+    }
+
     public static function activeForInspection(int $inspectionId, int $ownerUserId): array
     {
         $row = R::getRow("SELECT * FROM inspection_companion_session WHERE inspection_id = ? AND owner_user_id = ? AND state IN ('pending', 'connected') AND expires_at > ? ORDER BY id DESC LIMIT 1", [$inspectionId, $ownerUserId, date(DATE_ATOM)]);
@@ -30,8 +36,8 @@ final class InspectionCompanionService
     {
         return R::getAll("SELECT s.*, i.external_number AS inspection_number, d.external_number AS device_number, d.name AS device_name
             FROM inspection_companion_session s
-            JOIN inspection i ON i.id = s.inspection_id
-            JOIN device d ON d.id = i.device_id
+            LEFT JOIN inspection i ON i.id = s.inspection_id
+            LEFT JOIN device d ON d.id = i.device_id
             WHERE s.owner_user_id = ? AND s.state IN ('pending','connected') AND s.expires_at > ?
             ORDER BY s.id DESC", [$ownerUserId, date(DATE_ATOM)]);
     }

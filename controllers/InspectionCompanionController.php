@@ -36,9 +36,13 @@ final class InspectionCompanionController
     {
         $session = InspectionCompanionService::byToken((string) ($params['token'] ?? ''));
         if ($session === []) return [410, [], 'Diese Companion-Verbindung ist abgelaufen oder wurde getrennt.'];
+        $session['token'] = (string) ($params['token'] ?? '');
         $viewer = current_user();
         $viewerId = $viewer ? (int) $viewer->id : (int) $session['owner_user_id'];
         try { InspectionCompanionService::connect($session, $viewerId); } catch (Throwable $e) { return [403, [], $e->getMessage()]; }
+        if ((int) $session['inspection_id'] === 0) {
+            return [200, [], render_template('layout.php', ['title' => 'Prüf-Companion', 'content' => render_template('inspection_companion_workspace.php', compact('session'))])];
+        }
         $inspection = self::inspectionForCompanion((int) $session['inspection_id']);
         if (!$inspection) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
@@ -77,7 +81,7 @@ final class InspectionCompanionController
         $session = InspectionCompanionService::byToken($token);
         if ($session === []) return [];
         if (current_user() && (int) $session['owner_user_id'] !== (int) current_user()->id) return [];
-        if (self::inspectionForCompanion((int) $session['inspection_id']) === null) return [];
+        if ((int) $session['inspection_id'] !== 0 && self::inspectionForCompanion((int) $session['inspection_id']) === null) return [];
         $viewer = current_user();
         InspectionCompanionService::connect($session, $viewer ? (int) $viewer->id : (int) $session['owner_user_id']);
         return $session;

@@ -25,6 +25,13 @@ final class ProfileController
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!$canEdit) return forbidden_response();
             $action = trim((string) ($_POST['action'] ?? 'upload_signature'));
+            if ($action === 'create_companion_workspace') {
+                $created = InspectionCompanionService::createWorkspace((int) $user->id);
+                $_SESSION['profile_companion_token'] = $created['token'];
+                audit_log('pruef_companion_arbeitsplatz_erstellt', ['oauthuser_id' => (int) $user->id]);
+                $_SESSION['meldung'] = 'Companion-Verbindung für den Prüfplatz erstellt.';
+                return [303, ['Location' => $profileUrl . '#companion-sessions'], ''];
+            }
             if ($action === 'disconnect_companion') {
                 InspectionCompanionService::disconnectSession((int) ($_POST['companion_session_id'] ?? 0), (int) $user->id);
                 audit_log('pruef_companion_getrennt', ['oauthuser_id' => (int) $user->id, 'session_id' => (int) ($_POST['companion_session_id'] ?? 0)]);
@@ -337,6 +344,7 @@ final class ProfileController
         $certificates = self::certificates($user);
         $inspectionTypes = InspectionTypeService::active();
         $activeCompanionSessions = InspectionCompanionService::activeForUser((int) $user->id);
+        $profileCompanionToken = (string) ($_SESSION['profile_companion_token'] ?? '');
         $inspectionPermissions = [];
         foreach ($inspectionTypes as $inspectionType) {
             $inspectionPermissions[(string) $inspectionType['code']] = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
@@ -364,7 +372,7 @@ final class ProfileController
             $certificate['confirmed_at'] = (string) ($latestConfirmation['confirmed_at'] ?? '');
         }
         unset($certificate);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'profileCompanionToken' => $profileCompanionToken, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 
