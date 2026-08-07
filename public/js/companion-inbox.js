@@ -2,6 +2,7 @@
   'use strict';
   let stream = null;
   let reconnectTimer = null;
+  const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
 
   const refresh = (root) => {
     if (!root || !window.htmx) return;
@@ -14,24 +15,48 @@
     });
   };
   const valuesFor = (root, kind) => [...root.querySelectorAll(`[data-companion-item][data-item-kind="${kind}"]`)];
+  const applyValue = (input, value) => {
+    if (input.tomselect) input.tomselect.setValue(value, true);
+    else { input.value = value; input.dispatchEvent(new Event('input', {bubbles: true})); input.dispatchEvent(new Event('change', {bubbles: true})); }
+    input.focus();
+  };
   const bindInputs = (root) => {
     document.querySelectorAll('[data-companion-for]').forEach((button) => {
+      if (root.dataset.hasActiveConnection !== '1') { button.classList.add('d-none'); return; }
+      button.classList.remove('d-none');
       if (button.dataset.companionBound) return;
       button.dataset.companionBound = '1';
       button.addEventListener('click', (event) => {
         event.preventDefault();
         const input = document.getElementById(button.dataset.companionFor);
         const items = valuesFor(root, button.dataset.companionKind || 'barcode');
-        if (!input || items.length === 0) return;
-        const item = items[0];
-        input.value = item.dataset.itemValue || '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
-        input.dispatchEvent(new Event('change', {bubbles: true}));
-        consume(root, item.dataset.itemId, input.name || input.id || 'Feld');
-        input.focus();
+        if (!input) return;
+        const old = window.bootstrap?.Popover.getInstance(button); if (old) old.dispose();
+        const content = items.length ? `<div class="d-grid gap-1">${items.map((item) => `<button type="button" class="btn btn-sm btn-primary text-start" data-companion-choose="${item.dataset.itemId}" data-companion-target="${button.dataset.companionFor}"><i class="fa-solid fa-arrow-down me-1"></i>${escapeHtml(item.dataset.itemValue || item.textContent.trim())}</button>`).join('')}</div>` : (root.dataset.hasActiveConnection === '1' ? '<span class="small">Noch keine passenden Werte vom Smartphone empfangen.</span>' : '<span class="small">Noch kein Smartphone verbunden. Im Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Handy öffnen.</span>');
+        const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
+        popover.show();
       });
     });
   };
+  document.addEventListener('click', (event) => {
+    const choice = event.target.closest('[data-companion-choose]');
+    if (!choice) return;
+    const root = document.querySelector('[data-companion-inbox]');
+    const input = document.getElementById(choice.dataset.companionTarget || '');
+    const item = root?.querySelector(`[data-companion-item][data-item-id="${CSS.escape(choice.dataset.companionChoose)}"]`);
+    if (!root || !input || !item) return;
+    applyValue(input, item.dataset.itemValue || '');
+    consume(root, item.dataset.itemId, input.name || input.id || 'Feld');
+    document.querySelectorAll('[data-companion-for]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
+  });
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-companion-connect-info]');
+    if (!button || !window.bootstrap) return;
+    const root = document.querySelector('[data-companion-inbox]');
+    const connected = root?.dataset.hasActiveConnection === '1';
+    const old = window.bootstrap.Popover.getInstance(button); if (old) old.dispose();
+    new window.bootstrap.Popover(button, {trigger: 'manual', placement: 'bottom', content: connected ? 'Ein Companion ist verbunden. Neue Werte erscheinen im Companion-Eingang.' : 'Im eigenen Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Smartphone öffnen. Danach stehen Kamera und Barcode-Scan hier bereit.'}).show();
+  });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
     if (!root || !window.EventSource) return;

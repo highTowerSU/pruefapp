@@ -1,12 +1,13 @@
 <?php
 $pending = array_values(array_filter($items, static fn(array $item): bool => ($item['status'] ?? '') === 'pending'));
 $used = array_values(array_filter($items, static fn(array $item): bool => ($item['status'] ?? '') !== 'pending'));
+$hasActiveConnection = InspectionCompanionService::activeForUser((int) current_user()->id) !== [];
 $label = static function (array $item): string {
     if (($item['kind'] ?? '') === 'barcode') return (string) $item['value'];
     return ((string) ($item['media_type'] ?? '') === 'type_plate' ? 'Typenschildfoto' : 'Companion-Foto') . ((string) ($item['caption'] ?? '') !== '' ? ' · ' . (string) $item['caption'] : '');
 };
 ?>
-<section class="card shadow-sm mb-3" id="companion-inbox" data-companion-inbox data-inbox-url="<?= htmlspecialchars(url_for('companion/eingang'), ENT_QUOTES) ?>" data-events-url="<?= htmlspecialchars(url_for('companion/ereignisse'), ENT_QUOTES) ?>">
+<section class="card shadow-sm mb-3" id="companion-inbox" data-companion-inbox data-has-active-connection="<?= $hasActiveConnection ? '1' : '0' ?>" data-inbox-url="<?= htmlspecialchars(url_for('companion/eingang'), ENT_QUOTES) ?>" data-events-url="<?= htmlspecialchars(url_for('companion/ereignisse'), ENT_QUOTES) ?>">
   <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
     <strong><i class="fa-solid fa-mobile-screen-button me-2" aria-hidden="true"></i>Companion-Eingang</strong>
     <span class="badge text-bg-<?= $pending === [] ? 'secondary' : 'primary' ?>" data-companion-count><?= count($pending) ?></span>
