@@ -3,7 +3,9 @@
 
 // Kept deliberately tiny: PHP passes the pairing URL via stdin, while this
 // script writes a self-contained SVG. No browser JavaScript is involved.
-const QRCode = require('../node_modules/qrcode')
+// The project already ships this bundled QR encoder for the browser. Reusing
+// the committed bundle avoids a production dependency on node_modules.
+const QRCode = require('../public/js/qrcode.min.js')
 
 let input = ''
 process.stdin.setEncoding('utf8')
