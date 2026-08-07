@@ -120,7 +120,9 @@ class AdminController
     private static function aiProviderApiDebug(array $headers): array
     {
         $provider = AiProviderService::selectedVocabularyProvider();
-        $model = trim((string) get_app_config('vocabulary_ai_model', ''));
+        $configuredModel = trim((string) get_app_config('vocabulary_ai_model', ''));
+        $requestedModel = trim((string) ($_GET['model'] ?? ''));
+        $model = $requestedModel !== '' && mb_strlen($requestedModel, 'UTF-8') <= 160 ? $requestedModel : $configuredModel;
         $baseUrl = trim((string) ($provider->base_url ?? ''));
         $result = [
             'ok' => false,
@@ -128,6 +130,8 @@ class AdminController
             'provider' => (string) ($provider->name ?? ''),
             'endpoint' => $baseUrl === '' ? '' : ((string) parse_url($baseUrl, PHP_URL_SCHEME) . '://' . (string) parse_url($baseUrl, PHP_URL_HOST) . (string) parse_url($baseUrl, PHP_URL_PATH)),
             'model' => $model,
+            'configured_model' => $configuredModel,
+            'temporary_model_override' => $requestedModel !== '' && $requestedModel !== $configuredModel,
         ];
         if ($provider === null || $model === '') {
             $result['error'] = 'Provider oder Modell ist nicht konfiguriert.';
