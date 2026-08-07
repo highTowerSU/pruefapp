@@ -18,7 +18,8 @@ $sources = [
 
 if (!str_contains($layout, 'id="page-action-navigation"')
     || !str_contains($layout, 'data-action-nav')
-    || !str_contains($layout, 'buildActionNavigation')) {
+    || !str_contains($layout, 'buildActionNavigation')
+    || !str_contains($layout, 'unique.length < 2')) {
     throw new RuntimeException('Der gemeinsame Schnellzugriff für Aktionsbereiche fehlt.');
 }
 

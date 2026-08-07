@@ -453,7 +453,10 @@ $assetVersion = app_asset_version();
                 const targets = [...document.querySelectorAll('[data-action-nav]')]
                     .filter(target => target.id && !target.closest('#page-action-navigation'));
                 const unique = [...new Map(targets.map(target => [target.id, target])).values()];
-                if (unique.length === 0) {
+                // Ein einzelner Aktionsbereich ist an seinem fachlichen Ort
+                // bereits eindeutig. Die Kopfzeile ist nur bei mehreren
+                // Sprungzielen eine echte Orientierungshilfe.
+                if (unique.length < 2) {
                     navigation.classList.add('d-none');
                     navigation.replaceChildren();
                     return;
