@@ -10,6 +10,7 @@ $searchSelect = (string) file_get_contents(dirname(__DIR__) . '/public/js/search
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 $inspectionController = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
 $inspectionTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_edit.php');
+$dailyExaminerMarkup = strstr($template, 'id="daily-examiner"') ?: '';
 
 $lookupPosition = strpos($template, 'id="device-inspection-lookup"');
 $filterPosition = strpos($template, "render_common_filter_panel('device'");
@@ -34,7 +35,8 @@ $checks = [
     [str_contains($template, 'data-copy-device-name-label') && str_contains($template, 'updateNameSuggestion'), 'Die passende Gerätebezeichnung wird nach der Modellauswahl nicht eindeutig benannt.'],
     [str_contains($template, 'dropdown-toggle-split') && str_contains($template, 'preferredInspectionType') && str_contains($template, 'Neue <?= htmlspecialchars((string) $preferred[\'name\']) ?>'), 'Neue Prüfungen verwenden nicht die zuletzt verwendete Prüfart als Split-Schaltfläche.'],
     [str_contains($template, 'data-metadata-editor') && str_contains($template, 'MAC-Adresse') && str_contains($template, 'data-metadata-json'), 'Der visuelle Editor für Geräte-Zusatzattribute fehlt.'],
-    [str_contains($template, 'data-toggle-all-devices') && str_contains($template, 'details.device-card[id^="geraet-"]'), 'Die Geräteliste bietet keinen gezielten Alle-ausklappen-Schalter.'],
+    [str_contains($filterRenderer, 'data-toggle-all-devices') && str_contains($filterRenderer, "if (\$context === 'device')") && str_contains($template, 'details.device-card[id^="geraet-"]'), 'Die Geräteliste bietet keinen gezielten Alle-ausklappen-Schalter neben dem Filter-Reset.'],
+    [str_contains($dailyExaminerMarkup, "\$examinerUser['label']") && !str_contains($dailyExaminerMarkup, "\$examinerUser['email']"), 'Prüfer werden in Auswahl und Massenaktionen noch mit E-Mail-Adresse angezeigt.'],
     [str_contains($template, 'data-action-nav="Geräteaktionen"') && str_contains($template, 'data-action-nav="Neues Gerät"'), 'Die Geräteaktionsbereiche sind nicht im gemeinsamen Schnellzugriff markiert.'],
     [str_contains($template, 'data-suggest-last-room') && str_contains($template, 'data-metadata-editor'), 'Der Raumvorschlag oder einklappbare Zusatzattribute fehlen.'],
     [str_contains($inspectionTemplate, 'name="metadata_notes"') && str_contains($inspectionController, "'metadata_notes'"), 'Die Prüfungsbemerkung wird nicht serverseitig gespeichert.'],
