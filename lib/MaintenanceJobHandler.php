@@ -111,7 +111,7 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
         }
 
-        set_app_config('import_result_reconciliation_version', '6');
+        set_app_config('import_result_reconciliation_version', '7');
         set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
     }
@@ -126,7 +126,12 @@ final class MaintenanceJobHandler
         $duplicate = R::load('inspection', $duplicateId);
         if (!(int) $duplicate->id || !in_array((string) $duplicate->source_type, ['csv', 'json'], true)) return $duplicateId;
         $number = trim((string) $duplicate->external_number);
-        if (!preg_match('/^(.*)-([2-9][0-9]*)$/', $number, $match)) return $duplicateId;
+        // Inspection numbers conventionally end in a two digit year ("-26").
+        // Only a second numeric part after that year is an artificial suffix
+        // created by the duplicate-number allocator ("-26-2").
+        if (!preg_match('/^(.*-\d{2})-([2-9][0-9]*)$/', $number, $match)) {
+            return self::mergeManualSuffixIntoImport($duplicate);
+        }
         $canonical = R::findOne('inspection', "device_id = ? AND external_number = ? AND id <> ?
             AND TRIM(COALESCE(report_path, '')) = ''
             AND (COALESCE(result_status, '') IN ('', 'in_progress', 'data_missing', 'pending')
@@ -184,6 +189,54 @@ final class MaintenanceJobHandler
             'canonical_inspection_number' => (string) $canonical->external_number,
             'duplicate_inspection_id' => $duplicateId,
             'duplicate_inspection_number' => $number,
+        ]);
+        return (int) $canonical->id;
+    }
+
+    /** Reverses the same mistake when an import occupied the base number first. */
+    private static function mergeManualSuffixIntoImport(\RedBeanPHP\OODBBean $canonical): int
+    {
+        $number = trim((string) $canonical->external_number);
+        if ($number === '') return (int) $canonical->id;
+        $manual = null;
+        foreach (R::findAll('inspection', ' device_id = ? AND source_type = ? AND external_number LIKE ? ORDER BY id ASC ', [(int) $canonical->device_id, 'manual', $number . '-%']) as $candidate) {
+            if (!preg_match('/^' . preg_quote($number, '/') . '-([2-9][0-9]*)$/', (string) $candidate->external_number)) continue;
+            if (trim((string) ($candidate->report_path ?? '')) !== '') continue;
+            if (!in_array((string) ($candidate->result_status ?? ''), ['in_progress', 'data_missing', 'pending'], true)) continue;
+            $manual = $candidate;
+            break;
+        }
+        if ($manual === null) return (int) $canonical->id;
+
+        R::begin();
+        try {
+            foreach (['test_date', 'next_due_date', 'examiner', 'protection_class', 'inspection_type', 'storage_slot', 'cable_length_m', 'rsl_limit_ohm', 'metadata_notes', 'regie_reason', 'regie_minutes'] as $field) {
+                if (trim((string) ($manual->{$field} ?? '')) !== '') $canonical->{$field} = $manual->{$field};
+            }
+            foreach (['checklist_json', 'measurements_json', 'raw_json'] as $field) {
+                $value = trim((string) ($manual->{$field} ?? ''));
+                if ($value !== '' && $value !== '[]' && $value !== '{}') $canonical->{$field} = $value;
+            }
+            $canonical->result_status = (string) ($manual->result_status ?: InspectionEvaluationService::IN_PROGRESS);
+            $canonical->status = (string) ($manual->status ?: InspectionEvaluationService::IN_PROGRESS);
+            $canonical->updated_at = date(DATE_ATOM);
+            foreach (['inspection_answer', 'inspection_measurement', 'inspection_diagnostic'] as $table) {
+                R::exec("DELETE FROM {$table} WHERE inspection_id = ?", [(int) $canonical->id]);
+                R::exec("DELETE FROM {$table} WHERE inspection_id = ?", [(int) $manual->id]);
+            }
+            R::trash($manual);
+            R::store($canonical);
+            R::commit();
+        } catch (Throwable $exception) {
+            R::rollback();
+            throw $exception;
+        }
+        audit_log('import_pruefung_zusammengefuehrt', [
+            '_category' => 'import',
+            'canonical_inspection_id' => (int) $canonical->id,
+            'canonical_inspection_number' => $number,
+            'duplicate_inspection_id' => (int) $manual->id,
+            'duplicate_inspection_number' => (string) $manual->external_number,
         ]);
         return (int) $canonical->id;
     }

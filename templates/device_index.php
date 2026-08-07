@@ -204,7 +204,10 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   group(floorSelect, id => floorBuilding[id] || 0, id => { const building = buildingLabels[id] || 'Ohne Gebäude'; const site = siteLabels[buildingSite[id]] || 'Ohne Standort'; const customer = customerLabels[siteCustomer[buildingSite[id]]] || 'Ohne Firma'; return customer + ' · ' + site + ' · ' + building; });
 })();
  </script>
-<p class="small text-body-secondary"><?= (int) $total ?> Geräte · Seite <?= (int) $page ?> von <?= (int) $pages ?></p>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+  <p class="small text-body-secondary mb-0"><?= (int) $total ?> Geräte · Seite <?= (int) $page ?> von <?= (int) $pages ?></p>
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle-all-devices aria-expanded="false"><i class="fa-solid fa-angles-down me-1" aria-hidden="true"></i><span>Alle ausklappen</span></button>
+</div>
 <?php if (!empty($zipJob)): ?><div id="zip-job-status" class="alert alert-info" data-status-url="<?= htmlspecialchars(url_for('geraete/zip/' . $zipJob . '/status'), ENT_QUOTES) ?>" data-download-url="<?= htmlspecialchars(url_for('geraete/zip/' . $zipJob . '/download'), ENT_QUOTES) ?>" data-cancel-url="<?= htmlspecialchars(url_for('geraete/zip/' . $zipJob . '/abbrechen'), ENT_QUOTES) ?>">Der Export wird vorbereitet …</div><script>(()=>{const box=document.getElementById('zip-job-status');const poll=()=>fetch(box.dataset.statusUrl,{headers:{Accept:'application/json'}}).then(r=>r.json()).then(s=>{if(s.state==='done'){box.className='alert alert-success';box.innerHTML='<strong>ZIP-Export fertig.</strong> <a class="alert-link" href="'+box.dataset.downloadUrl+'">ZIP herunterladen</a>';}else if(s.state==='error'||s.state==='cancelled'){box.className='alert alert-danger';box.textContent=s.state==='cancelled'?'Der ZIP-Export wurde abgebrochen.':'ZIP-Export fehlgeschlagen: '+(s.error||'unbekannter Fehler');}else{const progress=s.step&&s.total?' '+s.step+' von '+s.total+' PDFs verarbeitet.':'';box.textContent=(s.message||'Der Export läuft im Hintergrund.')+progress;if(s.can_cancel){const button=document.createElement('button');button.type='button';button.className='btn btn-sm btn-outline-danger ms-2';button.innerHTML='<i class="fa-solid fa-stop me-1"></i>Abbrechen';button.onclick=()=>fetch(box.dataset.cancelUrl,{method:'POST'}).then(()=>poll());box.appendChild(button);}setTimeout(poll,1500);}}).catch(()=>setTimeout(poll,3000));poll();})();</script><?php endif; ?>
 <?php if (!empty($canManage) || !empty($canBulkManage)): ?><details id="device-actions-panel" class="card mb-3"><summary class="card-header fw-semibold">Auswahl &amp; Massenaktionen</summary><div class="card-body">
 <?php if (!empty($canManage)): ?><form id="device-export-form" method="post" action="<?= htmlspecialchars(url_for('geraete/export'), ENT_QUOTES) ?>" class="card card-body mb-3">
@@ -386,6 +389,28 @@ document.querySelectorAll('.device-card').forEach(card => {
 });
 </script>
 <script>
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-toggle-all-devices]');
+  if (!button) return;
+  const cards = [...document.querySelectorAll('#device-page details.device-card[id^="geraet-"]')];
+  const open = cards.some(card => !card.open);
+  cards.forEach(card => { card.open = open; });
+  button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  button.innerHTML = open
+    ? '<i class="fa-solid fa-angles-up me-1" aria-hidden="true"></i><span>Alle einklappen</span>'
+    : '<i class="fa-solid fa-angles-down me-1" aria-hidden="true"></i><span>Alle ausklappen</span>';
+});
+document.addEventListener('toggle', event => {
+  if (!(event.target instanceof HTMLDetailsElement) || !event.target.matches('#device-page details.device-card[id^="geraet-"]')) return;
+  const button = document.querySelector('[data-toggle-all-devices]');
+  if (!button) return;
+  const cards = [...document.querySelectorAll('#device-page details.device-card[id^="geraet-"]')];
+  const allOpen = cards.length > 0 && cards.every(card => card.open);
+  button.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
+  button.innerHTML = allOpen
+    ? '<i class="fa-solid fa-angles-up me-1" aria-hidden="true"></i><span>Alle einklappen</span>'
+    : '<i class="fa-solid fa-angles-down me-1" aria-hidden="true"></i><span>Alle ausklappen</span>';
+}, true);
 document.addEventListener('click', event => {
   const link = event.target.closest('#device-page .pagination a');
   if (!link || !window.htmx) return;

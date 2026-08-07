@@ -252,6 +252,57 @@ try {
     if ((string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$openId]) !== InspectionEvaluationService::PASSED) {
         throw new RuntimeException('Das bestätigte Quellergebnis wurde nach der Zusammenführung nicht übernommen.');
     }
+
+    // The inverse case occurs when an import occupies the base number and a
+    // staff member then starts a manual "-2" inspection. Keep the import as
+    // the canonical number and transfer the working state into it.
+    $importedBase = R::dispense('inspection');
+    $importedBase->device_id = $deviceId;
+    $importedBase->dedupe_key = 'imported-base-number';
+    $importedBase->source_type = 'csv';
+    $importedBase->source_file = 'AK_Elektro-26_08_03.csv';
+    $importedBase->external_number = '100012571-26';
+    $importedBase->test_date = '2026-08-06';
+    $importedBase->inspection_type = 'Klasse II';
+    $importedBase->protection_class = 'II';
+    $importedBase->classification = 'migrated_import';
+    $importedBase->result_status = 'data_missing';
+    $importedBase->status = 'data_missing';
+    $importedBase->raw_json = '{}';
+    $importedBase->checklist_json = '[]';
+    $importedBase->measurements_json = '[]';
+    $importedBaseId = (int) R::store($importedBase);
+    $manualSuffix = R::dispense('inspection');
+    $manualSuffix->device_id = $deviceId;
+    $manualSuffix->dedupe_key = 'manual-suffix-number';
+    $manualSuffix->source_type = 'manual';
+    $manualSuffix->external_number = '100012571-26-2';
+    $manualSuffix->test_date = '2026-08-04';
+    $manualSuffix->next_due_date = '2027-08-04';
+    $manualSuffix->inspection_type = 'Schutzklasse II';
+    $manualSuffix->protection_class = 'II';
+    $manualSuffix->examiner = 'Eandro Leon Debertshäuser';
+    $manualSuffix->result_status = 'in_progress';
+    $manualSuffix->status = 'in_progress';
+    $manualSuffix->metadata_notes = 'Vor Ort begonnen';
+    $manualSuffix->raw_json = '{}';
+    $manualSuffix->checklist_json = '[]';
+    $manualSuffix->measurements_json = '[]';
+    R::store($manualSuffix);
+    $reverseMessages = [];
+    MaintenanceJobHandler::run(
+        ['type' => 'import_result_reconciliation', 'checkpoint' => [], 'current' => 0, 'total' => 1],
+        static function (array $checkpoint, int $current, int $total, string $number, string $message) use (&$reverseMessages): void {
+            $reverseMessages[] = $number . ': ' . $message;
+        }
+    );
+    $reverseSuffixLeft = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number = '100012571-26-2'");
+    $reverseStatus = (string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$importedBaseId]);
+    $reverseDate = (string) R::getCell('SELECT test_date FROM inspection WHERE id = ?', [$importedBaseId]);
+    $reverseNotes = (string) R::getCell('SELECT metadata_notes FROM inspection WHERE id = ?', [$importedBaseId]);
+    if ($reverseSuffixLeft !== 0 || $reverseStatus !== InspectionEvaluationService::IN_PROGRESS || $reverseDate !== '2026-08-04' || $reverseNotes !== 'Vor Ort begonnen') {
+        throw new RuntimeException("Importbasis und manuelle -2-Prüfung wurden nicht sauber zusammengeführt ({$reverseSuffixLeft}, {$reverseStatus}, {$reverseDate}, {$reverseNotes}; " . implode(' | ', $reverseMessages) . ').');
+    }
     $controllerSource = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
     $importTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_import.php');
     if (!str_contains($controllerSource, 'i.test_date DESC')

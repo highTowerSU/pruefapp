@@ -128,15 +128,15 @@ try {
     // Version 2 intentionally leaves genuinely inconclusive imports open.
     // Re-queuing those rows after a successful run produced a fresh completed
     // job (and notification) on every cron tick without making progress.
-    if ($importReconciliationVersion !== '6') {
+    if ($importReconciliationVersion !== '7') {
         if ($importsToReconcile > 0) {
             BackgroundJobService::enqueue(
                 'import_result_reconciliation',
                 ['type' => 'import_result_reconciliation'],
-                ['total' => $importsToReconcile, 'dedupe_key' => 'maintenance:import-result-reconciliation:v6', 'cancellable' => false]
+                ['total' => $importsToReconcile, 'dedupe_key' => 'maintenance:import-result-reconciliation:v7', 'cancellable' => false]
             );
         } else {
-            set_app_config('import_result_reconciliation_version', '6');
+            set_app_config('import_result_reconciliation_version', '7');
         }
     }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));

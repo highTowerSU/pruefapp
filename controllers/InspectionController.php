@@ -33,9 +33,19 @@ final class InspectionController
         }
         $device = R::load('device', (int) ($params['deviceId'] ?? 0));
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Gerät nicht gefunden'];
+        $expectedNumber = trim((string) $device->external_number) . '-' . date('y');
+        $openImported = R::findOne('inspection', "device_id = ? AND external_number = ?
+            AND source_type IN ('csv', 'json')
+            AND TRIM(COALESCE(report_path, '')) = ''
+            AND (result_status IN ('data_missing', 'in_progress') OR status IN ('data_missing', 'in_progress', 'pending'))
+            ORDER BY id DESC", [(int) $device->id, $expectedNumber]);
+        if ($openImported !== null) {
+            $_SESSION['meldung'] = 'Die bereits vorhandene unvollständige Importprüfung wurde geöffnet, damit keine zweite Prüfung entsteht.';
+            return [303, ['Location' => url_for('admin/pruefungen/' . (int) $openImported->id . '/bearbeiten')], ''];
+        }
         $inspection = R::dispense('inspection');
         $inspection->device_id = (int) $device->id;
-        $inspection->external_number = self::uniqueExternalNumber(trim((string) $device->external_number) . '-' . date('y'));
+        $inspection->external_number = self::uniqueExternalNumber($expectedNumber);
         $inspection->dedupe_key = hash('sha256', 'manual|' . $device->id . '|' . microtime(true) . '|' . bin2hex(random_bytes(8)));
         $inspection->source_type = 'manual';
         $inspection->source_file = null;
