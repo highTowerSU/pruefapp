@@ -414,10 +414,14 @@ html, body { max-width: 100%; overflow-x: hidden; }
 
 /* TomSelect replaces the source input with a wrapper. Keep it behaving as the
    flexible member of an input group beside the Companion paperclip. */
-.companion-field-group .ts-wrapper { flex: 1 1 auto; min-width: 0; width: 1%; }
+.companion-field-group { display: flex; flex-wrap: nowrap !important; }
+.companion-field-group .ts-wrapper,
+.companion-field-group .ts-wrapper.form-control,
+.companion-field-group .ts-wrapper.form-select { flex: 1 1 0 !important; min-width: 0; width: auto !important; }
 .companion-field-group .ts-control { min-height: 2.75rem; }
-.companion-field-group .ts-wrapper.form-select { border-radius: var(--bs-border-radius) 0 0 var(--bs-border-radius); }
-.companion-field-group > .btn { flex: 0 0 auto; }
+.companion-field-group .ts-wrapper.form-select,
+.companion-field-group .ts-wrapper.form-control { border-radius: var(--bs-border-radius) 0 0 var(--bs-border-radius); }
+.companion-field-group > .btn { flex: 0 0 auto; white-space: nowrap; }
 
 .stat-tile {
   display: flex;
