@@ -27,6 +27,11 @@ if (InspectionEvaluationService::rslLimit(12.6) !== 0.5) throw new RuntimeExcept
 if (InspectionEvaluationService::requiredMeasurementKeys('Klasse II') !== ['RISO', 'IBER']) {
     throw new RuntimeException('Importierte Schutzklassenbezeichnung wurde nicht zentral normalisiert.');
 }
+if (InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SK1 für euP unter Leitung der VEFK', 'I') !== 'Schutzklasse I'
+    || InspectionEvaluationService::canonicalInspectionType('Klasse II', 'II') !== 'Schutzklasse II'
+) {
+    throw new RuntimeException('Prüfarten der Importquellen werden nicht einheitlich als Schutzklasse dargestellt.');
+}
 $legacySql = InspectionEvaluationService::sqlStatusExpression('i');
 if (!str_contains($legacySql, "i.classification = 'legacy'")
     || !str_contains($legacySql, "i.test_date < '2025-01-01'")

@@ -81,6 +81,22 @@ final class InspectionMigrationService
                     $canonicalMeasurements,
                     $complete
                 );
+                // A completed source result is authoritative for migrated
+                // records. Individual legacy/Benning values may be absent or
+                // not machine-readable, but that must not turn a confirmed
+                // "bestanden" into the false state "Daten fehlen".
+                if ($classification === 'migrated_import'
+                    && $result['status'] === InspectionEvaluationService::DATA_MISSING
+                    && $sourceStatus === InspectionEvaluationService::PASSED
+                ) {
+                    $result = [
+                        'status' => InspectionEvaluationService::PASSED,
+                        'reason_code' => 'source_result_confirmed',
+                        'reason' => 'Bestanden laut abgeschlossenem Quellsystem; einzelne Detailwerte wurden ergänzend übernommen.',
+                        'missing' => [],
+                        'failed' => [],
+                    ];
+                }
                 foreach ($result['missing'] as $missing) {
                     InspectionDataService::addDiagnostic(
                         $inspectionId,
@@ -104,11 +120,15 @@ final class InspectionMigrationService
                 $activeReportPath = '';
             }
             R::exec(
-                'UPDATE inspection SET classification = ?, catalog_version_id = ?, examiner = ?, result_status = ?, result_reason_code = ?, result_reason_text = ?, warming_device_snapshot = ?, cable_length_m = ?, rsl_limit_ohm = ?, report_path = ?, status = ?, updated_at = ? WHERE id = ?',
+                'UPDATE inspection SET classification = ?, catalog_version_id = ?, examiner = ?, inspection_type = ?, result_status = ?, result_reason_code = ?, result_reason_text = ?, warming_device_snapshot = ?, cable_length_m = ?, rsl_limit_ohm = ?, report_path = ?, status = ?, updated_at = ? WHERE id = ?',
                 [
                     $classification,
                     $classification === 'legacy' ? null : $catalogId,
                     (string) ($row['examiner'] ?? ''),
+                    InspectionEvaluationService::canonicalInspectionType(
+                        (string) ($row['inspection_type'] ?? ''),
+                        (string) ($row['protection_class'] ?? '')
+                    ),
                     $result['status'],
                     $result['reason_code'],
                     $result['reason'],
@@ -171,9 +191,10 @@ final class InspectionMigrationService
         if ($classification !== 'migrated_import') {
             return InspectionEvaluationService::normalizeStatus((string) ($row['result_status'] ?? ''), (string) ($row['status'] ?? ''));
         }
-        $snapshot = R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) ($row['id'] ?? 0)]);
-        $original = json_decode((string) $snapshot, true);
-        if (is_array($original)) {
+        $snapshot = R::getRow('SELECT source_row_json, legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) ($row['id'] ?? 0)]);
+        foreach (['source_row_json', 'legacy_row_json'] as $field) {
+            $original = json_decode((string) ($snapshot[$field] ?? ''), true);
+            if (!is_array($original)) continue;
             $status = InspectionEvaluationService::normalizeStatus(
                 (string) ($original['result_status'] ?? ''),
                 (string) ($original['status'] ?? '')

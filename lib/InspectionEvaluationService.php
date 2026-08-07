@@ -151,6 +151,25 @@ final class InspectionEvaluationService
         return in_array($value, ['I', 'II', 'III'], true) ? $value : $value;
     }
 
+    /** Normalizes only actual protection-class labels; other inspection types remain unchanged. */
+    public static function canonicalInspectionType(string $type, string $protectionClass = ''): string
+    {
+        $type = trim($type);
+        $normalizedType = self::normalizeProtectionClass($type);
+        if (in_array($normalizedType, ['I', 'II', 'III'], true)
+            && preg_match('/(?:schutz)?klasse|\bsk\s*[123]\b|\b[123]\b/ui', $type) === 1
+        ) {
+            return 'Schutzklasse ' . $normalizedType;
+        }
+        if ($type === '') {
+            $normalizedProtection = self::normalizeProtectionClass($protectionClass);
+            if (in_array($normalizedProtection, ['I', 'II', 'III'], true)) {
+                return 'Schutzklasse ' . $normalizedProtection;
+            }
+        }
+        return $type;
+    }
+
     /**
      * @param array<string,mixed> $inspection
      * @param list<array<string,mixed>> $answers

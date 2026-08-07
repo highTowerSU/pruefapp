@@ -480,7 +480,7 @@ final class ElectricalInspectionImportService
         $inspection->next_due_date = $nextDue;
         $derivedProtectionClass = $this->protectionClassFromRecord($record);
         if ($derivedProtectionClass !== '') $inspection->protection_class = $derivedProtectionClass;
-        $inspection->inspection_type = $this->canonicalInspectionType(
+        $inspection->inspection_type = InspectionEvaluationService::canonicalInspectionType(
             $this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? ''),
             $derivedProtectionClass
         );
@@ -783,23 +783,6 @@ final class ElectricalInspectionImportService
             AND (COALESCE(result_status, '') IN ('', 'in_progress', 'data_missing', 'pending')
                 OR COALESCE(status, '') IN ('', 'in_progress', 'data_missing', 'pending', 'draft'))
             ORDER BY id DESC", [$deviceId, $external]);
-    }
-
-    private function canonicalInspectionType(string $type, string $protectionClass): string
-    {
-        $value = trim($type);
-        $normalized = mb_strtolower($value);
-        if (preg_match('/\b(?:schutzklasse|klasse|sk)\s*(i{1,3}|[123])\b/u', $normalized, $match)) {
-            $token = strtoupper($match[1]);
-            return 'Schutzklasse ' . match ($token) {
-                '1', 'I' => 'I',
-                '2', 'II' => 'II',
-                default => 'III',
-            };
-        }
-        return in_array($protectionClass, ['I', 'II', 'III'], true) && $value === ''
-            ? 'Schutzklasse ' . $protectionClass
-            : $value;
     }
 
     private function applyImportRules(array $record): array

@@ -111,7 +111,7 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
         }
 
-        set_app_config('import_result_reconciliation_version', '5');
+        set_app_config('import_result_reconciliation_version', '6');
         set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
     }
@@ -148,7 +148,7 @@ final class MaintenanceJobHandler
             ] as $field) {
                 $canonical->{$field} = $duplicate->{$field};
             }
-            $canonical->inspection_type = self::canonicalInspectionType(
+            $canonical->inspection_type = InspectionEvaluationService::canonicalInspectionType(
                 (string) $canonical->inspection_type,
                 (string) $canonical->protection_class
             );
@@ -157,6 +157,18 @@ final class MaintenanceJobHandler
                 R::exec("DELETE FROM {$table} WHERE inspection_id = ?", [(int) $canonical->id]);
                 R::exec("DELETE FROM {$table} WHERE inspection_id = ?", [$duplicateId]);
             }
+            // The immutable legacy snapshot retains the original manual row;
+            // the active source snapshot must reflect the import that now
+            // supplies the authoritative result and measurements.
+            R::exec(
+                'UPDATE inspection_source_snapshot SET source_type = ?, source_file = ?, source_row_json = ? WHERE inspection_id = ?',
+                [
+                    (string) $duplicate->source_type,
+                    (string) $duplicate->source_file,
+                    trim((string) $duplicate->csv_row_json) ?: (string) $duplicate->raw_json,
+                    (int) $canonical->id,
+                ]
+            );
             R::trash($duplicate);
             // The imported dedupe key belongs to the duplicate until it has
             // been removed; only then can it safely become the canonical key.
@@ -174,21 +186,6 @@ final class MaintenanceJobHandler
             'duplicate_inspection_number' => $number,
         ]);
         return (int) $canonical->id;
-    }
-
-    private static function canonicalInspectionType(string $type, string $protectionClass): string
-    {
-        if (preg_match('/\b(?:schutzklasse|klasse|sk)\s*(i{1,3}|[123])\b/ui', trim($type), $match)) {
-            $token = strtoupper($match[1]);
-            return 'Schutzklasse ' . match ($token) {
-                '1', 'I' => 'I',
-                '2', 'II' => 'II',
-                default => 'III',
-            };
-        }
-        return in_array($protectionClass, ['I', 'II', 'III'], true) && trim($type) === ''
-            ? 'Schutzklasse ' . $protectionClass
-            : trim($type);
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */

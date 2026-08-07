@@ -249,6 +249,9 @@ try {
     if ($remainingDuplicate !== 0 || $mergedSource !== 'csv' || $mergedType !== 'Schutzklasse II') {
         throw new RuntimeException("Später Messdatenimport wurde nicht in die offene Ausgangsprüfung zusammengeführt ({$remainingDuplicate}, {$mergedSource}, {$mergedType}; " . implode(' | ', $reconciliationMessages) . ').');
     }
+    if ((string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$openId]) !== InspectionEvaluationService::PASSED) {
+        throw new RuntimeException('Das bestätigte Quellergebnis wurde nach der Zusammenführung nicht übernommen.');
+    }
     $controllerSource = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
     $importTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_import.php');
     if (!str_contains($controllerSource, 'i.test_date DESC')

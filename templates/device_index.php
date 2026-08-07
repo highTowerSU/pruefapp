@@ -259,7 +259,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           <tr>
             <td><a href="<?= htmlspecialchars(url_for('pruefungen/' . (int) $inspection->id), ENT_QUOTES) ?>"><?= htmlspecialchars((string) ($inspection->external_number ?: '—')) ?></a></td>
             <td><?= htmlspecialchars((string) ($inspection->test_date ?: '—')) ?></td>
-            <td><?= htmlspecialchars((string) ($inspection->inspection_type ?: $displayImportValue($raw['type'] ?? '—'))) ?></td>
+            <td><?= htmlspecialchars(InspectionEvaluationService::canonicalInspectionType((string) ($inspection->inspection_type ?: $displayImportValue($raw['type'] ?? '—')), (string) ($inspection->protection_class ?? ''))) ?></td>
             <td><?= htmlspecialchars($examinerLabel) ?></td>
             <td><?= htmlspecialchars((string) ($inspection->next_due_date ?: '—')) ?></td>
             <td><span class="badge text-bg-<?= htmlspecialchars($inspectionPresentation['class'], ENT_QUOTES) ?>"><i class="fa-solid <?= htmlspecialchars($inspectionPresentation['icon'], ENT_QUOTES) ?> me-1" aria-hidden="true"></i><?= htmlspecialchars($inspectionPresentation['label']) ?></span></td>
