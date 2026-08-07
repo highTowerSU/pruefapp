@@ -188,6 +188,7 @@ $assetVersion = app_asset_version();
         .structure-filter-item > details > summary { transition: border-color .15s ease, box-shadow .15s ease; }
         .structure-filter-item > details[open] { border-color: var(--app-primary) !important; box-shadow: 0 .2rem .65rem color-mix(in srgb, var(--app-primary), transparent 82%); }
         .alert, .card, .table-responsive { border-radius: .65rem; }
+        #page-action-navigation .btn { white-space: nowrap; }
         @media (max-width: 575.98px) {
             .card-body { padding: .85rem; }
             .table { font-size: .875rem; }
@@ -233,6 +234,8 @@ $assetVersion = app_asset_version();
     <?php if (trim((string) ($loginReminder['action_url'] ?? '')) !== ''): ?><a class="btn btn-sm btn-warning text-dark text-nowrap" href="<?= htmlspecialchars((string) $loginReminder['action_url'], ENT_QUOTES) ?>">Öffnen</a><?php endif; ?>
   </div>
 <?php endforeach; ?>
+
+    <nav id="page-action-navigation" class="d-none mb-3" aria-label="Schnellzugriff auf Aktionen"></nav>
 
     <?= $content ?>
 </div>
@@ -440,6 +443,47 @@ $assetVersion = app_asset_version();
             new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(node => {
                 if (node.nodeType === Node.ELEMENT_NODE) enhanceActionButtons(node);
             }))).observe(document.body, {childList: true, subtree: true});
+
+            // Jede Seite meldet ihre größeren Aktionsbereiche mit
+            // data-action-nav an. Die Navigation wird zentral gebaut, bleibt
+            // nach HTMX-Swaps korrekt und vermeidet pro Seite eigene Sprung-UI.
+            const buildActionNavigation = () => {
+                const navigation = document.getElementById('page-action-navigation');
+                if (!navigation) return;
+                const targets = [...document.querySelectorAll('[data-action-nav]')]
+                    .filter(target => target.id && !target.closest('#page-action-navigation'));
+                const unique = [...new Map(targets.map(target => [target.id, target])).values()];
+                if (unique.length === 0) {
+                    navigation.classList.add('d-none');
+                    navigation.replaceChildren();
+                    return;
+                }
+                const toolbar = document.createElement('div');
+                toolbar.className = 'card card-body py-2 d-flex flex-row flex-wrap align-items-center gap-2';
+                const title = document.createElement('span');
+                title.className = 'small fw-semibold text-body-secondary me-1';
+                title.innerHTML = '<i class="fa-solid fa-bolt me-1" aria-hidden="true"></i>Aktionen:';
+                toolbar.append(title);
+                unique.forEach(target => {
+                    const link = document.createElement('a');
+                    link.className = 'btn btn-sm btn-outline-secondary';
+                    link.href = '#' + encodeURIComponent(target.id);
+                    const icon = target.dataset.actionIcon || 'fa-arrow-down';
+                    link.innerHTML = `<i class="fa-solid ${icon} me-1" aria-hidden="true"></i>${target.dataset.actionNav}`;
+                    toolbar.append(link);
+                });
+                navigation.replaceChildren(toolbar);
+                navigation.classList.remove('d-none');
+            };
+            buildActionNavigation();
+            new MutationObserver(records => {
+                const actionBlocksChanged = records.some(record => [...record.addedNodes].some(node =>
+                    node.nodeType === Node.ELEMENT_NODE
+                    && node.id !== 'page-action-navigation'
+                    && (node.matches?.('[data-action-nav]') || node.querySelector?.('[data-action-nav]'))
+                ));
+                if (actionBlocksChanged) buildActionNavigation();
+            }).observe(document.body, {childList: true, subtree: true});
 
             document.body.addEventListener('htmx:beforeSwap', (event) => {
                 const detail = event.detail;

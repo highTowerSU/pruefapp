@@ -10,6 +10,9 @@ if (!str_contains($navbar, '<header class="sticky-top app-navbar-shell noprint">
     || !str_contains($css, '.app-navbar-shell { z-index: 1030; }')
     || !str_contains($css, '@media (min-width: 992px) and (hover: hover) and (pointer: fine)')
     || !str_contains($css, '.navbar-themed .navbar-nav > .nav-item.dropdown:hover > .dropdown-menu')
+    || !str_contains($navbar, 'id="importNavigationDropdown"')
+    || !str_contains($navbar, '#report-regeneration')
+    || !str_contains($navbar, 'Import &amp; Sync')
 ) {
     throw new RuntimeException('Die Kopfzeile verwendet keinen vollständigen Sticky-/Desktop-Dropdown-Standard.');
 }

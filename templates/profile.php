@@ -23,7 +23,7 @@
         <?php else: ?>
           <div class="alert alert-secondary"><i class="fa-solid fa-pen-nib me-2" aria-hidden="true"></i>Noch keine Unterschrift hinterlegt.</div>
         <?php endif; ?>
-        <?php if ($canEdit): ?><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" enctype="multipart/form-data" class="vstack gap-3">
+        <?php if ($canEdit): ?><form id="profile-signature-panel" data-action-nav="Unterschrift" data-action-icon="fa-signature" method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" enctype="multipart/form-data" class="vstack gap-3">
           <div>
             <label class="form-label" for="signature-pad"><i class="fa-solid fa-pen-nib me-1" aria-hidden="true"></i>&nbsp;Unterschrift zeichnen</label>
             <div class="signature-pad border rounded-3 bg-white p-2">
@@ -65,7 +65,7 @@
       <div class="card-header fw-semibold"><i class="fa-solid fa-graduation-cap me-2" aria-hidden="true"></i>Unterweisungen</div>
       <div class="card-body">
         <p class="text-body-secondary">Dokumentiere hier die Erstunterweisung und alle späteren Folgeunterweisungen. Diese Angaben bleiben im Benutzerprofil und können für Prüf- und Qualifikationsnachweise verwendet werden.</p>
-        <?php if ($canEdit): ?><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" class="vstack gap-3">
+        <?php if ($canEdit): ?><form id="profile-instruction-panel" data-action-nav="Unterweisungen" data-action-icon="fa-graduation-cap" method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" class="vstack gap-3">
           <input type="hidden" name="action" value="save_instruction">
           <div>
             <label class="form-label" for="instruction-initial-date"><i class="fa-solid fa-calendar-check me-1" aria-hidden="true"></i>&nbsp;Erstunterweisung am</label>

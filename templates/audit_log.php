@@ -214,7 +214,7 @@ $actionPresentation = static function (string $action): array {
 <?php endif; ?>
 </div>
 </details>
-<section class="card mb-4" id="audit-tasks-panel">
+<section class="card mb-4" id="audit-tasks-panel" data-action-nav="Hintergrundaufgaben" data-action-icon="fa-list-check">
 <div class="card-header audit-panel-summary fw-semibold d-flex justify-content-between align-items-center"><span class="d-flex align-items-center gap-2"><i class="fa-solid fa-list-check text-body-secondary" aria-hidden="true"></i><span>Hintergrundaufgaben</span></span><span class="badge text-bg-info ms-auto"><?= count($cronPendingJobs) ?></span></div>
 <div class="audit-panel-controls" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()"><label class="small fw-normal mb-0" for="audit-tasks-auto-refresh"><input class="form-check-input me-1" type="checkbox" id="audit-tasks-auto-refresh"> automatisch aktualisieren</label></div>
 <div class="card-body">

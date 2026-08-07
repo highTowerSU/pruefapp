@@ -5,7 +5,7 @@
 
 <?php if (!empty($notifications)): ?><?= render_template('_notifications_list.php', ['notifications' => $notifications]) ?><?php endif; ?>
 
-<section class="card shadow-sm">
+<section class="card shadow-sm" id="download-actions-panel" data-action-nav="Downloads &amp; Aufgaben" data-action-icon="fa-download">
   <div class="card-header d-flex justify-content-between align-items-center gap-2">
     <span class="fw-semibold"><i class="fa-solid fa-box-archive me-2" aria-hidden="true"></i>Export- und Hintergrundaufgaben</span>
     <div class="d-flex align-items-center gap-2"><span class="badge text-bg-secondary"><?= count($jobs) ?></span><form method="post" action="<?= htmlspecialchars(url_for('downloads/gelesen'), ENT_QUOTES) ?>"><button class="btn btn-sm btn-outline-secondary" type="submit"><i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Alle als gelesen markieren</button></form></div>

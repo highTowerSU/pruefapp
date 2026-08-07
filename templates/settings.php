@@ -12,7 +12,7 @@
 /** @var string $apiDebugSecretOnce */
 ?>
 
-<form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
+<form id="settings-general-panel" data-action-nav="Einstellungen speichern" data-action-icon="fa-gear" method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
   <div class="card-header">
     <h2 class="h5 mb-0">Allgemeine Einstellungen</h2>
   </div>
@@ -72,7 +72,7 @@
   </div>
 </form>
 
-<details class="card shadow-sm mt-4">
+<details class="card shadow-sm mt-4" id="settings-debug-panel" data-action-nav="Debug-Zugang" data-action-icon="fa-stethoscope">
   <summary class="card-header fw-semibold"><i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Technischer Debug-Zugang</summary>
   <div class="card-body">
     <p class="text-body-secondary small">Nur für die gezielte Serverdiagnose durch autorisierte technische Unterstützung. Der Zugang funktioniert ausschließlich mit einem HTTP-Header, wird nicht in URLs übertragen und kann hier jederzeit neu erzeugt oder deaktiviert werden.</p>
@@ -86,7 +86,7 @@
   </div>
 </details>
 
-<details class="card shadow-sm mt-4">
+<details class="card shadow-sm mt-4" id="settings-update-panel" data-action-nav="Anwendung aktualisieren" data-action-icon="fa-arrows-rotate">
   <summary class="card-header fw-semibold"><i class="fa-solid fa-arrows-rotate me-1" aria-hidden="true"></i>Anwendung aktualisieren</summary>
   <div class="card-body">
     <p class="text-body-secondary small">Aktualisiert Composer- und JavaScript-Abhängigkeiten sowie vorhandene Frontend-Builds. Nur für Superadministratoren.</p>
@@ -107,7 +107,7 @@
   </div>
 </div>
 
-<details class="card shadow-sm mt-4">
+<details class="card shadow-sm mt-4" id="settings-database-panel" data-action-nav="Datenbank einrichten" data-action-icon="fa-database">
   <summary class="card-header fw-semibold">MySQL/MariaDB-Datenbank einrichten</summary>
   <div class="card-body">
     <p class="text-body-secondary small">Der Admin-Zugang wird nur für die Einrichtung verwendet. Danach arbeitet die App mit einem separat erzeugten Benutzer; das Admin-Passwort wird nicht gespeichert.</p>
@@ -129,7 +129,7 @@
   </div>
 </details>
 
-<div class="card shadow-sm border-danger mt-4">
+<div class="card shadow-sm border-danger mt-4" id="settings-reset-panel" data-action-nav="Daten zurücksetzen" data-action-icon="fa-triangle-exclamation">
   <div class="card-header text-danger"><h2 class="h5 mb-0">Elektro-Daten zurücksetzen</h2></div>
   <div class="card-body">
     <p class="mb-2">Der Umfang ist auswählbar. Mandanten, Benutzer und Prüfaufträge bleiben erhalten. Berichte werden gelöscht, sobald Prüfungen/Geräte oder alles ausgewählt ist.</p>

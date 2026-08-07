@@ -19,6 +19,8 @@ foreach ([
     [$template, 'Im Hintergrund importieren'],
     [$template, 'laufen im Hintergrund'],
     [$template, 'pruefappImportAutoRefreshBound'],
+    [$template, 'id="report-regeneration"'],
+    [$template, 'Legacy-PDFs von 2024 und älter bleiben unverändert.'],
     [$template, "event.target?.id !== 'import-auto-refresh'"],
     [$template, 'Benachrichtigungen'],
     [$importService, 'if ($hasBenning && $odsPath === null)'],
