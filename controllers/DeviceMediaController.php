@@ -49,6 +49,10 @@ final class DeviceMediaController
             $_SESSION['fehlermeldung'] = $exception->getMessage();
         }
         $url = $inspectionId ? url_for('admin/pruefungen/' . $inspectionId . '/bearbeiten') : url_for('geraete?device_id=' . $deviceId . '#geraet-' . $deviceId);
+        if ($isHx && $inspectionId !== null) {
+            $inspection = R::load('inspection', $inspectionId);
+            return [200, [], render_template('inspection_media_panel.php', ['inspection' => $inspection, 'inspectionMedia' => DeviceMediaService::forInspection($inspectionId)])];
+        }
         if ($isHx) return [200, [], self::panel($deviceId)];
         return [303, ['Location' => $url], ''];
     }

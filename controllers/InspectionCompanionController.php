@@ -128,7 +128,7 @@ final class InspectionCompanionController
         $ownerUserId = (int) current_user()->id;
         $items = InspectionCompanionInboxService::itemsForOwner($ownerUserId);
         if ((string) ($_GET['kind'] ?? '') === 'photo') {
-            return [200, [], render_template('inspection_companion_draft_photo_choices.php', ['items' => $items])];
+            return [200, [], render_template('inspection_companion_draft_photo_choices.php', ['items' => $items, 'picker' => (string) ($_GET['picker'] ?? '')])];
         }
         if (trim((string) ($_GET['field'] ?? '')) !== '') {
             return [200, [], render_template('inspection_companion_choices.php', ['items' => $items, 'field' => (string) $_GET['field']])];

@@ -5,6 +5,7 @@
   let activeDraftForm = null;
   let activeDraftType = '';
   let activeDraftTrigger = null;
+  let activeMediaUploadComponent = null;
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
   const clipboardPng = async (blob) => {
     if (blob.type === 'image/png') return blob;
@@ -33,6 +34,16 @@
   };
   const previewDevicePhoto = (form, source) => {
     const preview = form.querySelector('[data-device-photo-preview]');
+    if (!preview || !source) return;
+    const oldUrl = preview.dataset.objectUrl || '';
+    if (oldUrl) URL.revokeObjectURL(oldUrl);
+    const url = source instanceof Blob ? URL.createObjectURL(source) : String(source);
+    if (source instanceof Blob) preview.dataset.objectUrl = url; else delete preview.dataset.objectUrl;
+    preview.classList.remove('d-none');
+    preview.innerHTML = `<div class="d-flex align-items-center gap-2"><img src="${url}" class="rounded border" style="width: 88px; height: 64px; object-fit: cover" alt="Vorschau des ausgewählten Fotos"><span class="small text-body-secondary">Foto-Vorschau</span></div>`;
+  };
+  const previewMediaUpload = (component, source) => {
+    const preview = component.querySelector('[data-media-preview]');
     if (!preview || !source) return;
     const oldUrl = preview.dataset.objectUrl || '';
     if (oldUrl) URL.revokeObjectURL(oldUrl);
@@ -160,6 +171,37 @@
       });
     });
   };
+  const openMediaUploadPhotoChoices = (button, component, root) => {
+    if (!root) return;
+    activeMediaUploadComponent = component;
+    window.bootstrap?.Popover.getInstance(button)?.dispose();
+    const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo&picker=upload" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
+    const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
+    popover.show();
+    window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
+  };
+  const bindMediaUploadComponents = (root) => {
+    document.querySelectorAll('[data-media-upload-component]').forEach((component) => {
+      if (component.dataset.mediaUploadBound) return;
+      component.dataset.mediaUploadBound = '1';
+      const input = component.querySelector('[data-media-upload-input]');
+      const paste = component.querySelector('[data-media-paste]');
+      const companion = component.querySelector('[data-companion-upload-photo]');
+      const resetPaste = () => { if (paste) paste.innerHTML = '<i class="fa-solid fa-paste me-1" aria-hidden="true"></i>Foto hier einfügen – Strg+V oder Rechtsklick → Einfügen'; };
+      input?.addEventListener('change', () => { if (input.files?.[0]) previewMediaUpload(component, input.files[0]); });
+      paste?.addEventListener('focus', showPasteToast); paste?.addEventListener('click', showPasteToast); paste?.addEventListener('blur', resetPaste);
+      paste?.addEventListener('paste', (event) => {
+        const item = [...(event.clipboardData?.items || [])].find((candidate) => candidate.type.startsWith('image/'));
+        event.preventDefault(); if (!item || !input) { resetPaste(); return; }
+        const blob = item.getAsFile(); if (!blob) { resetPaste(); return; }
+        const extension = blob.type === 'image/png' ? 'png' : (blob.type === 'image/webp' ? 'webp' : 'jpg');
+        const transfer = new DataTransfer(); transfer.items.add(new File([blob], `eingefuegtes-foto-${Date.now()}.${extension}`, {type: blob.type})); input.files = transfer.files;
+        previewMediaUpload(component, blob); resetPaste();
+      });
+      if (!root || root.dataset.hasActiveConnection !== '1') companion?.classList.add('d-none'); else companion?.classList.remove('d-none');
+      companion?.addEventListener('click', () => openMediaUploadPhotoChoices(companion, component, root));
+    });
+  };
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-companion-draft-photo]');
     if (!button || button.dataset.companionPhotoBound) return;
@@ -194,6 +236,23 @@
     } catch (_) {
       window.prompt('Bitte kopieren:', value);
     }
+  });
+  document.addEventListener('click', async (event) => {
+    const choice = event.target.closest('[data-media-upload-photo-choose]');
+    if (!choice || !activeMediaUploadComponent) return;
+    const root = document.querySelector('[data-companion-inbox]');
+    const input = activeMediaUploadComponent.querySelector('[data-media-upload-input]');
+    if (!root || !input) return;
+    closeDraftPhotoPopovers();
+    document.querySelectorAll('[data-companion-upload-photo]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
+    try {
+      const response = await fetch(`${root.dataset.inboxUrl}/${choice.dataset.mediaUploadPhotoChoose}/foto`, {headers: {'Accept': 'image/*'}});
+      if (!response.ok) throw new Error('Companion-Foto konnte nicht geladen werden.');
+      const blob = await response.blob();
+      const extension = blob.type === 'image/png' ? 'png' : (blob.type === 'image/webp' ? 'webp' : 'jpg');
+      const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${extension}`, {type: blob.type})); input.files = transfer.files;
+      input.dispatchEvent(new Event('change', {bubbles: true}));
+    } catch (error) { window.alert(String(error.message || error)); }
   });
   document.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-companion-copy-photo]');
@@ -282,11 +341,13 @@
   document.addEventListener('click', (event) => {
     if (!event.target.closest('[data-companion-for], .popover')) closePopovers();
     if (!event.target.closest('[data-companion-draft-photo], .popover')) closeDraftPhotoPopovers();
+    if (!event.target.closest('[data-companion-upload-photo], .popover')) document.querySelectorAll('[data-companion-upload-photo]').forEach((button) => window.bootstrap?.Popover.getInstance(button)?.dispose());
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closePopovers(); closeDraftPhotoPopovers(); } });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
     bindDraftPhotoSelectors(root);
+    bindMediaUploadComponents(root);
     if (!root || !window.EventSource) return;
     if (stream) stream.close();
     stream = new EventSource(root.dataset.eventsUrl);
@@ -302,6 +363,6 @@
   document.addEventListener('DOMContentLoaded', connect);
   document.body.addEventListener('htmx:afterSwap', (event) => {
     const root = event.target?.matches?.('[data-companion-inbox]') ? event.target : document.querySelector('[data-companion-inbox]');
-    if (root) { bindInputs(root); bindDraftPhotoSelectors(root); if (!stream) connect(); }
+    if (root) { bindInputs(root); bindDraftPhotoSelectors(root); bindMediaUploadComponents(root); if (!stream) connect(); }
   });
 })();

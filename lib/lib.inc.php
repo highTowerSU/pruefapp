@@ -77,6 +77,7 @@ require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
 require_once __DIR__ . '/DeviceMediaService.php';
+require_once __DIR__ . '/RoomMediaService.php';
 require_once __DIR__ . '/DeviceDraftMediaService.php';
 require_once __DIR__ . '/InspectionCompanionService.php';
 require_once __DIR__ . '/InspectionCompanionInboxService.php';
@@ -364,6 +365,7 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS device_vocabulary_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_key TEXT NOT NULL, canonical_value TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, approved_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL, UNIQUE(field_name, source_key))",
         "CREATE TABLE IF NOT EXISTS device_vocabulary_review (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_value TEXT NOT NULL, suggested_value TEXT NOT NULL DEFAULT '', confidence REAL NULL, reason TEXT NOT NULL DEFAULT '', provider_model TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', decided_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS device_media (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_id INTEGER NULL, device_finding_id INTEGER NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, created_by INTEGER NULL, created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS room_media (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, created_by INTEGER NULL, created_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS device_media_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, media_id INTEGER NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'pending', provider_model TEXT NOT NULL DEFAULT '', proposal_json TEXT NOT NULL DEFAULT '{}', error_message TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS device_draft_media (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE, owner_user_id INTEGER NOT NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, proposal_json TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, expires_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_companion_session (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, owner_user_id INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, state TEXT NOT NULL DEFAULT 'pending', companion_user_id INTEGER NULL, latest_barcode TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, connected_at TEXT NULL, last_activity_at TEXT NULL, expires_at TEXT NOT NULL, disconnected_at TEXT NULL)",
@@ -385,6 +387,7 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_alias_lookup ON device_vocabulary_alias (field_name, source_key, active)',
         'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_review_status ON device_vocabulary_review (status, field_name)',
         'CREATE INDEX IF NOT EXISTS idx_device_media_device ON device_media (device_id, created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_room_media_room ON room_media (room_id, created_at)',
         'CREATE INDEX IF NOT EXISTS idx_device_media_inspection ON device_media (inspection_id, created_at)',
         'CREATE INDEX IF NOT EXISTS idx_device_draft_media_owner ON device_draft_media (owner_user_id, expires_at)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_companion_inspection ON inspection_companion_session (inspection_id, state, expires_at)',

@@ -41,6 +41,7 @@ require_once __DIR__ . '/controllers/DownloadController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
 require_once __DIR__ . '/controllers/DeviceMediaController.php';
+require_once __DIR__ . '/controllers/RoomMediaController.php';
 require_once __DIR__ . '/controllers/VocabularyController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/InspectionCompanionController.php';
@@ -106,6 +107,9 @@ $routes = [
     ['POST', '/struktur/raeume', fn($params, $isHx) => StructureController::createRoom($params, $isHx)],
     ['POST', '/struktur/raeume/{id}/loeschen', fn($params, $isHx) => StructureController::deleteRoom($params, $isHx)],
     ['POST', '/struktur/raeume/{id}/geraete-verschieben', fn($params, $isHx) => StructureController::moveDevices($params, $isHx)],
+    ['POST', '/struktur/raeume/{id}/fotos', fn($params, $isHx) => RoomMediaController::upload($params, $isHx)],
+    ['GET', '/struktur/raeume/fotos/{id}', fn($params, $isHx) => RoomMediaController::file($params, $isHx)],
+    ['POST', '/struktur/raeume/fotos/{id}/loeschen', fn($params, $isHx) => RoomMediaController::delete($params, $isHx)],
     ['POST', '/struktur/{type}/{id}/loeschen', fn($params, $isHx) => StructureController::delete($params, $isHx)],
     ['GET', '/geraete', fn($params, $isHx) => DeviceController::index($params, $isHx)],
     ['GET', '/pruefungen', fn($params, $isHx) => InspectionController::index($params, $isHx)],
