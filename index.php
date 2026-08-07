@@ -125,6 +125,7 @@ $routes = [
     ['GET', '/admin/pruefungen/{id}/companion', fn($params, $isHx) => InspectionCompanionController::panel($params, $isHx)],
     ['POST', '/admin/pruefungen/{id}/companion', fn($params, $isHx) => InspectionCompanionController::panel($params, $isHx)],
     ['GET', '/admin/pruefungen/{id}/companion/status', fn($params, $isHx) => InspectionCompanionController::status($params, $isHx)],
+    ['GET', '/companion/{token}/qr', fn($params, $isHx) => InspectionCompanionController::qr($params, $isHx)],
     ['GET', '/companion/{token}', fn($params, $isHx) => InspectionCompanionController::open($params, $isHx)],
     ['POST', '/companion/{token}/barcode', fn($params, $isHx) => InspectionCompanionController::barcode($params, $isHx)],
     ['POST', '/companion/{token}/fotos', fn($params, $isHx) => InspectionCompanionController::photo($params, $isHx)],

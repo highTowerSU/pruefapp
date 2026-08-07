@@ -49,6 +49,26 @@ final class InspectionCompanionController
         return [200, [], render_template('layout.php', ['title' => 'Prüf-Companion', 'content' => render_template('inspection_companion_mobile.php', compact('session', 'inspection', 'device'))])];
     }
 
+    /** The pairing image is deliberately rendered server-side, not in a canvas. */
+    public static function qr(array $params, bool $isHx): array
+    {
+        $token = (string) ($params['token'] ?? '');
+        if (InspectionCompanionService::byToken($token) === []) {
+            return [410, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'], 'Diese Companion-Verbindung ist abgelaufen oder wurde getrennt.'];
+        }
+
+        try {
+            return [
+                200,
+                ['Content-Type' => 'image/svg+xml; charset=utf-8', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff'],
+                ServerQrCodeService::svg(url_for('companion/' . $token)),
+            ];
+        } catch (Throwable $e) {
+            error_log('[pruefapp] Companion QR: ' . $e->getMessage());
+            return [503, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'], 'QR-Code konnte gerade nicht erzeugt werden.'];
+        }
+    }
+
     public static function barcode(array $params, bool $isHx): array
     {
         $session = self::usableSession((string) ($params['token'] ?? ''));

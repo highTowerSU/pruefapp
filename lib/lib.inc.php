@@ -78,6 +78,7 @@ require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
 require_once __DIR__ . '/DeviceMediaService.php';
 require_once __DIR__ . '/InspectionCompanionService.php';
+require_once __DIR__ . '/ServerQrCodeService.php';
 require_once __DIR__ . '/VocabularyOAuthService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
@@ -1349,6 +1350,10 @@ $requestPath = normalize_request_path(parse_url($_SERVER['REQUEST_URI'] ?? '', P
 
 $freiePfade = [
     '#^/uebermitteln(/|$)#',
+    // A companion token is a short-lived, high-entropy work-session key.
+    // Mobile scanners must be able to open it without a second OIDC login;
+    // the companion controller validates the token for every request.
+    '#^/companion/[a-f0-9]{48}(/|$)#',
     // This diagnostic endpoint performs its own mandatory header-secret
     // verification in AdminController. It must not trigger the interactive
     // login redirect before that check can run.
