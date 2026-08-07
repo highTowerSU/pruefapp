@@ -224,13 +224,33 @@
     const triggerHtml = trigger?.innerHTML || '';
     if (trigger) {
       trigger.disabled = true;
-      trigger.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Typenschild wird ausgewertet …';
+      trigger.innerHTML = activeDraftType === 'type_plate'
+        ? '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Typenschild wird ausgewertet …'
+        : '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span class="visually-hidden">Foto wird geladen</span>';
     }
     closeDraftPhotoPopovers();
     choice.disabled = true;
     try {
+      // The photo picker beside the ordinary file input deliberately behaves
+      // like paste: it only fills the local file selection. It must neither
+      // stage nor analyse a type plate until the user explicitly uploads it.
+      if (activeDraftType !== 'type_plate') {
+        const response = await fetch(`${root.dataset.inboxUrl}/${itemId}/foto`, {headers: {'Accept': 'image/*'}});
+        if (!response.ok) throw new Error('Companion-Foto konnte nicht geladen werden.');
+        const blob = await response.blob();
+        if (!blob.type.startsWith('image/')) throw new Error('Das Companion-Foto hat kein unterstütztes Bildformat.');
+        const photo = activeDraftForm.querySelector('[data-stage-device-photo]');
+        if (!photo) throw new Error('Das Foto-Feld ist nicht verfügbar.');
+        const extension = blob.type === 'image/png' ? 'png' : (blob.type === 'image/webp' ? 'webp' : 'jpg');
+        const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${extension}`, {type: blob.type}));
+        photo.files = transfer.files;
+        photo.dispatchEvent(new Event('change', {bubbles: true}));
+        const result = activeDraftForm.querySelector('[data-draft-photo-result]');
+        if (result) result.innerHTML = '<div class="alert alert-info py-2 mb-0"><i class="fa-solid fa-mobile-screen-button me-1" aria-hidden="true"></i>Companion-Foto ausgewählt. Bitte Fotoart prüfen und anschließend hochladen.</div>';
+        return;
+      }
       const body = new URLSearchParams();
-      if (activeDraftType) body.set('media_type', activeDraftType);
+      body.set('media_type', activeDraftType);
       const response = await fetch(`${root.dataset.inboxUrl}/${itemId}/foto-zu-entwurf`, {method: 'POST', headers: {'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'}, body});
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Companion-Foto konnte nicht übernommen werden.');

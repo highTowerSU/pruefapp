@@ -17,6 +17,7 @@ $panel = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_co
 $profileTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/profile.php');
 $qrService = (string) file_get_contents(dirname(__DIR__) . '/lib/ServerQrCodeService.php');
 $qrRenderer = (string) file_get_contents(dirname(__DIR__) . '/bin/render-qrcode-svg.js');
+$companionInboxJs = (string) file_get_contents(dirname(__DIR__) . '/public/js/companion-inbox.js');
 
 $checks = [
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS inspection_companion_session') && str_contains($schema, 'token_hash'), 'Companion-Sitzungen werden nicht sicher und kurzlebig gespeichert.'],
@@ -36,6 +37,7 @@ $checks = [
     [str_contains($workspace, 'companion-workspace-camera-scan') && str_contains($workspace, 'BarcodeDetector') && str_contains($workspace, 'facingMode'), 'Der allgemeine Companion-Arbeitsplatz kann Barcodes nicht per Browser-Kamera scannen.'],
     [str_contains($controller, '$_GET[\'field\']') && str_contains($choices, 'data-companion-choose') && str_contains($layout, 'companion-inbox.js'), 'Companion-Feldwerte werden nicht gezielt per HTMX nachgeladen.'],
     [str_contains($draftMediaService, 'stageCompanionPhoto') && str_contains($draftMediaService, '@copy((string) $item[\'path\']') && str_contains($inboxService, 'time() - 1800'), 'Ein Companion-Foto bleibt nach der Übernahme nicht bis zum Sitzungsende wiederverwendbar.'],
+    [str_contains($companionInboxJs, "activeDraftType !== 'type_plate'") && str_contains($companionInboxJs, 'Companion-Foto ausgewählt. Bitte Fotoart prüfen'), 'Die normale Companion-Fotoauswahl startet fälschlich eine Typenschildauswertung.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);
