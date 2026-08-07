@@ -354,6 +354,18 @@ class DeviceController
         $device->updated_at = date(DATE_ATOM);
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
+        $newPhoto = $_FILES['new_device_photo'] ?? null;
+        if ($id === 0 && is_array($newPhoto) && (int) ($newPhoto['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            try {
+                $mediaType = trim((string) ($_POST['new_device_photo_type'] ?? 'type_plate'));
+                $mediaId = DeviceMediaService::storeUpload((int) $device->id, null, $newPhoto, $mediaType, (string) ($_POST['new_device_photo_caption'] ?? ''), (int) (current_user()->id ?? 0));
+                if ($mediaType === 'type_plate') {
+                    try { DeviceMediaService::analyseTypePlate($mediaId); } catch (Throwable $analysisError) { DeviceMediaService::recordAnalysisError($mediaId, $analysisError->getMessage()); }
+                }
+            } catch (Throwable $photoError) {
+                $_SESSION['fehlermeldung'] = 'Gerät gespeichert, Foto konnte nicht übernommen werden: ' . $photoError->getMessage();
+            }
+        }
         DeviceVocabularyService::enqueueReview($vocabulary, (int) (current_user()->id ?? 0));
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
         if (isset($_POST['save_and_inspect'])) return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], ''];
