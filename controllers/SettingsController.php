@@ -30,11 +30,13 @@ class SettingsController
                 } elseif ($action === 'oauth') {
                     $_SESSION['vocabulary_oauth_provider_id'] = (int) $provider->id;
                     return [303, ['Location' => VocabularyOAuthService::begin($provider)], ''];
-                } else {
+                } elseif ($action === 'save_vocabulary') {
                     set_app_config('vocabulary_ai_provider_id', (string) $provider->id);
                     set_app_config('vocabulary_ai_model', trim((string) ($_POST['vocabulary_ai_model'] ?? '')) ?: null);
                     set_app_config('vocabulary_ai_enabled', isset($_POST['vocabulary_ai_enabled']) ? '1' : '0');
-                    $message = 'KI-Provider und Stammdatenprüfung wurden gespeichert.';
+                    $message = 'Stammdatenprüfung wurde gespeichert.';
+                } else {
+                    $message = 'KI-Provider wurde gespeichert.';
                 }
                 $id = (int) $provider->id;
             } catch (Throwable $exception) {
