@@ -28,11 +28,15 @@ final class DeviceMediaController
         try {
             $id = DeviceMediaService::storeUpload($deviceId, $inspectionId, (array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'condition'), (string) ($_POST['caption'] ?? ''), (int) current_user()->id);
             audit_log('geraetefoto_gespeichert', ['device_id' => $deviceId, 'inspection_id' => $inspectionId, 'media_id' => $id]);
+            if ((string) ($_POST['media_type'] ?? '') === 'type_plate' && !empty($_POST['analyse_typeplate'])) {
+                try { DeviceMediaService::analyseTypePlate($id); } catch (Throwable $analysisError) { DeviceMediaService::recordAnalysisError($id, $analysisError->getMessage()); }
+            }
             $_SESSION['meldung'] = 'Foto gespeichert.';
         } catch (Throwable $exception) {
             $_SESSION['fehlermeldung'] = $exception->getMessage();
         }
         $url = $inspectionId ? url_for('admin/pruefungen/' . $inspectionId . '/bearbeiten') : url_for('geraete?device_id=' . $deviceId . '#geraet-' . $deviceId);
+        if ($isHx) return [200, [], self::panel($deviceId)];
         return [303, ['Location' => $url], ''];
     }
 

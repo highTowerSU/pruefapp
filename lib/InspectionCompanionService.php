@@ -25,6 +25,22 @@ final class InspectionCompanionService
         return $row === [] ? [] : $row;
     }
 
+    /** @return list<array<string,mixed>> */
+    public static function activeForUser(int $ownerUserId): array
+    {
+        return R::getAll("SELECT s.*, i.external_number AS inspection_number, d.external_number AS device_number, d.name AS device_name
+            FROM inspection_companion_session s
+            JOIN inspection i ON i.id = s.inspection_id
+            JOIN device d ON d.id = i.device_id
+            WHERE s.owner_user_id = ? AND s.state IN ('pending','connected') AND s.expires_at > ?
+            ORDER BY s.id DESC", [$ownerUserId, date(DATE_ATOM)]);
+    }
+
+    public static function disconnectSession(int $sessionId, int $ownerUserId): void
+    {
+        R::exec("UPDATE inspection_companion_session SET state = 'disconnected', disconnected_at = ? WHERE id = ? AND owner_user_id = ? AND state IN ('pending','connected')", [date(DATE_ATOM), $sessionId, $ownerUserId]);
+    }
+
     public static function byToken(string $token): array
     {
         if (!preg_match('/^[a-f0-9]{48}$/', $token)) return [];

@@ -36,6 +36,7 @@ $checks = [
     [str_contains($template, 'data-metadata-editor') && str_contains($template, 'MAC-Adresse') && str_contains($template, 'data-metadata-json'), 'Der visuelle Editor für Geräte-Zusatzattribute fehlt.'],
     [str_contains($template, 'data-toggle-all-devices') && str_contains($template, 'details.device-card[id^="geraet-"]'), 'Die Geräteliste bietet keinen gezielten Alle-ausklappen-Schalter.'],
     [str_contains($template, 'data-action-nav="Geräteaktionen"') && str_contains($template, 'data-action-nav="Neues Gerät"'), 'Die Geräteaktionsbereiche sind nicht im gemeinsamen Schnellzugriff markiert.'],
+    [str_contains($template, 'data-suggest-last-room') && str_contains($template, 'data-metadata-editor'), 'Der Raumvorschlag oder einklappbare Zusatzattribute fehlen.'],
     [str_contains($inspectionTemplate, 'name="metadata_notes"') && str_contains($inspectionController, "'metadata_notes'"), 'Die Prüfungsbemerkung wird nicht serverseitig gespeichert.'],
 ];
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 $schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $service = (string) file_get_contents(dirname(__DIR__) . '/lib/InspectionCompanionService.php');
 $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionCompanionController.php');
+$profile = (string) file_get_contents(dirname(__DIR__) . '/controllers/ProfileController.php');
 $mobile = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_mobile.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $layout = (string) file_get_contents(dirname(__DIR__) . '/templates/layout.php');
@@ -18,6 +19,7 @@ $checks = [
     [str_contains((string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_panel.php'), 'companion-qr-code') && str_contains($layout, 'qrcode.min.js'), 'Der Pairing-Link wird nicht als lokaler QR-Code bereitgestellt.'],
     [str_contains($routes, '/companion/{token}') && str_contains($routes, '/companion/{token}/barcode'), 'Companion-Routen fehlen.'],
     [str_contains($layout, 'action-nav-empty') && str_contains($layout, 'min-height: 2.65rem'), 'Die Aktionsnavigation reserviert keinen Platz gegen Layout-Sprünge.'],
+    [str_contains($service, 'activeForUser') && str_contains($service, 'disconnectSession') && str_contains($profile, 'disconnect_companion') && str_contains($mobile, 'hx-encoding'), 'Companion-Sitzungen können nicht zentral im Profil verwaltet werden.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);

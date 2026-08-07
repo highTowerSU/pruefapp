@@ -4,12 +4,20 @@
 /** @var array<int, array<string, string>> $followups */
 /** @var array<int, array<string, string>> $certificates */
  $canEdit = $canEdit ?? true; $profileUrl = $profileUrl ?? url_for('profil'); $certificates = $certificates ?? [];
- $qualifications = $qualifications ?? []; $qualificationRequirements = $qualificationRequirements ?? []; $inspectionTypes = $inspectionTypes ?? []; $inspectionPermissions = $inspectionPermissions ?? []; $canConfirmQualifications = (bool) ($canConfirmQualifications ?? false);
+ $qualifications = $qualifications ?? []; $qualificationRequirements = $qualificationRequirements ?? []; $inspectionTypes = $inspectionTypes ?? []; $inspectionPermissions = $inspectionPermissions ?? []; $activeCompanionSessions = $activeCompanionSessions ?? []; $canConfirmQualifications = (bool) ($canConfirmQualifications ?? false);
 ?>
 <header class="page-header mb-4">
   <h1 class="mb-1"><i class="fa-solid fa-user-pen me-2" aria-hidden="true"></i><?= !empty($adminView) ? 'Benutzerprofil' : 'Mein Profil' ?></h1>
   <p class="mb-0 text-body-secondary">Persönliche Angaben für die Prüf-Dokumentation<?= !empty($adminView) ? ' · ' . htmlspecialchars((string) ($user->name ?? $user->email ?? '')) : '' ?></p>
 </header>
+
+<section class="card shadow-sm mb-4" id="companion-sessions" data-action-nav="Companion-Geräte" data-action-icon="fa-mobile-screen-button">
+  <div class="card-header fw-semibold d-flex justify-content-between align-items-center gap-2"><span><i class="fa-solid fa-mobile-screen-button me-2" aria-hidden="true"></i>Companion-Geräte</span><span class="badge text-bg-info"><?= count($activeCompanionSessions) ?></span></div>
+  <div class="card-body">
+    <p class="small text-body-secondary mb-3">Ein einmalig per QR-Code gekoppeltes Smartphone bleibt für die Arbeitsdauer verbunden. Den QR-Code erzeugst du am jeweiligen Prüfplatz; aktive Verbindungen kannst du hier beenden.</p>
+    <?php if ($activeCompanionSessions === []): ?><div class="text-body-secondary small"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i>Keine aktiven Companion-Verbindungen.</div><?php else: ?><div class="list-group list-group-flush"><?php foreach ($activeCompanionSessions as $companion): ?><div class="list-group-item px-0 d-flex flex-wrap align-items-center justify-content-between gap-2"><div><strong><i class="fa-solid fa-link me-1 text-success" aria-hidden="true"></i><?= htmlspecialchars((string) ($companion['inspection_number'] ?: $companion['device_number'])) ?></strong><div class="small text-body-secondary"><?= htmlspecialchars((string) ($companion['device_name'] ?: 'Gerät')) ?> · <?= ($companion['state'] ?? '') === 'connected' ? 'verbunden' : 'wartet auf Verbindung' ?> · gültig bis <?= htmlspecialchars((string) $companion['expires_at']) ?></div></div><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" hx-post="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" hx-target="#companion-sessions" hx-select="#companion-sessions" hx-swap="outerHTML"><input type="hidden" name="action" value="disconnect_companion"><input type="hidden" name="companion_session_id" value="<?= (int) $companion['id'] ?>"><button class="btn btn-sm btn-danger" type="submit"><i class="fa-solid fa-link-slash me-1" aria-hidden="true"></i>Beenden</button></form></div><?php endforeach; ?></div><?php endif; ?>
+  </div>
+</section>
 
 <div class="row g-4">
   <div class="col-12 col-xl-7">

@@ -209,6 +209,9 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                   <a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil'), ENT_QUOTES) ?>"><i class="fa-solid fa-user-pen me-2" aria-hidden="true"></i>Mein Profil</a>
                 </li>
                 <li>
+                  <a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil') . '#companion-sessions', ENT_QUOTES) ?>"><i class="fa-solid fa-mobile-screen-button me-2" aria-hidden="true"></i>Companion-Geräte</a>
+                </li>
+                <li>
                   <a class="dropdown-item" href="<?= htmlspecialchars($downloadsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-download me-2" aria-hidden="true"></i>Meine Downloads</a>
                 </li>
                 <?php if ($hasManagementLink): ?>

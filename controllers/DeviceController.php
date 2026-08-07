@@ -234,6 +234,9 @@ class DeviceController
             $zipJobStatus = BackgroundJobService::find($zipJob);
         }
         $inspectionTypes = InspectionTypeService::active();
+        $lastRoom = R::getRow("SELECT d.room_id, r.name FROM device d LEFT JOIN room r ON r.id = d.room_id WHERE d.room_id > 0 ORDER BY COALESCE(d.updated_at, d.created_at, '') DESC, d.id DESC LIMIT 1");
+        $lastRoomId = (int) ($lastRoom['room_id'] ?? 0);
+        $lastRoomLabel = trim((string) ($roomLabels[$lastRoomId] ?? ($lastRoom['name'] ?? '')));
         $user = current_user();
         foreach ($inspectionTypes as &$inspectionType) {
             $permission = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
@@ -287,6 +290,8 @@ class DeviceController
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
                 'inspectionTypes' => $inspectionTypes,
+                'lastRoomId' => $lastRoomId,
+                'lastRoomLabel' => $lastRoomLabel,
                 'mediaByDevice' => $mediaByDevice,
             ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];

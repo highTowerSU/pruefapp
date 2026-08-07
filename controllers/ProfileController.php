@@ -25,6 +25,12 @@ final class ProfileController
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!$canEdit) return forbidden_response();
             $action = trim((string) ($_POST['action'] ?? 'upload_signature'));
+            if ($action === 'disconnect_companion') {
+                InspectionCompanionService::disconnectSession((int) ($_POST['companion_session_id'] ?? 0), (int) $user->id);
+                audit_log('pruef_companion_getrennt', ['oauthuser_id' => (int) $user->id, 'session_id' => (int) ($_POST['companion_session_id'] ?? 0)]);
+                $_SESSION['meldung'] = 'Companion-Verbindung wurde beendet.';
+                return [303, ['Location' => $profileUrl . '#companion-sessions'], ''];
+            }
             if ($action === 'save_instruction') {
                 $initialDate = self::validDate((string) ($_POST['instruction_initial_date'] ?? ''));
                 if ($initialDate === false) {
@@ -281,6 +287,7 @@ final class ProfileController
         $followups = is_array($followups) ? array_values(array_filter($followups, static fn($entry): bool => is_array($entry))) : [];
         $certificates = self::certificates($user);
         $inspectionTypes = InspectionTypeService::active();
+        $activeCompanionSessions = InspectionCompanionService::activeForUser((int) $user->id);
         $inspectionPermissions = [];
         foreach ($inspectionTypes as $inspectionType) {
             $inspectionPermissions[(string) $inspectionType['code']] = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
@@ -296,7 +303,7 @@ final class ProfileController
             $certificate['qualification_expired'] = $linked !== [] && count(array_filter($linked, static fn(array $q): bool => !empty($q['expires_at']) && (string) $q['expires_at'] < date('Y-m-d'))) > 0;
         }
         unset($certificate);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 
