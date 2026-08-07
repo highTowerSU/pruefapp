@@ -145,9 +145,9 @@ final class InspectionEvaluationService
         $value = strtoupper(trim($protectionClass));
         if (str_contains($value, 'KABEL')) return 'KABEL';
         if (str_contains($value, 'DREHSTROM')) return 'DREHSTROM';
-        if (preg_match('/(?:SCHUTZ)?KLASSE\s*III\b|\bSK\s*3\b/', $value) === 1) return 'III';
-        if (preg_match('/(?:SCHUTZ)?KLASSE\s*II\b|\bSK\s*2\b/', $value) === 1) return 'II';
-        if (preg_match('/(?:SCHUTZ)?KLASSE\s*I\b|\bSK\s*1\b/', $value) === 1) return 'I';
+        if (preg_match('/(?:SCHUTZ)?KLASSE\s*III\b|\bSK\s*(?:3|III)\b/', $value) === 1) return 'III';
+        if (preg_match('/(?:SCHUTZ)?KLASSE\s*II\b|\bSK\s*(?:2|II)\b/', $value) === 1) return 'II';
+        if (preg_match('/(?:SCHUTZ)?KLASSE\s*I\b|\bSK\s*(?:1|I)\b/', $value) === 1) return 'I';
         return in_array($value, ['I', 'II', 'III'], true) ? $value : $value;
     }
 
@@ -157,7 +157,7 @@ final class InspectionEvaluationService
         $type = trim($type);
         $normalizedType = self::normalizeProtectionClass($type);
         if (in_array($normalizedType, ['I', 'II', 'III'], true)
-            && preg_match('/(?:schutz)?klasse|\bsk\s*[123]\b|\b[123]\b/ui', $type) === 1
+            && preg_match('/(?:schutz)?klasse|\bsk\s*(?:[123]|i{1,3})\b|\b[123]\b/ui', $type) === 1
         ) {
             return 'Schutzklasse ' . $normalizedType;
         }

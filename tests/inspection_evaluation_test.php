@@ -29,6 +29,7 @@ if (InspectionEvaluationService::requiredMeasurementKeys('Klasse II') !== ['RISO
 }
 if (InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SK1 für euP unter Leitung der VEFK', 'I') !== 'Schutzklasse I'
     || InspectionEvaluationService::canonicalInspectionType('Klasse II', 'II') !== 'Schutzklasse II'
+    || InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SKIII', 'III') !== 'Schutzklasse III'
 ) {
     throw new RuntimeException('Prüfarten der Importquellen werden nicht einheitlich als Schutzklasse dargestellt.');
 }
