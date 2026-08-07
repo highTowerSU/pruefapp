@@ -522,6 +522,7 @@ function seed_inspection_types(): void
     foreach ([
         ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', null, 1, 10],
         ['electrical', 'electrical_instruction', 'Elektro-Unterweisung', 365, 0, 20],
+        ['electrical', 'electrical_vefk', 'VEFK-Zuordnung / Beauftragung', 365, 1, 30],
         ['ladder', 'ladder_basic', 'Befähigte Person Leitern/Tritte', null, 1, 10],
         ['ladder', 'ladder_instruction', 'Leiter-Unterweisung', 365, 0, 20],
     ] as [$type, $code, $name, $validity, $confirmation, $sort]) {

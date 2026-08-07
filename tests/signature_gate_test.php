@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $lib = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $inspection = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
+$inspectionTypes = (string) file_get_contents(dirname(__DIR__) . '/lib/InspectionTypeService.php');
 $profile = (string) file_get_contents(dirname(__DIR__) . '/controllers/ProfileController.php');
 $maintenance = (string) file_get_contents(dirname(__DIR__) . '/lib/MaintenanceJobHandler.php');
 $worker = (string) file_get_contents(dirname(__DIR__) . '/bin/phoenix_sync_worker.php');
@@ -12,7 +13,7 @@ $profileTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/pro
 
 $checks = [
     [str_contains($lib, 'function examiner_has_report_signature') && str_contains($lib, 'function inspection_report_signature_sql'), 'Die Signaturfreigabe ist nicht zentral im Backend definiert.'],
-    [str_contains($inspection, 'Bitte hinterlege zuerst deine Unterschrift') && str_contains($inspection, 'Der eingetragene Prüfer hat keine hinterlegte Unterschrift'), 'Prüfungen werden ohne Prüfer-Unterschrift nicht sicher gesperrt.'],
+    [str_contains($inspection, 'InspectionTypeService::permissionForUser') && str_contains($inspectionTypes, 'examiner_has_report_signature') && str_contains($inspection, 'Der eingetragene Prüfer hat keine hinterlegte Unterschrift'), 'Prüfungen werden ohne Prüfer-Unterschrift nicht sicher gesperrt.'],
     [str_contains($maintenance, "inspection_report_signature_sql('inspection')") && str_contains($maintenance, 'examiner_has_report_signature'), 'Der Hintergrundlauf erzeugt Berichte trotz fehlender Signatur.'],
     [str_contains($worker, 'examiner_has_report_signature'), 'Die explizite Berichtsneuerzeugung prüft die Signatur nicht.'],
     [str_contains($profile, 'signature_drawing') && str_contains($profile, 'queueMissingReportsForExaminer'), 'Profil-Signaturen werden nicht als Zeichnung gespeichert oder lösen keine Berichte aus.'],

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Ceneos\PhpBase\Auth\RolePolicy;
 use RedBeanPHP\R;
 
 /** Shared backend authority for inspection types and examiner eligibility. */
@@ -46,13 +47,13 @@ final class InspectionTypeService
         );
     }
 
-    /** @return array{allowed:bool,message:string,requirements:list<array<string,mixed>>} */
+    /** @return array{allowed:bool,message:string,requirements:list<array<string,mixed>>,missing:list<string>} */
     public static function examinerEligibility(object $user, string $type): array
     {
         $type = self::normalize($type);
         $requirements = R::getAll('SELECT * FROM inspection_type_requirement WHERE inspection_type_code = ? AND active = 1 ORDER BY sort_order, id', [$type]);
         if ($requirements === []) {
-            return ['allowed' => true, 'message' => '', 'requirements' => []];
+            return ['allowed' => true, 'message' => '', 'requirements' => [], 'missing' => []];
         }
         $missing = [];
         foreach ($requirements as $requirement) {
@@ -69,8 +70,34 @@ final class InspectionTypeService
             if (!$confirmed || !$valid) $missing[] = (string) $requirement['name'];
         }
         return $missing === []
-            ? ['allowed' => true, 'message' => '', 'requirements' => $requirements]
-            : ['allowed' => false, 'message' => 'Für diese Prüfart fehlen bestätigte oder gültige Nachweise: ' . implode(', ', $missing) . '.', 'requirements' => $requirements];
+            ? ['allowed' => true, 'message' => '', 'requirements' => $requirements, 'missing' => []]
+            : ['allowed' => false, 'message' => 'Für diese Prüfart fehlen bestätigte oder gültige Nachweise: ' . implode(', ', $missing) . '.', 'requirements' => $requirements, 'missing' => $missing];
+    }
+
+    /**
+     * Single backend authority for whether a user may start an inspection.
+     * UI elements only display this decision; they do not reimplement it.
+     *
+     * @return array{allowed:bool,message:string,requirements:list<array<string,mixed>>,missing:list<string>}
+     */
+    public static function permissionForUser(object $user, string $type): array
+    {
+        $eligibility = self::examinerEligibility($user, $type);
+        $missing = $eligibility['missing'];
+        if (!RolePolicy::allows((string) ($user->role ?? ''), RolePolicy::EDITOR)) {
+            array_unshift($missing, 'Eine Rolle mit Prüfberechtigung');
+        }
+        $identity = trim((string) (($user->email ?? '') ?: ($user->name ?? '') ?: ($user->preferred_username ?? '')));
+        if ($identity === '' || !examiner_has_report_signature($identity)) {
+            $missing[] = 'Unterschrift im Profil';
+        }
+        $missing = array_values(array_unique($missing));
+        return [
+            'allowed' => $missing === [],
+            'message' => $missing === [] ? '' : 'Für diese Prüfart fehlen: ' . implode(', ', $missing) . '.',
+            'requirements' => $eligibility['requirements'],
+            'missing' => $missing,
+        ];
     }
 
     /** @return array<string,mixed> */

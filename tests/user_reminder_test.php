@@ -27,8 +27,8 @@ foreach (['login_reminders', 'loginReminder'] as $needle) {
 if (!str_contains($lib, 'UserReminderService::afterLogin')) {
     throw new RuntimeException('Login-Hinweise werden nicht serverseitig nach der Anmeldung vorbereitet.');
 }
-if (!str_contains($service, 'Unterschrift im Profil ergänzen') || !str_contains($service, 'Offene Prüfdaten') || !str_contains($service, 'missingInspections') || !str_contains($service, 'array_slice(array_keys($grouped), 0, 10)') || !str_contains($service, 'weitere ') || !str_contains($service, 'self::markDedupeRead($dedupeKey, $userId)')) {
-    throw new RuntimeException('Die beiden persönlichen Prüferhinweise fehlen.');
+if (!str_contains($service, 'Unterschrift im Profil ergänzen') || !str_contains($service, 'Prüfberechtigung ergänzen') || !str_contains($service, 'InspectionTypeService::permissionForUser') || !str_contains($service, 'Offene Prüfdaten') || !str_contains($service, 'missingInspections') || !str_contains($service, 'array_slice(array_keys($grouped), 0, 10)') || !str_contains($service, 'weitere ') || !str_contains($service, 'self::markDedupeRead($dedupeKey, $userId)')) {
+    throw new RuntimeException('Die persönlichen Prüferhinweise fehlen.');
 }
 foreach (['loginAs', 'stopLoginAs', 'impersonator_user_id'] as $needle) {
     if (!str_contains($admin, $needle) && !str_contains($layout, $needle)) {

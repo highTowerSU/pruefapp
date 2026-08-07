@@ -57,8 +57,15 @@ final class ProfileController
                 $date = self::validDate((string) ($_POST['certificate_date'] ?? ''));
                 $kind = mb_substr(trim((string) ($_POST['certificate_kind'] ?? 'Folgeunterweisung')), 0, 80);
                 $title = mb_substr(trim((string) ($_POST['certificate_title'] ?? '')), 0, 240);
+                $selectedTypes = array_values(array_unique(array_filter(array_map('trim', (array) ($_POST['certificate_inspection_types'] ?? [])))));
+                $availableTypes = array_column(InspectionTypeService::active(), 'code');
+                $selectedTypes = array_values(array_filter($selectedTypes, static fn(string $code): bool => in_array($code, $availableTypes, true)));
                 if (!is_array($upload) || (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || $date === false || $date === '') {
                     $_SESSION['fehlermeldung'] = 'Bitte ein PDF und ein gültiges Datum auswählen.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                if ($selectedTypes === []) {
+                    $_SESSION['fehlermeldung'] = 'Bitte mindestens eine Prüfart auswählen, für die dieser Unterweisungsnachweis gilt.';
                     return [303, ['Location' => $profileUrl], ''];
                 }
                 $tmp = (string) ($upload['tmp_name'] ?? '');
@@ -80,20 +87,53 @@ final class ProfileController
                     return [303, ['Location' => $profileUrl], ''];
                 }
                 @chmod($target, 0660);
+                $qualificationIds = [];
+                foreach ($selectedTypes as $typeCode) {
+                    $requirements = R::getAll("SELECT * FROM inspection_type_requirement WHERE inspection_type_code = ? AND active = 1 AND code LIKE '%_instruction' ORDER BY sort_order, id", [$typeCode]);
+                    foreach ($requirements as $requirement) {
+                        $expiresAt = '';
+                        if ((int) ($requirement['validity_days'] ?? 0) > 0) {
+                            $expiresAt = date('Y-m-d', strtotime($date . ' +' . (int) $requirement['validity_days'] . ' days'));
+                        }
+                        R::exec('INSERT INTO user_qualification (oauthuser_id, requirement_code, issued_at, expires_at, proof_path, proof_name, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+                            (int) $user->id,
+                            (string) $requirement['code'],
+                            $date,
+                            $expiresAt,
+                            $target,
+                            mb_substr((string) ($upload['name'] ?? 'Unterweisungsnachweis.pdf'), 0, 240),
+                            'Unterweisungsnachweis: ' . ($title !== '' ? $title : $kind),
+                            date(DATE_ATOM),
+                            date(DATE_ATOM),
+                        ]);
+                        $qualificationIds[] = (int) R::getInsertID();
+                    }
+                }
                 $certificates = self::certificates($user);
-                $certificates[] = ['id' => $certificateId, 'kind' => $kind !== '' ? $kind : 'Folgeunterweisung', 'date' => $date, 'title' => $title, 'path' => $target, 'name' => mb_substr((string) ($upload['name'] ?? 'Nachweis.pdf'), 0, 240), 'created_at' => date(DATE_ATOM)];
+                $certificates[] = ['id' => $certificateId, 'kind' => $kind !== '' ? $kind : 'Folgeunterweisung', 'date' => $date, 'title' => $title, 'path' => $target, 'name' => mb_substr((string) ($upload['name'] ?? 'Nachweis.pdf'), 0, 240), 'inspection_type_codes' => $selectedTypes, 'qualification_ids' => $qualificationIds, 'created_at' => date(DATE_ATOM)];
                 $user->instruction_certificates_json = json_encode($certificates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 $user->instruction_updated_at = date(DATE_ATOM);
                 R::store($user);
-                audit_log('unterweisungsnachweis_gespeichert', ['oauthuser_id' => (int) $user->id, 'art' => $kind]);
-                $_SESSION['meldung'] = 'Unterweisungsnachweis gespeichert.';
+                audit_log('unterweisungsnachweis_gespeichert', ['oauthuser_id' => (int) $user->id, 'art' => $kind, 'pruefarten' => $selectedTypes]);
+                $queuedReports = self::queueMissingReportsForExaminer($user);
+                $_SESSION['meldung'] = 'Unterweisungsnachweis gespeichert und den gewählten Prüfarten zugeordnet.' . ($queuedReports > 0 ? ' ' . $queuedReports . ' fertige Prüfberichte werden nun im Hintergrund erzeugt.' : '');
                 return [303, ['Location' => $profileUrl], ''];
             }
             if ($action === 'delete_certificate') {
                 $certificateId = trim((string) ($_POST['certificate_id'] ?? ''));
                 $remaining = [];
                 foreach (self::certificates($user) as $certificate) {
-                    if ((string) ($certificate['id'] ?? '') === $certificateId) { if (is_file((string) ($certificate['path'] ?? ''))) @unlink((string) $certificate['path']); continue; }
+                    if ((string) ($certificate['id'] ?? '') === $certificateId) {
+                        $qualificationIds = array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? []))));
+                        if ($qualificationIds !== []) {
+                            $marks = implode(',', array_fill(0, count($qualificationIds), '?'));
+                            R::exec("DELETE FROM user_qualification WHERE oauthuser_id = ? AND id IN ($marks)", array_merge([(int) $user->id], $qualificationIds));
+                        } else {
+                            R::exec('DELETE FROM user_qualification WHERE oauthuser_id = ? AND proof_path = ?', [(int) $user->id, (string) ($certificate['path'] ?? '')]);
+                        }
+                        if (is_file((string) ($certificate['path'] ?? ''))) @unlink((string) ($certificate['path'] ?? ''));
+                        continue;
+                    }
                     $remaining[] = $certificate;
                 }
                 $user->instruction_certificates_json = json_encode($remaining, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -221,9 +261,14 @@ final class ProfileController
         $followups = json_decode((string) ($user->instruction_followups_json ?? ''), true);
         $followups = is_array($followups) ? array_values(array_filter($followups, static fn($entry): bool => is_array($entry))) : [];
         $certificates = self::certificates($user);
+        $inspectionTypes = InspectionTypeService::active();
+        $inspectionPermissions = [];
+        foreach ($inspectionTypes as $inspectionType) {
+            $inspectionPermissions[(string) $inspectionType['code']] = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
+        }
         $qualificationRequirements = R::getAll('SELECT r.*, t.name AS inspection_type_name FROM inspection_type_requirement r JOIN inspection_type t ON t.code = r.inspection_type_code WHERE r.active = 1 ORDER BY t.sort_order, r.sort_order');
         $qualifications = R::getAll('SELECT q.*, r.name AS requirement_name, t.name AS inspection_type_name FROM user_qualification q LEFT JOIN inspection_type_requirement r ON r.code=q.requirement_code LEFT JOIN inspection_type t ON t.code=r.inspection_type_code WHERE q.oauthuser_id = ? ORDER BY q.id DESC', [(int) $user->id]);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'canEdit' => $canEdit, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'canEdit' => $canEdit, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 

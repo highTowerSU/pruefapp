@@ -38,6 +38,27 @@ final class UserReminderService
             self::markDedupeRead($signatureKey, $userId);
         }
 
+        $permissionKey = 'inspection-permission-missing:user:' . $userId . ':v1';
+        $blockedTypes = [];
+        foreach (InspectionTypeService::active() as $inspectionType) {
+            $permission = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
+            if (!$permission['allowed']) {
+                $blockedTypes[] = (string) $inspectionType['name'] . ': ' . implode(', ', $permission['missing']);
+            }
+        }
+        if ($blockedTypes !== []) {
+            $message = 'Für folgende Prüfarten fehlen noch Voraussetzungen:\n' . implode("\n", $blockedTypes) . '\n\nBitte ergänze die Unterweisungs- und Befähigungsnachweise im Profil.';
+            $reminders[] = self::reminder('Prüfberechtigung ergänzen', $message, 'warning', url_for('profil'), 'profile');
+            NotificationRepository::publish(
+                [$userId],
+                'Prüfberechtigung ergänzen',
+                $message,
+                ['dedupe_key' => $permissionKey, 'category' => 'profile', 'severity' => 'warning', 'action_url' => url_for('profil')]
+            );
+        } else {
+            self::markDedupeRead($permissionKey, $userId);
+        }
+
         $today = $now->format('Y-m-d');
         $identities = self::identities($user);
         $missing = self::missingInspections($identities, $today);

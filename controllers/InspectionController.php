@@ -27,16 +27,12 @@ final class InspectionController
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
         $user = current_user();
         $typeCode = InspectionTypeService::normalize((string) ($_REQUEST['inspection_type_code'] ?? InspectionTypeService::ELECTRICAL));
-        $eligibility = InspectionTypeService::examinerEligibility($user, $typeCode);
-        if (!$eligibility['allowed']) {
-            $_SESSION['fehlermeldung'] = $eligibility['message'];
+        $permission = InspectionTypeService::permissionForUser($user, $typeCode);
+        if (!$permission['allowed']) {
+            $_SESSION['fehlermeldung'] = $permission['message'];
             return [303, ['Location' => url_for('profil')], ''];
         }
         $examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
-        if (!examiner_has_report_signature($examiner)) {
-            $_SESSION['fehlermeldung'] = 'Bitte hinterlege zuerst deine Unterschrift im Profil. Ohne Unterschrift können keine Prüfungen durchgeführt oder Prüfberichte erzeugt werden.';
-            return [303, ['Location' => url_for('profil')], ''];
-        }
         $device = R::load('device', (int) ($params['deviceId'] ?? 0));
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Gerät nicht gefunden'];
         $expectedNumber = trim((string) $device->external_number) . '-' . date('y');
@@ -263,8 +259,8 @@ final class InspectionController
         foreach (InspectionDataService::answers((int) $inspection->id) as $answer) $answersByKey[(string) $answer['item_key']] = $answer;
         $catalog = R::getAll('SELECT * FROM inspection_catalog_item WHERE version_id = ? ORDER BY sort_order, id', [$catalogId]);
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $eligibility = InspectionTypeService::examinerEligibility($user, InspectionTypeService::LADDER);
-            if (!$eligibility['allowed']) $error = $eligibility['message'];
+            $permission = InspectionTypeService::permissionForUser($user, InspectionTypeService::LADDER);
+            if (!$permission['allowed']) $error = $permission['message'];
             $inspection->test_date = trim((string) ($_POST['test_date'] ?? $inspection->test_date));
             $inspection->next_due_date = trim((string) ($_POST['next_due_date'] ?? $inspection->next_due_date));
             $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));

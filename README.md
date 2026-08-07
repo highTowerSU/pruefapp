@@ -43,6 +43,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - **Jetzt:** Dokumentation von Elektroprüfungen nach DGUV Vorschrift 3.
 - **Prüfarten:** Geräte bleiben einheitlich; Elektroprüfungen und Leiter-/Trittprüfungen sind getrennte, versionierte Prüftypen. Typbezogene Gerätedaten werden bei der Prüfung abgefragt, am Gerät fortgeschrieben und als Snapshot mit dem Ergebnis gespeichert.
 - **Befähigungen:** Die Berechtigung für eine Prüftyp kann über konfigurierbare Nachweise, Unterweisungen und Superadmin-Bestätigungen abgesichert werden. Aktivierte Anforderungen werden serverseitig vor dem Anlegen und Abschließen geprüft.
+- **Unterweisungsnachweise:** Ein PDF-Nachweis kann gezielt einer oder mehreren Prüfarten zugeordnet werden. Er erfüllt nur die zugeordneten Unterweisungsanforderungen; Profil, Login-Hinweise und die Auswahl „Neue Prüfung“ verwenden dieselbe serverseitige Berechtigungsprüfung.
 - **Mängel und Hinweise:** Grüne Hinweise sowie orange/rote Mängel werden dem Gerät zugeordnet. Orange Mängel erhalten eine Nachverfolgungsfrist, rote Mängel markieren das Gerät als gesperrt; ein fehlgeschlagener Bericht bleibt erzeugbar und abrechenbar.
 - **Bestehend:** Die Authentifizierung über Keycloak und `login.koenigsbl.au` bleibt unverändert nutzbar.
 

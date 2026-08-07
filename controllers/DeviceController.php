@@ -235,6 +235,14 @@ class DeviceController
         if (preg_match('/^[a-f0-9]{24}$/', $zipJob)) {
             $zipJobStatus = BackgroundJobService::find($zipJob);
         }
+        $inspectionTypes = InspectionTypeService::active();
+        $user = current_user();
+        foreach ($inspectionTypes as &$inspectionType) {
+            $permission = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
+            $inspectionType['allowed'] = $permission['allowed'];
+            $inspectionType['permission_message'] = $permission['message'];
+        }
+        unset($inspectionType);
         $content = render_template('device_index.php', [
                 'devices' => $devices,
                 'inspections' => $inspections,
@@ -272,7 +280,7 @@ class DeviceController
                 'zipJob' => $zipJob,
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
-                'inspectionTypes' => InspectionTypeService::active(),
+                'inspectionTypes' => $inspectionTypes,
             ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', [
