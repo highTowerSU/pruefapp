@@ -161,6 +161,17 @@
     if (!header || !info) return;
     const extras = [info.querySelector('.mt-1'), info.querySelector('.mt-2'), item.querySelector(':scope > .border-top'), item.querySelector(':scope > form')].filter(Boolean);
     extras.forEach((element) => element.classList.add('qualification-extra'));
+    const pdfLink = info.querySelector('a[href*="/profil/nachweis/"]');
+    if (pdfLink) {
+      const previewRow = document.createElement('div');
+      previewRow.className = 'qualification-extra mt-2';
+      const preview = document.createElement('a');
+      preview.className = 'btn btn-sm btn-primary';
+      preview.href = pdfLink.href;
+      preview.innerHTML = '<i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i>PDF-Vorschau anzeigen';
+      previewRow.appendChild(preview);
+      item.insertBefore(previewRow, item.children[1] || null);
+    }
     const actions = header.querySelector(':scope > .d-flex.gap-1') || header;
     const toggle = document.createElement('button');
     toggle.type = 'button'; toggle.className = 'btn btn-sm btn-secondary qualification-toggle';
