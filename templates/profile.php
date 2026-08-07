@@ -149,6 +149,8 @@
 #qualification-card .qualification-item:hover{background-color:var(--bs-tertiary-bg)}
 #qualification-card .qualification-item .qualification-extra{display:none}
 #qualification-card .qualification-item.is-expanded .qualification-extra{display:block}
+#qualification-card .qualification-item .qualification-followup-form-collapsed{display:none!important}
+#qualification-card .qualification-item .qualification-followup-form-visible{display:grid!important}
 #qualification-card .qualification-item .qualification-toggle{white-space:nowrap}
 #qualification-card .qualification-item fieldset[data-followup-scope]{grid-column:1 / -1;margin:0;padding:.5rem .75rem;border:1px solid var(--bs-border-color);border-radius:.375rem}
 #qualification-card .qualification-create summary{cursor:pointer;list-style:none}
@@ -177,16 +179,18 @@
     if (!header || !info) return;
     const extras = [info.querySelector('.mt-1'), info.querySelector('.mt-2'), item.querySelector(':scope > .border-top'), item.querySelector(':scope > form')].filter(Boolean);
     extras.forEach((element) => element.classList.add('qualification-extra'));
-    const pdfLink = info.querySelector('a[href*="/profil/nachweis/"]');
-    if (pdfLink) {
-      const previewRow = document.createElement('div');
-      previewRow.className = 'qualification-extra mt-2';
-      const preview = document.createElement('a');
-      preview.className = 'btn btn-sm btn-primary';
-      preview.href = pdfLink.href;
-      preview.innerHTML = '<i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i>PDF-Vorschau anzeigen';
-      previewRow.appendChild(preview);
-      item.insertBefore(previewRow, item.children[1] || null);
+    const followupForm = item.querySelector(':scope > form');
+    if (followupForm) {
+      followupForm.classList.add('qualification-followup-form-collapsed');
+      const followupButton = document.createElement('button');
+      followupButton.type = 'button'; followupButton.className = 'btn btn-sm btn-primary qualification-extra mt-2';
+      followupButton.innerHTML = '<i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Folgeunterweisung hinzufügen';
+      followupButton.addEventListener('click', () => {
+        const visible = followupForm.classList.toggle('qualification-followup-form-visible');
+        followupForm.classList.toggle('qualification-followup-form-collapsed', !visible);
+        followupButton.innerHTML = visible ? '<i class="fa-solid fa-chevron-up me-1" aria-hidden="true"></i>Formular ausblenden' : '<i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Folgeunterweisung hinzufügen';
+      });
+      item.insertBefore(followupButton, followupForm);
     }
     const actions = header.querySelector(':scope > .d-flex.gap-1') || header;
     const toggle = document.createElement('button');
