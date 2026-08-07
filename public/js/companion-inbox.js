@@ -19,6 +19,18 @@
       return png;
     } finally { URL.revokeObjectURL(source); }
   };
+  const showPasteToast = () => {
+    if (!window.bootstrap?.Toast) return;
+    let toast = document.getElementById('device-photo-paste-toast');
+    if (!toast) {
+      const container = document.createElement('div');
+      container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+      container.style.zIndex = '1080';
+      container.innerHTML = '<div id="device-photo-paste-toast" class="toast align-items-center text-bg-secondary border-0" role="status" aria-live="polite" aria-atomic="true"><div class="d-flex"><div class="toast-body"><i class="fa-solid fa-paste me-1" aria-hidden="true"></i>Bild jetzt mit <kbd>Strg</kbd> + <kbd>V</kbd> oder per Rechtsklick → Einfügen einfügen.</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Schließen"></button></div></div>';
+      document.body.append(container); toast = container.firstElementChild;
+    }
+    window.bootstrap.Toast.getOrCreateInstance(toast, {delay: 4500}).show();
+  };
 
   const refresh = (root) => {
     if (!root || !window.htmx) return;
@@ -116,6 +128,8 @@
       button.innerHTML = '<i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Foto auswählen</span>';
       wrapper.append(button);
       const paste = form.querySelector('[data-device-photo-paste]');
+      paste?.addEventListener('focus', showPasteToast);
+      paste?.addEventListener('click', showPasteToast);
       paste?.addEventListener('paste', (event) => {
         const item = [...(event.clipboardData?.items || [])].find((candidate) => candidate.type.startsWith('image/'));
         if (!item) return;
