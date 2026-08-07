@@ -73,6 +73,7 @@ require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
+require_once __DIR__ . '/VocabularyOAuthService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
 require_once __DIR__ . '/BackgroundJobService.php';

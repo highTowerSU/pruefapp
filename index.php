@@ -155,6 +155,7 @@ $routes = [
     ['POST', '/mandanten/{id}/loeschen', fn($params, $isHx) => TenantController::delete($params, $isHx)],
     ['GET', '/admin/konfiguration', fn($params, $isHx) => SettingsController::general($params, $isHx)],
     ['POST', '/admin/konfiguration', fn($params, $isHx) => SettingsController::general($params, $isHx)],
+    ['GET', '/admin/konfiguration/ki-oauth/callback', fn($params, $isHx) => SettingsController::vocabularyOAuthCallback($params, $isHx)],
     ['GET', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
     ['POST', '/uebermitteln/{token}', fn($params, $isHx) => SubmissionController::form($params, $isHx)],
 ];

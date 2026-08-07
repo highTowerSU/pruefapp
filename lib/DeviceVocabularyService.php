@@ -118,10 +118,10 @@ final class DeviceVocabularyService
     {
         self::assertField($field);
         $baseUrl = rtrim((string) get_app_config('vocabulary_ai_base_url', ''), '/');
-        $token = trim((string) get_app_config('vocabulary_ai_token', ''));
+        $token = self::providerToken();
         $model = trim((string) get_app_config('vocabulary_ai_model', ''));
         if ($baseUrl === '' || $token === '' || $model === '') throw new RuntimeException('Die KI-Stammdatenprüfung ist noch nicht vollständig konfiguriert.');
-        $headerName = trim((string) get_app_config('vocabulary_ai_header', 'Authorization')) ?: 'Authorization';
+        $headerName = get_app_config('vocabulary_ai_auth_mode', 'token') === 'oauth' ? 'Authorization' : (trim((string) get_app_config('vocabulary_ai_header', 'Authorization')) ?: 'Authorization');
         $headerValue = $headerName === 'Authorization' ? 'Bearer ' . $token : $token;
         $payload = ['model' => $model, 'temperature' => 0, 'messages' => [
             ['role' => 'system', 'content' => 'Du prüfst ausschließlich deutsche technische Stammdaten. Antworte nur als JSON mit canonical_value, confidence (0 bis 1) und reason. Schlage nur eine bekannte, eindeutig bessere Schreibweise vor; bei Unsicherheit canonical_value leer lassen.'],
@@ -162,6 +162,12 @@ final class DeviceVocabularyService
         }
         sort($models, SORT_NATURAL | SORT_FLAG_CASE);
         return array_values(array_unique($models));
+    }
+
+    private static function providerToken(): string
+    {
+        if (get_app_config('vocabulary_ai_auth_mode', 'token') === 'oauth') return VocabularyOAuthService::accessToken();
+        return trim((string) get_app_config('vocabulary_ai_token', ''));
     }
 
     private static function assertField(string $field): void
