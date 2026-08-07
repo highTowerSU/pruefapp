@@ -8,6 +8,7 @@ $inboxService = (string) file_get_contents(dirname(__DIR__) . '/lib/InspectionCo
 $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionCompanionController.php');
 $profileController = (string) file_get_contents(dirname(__DIR__) . '/controllers/ProfileController.php');
 $mobile = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_mobile.php');
+$workspace = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_workspace.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $layout = (string) file_get_contents(dirname(__DIR__) . '/templates/layout.php');
 $panel = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_panel.php');
@@ -30,6 +31,7 @@ $checks = [
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS inspection_companion_item') && str_contains($inboxService, 'markUsed') && str_contains($inboxService, 'adoptPhoto'), 'Companion-Werte werden nicht als bewusst übernehmbare gemeinsame Eingänge gespeichert.'],
     [str_contains($controller, 'function events') && str_contains($controller, 'text/event-stream') && str_contains($routes, '/companion/ereignisse') && str_contains($routes, '/companion/eingang/{id}/uebernehmen'), 'Companion-Ereignisse werden nicht per SSE und gezieltem HTMX-Fragment übertragen.'],
     [str_contains($controller, 'function barcodePhoto') && str_contains($controller, 'zbarimg') && str_contains($mobile, 'barcode-foto'), 'Es gibt keinen serverseitigen Barcode-Foto-Fallback.'],
+    [str_contains($workspace, 'companion-workspace-camera-scan') && str_contains($workspace, 'BarcodeDetector') && str_contains($workspace, 'facingMode'), 'Der allgemeine Companion-Arbeitsplatz kann Barcodes nicht per Browser-Kamera scannen.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);
