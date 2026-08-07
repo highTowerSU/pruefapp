@@ -11,6 +11,7 @@ $controller = (string) file_get_contents($root . '/controllers/DeviceController.
 $vocabularyController = (string) file_get_contents($root . '/controllers/VocabularyController.php');
 $vocabularyTemplate = (string) file_get_contents($root . '/templates/vocabulary.php');
 $maintenance = (string) file_get_contents($root . '/lib/MaintenanceJobHandler.php');
+$adminController = (string) file_get_contents($root . '/controllers/AdminController.php');
 $routes = (string) file_get_contents($root . '/index.php');
 $searchSelect = (string) file_get_contents($root . '/public/js/search-select.js');
 $customCss = (string) file_get_contents($root . '/public/css/custom.css');
@@ -22,6 +23,7 @@ foreach ([
     [str_contains($device, 'exact') && str_contains($device, 'createOnBlur: false'), 'Bekannte Werte bleiben beim Verlassen nicht erhalten oder neue Werte werden nicht explizit bestätigt.'],
     [str_contains($searchSelect, 'htmx:load') && str_contains($customCss, 'select.form-select + .ts-wrapper'), 'TomSelect-Felder werden nach HTMX-Swaps nicht zuverlässig als einzelnes Feld dargestellt.'],
     [str_contains($vocabularyService, 'enqueueHistoricalReview') && str_contains($maintenance, 'vocabularyReviewScan') && str_contains($vocabularyController, '$action === \'scan\'') && str_contains($vocabularyTemplate, 'Prüfung starten') && str_contains($vocabularyTemplate, 'vocabulary-auto-refresh') && str_contains($vocabularyTemplate, 'htmx.ajax'), 'Der manuelle, fortsetzbare KI-Lauf über vorhandene Stammdaten mit Fortschrittsaktualisierung fehlt.'],
+    [str_contains($adminController, "\$summary === 'ai'") && str_contains($adminController, 'aiProviderApiDebug') && str_contains($adminController, 'AiProviderService::diagnose'), 'Der token-geschützte KI-Diagnoseendpunkt fehlt.'],
 ] as [$ok, $message]) {
     if (!$ok) throw new RuntimeException($message);
 }

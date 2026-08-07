@@ -33,6 +33,9 @@ class AdminController
         if ($summary === 'inspection-overview') {
             return self::inspectionOverviewApiDebug($headers);
         }
+        if ($summary === 'ai') {
+            return self::aiProviderApiDebug($headers);
+        }
         if ($query === '' || mb_strlen($query) > 120) {
             return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) oder directory (freigegebener Importpfad) fehlt.'], JSON_UNESCAPED_UNICODE)];
         }
@@ -111,6 +114,32 @@ class AdminController
             'data_missing_by_source' => $sourceRows,
             'devices_with_multiple_room_snapshots' => $roomHistories,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /** Safe, header-secret protected AI probe; never returns a token or prompt. */
+    private static function aiProviderApiDebug(array $headers): array
+    {
+        $provider = AiProviderService::selectedVocabularyProvider();
+        $model = trim((string) get_app_config('vocabulary_ai_model', ''));
+        $baseUrl = trim((string) ($provider->base_url ?? ''));
+        $result = [
+            'ok' => false,
+            'enabled' => get_app_config('vocabulary_ai_enabled', '0') === '1',
+            'provider' => (string) ($provider->name ?? ''),
+            'endpoint' => $baseUrl === '' ? '' : ((string) parse_url($baseUrl, PHP_URL_SCHEME) . '://' . (string) parse_url($baseUrl, PHP_URL_HOST) . (string) parse_url($baseUrl, PHP_URL_PATH)),
+            'model' => $model,
+        ];
+        if ($provider === null || $model === '') {
+            $result['error'] = 'Provider oder Modell ist nicht konfiguriert.';
+            return [200, $headers, json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        }
+        try {
+            $diagnostic = AiProviderService::diagnose($provider, $model);
+            $result += ['ok' => true, 'response_model' => $diagnostic['model'], 'response' => $diagnostic['content']];
+        } catch (Throwable $exception) {
+            $result['error'] = $exception->getMessage();
+        }
+        return [200, $headers, json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
     /**
