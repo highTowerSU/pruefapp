@@ -67,6 +67,16 @@
       }
     });
   };
+  const openDraftPhotoChoices = (button, form, root) => {
+    if (!root) return;
+    activeDraftForm = form;
+    const old = window.bootstrap?.Popover.getInstance(button);
+    if (old) old.dispose();
+    const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
+    const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
+    popover.show();
+    window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
+  };
   const bindDraftPhotoSelectors = (root) => {
     document.querySelectorAll('[data-stage-device-photo]').forEach((photo) => {
       const form = photo.closest('form.device-form');
@@ -80,22 +90,25 @@
       wrapper.append(photo);
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'btn btn-secondary'; button.dataset.companionDraftPhoto = '1';
+      button.dataset.companionPhotoBound = '1';
       button.title = 'Foto aus der Companion-App übernehmen';
       button.innerHTML = '<i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Foto auswählen</span>';
       wrapper.append(button);
       if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
+      form.querySelectorAll('[data-companion-draft-photo]').forEach((choice) => choice.classList.toggle('d-none', !root || root.dataset.hasActiveConnection !== '1'));
       button.addEventListener('click', () => {
-        if (!root) return;
-        activeDraftForm = form;
-        const old = window.bootstrap?.Popover.getInstance(button);
-        if (old) old.dispose();
-        const content = `<div hx-get="${root.dataset.inboxUrl}?kind=photo" hx-trigger="load" hx-swap="innerHTML"><span class="small"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Companion-Fotos laden …</span></div>`;
-        const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
-        popover.show();
-        window.htmx?.process(document.getElementById(button.getAttribute('aria-describedby') || ''));
+        openDraftPhotoChoices(button, form, root);
       });
     });
   };
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-companion-draft-photo]');
+    if (!button || button.dataset.companionPhotoBound) return;
+    const form = button.closest('form.device-form');
+    const root = document.querySelector('[data-companion-inbox]');
+    if (!form || !root || root.dataset.hasActiveConnection !== '1') return;
+    openDraftPhotoChoices(button, form, root);
+  });
   document.addEventListener('click', (event) => {
     const choice = event.target.closest('[data-companion-choose]');
     if (!choice) return;
@@ -137,7 +150,7 @@
       const token = activeDraftForm.querySelector('[data-draft-photo-token]');
       if (token) token.value = data.token || '';
       const type = activeDraftForm.querySelector('[name="new_device_photo_type"]');
-      if (type && data.media_type) type.value = data.media_type;
+      if (type && data.media_type) { type.value = data.media_type; type.dispatchEvent(new Event('change', {bubbles: true})); }
       const result = activeDraftForm.querySelector('[data-draft-photo-result]');
       if (result) result.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Companion-Foto wurde in den Geräteentwurf übernommen.</div>';
       closePopovers(); refresh(root);
