@@ -30,7 +30,7 @@ final class ProfileController
                 // never to an administrator viewing somebody else's profile.
                 if ($adminView) return forbidden_response();
                 $created = InspectionCompanionService::createWorkspace((int) $user->id);
-                $_SESSION['profile_companion_token'] = $created['token'];
+                $_SESSION['profile_companion_tokens'][(int) $created['id']] = $created['token'];
                 audit_log('pruef_companion_arbeitsplatz_erstellt', ['oauthuser_id' => (int) $user->id]);
                 $_SESSION['meldung'] = 'Companion-Verbindung für den Prüfplatz erstellt.';
                 return [303, ['Location' => $profileUrl . '#companion-sessions'], ''];
@@ -38,6 +38,7 @@ final class ProfileController
             if ($action === 'disconnect_companion') {
                 if ($adminView) return forbidden_response();
                 InspectionCompanionService::disconnectSession((int) ($_POST['companion_session_id'] ?? 0), (int) $user->id);
+                unset($_SESSION['profile_companion_tokens'][(int) ($_POST['companion_session_id'] ?? 0)]);
                 audit_log('pruef_companion_getrennt', ['oauthuser_id' => (int) $user->id, 'session_id' => (int) ($_POST['companion_session_id'] ?? 0)]);
                 $_SESSION['meldung'] = 'Companion-Verbindung wurde beendet.';
                 return [303, ['Location' => $profileUrl . '#companion-sessions'], ''];
@@ -348,7 +349,13 @@ final class ProfileController
         $certificates = self::certificates($user);
         $inspectionTypes = InspectionTypeService::active();
         $activeCompanionSessions = InspectionCompanionService::activeForUser((int) $user->id);
-        $profileCompanionToken = (string) ($_SESSION['profile_companion_token'] ?? '');
+        $profileCompanionTokens = (array) ($_SESSION['profile_companion_tokens'] ?? []);
+        // Old deployments kept exactly one token under this key. It is never
+        // trusted again because a disconnected QR link must stay invalid.
+        unset($_SESSION['profile_companion_token']);
+        $activeCompanionIds = array_map(static fn(array $session): int => (int) $session['id'], $activeCompanionSessions);
+        $profileCompanionTokens = array_intersect_key($profileCompanionTokens, array_flip($activeCompanionIds));
+        $_SESSION['profile_companion_tokens'] = $profileCompanionTokens;
         $inspectionPermissions = [];
         foreach ($inspectionTypes as $inspectionType) {
             $inspectionPermissions[(string) $inspectionType['code']] = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
@@ -376,7 +383,7 @@ final class ProfileController
             $certificate['confirmed_at'] = (string) ($latestConfirmation['confirmed_at'] ?? '');
         }
         unset($certificate);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'profileCompanionToken' => $profileCompanionToken, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'profileCompanionTokens' => $profileCompanionTokens, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 
