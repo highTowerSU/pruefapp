@@ -131,6 +131,10 @@ final class ReportController
             $profileSignature = examiner_signature_data_uri($examiner);
             if ($profileSignature !== '') $rows[] = ['__profile_signature', $profileSignature];
         }
+        if (function_exists('absolute_url_for')) {
+            $rows[] = ['__inspection_url', absolute_url_for('pruefungen/' . (int) $inspection->id)];
+            $rows[] = ['__device_url', absolute_url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)];
+        }
         $rows[] = ['Prüfungsabschluss', (string) ($raw['end_time'] ?? $inspection->updated_at ?? $inspection->test_date ?? '')];
         if ($checklist !== []) {
             $rows[] = ['Prüfschritte', ''];
@@ -578,7 +582,7 @@ final class ReportController
         $resultClass = str_contains($result, 'durch') || str_contains($result, 'nicht') ? 'bad' : ($result === 'bestanden' ? 'good' : 'pending');
         $raw = [];
         foreach (array_slice($rows, 1) as $row) { $label = (string) ($row[0] ?? ''); if ($label !== '') $raw[$label] = (string) ($row[1] ?? ''); }
-        $known = ['Prüfnummer','Datum','Prüfart','Prüfungstyp','Prüfer','Nächste Prüfung','Gerät','Ergebnis','Regiezeit','Regiebegründung','Prüfungsabschluss','Inventarnummer','Geräteart','Hersteller','Typ','Wärmegerät','Auftraggeber','Liegenschaft','Gebäude','Etage','Raum-Nr.','__raw_json','__measurements_json','__checklist_json','__profile_signature'];
+        $known = ['Prüfnummer','Datum','Prüfart','Prüfungstyp','Prüfer','Nächste Prüfung','Gerät','Ergebnis','Regiezeit','Regiebegründung','Prüfungsabschluss','Inventarnummer','Geräteart','Hersteller','Typ','Wärmegerät','Auftraggeber','Liegenschaft','Gebäude','Etage','Raum-Nr.','__raw_json','__measurements_json','__checklist_json','__profile_signature','__inspection_url','__device_url'];
         $items = [];
         foreach (array_slice($rows, 1) as $row) { $label = (string) ($row[0] ?? ''); if ($label !== '' && !in_array($label, $known, true) && $label !== 'Prüfschritte') $items[] = ['Messung', $label, (string) ($row[1] ?? ''), '', '']; }
         $rawJson = json_decode((string) ($values['__raw_json'] ?? ''), true) ?: [];
@@ -589,7 +593,10 @@ final class ReportController
         $auditOk = ($rawJson['audit_ok'] ?? false) === true;
         $resultCell = static function (string $result) use ($esc, $auditOk): string { $lower = mb_strtolower($result); $class = str_contains($lower, 'nicht') || str_contains($lower, 'durch') || str_contains($lower, 'fail') ? 'bad' : (str_contains($lower, 'bestanden') || in_array($lower, ['ok','ja','gut'], true) || ($result === '' && $auditOk) ? 'good' : 'pending'); return '<td class="ok"><span class="result ' . $class . '">' . $esc($result !== '' ? $result : 'OK') . '</span></td>'; };
         if (isset($rawJson['step0'])) { foreach ($rawJson as $key => $question) if (preg_match('/^step(\d+)$/', (string) $key, $m)) { $n=(int)$m[1]; $category=$n===0?'Inventarisierung':($n<=3?'Sichtprüfung':($n<=6?'Messung':($n===7?'Funktionsprüfung':'Organisatorische Hinweise'))); $result=(string)($rawJson['result'.$n]??''); $criterion=(string)($rawJson['criterion'.$n]??''); $html.='<tr><td>'.$esc($category).'</td><td>'.$esc((string)$question).'</td><td>'.$esc($criterion).'</td>'.$resultCell($result).'</tr>'; } } else foreach ($items as [$category,$question,$result,$criterion,$unused]) $html.='<tr><td>'.$esc($category).'</td><td>'.$esc($question).'</td><td>'.$esc($criterion).'</td>'.$resultCell($result).'</tr>';
-        $html .= '</tbody></table><div class="footer"><div><strong>Regiezeit:</strong> ' . $esc($values['Regiezeit'] ?? '0 Minuten') . '<div class="muted">' . $esc($values['Regiebegründung'] ?? '') . '</div></div><div><strong>Unterschrift:</strong><div class="line"></div></div></div><div class="footnote"><span>' . $esc($company) . '</span><span>' . $esc((new DateTimeImmutable())->format('d.m.Y')) . '</span></div>';
+        $onlineLink = trim((string) ($values['__inspection_url'] ?? ''));
+        $deviceLink = trim((string) ($values['__device_url'] ?? ''));
+        $onlineNote = $onlineLink !== '' ? '<div class="muted" style="margin-top:8px">Prüfung online: <a href="' . $esc($onlineLink) . '">' . $esc($onlineLink) . '</a>' . ($deviceLink !== '' ? '<br>Gerät und Fotos: <a href="' . $esc($deviceLink) . '">' . $esc($deviceLink) . '</a>' : '') . '</div>' : '';
+        $html .= '</tbody></table><div class="footer"><div><strong>Regiezeit:</strong> ' . $esc($values['Regiezeit'] ?? '0 Minuten') . '<div class="muted">' . $esc($values['Regiebegründung'] ?? '') . '</div>' . $onlineNote . '</div><div><strong>Unterschrift:</strong><div class="line"></div></div></div><div class="footnote"><span>' . $esc($company) . '</span><span>' . $esc((new DateTimeImmutable())->format('d.m.Y')) . '</span></div>';
         $dir = sys_get_temp_dir() . '/pruefapp-inspection-pdf'; if (!is_dir($dir)) mkdir($dir, 0700, true);
         $token = bin2hex(random_bytes(8)); $htmlPath = $dir . '/' . $token . '.html'; $pdfPath = $dir . '/' . $token . '.pdf'; $profile = $dir . '/' . $token . '-profile';
         file_put_contents($htmlPath, $html, LOCK_EX);

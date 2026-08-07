@@ -65,6 +65,8 @@ $rows = [
     ['__measurements_json', json_encode($measurements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
     ['__raw_json', json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
     ['__profile_signature', $signature],
+    ['__inspection_url', 'https://example.test/pruefapp/pruefungen/42'],
+    ['__device_url', 'https://example.test/pruefapp/geraete?device_id=7#geraet-7'],
 ];
 
 $branding = [
@@ -97,6 +99,8 @@ $required = [
     'Ergebnis',
     'Unterschrift',
     'Baustromverteiler',
+    'Prüfung online öffnen',
+    'Gerät und Fotodokumentation öffnen',
     'Beschriftung vollständig',
     'sicherheitsrelevanten Funktionen',
     $statusVariant,

@@ -233,6 +233,15 @@ final class InspectionReportWriter
         $xml .= self::paragraph((string) ($values['Prüfer'] ?? ''), 'PSmallMuted')
             . '</table:table-cell></table:table-row></table:table>';
 
+        $inspectionUrl = trim((string) ($values['__inspection_url'] ?? ''));
+        if ($inspectionUrl !== '') {
+            $xml .= self::linkParagraph('Prüfung online öffnen', $inspectionUrl);
+        }
+        $deviceUrl = trim((string) ($values['__device_url'] ?? ''));
+        if ($deviceUrl !== '') {
+            $xml .= self::linkParagraph('Gerät und Fotodokumentation öffnen', $deviceUrl);
+        }
+
         $xml .= '</office:text></office:body></office:document-content>';
         return $xml;
     }
@@ -740,6 +749,11 @@ final class InspectionReportWriter
     {
         $lines = preg_split('/\R/u', $text) ?: [''];
         return '<text:p text:style-name="' . $style . '">' . implode('<text:line-break/>', array_map([self::class, 'xml'], $lines)) . '</text:p>';
+    }
+
+    private static function linkParagraph(string $label, string $url): string
+    {
+        return '<text:p text:style-name="PSmallMuted"><text:a xlink:href="' . self::xml($url) . '" xlink:type="simple">' . self::xml($label) . '</text:a></text:p>';
     }
 
     private static function labelValueParagraph(string $label, string $value): string
