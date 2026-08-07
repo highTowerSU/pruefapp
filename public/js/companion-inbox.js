@@ -142,10 +142,10 @@
       photo.addEventListener('change', () => { if (photo.files?.[0]) previewDevicePhoto(form, photo.files[0]); });
       paste?.addEventListener('focus', showPasteToast);
       paste?.addEventListener('click', showPasteToast);
-      paste?.addEventListener('input', resetPasteLabel);
+      paste?.addEventListener('blur', resetPasteLabel);
       paste?.addEventListener('paste', (event) => {
         const item = [...(event.clipboardData?.items || [])].find((candidate) => candidate.type.startsWith('image/'));
-        if (!item) return;
+        if (!item) { event.preventDefault(); resetPasteLabel(); return; }
         event.preventDefault();
         const blob = item.getAsFile(); if (!blob) return;
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`, {type: blob.type}));
