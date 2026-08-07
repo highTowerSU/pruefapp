@@ -107,6 +107,23 @@
     closePopovers();
   });
   document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-companion-copy]');
+    if (!button) return;
+    const value = button.dataset.companionCopy || '';
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value);
+      else {
+        const input = document.createElement('textarea'); input.value = value; input.style.position = 'fixed'; input.style.opacity = '0';
+        document.body.append(input); input.select(); document.execCommand('copy'); input.remove();
+      }
+      const previous = button.textContent;
+      button.textContent = 'In Zwischenablage kopiert';
+      window.setTimeout(() => { button.textContent = previous; }, 1500);
+    } catch (_) {
+      window.prompt('Bitte kopieren:', value);
+    }
+  });
+  document.addEventListener('click', async (event) => {
     const choice = event.target.closest('[data-companion-draft-photo-choose]');
     if (!choice || !activeDraftForm) return;
     const root = document.querySelector('[data-companion-inbox]');
