@@ -84,6 +84,17 @@ final class AiProviderService
         return trim((string) $provider->api_token);
     }
 
+    public static function pricingUrl(object $provider): string
+    {
+        $configured = trim((string) ($provider->pricing_url ?? ''));
+        if ($configured !== '') return $configured;
+        $identity = mb_strtolower((string) ($provider->name ?? '') . ' ' . (string) ($provider->base_url ?? ''), 'UTF-8');
+        if (str_contains($identity, 'innogpt')) return 'https://docs.innogpt.de/en/help/articles/8468742-usage-limits-andamp-fair-use-policy';
+        if (str_contains($identity, 'ionos')) return 'https://docs.ionos.com/cloud/ai/ai-model-hub/ai-model-hub';
+        if (str_contains($identity, 'ovh')) return 'https://help.ovhcloud.com/csm/en-au-public-cloud-ai-endpoints-code-assistant?id=kb_article_view&sysparm_article=KB0067282';
+        return '';
+    }
+
     private static function migrateLegacyProvider(): void
     {
         if (self::$migratingLegacy || R::count('aiprovider') > 0 || get_app_config('vocabulary_ai_base_url', '') === '') return;

@@ -45,7 +45,7 @@ class SettingsController
         $provider = AiProviderService::find($id);
         if ($provider === null || (int) $provider->id === 0) $provider = (object) ['id' => 0, 'name' => '', 'base_url' => '', 'header_name' => 'Authorization', 'auth_mode' => 'token', 'api_token' => '', 'pricing_url' => '', 'oauth_authorization_url' => '', 'oauth_token_url' => '', 'oauth_client_id' => '', 'oauth_client_secret' => '', 'oauth_scopes' => '', 'oauth_access_token' => ''];
         $content = render_template('settings_ai_provider.php', [
-            'providers' => $providers, 'provider' => $provider, 'models' => (int) $provider->id > 0 ? AiProviderService::models($provider) : [],
+            'providers' => $providers, 'provider' => $provider, 'models' => (int) $provider->id > 0 ? AiProviderService::models($provider) : [], 'pricingUrl' => (int) $provider->id > 0 ? AiProviderService::pricingUrl($provider) : '',
             'enabled' => get_app_config('vocabulary_ai_enabled', '0') === '1', 'selectedProviderId' => (int) get_app_config('vocabulary_ai_provider_id', '0'),
             'selectedModel' => (string) get_app_config('vocabulary_ai_model', ''), 'message' => $message, 'error' => $error,
         ]);
