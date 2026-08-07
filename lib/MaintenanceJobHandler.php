@@ -152,7 +152,12 @@ final class MaintenanceJobHandler
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $reconciled = max(0, (int) ($checkpoint['reconciled'] ?? 0));
         $errors = is_array($checkpoint['errors'] ?? null) ? $checkpoint['errors'] : [];
-        $eligible = "classification = 'migrated_import' AND result_status = 'data_missing'";
+        // Reconcile inconclusive imports as before, but also revisit imported
+        // duplicate numbers (for example 100012579-26-2) regardless of their
+        // current result.  A completed import can still be the authoritative
+        // replacement for an unfinished manual base row; restricting this to
+        // data_missing left that duplicate visible forever.
+        $eligible = "classification = 'migrated_import' AND (result_status = 'data_missing' OR external_number GLOB '*-[0-9][0-9]-[2-9]*')";
         if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
 
         while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
@@ -176,7 +181,7 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
         }
 
-        set_app_config('import_result_reconciliation_version', '7');
+        set_app_config('import_result_reconciliation_version', '8');
         set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
     }

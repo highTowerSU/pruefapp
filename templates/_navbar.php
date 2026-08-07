@@ -153,8 +153,6 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php endif; ?>
               </ul>
             </li>
-          <?php else: ?>
-            <li class="nav-item"><a href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>" class="nav-link<?= $auditActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-clock-rotate-left me-1" aria-hidden="true"></i>Audit</a></li>
           <?php endif; ?>
           <li class="nav-item"><a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link<?= $helpActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a></li>
         </ul>

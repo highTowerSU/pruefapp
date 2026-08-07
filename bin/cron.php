@@ -124,19 +124,19 @@ try {
     }
     $importReconciliationVersion = trim((string) get_app_config('import_result_reconciliation_version', ''));
     BackgroundJobService::deduplicateImportReconciliationNotifications();
-    $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
-    // Version 2 intentionally leaves genuinely inconclusive imports open.
-    // Re-queuing those rows after a successful run produced a fresh completed
-    // job (and notification) on every cron tick without making progress.
-    if ($importReconciliationVersion !== '7') {
+    $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND (result_status = 'data_missing' OR external_number GLOB '*-[0-9][0-9]-[2-9]*')");
+    // Version 8 also revisits imported duplicate numbers so a completed
+    // import can replace an unfinished manual base row.  Once the pass has
+    // completed, genuinely inconclusive imports are intentionally left open.
+    if ($importReconciliationVersion !== '8') {
         if ($importsToReconcile > 0) {
             BackgroundJobService::enqueue(
                 'import_result_reconciliation',
                 ['type' => 'import_result_reconciliation'],
-                ['total' => $importsToReconcile, 'dedupe_key' => 'maintenance:import-result-reconciliation:v7', 'cancellable' => false]
+                ['total' => $importsToReconcile, 'dedupe_key' => 'maintenance:import-result-reconciliation:v8', 'cancellable' => false]
             );
         } else {
-            set_app_config('import_result_reconciliation_version', '7');
+            set_app_config('import_result_reconciliation_version', '8');
         }
     }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));

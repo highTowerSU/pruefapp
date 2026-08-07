@@ -457,6 +457,10 @@ class AdminController
 
     public static function auditLog(array $params, bool $isHx): array
     {
+        // Audit data contains operational details, import payload metadata and
+        // user/IP information.  Keep the entire endpoint (including HTMX
+        // partials and direct links) restricted to administrators.
+        if (!current_user_has_role('admin')) return forbidden_response();
         $requestedPage = isset($_GET['page']) ? (int) $_GET['page'] : 1;
         $auditFilters = [];
         foreach (['search', 'category', 'status', 'user', 'action', 'correlation_id', 'from', 'to'] as $filterKey) {
