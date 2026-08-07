@@ -10,7 +10,7 @@ $controller = (string) file_get_contents($root . '/controllers/DeviceController.
 $routes = (string) file_get_contents($root . '/index.php');
 
 foreach ([
-    [str_contains($service, 'ai_provider') && str_contains($service, 'migrateLegacyProvider'), 'KI-Provider werden nicht zentral und migrationssicher verwaltet.'],
+    [str_contains($service, "'aiprovider'") && str_contains($service, 'migrateLegacyProvider'), 'KI-Provider werden nicht zentral und migrationssicher verwaltet.'],
     [str_contains($template, 'hx-post=') && str_contains($template, 'OAuth 2.0 statt API-Token verwenden') && str_contains($template, 'data-search-select'), 'Die KI-Providerkarte ist nicht kompakt per HTMX und Modell-Auswahl umgesetzt.'],
     [str_contains($controller, 'vocabularyOptions') && str_contains($routes, '/geraete/stammdaten-optionen') && str_contains($device, 'vocabularyEndpoint'), 'Kontextbezogene Stammdatenoptionen werden nicht serverseitig geladen.'],
     [str_contains($device, 'exact') && str_contains($device, 'createOnBlur: false'), 'Bekannte Werte bleiben beim Verlassen nicht erhalten oder neue Werte werden nicht explizit bestätigt.'],

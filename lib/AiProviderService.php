@@ -13,8 +13,8 @@ final class AiProviderService
     {
         $mysql = str_starts_with(strtolower((string) ($GLOBALS['pruefapp_database_path'] ?? '')), 'mysql:');
         $id = $mysql ? 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
-        R::exec("CREATE TABLE IF NOT EXISTS ai_provider (id {$id}, name TEXT NOT NULL, base_url TEXT NOT NULL DEFAULT '', header_name TEXT NOT NULL DEFAULT 'Authorization', auth_mode TEXT NOT NULL DEFAULT 'token', api_token TEXT NOT NULL DEFAULT '', pricing_url TEXT NOT NULL DEFAULT '', oauth_authorization_url TEXT NOT NULL DEFAULT '', oauth_token_url TEXT NOT NULL DEFAULT '', oauth_client_id TEXT NOT NULL DEFAULT '', oauth_client_secret TEXT NOT NULL DEFAULT '', oauth_scopes TEXT NOT NULL DEFAULT '', oauth_access_token TEXT NOT NULL DEFAULT '', oauth_refresh_token TEXT NOT NULL DEFAULT '', oauth_expires_at INTEGER NOT NULL DEFAULT 0, models_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NULL, updated_at TEXT NULL)");
-        R::exec('CREATE INDEX IF NOT EXISTS idx_ai_provider_name ON ai_provider (name)');
+        R::exec("CREATE TABLE IF NOT EXISTS aiprovider (id {$id}, name TEXT NOT NULL, base_url TEXT NOT NULL DEFAULT '', header_name TEXT NOT NULL DEFAULT 'Authorization', auth_mode TEXT NOT NULL DEFAULT 'token', api_token TEXT NOT NULL DEFAULT '', pricing_url TEXT NOT NULL DEFAULT '', oauth_authorization_url TEXT NOT NULL DEFAULT '', oauth_token_url TEXT NOT NULL DEFAULT '', oauth_client_id TEXT NOT NULL DEFAULT '', oauth_client_secret TEXT NOT NULL DEFAULT '', oauth_scopes TEXT NOT NULL DEFAULT '', oauth_access_token TEXT NOT NULL DEFAULT '', oauth_refresh_token TEXT NOT NULL DEFAULT '', oauth_expires_at INTEGER NOT NULL DEFAULT 0, models_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NULL, updated_at TEXT NULL)");
+        R::exec('CREATE INDEX IF NOT EXISTS idx_aiprovider_name ON aiprovider (name)');
         self::migrateLegacyProvider();
     }
 
@@ -22,13 +22,13 @@ final class AiProviderService
     public static function all(): array
     {
         self::ensureSchema();
-        return array_values(R::findAll('ai_provider', ' ORDER BY LOWER(name), id '));
+        return array_values(R::findAll('aiprovider', ' ORDER BY LOWER(name), id '));
     }
 
     public static function find(int $id): ?object
     {
         self::ensureSchema();
-        return $id > 0 ? R::load('ai_provider', $id) : null;
+        return $id > 0 ? R::load('aiprovider', $id) : null;
     }
 
     public static function selectedVocabularyProvider(): ?object
@@ -45,7 +45,7 @@ final class AiProviderService
     public static function save(int $id, array $values): object
     {
         self::ensureSchema();
-        $provider = $id > 0 ? R::load('ai_provider', $id) : R::dispense('ai_provider');
+        $provider = $id > 0 ? R::load('aiprovider', $id) : R::dispense('aiprovider');
         $now = date(DATE_ATOM);
         foreach (['name', 'base_url', 'header_name', 'auth_mode', 'pricing_url', 'oauth_authorization_url', 'oauth_token_url', 'oauth_client_id', 'oauth_scopes'] as $field) {
             if (array_key_exists($field, $values)) $provider->{$field} = trim((string) $values[$field]);
@@ -86,7 +86,7 @@ final class AiProviderService
 
     private static function migrateLegacyProvider(): void
     {
-        if (self::$migratingLegacy || R::count('ai_provider') > 0 || get_app_config('vocabulary_ai_base_url', '') === '') return;
+        if (self::$migratingLegacy || R::count('aiprovider') > 0 || get_app_config('vocabulary_ai_base_url', '') === '') return;
         self::$migratingLegacy = true;
         try {
         $provider = self::save(0, [
