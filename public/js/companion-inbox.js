@@ -259,8 +259,9 @@
   });
   document.addEventListener('click', (event) => {
     if (!event.target.closest('[data-companion-for], .popover')) closePopovers();
+    if (!event.target.closest('[data-companion-draft-photo], .popover')) closeDraftPhotoPopovers();
   });
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePopovers(); });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closePopovers(); closeDraftPhotoPopovers(); } });
   const connect = () => {
     const root = document.querySelector('[data-companion-inbox]');
     bindDraftPhotoSelectors(root);
