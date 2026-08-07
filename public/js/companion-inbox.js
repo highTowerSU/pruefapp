@@ -138,9 +138,11 @@
       button.innerHTML = '<i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="visually-hidden">Companion-Foto auswählen</span>';
       wrapper.append(button);
       const paste = form.querySelector('[data-device-photo-paste]');
+      const resetPasteLabel = () => { if (paste) paste.innerHTML = '<i class="fa-solid fa-paste me-1" aria-hidden="true"></i>Foto hier einfügen – Strg+V oder Rechtsklick → Einfügen'; };
       photo.addEventListener('change', () => { if (photo.files?.[0]) previewDevicePhoto(form, photo.files[0]); });
       paste?.addEventListener('focus', showPasteToast);
       paste?.addEventListener('click', showPasteToast);
+      paste?.addEventListener('input', resetPasteLabel);
       paste?.addEventListener('paste', (event) => {
         const item = [...(event.clipboardData?.items || [])].find((candidate) => candidate.type.startsWith('image/'));
         if (!item) return;
@@ -149,7 +151,7 @@
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], `companion-foto-${Date.now()}.${blob.type === 'image/png' ? 'png' : 'jpg'}`, {type: blob.type}));
         photo.files = transfer.files;
         previewDevicePhoto(form, blob);
-        paste.innerHTML = '<i class="fa-solid fa-check me-1 text-success" aria-hidden="true"></i>Foto eingefügt · Foto hier einfügen – Strg+V oder Rechtsklick → Einfügen';
+        resetPasteLabel();
       });
       if (!root || root.dataset.hasActiveConnection !== '1') button.classList.add('d-none');
       form.querySelectorAll('[data-companion-draft-photo]').forEach((choice) => choice.classList.toggle('d-none', !root || root.dataset.hasActiveConnection !== '1'));
