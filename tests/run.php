@@ -22,6 +22,7 @@ $tests = [
     'user_reminder_test.php',
     'signature_gate_test.php',
     'device_ui_test.php',
+    'device_vocabulary_test.php',
     'user_customer_access_test.php',
     'navbar_sticky_test.php',
     'action_navigation_test.php',

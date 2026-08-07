@@ -173,14 +173,18 @@ class DeviceController
         foreach ($buildings as $building) { $buildingLabels[(int) $building->id] = $entityLabel($building); $buildingSiteIds[(int) $building->id] = (int) $building->site_id; }
         foreach ($floors as $floor) { $floorLabels[(int) $floor->id] = $entityLabel($floor); $floorBuildingIds[(int) $floor->id] = (int) $floor->building_id; }
         foreach ($rooms as $room) $roomFloorIds[(int) $room->id] = (int) $room->floor_id;
-        $manufacturerOptions = [];
+        $vocabularyOptions = DeviceVocabularyService::options();
+        $manufacturerOptions = $vocabularyOptions['manufacturer'];
+        $manufacturerSeen = array_fill_keys($manufacturerOptions, true);
+        $modelOptions = $vocabularyOptions['device_model'];
+        $nameOptions = $vocabularyOptions['name'];
         $modelOptionsByManufacturer = [];
         $nameOptionsByManufacturerModel = [];
         foreach (R::getAll("SELECT manufacturer, device_model FROM device WHERE TRIM(COALESCE(manufacturer, '')) <> '' ORDER BY manufacturer, device_model") as $row) {
             $manufacturer = trim((string) ($row['manufacturer'] ?? ''));
             $model = trim((string) ($row['device_model'] ?? ''));
             if ($manufacturer === '') continue;
-            $manufacturerOptions[$manufacturer] = true;
+            $manufacturerSeen[DeviceVocabularyService::canonicalize('manufacturer', $manufacturer)] = true;
             if ($model !== '') $modelOptionsByManufacturer[$manufacturer][$model] = true;
         }
         foreach (R::getAll("SELECT manufacturer, device_model, name FROM device WHERE TRIM(COALESCE(manufacturer, '')) <> '' AND TRIM(COALESCE(device_model, '')) <> '' AND TRIM(COALESCE(name, '')) <> '' ORDER BY manufacturer, device_model, name") as $row) {
@@ -189,8 +193,8 @@ class DeviceController
             $name = trim((string) ($row['name'] ?? ''));
             if ($manufacturer !== '' && $model !== '' && $name !== '') $nameOptionsByManufacturerModel[strtolower($manufacturer) . '|' . strtolower($model)][$name] = true;
         }
-        $manufacturerOptions = array_keys($manufacturerOptions);
-        sort($manufacturerOptions, SORT_NATURAL | SORT_FLAG_CASE);
+        $manufacturerOptions = array_values(array_keys($manufacturerSeen));
+        usort($manufacturerOptions, static fn(string $a, string $b): int => $a === DeviceVocabularyService::NOT_RECOGNIZABLE ? -1 : ($b === DeviceVocabularyService::NOT_RECOGNIZABLE ? 1 : strnatcasecmp($a, $b)));
         foreach ($modelOptionsByManufacturer as $manufacturer => $models) { $modelOptionsByManufacturer[$manufacturer] = array_keys($models); natcasesort($modelOptionsByManufacturer[$manufacturer]); $modelOptionsByManufacturer[$manufacturer] = array_values($modelOptionsByManufacturer[$manufacturer]); }
         $suggestedDeviceNumber = '';
         foreach (R::getAll("SELECT external_number FROM device WHERE TRIM(COALESCE(external_number, '')) <> '' ORDER BY id DESC LIMIT 100") as $row) {
@@ -240,6 +244,8 @@ class DeviceController
                 'canBulkManage' => current_user_is_superadmin(),
                 'showArchived' => $showArchived,
                 'manufacturerOptions' => $manufacturerOptions,
+                'modelOptions' => $modelOptions,
+                'nameOptions' => $nameOptions,
                 'modelOptionsByManufacturer' => $modelOptionsByManufacturer,
                 'nameOptionsByManufacturerModel' => array_map(static fn(array $names): array => array_keys($names), $nameOptionsByManufacturerModel),
                 'inspectionReportUrl' => static fn(int $id): string => url_for('pruefungen/' . $id . '/bericht'),
@@ -303,7 +309,12 @@ class DeviceController
                 'inspection_number' => (string) $latest->external_number,
             ]);
         }
-        $name = trim((string) ($_POST['name'] ?? ''));
+        $vocabulary = DeviceVocabularyService::canonicalizeDeviceValues([
+            'name' => (string) ($_POST['name'] ?? ''),
+            'manufacturer' => (string) ($_POST['manufacturer'] ?? ''),
+            'device_model' => (string) ($_POST['device_model'] ?? ''),
+        ]);
+        $name = $vocabulary['name'];
         $roomId = (int) ($_POST['room_id'] ?? 0);
         if ($name === '' || !$roomId || !R::load('room', $roomId)->id) {
             $_SESSION['fehlermeldung'] = 'Gerätename und Raum sind erforderlich.';
@@ -318,8 +329,8 @@ class DeviceController
         $device->name = $name;
         $device->room_id = $roomId;
         $device->serial_number = trim((string) ($_POST['serial_number'] ?? ''));
-        $device->device_model = trim((string) ($_POST['device_model'] ?? ''));
-        $device->manufacturer = trim((string) ($_POST['manufacturer'] ?? ''));
+        $device->device_model = $vocabulary['device_model'];
+        $device->manufacturer = $vocabulary['manufacturer'];
         $device->warming_device = isset($_POST['warming_device']) ? 1 : 0;
         $device->inventory_number = trim((string) ($_POST['inventory_number'] ?? ''));
         $description = trim((string) ($_POST['description'] ?? ''));
@@ -333,6 +344,7 @@ class DeviceController
         $device->updated_at = date(DATE_ATOM);
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
+        DeviceVocabularyService::enqueueReview($vocabulary, (int) (current_user()->id ?? 0));
         audit_log('geraet_gespeichert', ['id' => (int) $device->id, 'name' => $name]);
         if (isset($_POST['save_and_inspect'])) return [303, ['Location' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], ''];
         $_SESSION['meldung'] = 'Gerät gespeichert.';

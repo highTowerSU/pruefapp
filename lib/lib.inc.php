@@ -72,6 +72,7 @@ require_once __DIR__ . '/InspectionFilterService.php';
 require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
+require_once __DIR__ . '/DeviceVocabularyService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
 require_once __DIR__ . '/BackgroundJobService.php';
@@ -344,6 +345,8 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS billing_invoice_item (id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, device_id INTEGER NOT NULL, quantity REAL NOT NULL DEFAULT 1, description TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, assigned_at TEXT NULL, deactivated_at TEXT NULL, deactivation_reason TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT 'sevdesk', created_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS billing_export (id INTEGER PRIMARY KEY AUTOINCREMENT, idempotency_key TEXT NOT NULL UNIQUE, tenant_id INTEGER NULL, owner_user_id INTEGER NULL, status TEXT NOT NULL DEFAULT 'pending', inspection_ids_json TEXT NOT NULL DEFAULT '[]', invoice_id INTEGER NULL, sevdesk_invoice_id TEXT NOT NULL DEFAULT '', sevdesk_invoice_number TEXT NOT NULL DEFAULT '', error_details TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS appconfig (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, value TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS device_vocabulary_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_key TEXT NOT NULL, canonical_value TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, approved_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL, UNIQUE(field_name, source_key))",
+        "CREATE TABLE IF NOT EXISTS device_vocabulary_review (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_value TEXT NOT NULL, suggested_value TEXT NOT NULL DEFAULT '', confidence REAL NULL, reason TEXT NOT NULL DEFAULT '', provider_model TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', decided_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
@@ -358,6 +361,8 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_inspection_measurement_inspection ON inspection_measurement (inspection_id, sort_order)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_diagnostic_inspection ON inspection_diagnostic (inspection_id)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_report_asset_inspection ON inspection_report_asset (inspection_id, active)',
+        'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_alias_lookup ON device_vocabulary_alias (field_name, source_key, active)',
+        'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_review_status ON device_vocabulary_review (status, field_name)',
     ];
 
     foreach ($statements as $statement) {

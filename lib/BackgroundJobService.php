@@ -26,6 +26,8 @@ final class BackgroundJobService
         'legacy_classification_migration' => 'Legacy-Prüfungen klassifizieren',
         'import_result_reconciliation' => 'Import-Ergebnisse abgleichen',
         'inspection_pdf_zip' => 'Ausgewählte Prüfberichte',
+        'vocabulary_suggestion' => 'KI-Stammdatenprüfung',
+        'vocabulary_normalization' => 'Stammdaten vereinheitlichen',
     ];
 
     /** @param array<string,mixed> $payload @param array<string,mixed> $options */

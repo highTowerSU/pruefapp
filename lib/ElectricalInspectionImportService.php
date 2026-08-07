@@ -488,9 +488,14 @@ final class ElectricalInspectionImportService
         $inspection->result_status = InspectionEvaluationService::normalizeStatus(
             (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null))
         );
-        $inspection->device_type = (string) ($record['device_type'] ?? '');
-        $inspection->manufacturer = (string) ($record['manufacturer'] ?? '');
-        $inspection->device_model = (string) ($record['device_model'] ?? '');
+        $importVocabulary = DeviceVocabularyService::canonicalizeDeviceValues([
+            'name' => (string) ($record['device_type'] ?? ''),
+            'manufacturer' => (string) ($record['manufacturer'] ?? ''),
+            'device_model' => (string) ($record['device_model'] ?? ''),
+        ]);
+        $inspection->device_type = $importVocabulary['name'];
+        $inspection->manufacturer = $importVocabulary['manufacturer'];
+        $inspection->device_model = $importVocabulary['device_model'];
         $inspection->room_snapshot = (string) ($record['room_snapshot'] ?? $record['room'] ?? '');
         $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -579,14 +584,19 @@ final class ElectricalInspectionImportService
         if ($room !== '') $device->room_snapshot = $room;
         $roomBean = $this->ensureImportedRoom($record, $room);
         if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
-        $preferredName = trim((string) ($record['device_type'] ?? $record['device_model'] ?? ''));
+        $recordVocabulary = DeviceVocabularyService::canonicalizeDeviceValues([
+            'name' => (string) ($record['device_type'] ?? $record['device_model'] ?? ''),
+            'manufacturer' => (string) ($record['manufacturer'] ?? ''),
+            'device_model' => (string) ($record['device_model'] ?? ''),
+        ]);
+        $preferredName = $recordVocabulary['name'];
         if ($this->isProtectionClass($preferredName)) $preferredName = '';
         $currentName = trim((string) ($device->name ?? ''));
         $legacyModelName = trim((string) ($record['device_model'] ?? ''));
         if ($preferredName !== '' && ($legacy !== '' || $currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
         if (trim((string) ($device->name ?? '')) === '' || $this->isProtectionClass((string) $device->name)) $device->name = 'Gerät ' . ($external ?: $slot);
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
-            if (!empty($record[$source])) $device->$target = $this->importValue((string) $record[$source]);
+            if (!empty($record[$source])) $device->$target = isset($recordVocabulary[$target]) ? $recordVocabulary[$target] : $this->importValue((string) $record[$source]);
         }
         $serial = trim((string) ($record['serial_number'] ?? $record['serial'] ?? ''));
         if ($serial !== '') $device->serial_number = $this->importValue($serial);
@@ -601,6 +611,11 @@ final class ElectricalInspectionImportService
         $device->updated_at = date(DATE_ATOM);
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
+        DeviceVocabularyService::enqueueReview([
+            'manufacturer' => (string) $device->manufacturer,
+            'device_model' => (string) $device->device_model,
+            'name' => (string) $device->name,
+        ]);
         return ['device' => $device, 'created' => $created];
     }
 

@@ -14,6 +14,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $auditLogUrl = url_for('admin/audit-log');
     $userAdminUrl = url_for('admin/nutzer');
     $settingsUrl = url_for('admin/konfiguration');
+    $vocabularyUrl = url_for('admin/stammdaten');
     $helpUrl = url_for('hilfe');
     $structureUrl = url_for('struktur');
     $devicesUrl = url_for('geraete');
@@ -74,7 +75,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
     $inspectionImportActive = $pathIsActive($inspectionImportUrl);
     $billingActive = $pathIsActive($billingUrl);
     $companyActive = $pathIsActive($companyUrl);
-    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive;
+    $vocabularyActive = $pathIsActive($vocabularyUrl);
+    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive || $vocabularyActive;
 
     ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
@@ -143,6 +145,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php if (current_user_is_superadmin()): ?>
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-building me-2" aria-hidden="true"></i>Mandanten</a></li>
+                  <li><a class="dropdown-item<?= $vocabularyActive ? ' active' : '' ?>" href="<?= htmlspecialchars($vocabularyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-spell-check me-2" aria-hidden="true"></i>Stammdaten bereinigen</a></li>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($settingsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-gear me-2" aria-hidden="true"></i>Konfiguration</a></li>
                 <?php endif; ?>
               </ul>

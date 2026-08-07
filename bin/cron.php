@@ -140,6 +140,18 @@ try {
         }
     }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
+    if (get_app_config('device_vocabulary_normalization_version', '') !== '1') {
+        $total = (int) R::getCell('SELECT COUNT(*) FROM device');
+        if ($total > 0) {
+            BackgroundJobService::enqueue('vocabulary_normalization', ['type' => 'vocabulary_normalization'], [
+                'total' => $total,
+                'dedupe_key' => 'maintenance:device-vocabulary:v1',
+                'cancellable' => false,
+            ]);
+        } else {
+            set_app_config('device_vocabulary_normalization_version', '1');
+        }
+    }
     if ($inspectionDataMigrationVersion !== '1') {
         $total = (int) R::getCell('SELECT COUNT(*) FROM inspection');
         if ($total > 0) {

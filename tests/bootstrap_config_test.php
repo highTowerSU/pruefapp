@@ -35,6 +35,11 @@ if (!RedBeanPHP\R::testConnection()) {
 if (!RedBeanPHP\R::getWriter()->tableExists('area')) {
     throw new \RuntimeException('Die Bereichstabelle wurde nicht angelegt.');
 }
+foreach (['device_vocabulary_alias', 'device_vocabulary_review'] as $table) {
+    if (!RedBeanPHP\R::getWriter()->tableExists($table)) {
+        throw new \RuntimeException("Die Stammdaten-Tabelle {$table} fehlt.");
+    }
+}
 foreach ([
     'customer' => 'code',
     'site' => 'code',

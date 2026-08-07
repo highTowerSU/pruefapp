@@ -10,6 +10,8 @@
 /** @var array<string, mixed>|null $migrationStatus */
 /** @var bool $apiDebugSecretEnabled */
 /** @var string $apiDebugSecretOnce */
+/** @var list<string> $vocabularyAiModels */
+/** @var bool $vocabularyAiTokenConfigured */
 ?>
 
 <form id="settings-general-panel" data-action-nav="Einstellungen speichern" data-action-icon="fa-gear" method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
@@ -66,11 +68,32 @@
       <div class="col-md-3"><label class="form-label" for="background_history_days"><i class="fa-solid fa-clock-rotate-left me-1" aria-hidden="true"></i>Historie aufbewahren</label><div class="input-group"><input class="form-control<?= isset($errors['background_history_days']) ? ' is-invalid' : '' ?>" id="background_history_days" name="background_history_days" type="number" min="7" max="3650" value="<?= htmlspecialchars($values['background_history_days'] ?? '180', ENT_QUOTES) ?>"><span class="input-group-text">Tage</span><?php if (isset($errors['background_history_days'])): ?><div class="invalid-feedback"><?= htmlspecialchars($errors['background_history_days'], ENT_QUOTES) ?></div><?php endif; ?></div></div>
     </div>
     <?php if (!empty($migrationStatus)): ?><div class="alert alert-success mt-3 mb-0"><strong>Nachmigration erledigt</strong><?php if (!empty($migrationStatus['completed_at'])): ?> · <?= htmlspecialchars((new DateTimeImmutable((string) $migrationStatus['completed_at']))->format('d.m.Y H:i')) ?><?php endif; ?><?php $migrationStats = $migrationStatus['stats'] ?? []; ?><div class="small mt-1">Repariert: <?= (int) ($migrationStats['repaired'] ?? 0) ?> · Importiert: <?= (int) ($migrationStats['imported'] ?? 0) ?> · Aktualisiert: <?= (int) ($migrationStats['updated'] ?? 0) ?></div></div><?php else: ?><div class="alert alert-secondary mt-3 mb-0">Die Nachmigration wird beim nächsten Cron-Lauf automatisch ausgeführt.</div><?php endif; ?>
+    <hr>
+    <h3 class="h6"><i class="fa-solid fa-spell-check me-1" aria-hidden="true"></i>Automatische Stammdatenprüfung</h3>
+    <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="vocabulary_ai_enabled" name="vocabulary_ai_enabled" value="1"<?= ($values['vocabulary_ai_enabled'] ?? '0') === '1' ? ' checked' : '' ?>><label class="form-check-label" for="vocabulary_ai_enabled">Neue unbekannte Hersteller, Modelle und Gerätebezeichnungen zur KI-Prüfung vormerken</label></div>
+    <div class="row g-3 mt-1"><div class="col-md-5"><label class="form-label" for="vocabulary_ai_base_url_general">Basis-URL</label><input class="form-control<?= isset($errors['vocabulary_ai_base_url']) ? ' is-invalid' : '' ?>" type="url" id="vocabulary_ai_base_url_general" name="vocabulary_ai_base_url" value="<?= htmlspecialchars($values['vocabulary_ai_base_url'] ?? '', ENT_QUOTES) ?>" placeholder="https://anbieter.example/v1"></div><div class="col-md-3"><label class="form-label" for="vocabulary_ai_header_general">Token-Header</label><select class="form-select" id="vocabulary_ai_header_general" name="vocabulary_ai_header"><option value="Authorization"<?= ($values['vocabulary_ai_header'] ?? '') === 'Authorization' ? ' selected' : '' ?>>Authorization: Bearer</option><option value="X-API-Key"<?= ($values['vocabulary_ai_header'] ?? '') === 'X-API-Key' ? ' selected' : '' ?>>X-API-Key</option></select></div><div class="col-md-4"><label class="form-label" for="vocabulary_ai_model">KI-Modell</label><input class="form-control<?= isset($errors['vocabulary_ai_model']) ? ' is-invalid' : '' ?>" id="vocabulary_ai_model" name="vocabulary_ai_model" list="vocabulary-ai-models" value="<?= htmlspecialchars($values['vocabulary_ai_model'] ?? '', ENT_QUOTES) ?>" placeholder="Modell auswählen oder eintragen"><datalist id="vocabulary-ai-models"><?php foreach ($vocabularyAiModels as $model): ?><option value="<?= htmlspecialchars($model, ENT_QUOTES) ?>"><?php endforeach; ?></datalist><?php if (isset($errors['vocabulary_ai_model'])): ?><div class="invalid-feedback"><?= htmlspecialchars($errors['vocabulary_ai_model'], ENT_QUOTES) ?></div><?php endif; ?></div><div class="col-md-6"><label class="form-label" for="vocabulary_ai_token_general">Token<?= !empty($vocabularyAiTokenConfigured) ? ' (gesetzt)' : '' ?></label><input class="form-control" type="password" id="vocabulary_ai_token_general" name="vocabulary_ai_token" autocomplete="new-password" placeholder="<?= !empty($vocabularyAiTokenConfigured) ? 'Unverändert lassen' : 'Token' ?>"></div><div class="col-md-6 d-flex align-items-end"><a class="btn btn-outline-secondary" href="#settings-ai-panel"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Verbindung testen und Modelle laden</a></div></div>
   </div>
   <div class="card-footer text-end">
     <button type="submit" class="btn btn-primary">Speichern</button>
   </div>
 </form>
+
+<details class="card shadow-sm mt-4" id="settings-ai-panel" data-action-nav="KI-Stammdatenprüfung" data-action-icon="fa-wand-magic-sparkles">
+  <summary class="card-header fw-semibold"><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>KI-Stammdatenprüfung</summary>
+  <div class="card-body">
+    <p class="small text-body-secondary">OpenAI-kompatible Anbieter wie InnoGPT, IONOS und OVH. Die KI erhält nur kurze Stammdatenwerte und kann ausschließlich Vorschläge für die Superadmin-Freigabe erzeugen.</p>
+    <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="row g-3">
+      <input type="hidden" name="action" value="test_vocabulary_ai">
+      <div class="col-md-6"><label class="form-label" for="vocabulary_ai_base_url">Basis-URL einschließlich API-Präfix</label><input class="form-control" type="url" id="vocabulary_ai_base_url" name="vocabulary_ai_base_url" value="<?= htmlspecialchars($values['vocabulary_ai_base_url'] ?? '', ENT_QUOTES) ?>" placeholder="https://anbieter.example/v1"></div>
+      <div class="col-md-3"><label class="form-label" for="vocabulary_ai_header">Token-Header</label><select class="form-select" id="vocabulary_ai_header" name="vocabulary_ai_header"><option value="Authorization"<?= ($values['vocabulary_ai_header'] ?? '') === 'Authorization' ? ' selected' : '' ?>>Authorization: Bearer</option><option value="X-API-Key"<?= ($values['vocabulary_ai_header'] ?? '') === 'X-API-Key' ? ' selected' : '' ?>>X-API-Key</option></select></div>
+      <div class="col-md-3"><label class="form-label" for="vocabulary_ai_token">Token<?= !empty($vocabularyAiTokenConfigured) ? ' (gesetzt)' : '' ?></label><input class="form-control" type="password" id="vocabulary_ai_token" name="vocabulary_ai_token" autocomplete="new-password" placeholder="<?= !empty($vocabularyAiTokenConfigured) ? 'Unverändert lassen' : 'Token' ?>"></div>
+      <div class="col-12"><button class="btn btn-outline-primary" type="submit"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Verbindung testen und Modelle laden</button></div>
+    </form>
+    <?php if (!empty($vocabularyAiModels)): ?><div class="alert alert-success mt-3 mb-0"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>Modelle verfügbar: <?= htmlspecialchars(implode(', ', $vocabularyAiModels), ENT_QUOTES) ?></div><?php endif; ?>
+    <hr>
+    <p class="small text-body-secondary">OAuth ist vorbereitet, aber erst nach Prüfung eines Provider-spezifischen Flows aktivierbar. Derzeit wird ein Token genutzt.</p>
+  </div>
+</details>
 
 <details class="card shadow-sm mt-4" id="settings-debug-panel" data-action-nav="Debug-Zugang" data-action-icon="fa-stethoscope">
   <summary class="card-header fw-semibold"><i class="fa-solid fa-stethoscope me-1" aria-hidden="true"></i>Technischer Debug-Zugang</summary>

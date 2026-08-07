@@ -223,6 +223,20 @@ Die zentrale Prüfungsübersicht und die Gerätehistorie verwenden dieselbe
 serverseitige Status- und Berichtsfreigabe. Filter, Paginierung, Auswahl und
 Sammelaktionen werden mit HTMX ohne vollständigen Seitenreload ausgeführt.
 
+### Geräte-Stammdaten und KI-Prüfung
+
+Hersteller, Typ/Modell und Gerätebezeichnung verwenden dieselbe serverseitige
+Stammdatenlogik. Varianten wie `n.e.`, `NE` und `n. e.` werden als
+**Nicht erkennbar** gespeichert; sonstiger Freitext wird nur nach ausdrücklicher
+Eingabe übernommen, nie beim bloßen Verlassen eines Auswahlfelds.
+
+Superadministratoren können unter **Verwaltung → Stammdaten bereinigen**
+Vorschläge prüfen und bewusst zusammenführen. Optional kann unter
+**Konfiguration → KI-Stammdatenprüfung** ein OpenAI-kompatibler Anbieter (etwa
+InnoGPT, IONOS oder OVH) mit Basis-URL, Token-Header und Modell hinterlegt
+werden. Die KI erhält ausschließlich kurze Stammdatenwerte und erzeugt nur
+Freigabevorschläge; sie verändert keine Geräte oder Prüfungen selbst.
+
 ## Tests
 
 ### Prüf-App v1.1 / Abrechnung

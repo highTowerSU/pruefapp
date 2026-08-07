@@ -40,6 +40,7 @@ require_once __DIR__ . '/controllers/ProfileController.php';
 require_once __DIR__ . '/controllers/DownloadController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
+require_once __DIR__ . '/controllers/VocabularyController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/CustomerInfoController.php';
 require_once __DIR__ . '/controllers/ReportController.php';
@@ -110,6 +111,8 @@ $routes = [
     ['POST', '/geraete/massenaktion', fn($params, $isHx) => DeviceController::bulkAction($params, $isHx)],
     ['GET', '/geraete/suche', fn($params, $isHx) => DeviceController::lookup($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
+    ['GET', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],
+    ['POST', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],
     ['POST', '/geraete/export', fn($params, $isHx) => ReportController::export($params, $isHx)],
     ['GET', '/geraete/zip/{id}/status', fn($params, $isHx) => ReportController::zipStatus($params, $isHx)],
     ['POST', '/geraete/zip/{id}/abbrechen', fn($params, $isHx) => ReportController::cancelPdfJob($params, $isHx)],

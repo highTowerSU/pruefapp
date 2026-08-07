@@ -34,8 +34,48 @@ final class MaintenanceJobHandler
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
+            'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
+            'vocabulary_normalization' => self::vocabularyNormalization($checkpoint, $current, $total, $tick),
             default => throw new InvalidArgumentException('Unbekannte Wartungsaufgabe: ' . $type),
         };
+    }
+
+    /** @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
+    private static function vocabularySuggestion(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $field = (string) ($payload['field'] ?? '');
+        $value = trim((string) ($payload['value'] ?? ''));
+        if (!in_array($field, DeviceVocabularyService::FIELDS, true) || $value === '') throw new InvalidArgumentException('Ungültige Stammdatenprüfung.');
+        $proposal = DeviceVocabularyService::suggest($field, $value);
+        $review = R::findOne('device_vocabulary_review', ' field_name = ? AND source_value = ? AND status = ? ', [$field, $value, 'pending']) ?: R::dispense('device_vocabulary_review');
+        $review->field_name = $field;
+        $review->source_value = $value;
+        $review->suggested_value = (string) $proposal['canonical_value'];
+        $review->confidence = (float) $proposal['confidence'];
+        $review->reason = (string) $proposal['reason'];
+        $review->provider_model = (string) $proposal['provider_model'];
+        $review->status = 'pending';
+        $review->updated_at = date(DATE_ATOM);
+        if (!$review->created_at) $review->created_at = $review->updated_at;
+        R::store($review);
+        $tick(['review_id' => (int) $review->id], max(1, $current + 1), max(1, $total), $value, 'KI-Vorschlag wartet auf Freigabe.');
+        return ['review_id' => (int) $review->id];
+    }
+
+    /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
+    private static function vocabularyNormalization(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        if ($total <= 0) $total = (int) R::getCell('SELECT COUNT(*) FROM device');
+        while ($row = R::getRow('SELECT id, manufacturer, device_model, name FROM device WHERE id > ? ORDER BY id LIMIT 1', [$lastId])) {
+            $lastId = (int) $row['id'];
+            $values = DeviceVocabularyService::canonicalizeDeviceValues($row);
+            R::exec('UPDATE device SET manufacturer = ?, device_model = ?, name = ?, updated_at = ? WHERE id = ?', [$values['manufacturer'], $values['device_model'], $values['name'], date(DATE_ATOM), $lastId]);
+            $current++;
+            $tick(['last_id' => $lastId], $current, $total, (string) $lastId, 'Stammdaten wurden vereinheitlicht.');
+        }
+        set_app_config('device_vocabulary_normalization_version', '1');
+        return ['processed' => $current];
     }
 
     /**

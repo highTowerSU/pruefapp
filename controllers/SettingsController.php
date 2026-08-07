@@ -29,11 +29,17 @@ class SettingsController
             'cron_job_slice_seconds' => (string) max(5, (int) (get_app_config('cron_job_slice_seconds', '30') ?? '30')),
             'cron_job_lease_seconds' => (string) max(30, (int) (get_app_config('cron_job_lease_seconds', '180') ?? '180')),
             'background_history_days' => (string) max(7, (int) (get_app_config('background_history_days', '180') ?? '180')),
+            'vocabulary_ai_enabled' => get_app_config('vocabulary_ai_enabled', '0') === '1' ? '1' : '0',
+            'vocabulary_ai_base_url' => trim((string) (get_app_config('vocabulary_ai_base_url', '') ?? '')),
+            'vocabulary_ai_header' => trim((string) (get_app_config('vocabulary_ai_header', 'Authorization') ?? 'Authorization')),
+            'vocabulary_ai_model' => trim((string) (get_app_config('vocabulary_ai_model', '') ?? '')),
         ];
         $errors = [];
         $databaseWizard = null;
         $updateResult = null;
         $apiDebugSecretOnce = (string) ($_SESSION['api_debug_secret_once'] ?? '');
+        $vocabularyAiModels = (array) ($_SESSION['vocabulary_ai_models'] ?? []);
+        unset($_SESSION['vocabulary_ai_models']);
         unset($_SESSION['api_debug_secret_once']);
         if ($_SERVER['REQUEST_METHOD'] === 'GET' && $values['auto_update_enabled'] === '1') {
             try {
@@ -56,6 +62,22 @@ class SettingsController
                 set_app_config('api_debug_secret', null);
                 $_SESSION['meldung'] = 'API-Debug-Zugang wurde deaktiviert.';
                 return [303, ['Location' => url_for('admin/konfiguration')], ''];
+            }
+            if (($_POST['action'] ?? '') === 'test_vocabulary_ai') {
+                try {
+                    $baseUrl = trim((string) ($_POST['vocabulary_ai_base_url'] ?? ''));
+                    $header = trim((string) ($_POST['vocabulary_ai_header'] ?? 'Authorization')) ?: 'Authorization';
+                    $token = (string) ($_POST['vocabulary_ai_token'] ?? '');
+                    if ($token === '') $token = (string) get_app_config('vocabulary_ai_token', '');
+                    $_SESSION['vocabulary_ai_models'] = DeviceVocabularyService::availableModels($baseUrl, $token, $header);
+                    set_app_config('vocabulary_ai_base_url', rtrim($baseUrl, '/'));
+                    set_app_config('vocabulary_ai_header', $header);
+                    if (trim((string) ($_POST['vocabulary_ai_token'] ?? '')) !== '') set_app_config('vocabulary_ai_token', (string) $_POST['vocabulary_ai_token']);
+                    $_SESSION['meldung'] = $_SESSION['vocabulary_ai_models'] === [] ? 'Verbindung hergestellt; der Anbieter hat keine Modellliste geliefert. Das Modell kann manuell eingetragen werden.' : count($_SESSION['vocabulary_ai_models']) . ' Modelle gefunden.';
+                } catch (Throwable $exception) {
+                    $_SESSION['fehlermeldung'] = 'KI-Verbindung fehlgeschlagen: ' . $exception->getMessage();
+                }
+                return [303, ['Location' => url_for('admin/konfiguration#settings-ai-panel')], ''];
             }
             if (($_POST['action'] ?? '') === 'update_app') {
                 $skipGeneralSave = true;
@@ -124,6 +146,10 @@ class SettingsController
             $values['cron_job_slice_seconds'] = trim((string) ($_POST['cron_job_slice_seconds'] ?? '30'));
             $values['cron_job_lease_seconds'] = trim((string) ($_POST['cron_job_lease_seconds'] ?? '180'));
             $values['background_history_days'] = trim((string) ($_POST['background_history_days'] ?? '180'));
+            $values['vocabulary_ai_enabled'] = isset($_POST['vocabulary_ai_enabled']) ? '1' : '0';
+            $values['vocabulary_ai_base_url'] = trim((string) ($_POST['vocabulary_ai_base_url'] ?? ''));
+            $values['vocabulary_ai_header'] = trim((string) ($_POST['vocabulary_ai_header'] ?? 'Authorization')) ?: 'Authorization';
+            $values['vocabulary_ai_model'] = trim((string) ($_POST['vocabulary_ai_model'] ?? ''));
 
             $cronRows = filter_var($values['cron_log_max_rows'], FILTER_VALIDATE_INT);
             $cronBytes = filter_var($values['cron_log_max_bytes'], FILTER_VALIDATE_INT);
@@ -151,6 +177,11 @@ class SettingsController
             ) {
                 $errors['keycloak_admin_console_base_url'] = 'Bitte eine gültige URL angeben oder das Feld leer lassen.';
             }
+            if ($values['vocabulary_ai_enabled'] === '1') {
+                if (filter_var($values['vocabulary_ai_base_url'], FILTER_VALIDATE_URL) === false) $errors['vocabulary_ai_base_url'] = 'Bitte eine gültige OpenAI-kompatible Basis-URL angeben.';
+                if ($values['vocabulary_ai_model'] === '') $errors['vocabulary_ai_model'] = 'Bitte ein KI-Modell auswählen oder eintragen.';
+                if ((string) ($_POST['vocabulary_ai_token'] ?? '') === '' && trim((string) get_app_config('vocabulary_ai_token', '')) === '') $errors['vocabulary_ai_token'] = 'Bitte ein Token hinterlegen.';
+            }
 
             if ($errors === []) {
                 set_app_config(
@@ -171,6 +202,11 @@ class SettingsController
                 set_app_config('cron_job_slice_seconds', (string) $cronSlice);
                 set_app_config('cron_job_lease_seconds', (string) $cronLease);
                 set_app_config('background_history_days', (string) $historyDays);
+                set_app_config('vocabulary_ai_enabled', $values['vocabulary_ai_enabled']);
+                set_app_config('vocabulary_ai_base_url', $values['vocabulary_ai_base_url'] === '' ? null : rtrim($values['vocabulary_ai_base_url'], '/'));
+                set_app_config('vocabulary_ai_header', $values['vocabulary_ai_header']);
+                set_app_config('vocabulary_ai_model', $values['vocabulary_ai_model'] === '' ? null : $values['vocabulary_ai_model']);
+                if (trim((string) ($_POST['vocabulary_ai_token'] ?? '')) !== '') set_app_config('vocabulary_ai_token', (string) $_POST['vocabulary_ai_token']);
 
                 $_SESSION['meldung'] = 'Die Konfiguration wurde gespeichert.';
 
@@ -192,6 +228,8 @@ class SettingsController
             'migrationStatus' => self::migrationStatus(),
             'apiDebugSecretEnabled' => trim((string) get_app_config('api_debug_secret', '')) !== '',
             'apiDebugSecretOnce' => $apiDebugSecretOnce,
+            'vocabularyAiModels' => $vocabularyAiModels,
+            'vocabularyAiTokenConfigured' => trim((string) get_app_config('vocabulary_ai_token', '')) !== '',
         ]);
 
         if ($isHx) {
