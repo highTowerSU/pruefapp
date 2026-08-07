@@ -76,6 +76,7 @@ require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
+require_once __DIR__ . '/DeviceMediaService.php';
 require_once __DIR__ . '/VocabularyOAuthService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
@@ -358,6 +359,8 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS appconfig (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, value TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS device_vocabulary_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_key TEXT NOT NULL, canonical_value TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1, approved_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL, UNIQUE(field_name, source_key))",
         "CREATE TABLE IF NOT EXISTS device_vocabulary_review (id INTEGER PRIMARY KEY AUTOINCREMENT, field_name TEXT NOT NULL, source_value TEXT NOT NULL, suggested_value TEXT NOT NULL DEFAULT '', confidence REAL NULL, reason TEXT NOT NULL DEFAULT '', provider_model TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', decided_by INTEGER NULL, created_at TEXT NULL, updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS device_media (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_id INTEGER NULL, device_finding_id INTEGER NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, created_by INTEGER NULL, created_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS device_media_analysis (id INTEGER PRIMARY KEY AUTOINCREMENT, media_id INTEGER NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'pending', provider_model TEXT NOT NULL DEFAULT '', proposal_json TEXT NOT NULL DEFAULT '{}', error_message TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
@@ -374,6 +377,8 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_inspection_report_asset_inspection ON inspection_report_asset (inspection_id, active)',
         'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_alias_lookup ON device_vocabulary_alias (field_name, source_key, active)',
         'CREATE INDEX IF NOT EXISTS idx_device_vocabulary_review_status ON device_vocabulary_review (status, field_name)',
+        'CREATE INDEX IF NOT EXISTS idx_device_media_device ON device_media (device_id, created_at)',
+        'CREATE INDEX IF NOT EXISTS idx_device_media_inspection ON device_media (inspection_id, created_at)',
     ];
 
     foreach ($statements as $statement) {
@@ -513,10 +518,13 @@ function seed_inspection_types(): void
     $now = date(DATE_ATOM);
     foreach ([
         ['electrical', 'Elektroprüfung', 'fa-bolt', 365, 10],
-        ['ladder', 'Leitern & Tritte', 'fa-ladder', 365, 20],
+        ['ladder', 'Leitern & Tritte', 'fa-stairs', 365, 20],
     ] as [$code, $name, $icon, $interval, $sort]) {
         if ((int) R::getCell('SELECT id FROM inspection_type WHERE code = ?', [$code]) === 0) {
             R::exec('INSERT INTO inspection_type (code, name, icon, default_interval_days, active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?)', [$code, $name, $icon, $interval, $sort, $now, $now]);
+        } elseif ($code === 'ladder') {
+            // Font Awesome does not ship a fa-ladder icon; keep existing installations consistent.
+            R::exec('UPDATE inspection_type SET icon = ?, updated_at = ? WHERE code = ?', ['fa-stairs', $now, $code]);
         }
     }
     foreach ([

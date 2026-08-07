@@ -40,6 +40,7 @@ require_once __DIR__ . '/controllers/ProfileController.php';
 require_once __DIR__ . '/controllers/DownloadController.php';
 require_once __DIR__ . '/controllers/StructureController.php';
 require_once __DIR__ . '/controllers/DeviceController.php';
+require_once __DIR__ . '/controllers/DeviceMediaController.php';
 require_once __DIR__ . '/controllers/VocabularyController.php';
 require_once __DIR__ . '/controllers/InspectionController.php';
 require_once __DIR__ . '/controllers/CustomerInfoController.php';
@@ -115,6 +116,11 @@ $routes = [
     ['GET', '/geraete/suche', fn($params, $isHx) => DeviceController::lookup($params, $isHx)],
     ['GET', '/geraete/stammdaten-optionen', fn($params, $isHx) => DeviceController::vocabularyOptions($params, $isHx)],
     ['POST', '/geraete/{id}/stammdaten-aus-letzter-pruefung', fn($params, $isHx) => DeviceController::copyLatestInspectionData($params, $isHx)],
+    ['POST', '/geraete/{id}/fotos', fn($params, $isHx) => DeviceMediaController::uploadDevice($params, $isHx)],
+    ['GET', '/geraete/fotos/{id}', fn($params, $isHx) => DeviceMediaController::file($params, $isHx)],
+    ['POST', '/geraete/fotos/{id}/typenschild-analysieren', fn($params, $isHx) => DeviceMediaController::analyseTypePlate($params, $isHx)],
+    ['POST', '/geraete/fotos/{id}/loeschen', fn($params, $isHx) => DeviceMediaController::delete($params, $isHx)],
+    ['POST', '/pruefungen/{id}/fotos', fn($params, $isHx) => DeviceMediaController::uploadInspection($params, $isHx)],
     ['POST', '/geraete', fn($params, $isHx) => DeviceController::save($params, $isHx)],
     ['GET', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],
     ['POST', '/admin/stammdaten', fn($params, $isHx) => VocabularyController::index($params, $isHx)],

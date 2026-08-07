@@ -203,7 +203,8 @@ final class InspectionController
                 if ($error !== null) {
                     $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
                     $canChooseOtherExaminer = current_user_has_role('admin');
-                    return [422, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer'))])];
+                    $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
+                    return [422, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia'))])];
                 }
                 $target = $complete
                     ? 'admin/pruefungen/' . (int) $inspection->id
@@ -213,7 +214,8 @@ final class InspectionController
         }
         $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');
         $canChooseOtherExaminer = current_user_has_role('admin');
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer'))])];
+        $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia'))])];
     }
 
     /** @param array<string,string> $checklist */
@@ -315,7 +317,8 @@ final class InspectionController
                 }
             }
         }
-        return [200, [], render_template('layout.php', ['title' => 'Leiterprüfung bearbeiten', 'content' => render_template('inspection_ladder_edit.php', compact('inspection', 'device', 'attributes', 'catalog', 'answersByKey', 'error'))])];
+        $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
+        return [200, [], render_template('layout.php', ['title' => 'Leiterprüfung bearbeiten', 'content' => render_template('inspection_ladder_edit.php', compact('inspection', 'device', 'attributes', 'catalog', 'answersByKey', 'error', 'inspectionMedia'))])];
     }
 
     public static function index(array $params, bool $isHx): array
@@ -805,11 +808,12 @@ final class InspectionController
         $checklist = InspectionDataService::answers((int) $inspection->id);
         $diagnostics = current_user_is_superadmin() ? InspectionDataService::diagnostics((int) $inspection->id) : [];
         $findings = DeviceFindingService::openForDevice((int) $device->id);
+        $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
         $inspectionType = InspectionTypeService::find((string) ($inspection->inspection_type_code ?? InspectionTypeService::ELECTRICAL));
         if ($measurements === [] && trim((string) ($inspection->classification ?? '')) === '') {
             $measurements = self::normalizeImportedMeasurements(json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [], (string) ($inspection->result_status ?? ''));
         }
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'diagnostics', 'billingInvoice', 'billingHistory', 'findings', 'inspectionType'))])];
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'diagnostics', 'billingInvoice', 'billingHistory', 'findings', 'inspectionType', 'inspectionMedia'))])];
     }
 
     /** Repair legacy Benning rows created before decimal-comma columns were fixed. */

@@ -19,6 +19,7 @@ $checks = [
     [str_contains($profile, 'signature_drawing') && str_contains($profile, 'queueMissingReportsForExaminer'), 'Profil-Signaturen werden nicht als Zeichnung gespeichert oder lösen keine Berichte aus.'],
     [str_contains($profileTemplate, 'id="signature-pad"') && str_contains($profileTemplate, 'pointerdown'), 'Das Profil enthält keine nutzbare Signaturfläche.'],
     [str_contains($users, 'Unterschrift hinterlegt') && str_contains($users, 'Unterschrift fehlt'), 'Die Nutzerverwaltung zeigt den Signaturstatus nicht.'],
+    [str_contains($inspectionTypes, 'examinerEligibility($user, $type)') && str_contains($inspectionTypes, 'Technischer Prüfzugang') && !str_contains($inspectionTypes, "current_user_is_superadmin()"), 'Administrative Rollen dürfen Prüfberechtigungen nicht automatisch ersetzen.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

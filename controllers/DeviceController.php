@@ -243,6 +243,14 @@ class DeviceController
             $inspectionType['permission_message'] = $permission['message'];
         }
         unset($inspectionType);
+        $mediaByDevice = [];
+        $visibleDeviceIds = array_map(static fn($device): int => (int) $device->id, $devices);
+        if ($visibleDeviceIds !== []) {
+            $marks = implode(',', array_fill(0, count($visibleDeviceIds), '?'));
+            foreach (R::getAll("SELECT m.*, a.status AS analysis_status, a.proposal_json, a.error_message, a.provider_model FROM device_media m LEFT JOIN device_media_analysis a ON a.media_id = m.id WHERE m.device_id IN ($marks) ORDER BY m.created_at DESC, m.id DESC", $visibleDeviceIds) as $media) {
+                $mediaByDevice[(int) $media['device_id']][] = $media;
+            }
+        }
         $content = render_template('device_index.php', [
                 'devices' => $devices,
                 'inspections' => $inspections,
@@ -281,6 +289,7 @@ class DeviceController
                 'zipJobStatus' => $zipJobStatus,
                 'selectedDeviceId' => $deviceId,
                 'inspectionTypes' => $inspectionTypes,
+                'mediaByDevice' => $mediaByDevice,
             ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', [

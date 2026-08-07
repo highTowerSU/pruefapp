@@ -1,7 +1,8 @@
 <div class="card shadow-sm"><div class="card-body">
-  <h1 class="h4"><i class="fa-solid fa-ladder me-2" aria-hidden="true"></i>Leiterprüfung</h1>
+  <h1 class="h4"><i class="fa-solid fa-stairs me-2" aria-hidden="true"></i>Leiterprüfung</h1>
   <p class="text-body-secondary mb-4">Gerät: <strong><?= htmlspecialchars((string) $device->external_number) ?> · <?= htmlspecialchars((string) $device->name) ?></strong></p>
   <?php if ($error !== null): ?><div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i><?= htmlspecialchars($error) ?></div><?php endif; ?>
+  <?= render_template('inspection_media_panel.php', ['inspection' => $inspection, 'inspectionMedia' => $inspectionMedia ?? []]) ?>
   <form method="post" class="row g-3">
     <div class="col-md-4"><label class="form-label"><i class="fa-solid fa-calendar-day me-1" aria-hidden="true"></i>Prüfdatum</label><input class="form-control" type="date" name="test_date" value="<?= htmlspecialchars((string) $inspection->test_date) ?>" required></div>
     <div class="col-md-4"><label class="form-label"><i class="fa-solid fa-calendar-check me-1" aria-hidden="true"></i>Nächste Prüfung</label><input class="form-control" type="date" name="next_due_date" value="<?= htmlspecialchars((string) $inspection->next_due_date) ?>" required></div>

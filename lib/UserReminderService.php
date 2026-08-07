@@ -19,39 +19,30 @@ final class UserReminderService
 
         $reminders = [];
         $signatureKey = 'profile-signature-missing:user:' . $userId . ':v1';
-        $signaturePath = trim((string) ($user->report_signature_path ?? ''));
-        if ($signaturePath === '' || !is_file($signaturePath)) {
-            $reminders[] = self::reminder(
-                'Unterschrift im Profil ergänzen',
-                'Für neue Prüfberichte fehlt noch deine Unterschrift. Bitte hinterlege sie im Profil.',
-                'warning',
-                url_for('profil'),
-                'profile',
-            );
-            NotificationRepository::publish(
-                [$userId],
-                'Unterschrift im Profil ergänzen',
-                'Für neue Prüfberichte fehlt noch deine Unterschrift. Bitte hinterlege sie im Profil.',
-                ['dedupe_key' => $signatureKey, 'category' => 'profile', 'severity' => 'warning', 'action_url' => url_for('profil')]
-            );
-        } else {
-            self::markDedupeRead($signatureKey, $userId);
-        }
+        self::markDedupeRead($signatureKey, $userId);
 
         $permissionKey = 'inspection-permission-missing:user:' . $userId . ':v1';
-        $blockedTypes = [];
+        $expiredTypes = [];
         foreach (InspectionTypeService::active() as $inspectionType) {
-            $permission = InspectionTypeService::permissionForUser($user, (string) $inspectionType['code']);
-            if (!$permission['allowed']) {
-                $blockedTypes[] = (string) $inspectionType['name'] . ': ' . implode(', ', $permission['missing']);
+            foreach (InspectionTypeService::examinerEligibility($user, (string) $inspectionType['code'])['requirements'] as $requirement) {
+                if ((int) ($requirement['validity_days'] ?? 0) < 1) continue;
+                $qualification = R::getRow('SELECT issued_at, expires_at FROM user_qualification WHERE oauthuser_id = ? AND requirement_code = ? ORDER BY confirmed_at DESC, id DESC LIMIT 1', [$userId, (string) $requirement['code']]);
+                if ($qualification === []) continue;
+                $expiresAt = trim((string) ($qualification['expires_at'] ?? ''));
+                if ($expiresAt === '' && trim((string) ($qualification['issued_at'] ?? '')) !== '') {
+                    $expiresAt = date('Y-m-d', strtotime((string) $qualification['issued_at'] . ' +' . (int) $requirement['validity_days'] . ' days'));
+                }
+                if ($expiresAt !== '' && $expiresAt < $now->format('Y-m-d')) {
+                    $expiredTypes[] = (string) $inspectionType['name'] . ': ' . (string) $requirement['name'] . ' (abgelaufen am ' . (new DateTimeImmutable($expiresAt))->format('d.m.Y') . ')';
+                }
             }
         }
-        if ($blockedTypes !== []) {
-            $message = 'Für folgende Prüfarten fehlen noch Voraussetzungen:\n' . implode("\n", $blockedTypes) . '\n\nBitte ergänze die Unterweisungs- und Befähigungsnachweise im Profil.';
-            $reminders[] = self::reminder('Prüfberechtigung ergänzen', $message, 'warning', url_for('profil'), 'profile');
+        if ($expiredTypes !== []) {
+            $message = 'Folgende Prüfberechtigungsnachweise sind abgelaufen:\n' . implode("\n", array_values(array_unique($expiredTypes))) . '\n\nBitte aktualisiere die Nachweise im Profil.';
+            $reminders[] = self::reminder('Prüfberechtigung abgelaufen', $message, 'warning', url_for('profil'), 'profile');
             NotificationRepository::publish(
                 [$userId],
-                'Prüfberechtigung ergänzen',
+                'Prüfberechtigung abgelaufen',
                 $message,
                 ['dedupe_key' => $permissionKey, 'category' => 'profile', 'severity' => 'warning', 'action_url' => url_for('profil')]
             );

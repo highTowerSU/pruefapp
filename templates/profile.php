@@ -130,7 +130,7 @@
     <?php if ($canEdit && $qualificationRequirements !== []): ?><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" enctype="multipart/form-data" class="row g-2 border-top pt-3"><input type="hidden" name="action" value="save_qualification"><div class="col-md-4"><label class="form-label">Nachweis</label><select class="form-select" name="requirement_code" required><option value="">Bitte wählen</option><?php foreach ($qualificationRequirements as $requirement): ?><option value="<?= htmlspecialchars((string) $requirement['code'], ENT_QUOTES) ?>"><?= htmlspecialchars((string) $requirement['inspection_type_name'] . ' · ' . (string) $requirement['name']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Ausstellungsdatum</label><input class="form-control" type="date" name="qualification_issued_at" required></div><div class="col-md-3"><label class="form-label">Gültig bis</label><input class="form-control" type="date" name="qualification_expires_at"></div><div class="col-md-2"><label class="form-label">PDF-Nachweis</label><input class="form-control" type="file" accept="application/pdf" name="qualification_proof"></div><div class="col-12"><input class="form-control" name="qualification_notes" placeholder="Bemerkung (optional)"></div><div class="col-12"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-upload me-1" aria-hidden="true"></i>Befähigungsnachweis speichern</button></div></form><?php endif; ?>
   </div>
 </div>
-<style>.signature-pad{touch-action:none}.signature-pad canvas{display:block;width:100%;height:220px;cursor:crosshair;touch-action:none}</style>
+<style>.signature-pad{touch-action:none;background:linear-gradient(135deg,#fff 0%,#fbfbff 100%);box-shadow:inset 0 0 1.5rem rgba(53,71,184,.06)}.signature-pad canvas{display:block;width:100%;height:220px;cursor:crosshair;touch-action:none}</style>
 <script>
 (() => {
   const canvas = document.getElementById('signature-pad');
@@ -139,17 +139,17 @@
   const clear = document.getElementById('signature-clear');
   if (!canvas || !field || !form) return;
   const context = canvas.getContext('2d');
-  let drawing = false; let hasInk = false; let previous = null;
+  let drawing = false; let hasInk = false; let previous = null; let midpoint = null;
   const scale = () => {
     const ratio = window.devicePixelRatio || 1; const width = Math.max(320, Math.round(canvas.clientWidth * ratio)); const height = Math.round(220 * ratio);
     if (canvas.width === width && canvas.height === height) return;
     const copy = document.createElement('canvas'); copy.width = canvas.width; copy.height = canvas.height; copy.getContext('2d').drawImage(canvas, 0, 0);
-    canvas.width = width; canvas.height = height; context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = 2.5 * ratio; context.strokeStyle = '#172033'; context.drawImage(copy, 0, 0, width, height);
+    canvas.width = width; canvas.height = height; context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = 3.2 * ratio; context.strokeStyle = '#3547b8'; context.globalAlpha = .94; context.drawImage(copy, 0, 0, width, height);
   };
   const point = event => { const rect = canvas.getBoundingClientRect(); const ratio = canvas.width / rect.width; return {x:(event.clientX - rect.left) * ratio, y:(event.clientY - rect.top) * ratio}; };
-  const start = event => { event.preventDefault(); scale(); drawing = true; previous = point(event); hasInk = true; canvas.setPointerCapture?.(event.pointerId); };
-  const draw = event => { if (!drawing) return; event.preventDefault(); const next = point(event); context.beginPath(); context.moveTo(previous.x, previous.y); context.lineTo(next.x, next.y); context.stroke(); previous = next; };
-  const end = event => { if (!drawing) return; drawing = false; previous = null; canvas.releasePointerCapture?.(event.pointerId); };
+  const start = event => { event.preventDefault(); scale(); drawing = true; previous = point(event); midpoint = previous; hasInk = true; canvas.setPointerCapture?.(event.pointerId); };
+  const draw = event => { if (!drawing) return; event.preventDefault(); const next = point(event); const nextMidpoint = {x:(previous.x + next.x) / 2, y:(previous.y + next.y) / 2}; context.beginPath(); context.moveTo(midpoint.x, midpoint.y); context.quadraticCurveTo(previous.x, previous.y, nextMidpoint.x, nextMidpoint.y); context.stroke(); previous = next; midpoint = nextMidpoint; };
+  const end = event => { if (!drawing) return; drawing = false; previous = null; midpoint = null; canvas.releasePointerCapture?.(event.pointerId); };
   canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', draw); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
   clear?.addEventListener('click', () => { context.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; field.value = ''; });
   form.addEventListener('submit', () => { field.value = hasInk ? canvas.toDataURL('image/png') : ''; });

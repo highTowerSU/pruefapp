@@ -16,11 +16,10 @@ final class InspectionTypeService
     {
         $types = R::getAll('SELECT * FROM inspection_type WHERE active = 1 ORDER BY sort_order, name');
         foreach ($types as &$type) {
-            if (trim((string) ($type['icon'] ?? '')) !== '') continue;
             $type['icon'] = match ((string) ($type['code'] ?? '')) {
-                self::LADDER => 'fa-ladder',
+                self::LADDER => 'fa-stairs',
                 self::ELECTRICAL => 'fa-bolt',
-                default => 'fa-clipboard-check',
+                default => trim((string) ($type['icon'] ?? '')) ?: 'fa-clipboard-check',
             };
         }
         unset($type);
@@ -85,7 +84,7 @@ final class InspectionTypeService
         $eligibility = self::examinerEligibility($user, $type);
         $missing = $eligibility['missing'];
         if (!RolePolicy::allows((string) ($user->role ?? ''), RolePolicy::EDITOR)) {
-            array_unshift($missing, 'Eine Rolle mit Prüfberechtigung');
+            array_unshift($missing, 'Technischer Prüfzugang (Editor/in oder Administration)');
         }
         $identity = trim((string) (($user->email ?? '') ?: ($user->name ?? '') ?: ($user->preferred_username ?? '')));
         if ($identity === '' || !examiner_has_report_signature($identity)) {
