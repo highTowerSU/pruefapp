@@ -150,6 +150,7 @@
 #qualification-card .qualification-item .qualification-extra{display:none}
 #qualification-card .qualification-item.is-expanded .qualification-extra{display:block}
 #qualification-card .qualification-item .qualification-toggle{white-space:nowrap}
+#qualification-card .qualification-item fieldset[data-followup-scope]{grid-column:1 / -1;margin:0;padding:.5rem .75rem;border:1px solid var(--bs-border-color);border-radius:.375rem}
 #qualification-card .qualification-create summary{cursor:pointer;list-style:none}
 #qualification-card .qualification-create summary::-webkit-details-marker{display:none}
 </style>
@@ -170,6 +171,7 @@
     form.insertBefore(scope, form.querySelector('button[type="submit"]')?.closest('[class*="col-"]') || null);
   });
   card.querySelectorAll('.list-group > .list-group-item').forEach((item) => {
+    item.classList.add('qualification-item');
     const header = item.querySelector(':scope > .d-flex');
     const info = header?.firstElementChild;
     if (!header || !info) return;
