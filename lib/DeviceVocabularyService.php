@@ -135,13 +135,30 @@ final class DeviceVocabularyService
         self::assertField($field);
         $review = R::getRow("SELECT id FROM device_vocabulary_review WHERE field_name = ? AND source_value = ? AND status = 'pending' LIMIT 1", [$field, $value]);
         $now = date(DATE_ATOM);
-        $params = [(string) $proposal['canonical_value'], (float) $proposal['confidence'], (string) $proposal['reason'], (string) $proposal['provider_model'], $now];
+        $suggested = trim((string) ($proposal['canonical_value'] ?? ''));
+        $exact = $suggested !== '' && self::normalizeKey($suggested) === self::normalizeKey($value) && (float) ($proposal['confidence'] ?? 0) >= 0.99;
+        $reason = trim((string) ($proposal['reason'] ?? ''));
+        if ($exact) $reason = $reason !== '' ? $reason : 'Exakter Treffer; keine Änderung erforderlich.';
+        $params = [$suggested, (float) ($proposal['confidence'] ?? 0), $reason, (string) ($proposal['provider_model'] ?? '')];
         if ($review !== []) {
-            R::exec('UPDATE device_vocabulary_review SET suggested_value = ?, confidence = ?, reason = ?, provider_model = ?, updated_at = ? WHERE id = ?', [...$params, (int) $review['id']]);
+            R::exec('UPDATE device_vocabulary_review SET suggested_value = ?, confidence = ?, reason = ?, provider_model = ?, status = ?, updated_at = ? WHERE id = ?', [...$params, $exact ? 'kept' : 'pending', $now, (int) $review['id']]);
             return (int) $review['id'];
         }
-        R::exec("INSERT INTO device_vocabulary_review (field_name, source_value, suggested_value, confidence, reason, provider_model, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)", [$field, $value, ...$params, $now]);
+        R::exec("INSERT INTO device_vocabulary_review (field_name, source_value, suggested_value, confidence, reason, provider_model, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [$field, $value, ...$params, $exact ? 'kept' : 'pending', $now, $now]);
         return (int) R::getInsertID();
+    }
+
+    /** Removes historic no-op proposals from the review queue without changing device data. */
+    public static function autoKeepExactSuggestions(): int
+    {
+        $rows = R::getAll("SELECT id, source_value, suggested_value FROM device_vocabulary_review WHERE status = 'pending' AND confidence >= 0.99");
+        $ids = [];
+        foreach ($rows as $row) {
+            if (self::normalizeKey((string) $row['source_value']) === self::normalizeKey((string) $row['suggested_value'])) $ids[] = (int) $row['id'];
+        }
+        if ($ids === []) return 0;
+        R::exec('UPDATE device_vocabulary_review SET status = ?, reason = CASE WHEN reason = ? THEN ? ELSE reason END, updated_at = ? WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')', array_merge(['kept', '', 'Exakter Treffer; keine Änderung erforderlich.', date(DATE_ATOM)], $ids));
+        return count($ids);
     }
 
     /** @return array{updated_devices:int,updated_inspections:int} */
@@ -183,8 +200,8 @@ final class DeviceVocabularyService
         if ($baseUrl === '' || $token === '' || $model === '') throw new RuntimeException('Die KI-Stammdatenprüfung ist noch nicht vollständig konfiguriert.');
         $headerName = (string) ($provider->auth_mode ?? '') === 'oauth' ? 'Authorization' : (trim((string) ($provider->header_name ?? 'Authorization')) ?: 'Authorization');
         $payload = ['model' => $model, 'temperature' => 0, 'messages' => [
-            ['role' => 'system', 'content' => 'Du prüfst ausschließlich deutsche technische Stammdaten. Antworte nur als JSON mit canonical_value, confidence (0 bis 1) und reason. Schlage nur eine bekannte, eindeutig bessere Schreibweise vor; bei Unsicherheit canonical_value leer lassen.'],
-            ['role' => 'user', 'content' => json_encode(['field' => $field, 'value' => $value, 'known_values' => array_slice(self::options()[$field], 0, 300)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
+            ['role' => 'system', 'content' => 'Du prüfst ausschließlich deutsche technische Stammdaten anhand deines eigenen Fachwissens. Antworte nur als JSON mit canonical_value, confidence (0 bis 1) und reason. Schlage nur eine eindeutig bessere Schreibweise vor; bei Unsicherheit canonical_value leer lassen. Wenn der Wert bereits korrekt ist, gib exakt denselben Wert mit confidence 1 zurück. Lokale Bestandsdaten sind keine Quelle und dürfen nicht als Grundlage verwendet werden.'],
+            ['role' => 'user', 'content' => json_encode(['field' => $field, 'value' => $value], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)],
         ]];
         $decoded = (new OpenAiCompatibleClient($baseUrl, $token, $headerName))->chatCompletions($payload);
         $content = (string) ($decoded['choices'][0]['message']['content'] ?? '');

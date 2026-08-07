@@ -46,6 +46,8 @@ final class VocabularyController
                 return [303, ['Location' => url_for('admin/stammdaten')], ''];
             }
         }
+        $autoKept = DeviceVocabularyService::autoKeepExactSuggestions();
+        if ($autoKept > 0 && $message === '') $message = $autoKept . ' eindeutige Exakttreffer wurden ohne Änderung beibehalten.';
         $reviews = R::getAll("SELECT * FROM device_vocabulary_review WHERE status = 'pending' ORDER BY field_name, confidence DESC, id DESC LIMIT 250");
         $jobs = array_values(array_filter(BackgroundJobService::latest(20), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['vocabulary_review_scan', 'vocabulary_suggestion'], true)));
         $content = render_template('vocabulary.php', ['reviews' => $reviews, 'options' => DeviceVocabularyService::options(), 'jobs' => $jobs, 'canSuggest' => DeviceVocabularyService::canSuggest(), 'message' => $message, 'error' => $error]);

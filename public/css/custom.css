@@ -195,8 +195,7 @@ label.form-check-label > i {
 }
 
 /* Einwertige TomSelect-Felder bleiben kompakt und umbrechen nicht. */
-.ts-hidden-accessible,
-select.form-select + .ts-wrapper {
+.ts-hidden-accessible {
   border: 0 !important;
   clip: rect(0 0 0 0) !important;
   clip-path: inset(50%) !important;
