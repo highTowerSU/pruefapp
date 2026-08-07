@@ -13,7 +13,17 @@ final class InspectionTypeService
     /** @return list<array<string,mixed>> */
     public static function active(): array
     {
-        return R::getAll('SELECT * FROM inspection_type WHERE active = 1 ORDER BY sort_order, name');
+        $types = R::getAll('SELECT * FROM inspection_type WHERE active = 1 ORDER BY sort_order, name');
+        foreach ($types as &$type) {
+            if (trim((string) ($type['icon'] ?? '')) !== '') continue;
+            $type['icon'] = match ((string) ($type['code'] ?? '')) {
+                self::LADDER => 'fa-ladder',
+                self::ELECTRICAL => 'fa-bolt',
+                default => 'fa-clipboard-check',
+            };
+        }
+        unset($type);
+        return $types;
     }
 
     /** @return array<string,mixed>|null */
