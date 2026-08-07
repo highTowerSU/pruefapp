@@ -139,7 +139,9 @@ class AdminController
         }
         try {
             $diagnostic = AiProviderService::diagnose($provider, $model);
-            $result += ['ok' => true, 'response_model' => $diagnostic['model'], 'response' => $diagnostic['content']];
+            $result['ok'] = true;
+            $result['response_model'] = $diagnostic['model'];
+            $result['response'] = $diagnostic['content'];
         } catch (Throwable $exception) {
             $result['error'] = $exception->getMessage();
         }
