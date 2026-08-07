@@ -15,7 +15,7 @@
     <section class="card shadow-sm">
       <div class="card-header fw-semibold"><i class="fa-solid fa-signature me-2" aria-hidden="true"></i>Unterschrift für Prüfberichte</div>
       <div class="card-body">
-        <p class="text-body-secondary">Die Unterschrift wird in neu erzeugte Prüfberichte übernommen, wenn du als Prüfer/in eingetragen bist. Am besten eignet sich eine freigestellte PNG-Datei.</p>
+        <p class="text-body-secondary">Die Unterschrift ist Voraussetzung zum Durchführen und Abschließen eigener Prüfungen. Nach dem Speichern werden fertige Prüfungen ohne Bericht automatisch im Hintergrund erzeugt.</p>
         <?php if ($signature !== ''): ?>
           <div class="border rounded-2 bg-white p-3 mb-3 d-inline-block">
             <img src="<?= htmlspecialchars($signature, ENT_QUOTES) ?>" alt="Gespeicherte Unterschrift" style="max-width:20rem;max-height:8rem">
@@ -25,9 +25,18 @@
         <?php endif; ?>
         <?php if ($canEdit): ?><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" enctype="multipart/form-data" class="vstack gap-3">
           <div>
+            <label class="form-label" for="signature-pad"><i class="fa-solid fa-pen-nib me-1" aria-hidden="true"></i>&nbsp;Unterschrift zeichnen</label>
+            <div class="signature-pad border rounded-3 bg-white p-2">
+              <canvas id="signature-pad" width="720" height="220" aria-label="Unterschrift zeichnen" tabindex="0"></canvas>
+            </div>
+            <input type="hidden" name="signature_drawing" id="signature-drawing">
+            <div class="d-flex gap-2 align-items-center flex-wrap mt-2"><button class="btn btn-sm btn-outline-secondary" type="button" id="signature-clear"><i class="fa-solid fa-eraser me-1" aria-hidden="true"></i>Zeichnung löschen</button><span class="form-text m-0">Mit Maus, Stift oder Finger unterschreiben.</span></div>
+          </div>
+          <div class="position-relative text-center text-body-secondary"><span class="bg-body px-2">oder</span><hr class="position-absolute top-50 start-0 end-0 m-0 z-n1"></div>
+          <div>
             <label for="report-signature" class="form-label"><i class="fa-solid fa-image me-1" aria-hidden="true"></i>&nbsp;Bilddatei</label>
-            <input class="form-control" id="report-signature" name="report_signature" type="file" accept="image/png,image/jpeg" required>
-            <div class="form-text">PNG oder JPEG, maximal 2 MB und 4000 × 2000 Pixel.</div>
+            <input class="form-control" id="report-signature" name="report_signature" type="file" accept="image/png,image/jpeg">
+            <div class="form-text">Alternativ PNG oder JPEG, maximal 2 MB und 4000 × 2000 Pixel.</div>
           </div>
           <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-primary" type="submit" name="action" value="upload_signature"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Unterschrift speichern</button>
@@ -103,6 +112,32 @@
     </section>
   </div>
 </div>
+<style>.signature-pad{touch-action:none}.signature-pad canvas{display:block;width:100%;height:220px;cursor:crosshair;touch-action:none}</style>
+<script>
+(() => {
+  const canvas = document.getElementById('signature-pad');
+  const field = document.getElementById('signature-drawing');
+  const form = canvas?.closest('form');
+  const clear = document.getElementById('signature-clear');
+  if (!canvas || !field || !form) return;
+  const context = canvas.getContext('2d');
+  let drawing = false; let hasInk = false; let previous = null;
+  const scale = () => {
+    const ratio = window.devicePixelRatio || 1; const width = Math.max(320, Math.round(canvas.clientWidth * ratio)); const height = Math.round(220 * ratio);
+    if (canvas.width === width && canvas.height === height) return;
+    const copy = document.createElement('canvas'); copy.width = canvas.width; copy.height = canvas.height; copy.getContext('2d').drawImage(canvas, 0, 0);
+    canvas.width = width; canvas.height = height; context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = 2.5 * ratio; context.strokeStyle = '#172033'; context.drawImage(copy, 0, 0, width, height);
+  };
+  const point = event => { const rect = canvas.getBoundingClientRect(); const ratio = canvas.width / rect.width; return {x:(event.clientX - rect.left) * ratio, y:(event.clientY - rect.top) * ratio}; };
+  const start = event => { event.preventDefault(); scale(); drawing = true; previous = point(event); hasInk = true; canvas.setPointerCapture?.(event.pointerId); };
+  const draw = event => { if (!drawing) return; event.preventDefault(); const next = point(event); context.beginPath(); context.moveTo(previous.x, previous.y); context.lineTo(next.x, next.y); context.stroke(); previous = next; };
+  const end = event => { if (!drawing) return; drawing = false; previous = null; canvas.releasePointerCapture?.(event.pointerId); };
+  canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', draw); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+  clear?.addEventListener('click', () => { context.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; field.value = ''; });
+  form.addEventListener('submit', () => { field.value = hasInk ? canvas.toDataURL('image/png') : ''; });
+  window.addEventListener('resize', scale); scale();
+})();
+</script>
 <script>
 (() => {
   const list = document.getElementById('followup-list');

@@ -171,7 +171,7 @@ final class MaintenanceJobHandler
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
     private static function missingReports(array $checkpoint, int $current, int $total, callable $tick): array
     {
-        $eligible = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy'";
+        $eligible = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
         if ($total <= 0) {
             $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible} AND TRIM(COALESCE(report_path, '')) = ''");
         }
@@ -205,10 +205,10 @@ final class MaintenanceJobHandler
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $created = max(0, (int) ($checkpoint['created'] ?? 0));
         if ($total <= 0) {
-            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('passed','failed') AND classification = 'migrated_import'");
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('passed','failed') AND classification = 'migrated_import' AND " . inspection_report_signature_sql('inspection'));
         }
 
-        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND result_status IN ('passed','failed') AND classification = 'migrated_import' ORDER BY id LIMIT 1", [$lastId])) {
+        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND result_status IN ('passed','failed') AND classification = 'migrated_import' AND " . inspection_report_signature_sql('inspection') . ' ORDER BY id LIMIT 1', [$lastId])) {
             $lastId = (int) $row['id'];
             self::renderReport($lastId, true);
             $current++;
@@ -299,6 +299,7 @@ final class MaintenanceJobHandler
         if (!$inspection->id || !$device || !$device->id) throw new RuntimeException('Prüfung oder Gerät wurde nicht gefunden.');
         if ((string) ($inspection->classification ?? '') === 'legacy') throw new RuntimeException('Legacy-Berichte werden nicht neu erzeugt.');
         if (!InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification)) throw new RuntimeException('Die Prüfung ist nicht für einen Bericht freigegeben.');
+        if (!examiner_has_report_signature((string) $inspection->examiner)) throw new RuntimeException('Der eingetragene Prüfer hat keine hinterlegte Unterschrift.');
         $relative = 'reports/current/' . $inspectionId . '.pdf';
         $path = app_data_root() . '/' . $relative;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);

@@ -25,6 +25,12 @@ final class InspectionController
     public static function create(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        $user = current_user();
+        $examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
+        if (!examiner_has_report_signature($examiner)) {
+            $_SESSION['fehlermeldung'] = 'Bitte hinterlege zuerst deine Unterschrift im Profil. Ohne Unterschrift können keine Prüfungen durchgeführt oder Prüfberichte erzeugt werden.';
+            return [303, ['Location' => url_for('profil')], ''];
+        }
         $device = R::load('device', (int) ($params['deviceId'] ?? 0));
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Gerät nicht gefunden'];
         $inspection = R::dispense('inspection');
@@ -34,8 +40,7 @@ final class InspectionController
         $inspection->source_type = 'manual';
         $inspection->source_file = null;
         $inspection->test_date = date('Y-m-d');
-        $user = current_user();
-        $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
+        $inspection->examiner = $examiner;
         $inspection->next_due_date = date('Y-m-d', strtotime('+1 year'));
         $inspection->status = InspectionEvaluationService::IN_PROGRESS;
         $inspection->result_status = InspectionEvaluationService::IN_PROGRESS;
@@ -123,6 +128,8 @@ final class InspectionController
                 // Keep submitted values visible in the correction form.
             } elseif ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '')) {
                 $error = 'Für den Abschluss fehlen Schutzklasse oder Prüfer.';
+            } elseif ($complete && !examiner_has_report_signature((string) $inspection->examiner)) {
+                $error = 'Der eingetragene Prüfer hat keine hinterlegte Unterschrift. Die Prüfung kann erst danach abgeschlossen werden.';
             } else {
                 $inspection->classification = trim((string) ($inspection->classification ?? '')) ?: 'native';
                 $inspection->warming_device_snapshot = (int) ($device->warming_device ?? 0);
@@ -290,7 +297,7 @@ final class InspectionController
         } elseif ($action === 'regenerate_reports') {
             if (!current_user_is_superadmin()) return forbidden_response();
             $marks = implode(',', array_fill(0, count($allowedIds), '?'));
-            $eligible = array_map('intval', R::getCol("SELECT id FROM inspection WHERE id IN ($marks) AND COALESCE(classification,'') <> 'legacy' AND result_status IN ('passed','failed')", $allowedIds));
+            $eligible = array_map('intval', R::getCol("SELECT id FROM inspection WHERE id IN ($marks) AND COALESCE(classification,'') <> 'legacy' AND result_status IN ('passed','failed') AND " . inspection_report_signature_sql('inspection'), $allowedIds));
             if ($eligible === []) $_SESSION['fehlermeldung'] = 'Die Auswahl enthält keine freigegebenen aktuellen Berichte.';
             else {
                 BackgroundJobService::enqueue('pdf_regenerate', ['type' => 'pdf_regenerate', 'inspection_ids' => $eligible, 'owner_user_id' => (int) (current_user()->id ?? 0)], ['total' => count($eligible), 'dedupe_key' => 'inspection-reports:' . hash('sha256', implode(',', $eligible) . microtime(true))]);
@@ -459,7 +466,7 @@ final class InspectionController
             }
             if (($_POST['action'] ?? '') === 'regenerate_new_reports') {
                 if (!current_user_is_superadmin()) return forbidden_response();
-                $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE result_status IN ('passed','failed') AND classification = 'migrated_import' ORDER BY id"));
+                $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE result_status IN ('passed','failed') AND classification = 'migrated_import' AND " . inspection_report_signature_sql('inspection') . ' ORDER BY id'));
                 if ($ids === []) { $message = 'Keine importierten, abgeschlossenen Prüfungen für die Neuerzeugung gefunden.'; }
                 else {
                     $job = BackgroundJobService::enqueue('pdf_regenerate', ['type' => 'pdf_regenerate', 'inspection_ids' => $ids, 'owner_user_id' => (int) (current_user()->id ?? 0)], ['total' => count($ids), 'dedupe_key' => 'pdf-regenerate:all-current']);
@@ -655,6 +662,7 @@ final class InspectionController
         if (!$inspection->id || !$device || !$device->id) return [404, [], 'Prüfung nicht gefunden.'];
         if ((string) ($inspection->classification ?? '') === 'legacy') return [409, [], 'Legacy-Berichte werden nicht neu erzeugt.'];
         if (!InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification)) return [409, [], 'Nur bestandene oder nicht bestandene Prüfungen erhalten einen Bericht.'];
+        if (!examiner_has_report_signature((string) $inspection->examiner)) return [409, [], 'Der eingetragene Prüfer hat keine hinterlegte Unterschrift. Der Bericht wird erst nach dem Speichern der Unterschrift erzeugt.'];
         $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
         $path = app_data_root() . '/' . $relative;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);

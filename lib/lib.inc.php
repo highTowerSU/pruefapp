@@ -864,6 +864,22 @@ function examiner_signature_data_uri(string $value): string
     }
 }
 
+/** A report may only be issued once the assigned examiner has a usable signature. */
+function examiner_has_report_signature(string $value): bool
+{
+    return examiner_signature_data_uri($value) !== '';
+}
+
+/**
+ * SQL predicate for finished current inspections whose examiner profile has a
+ * configured signature. File validation remains server-side at render time.
+ */
+function inspection_report_signature_sql(string $inspectionAlias = 'inspection'): string
+{
+    $alias = preg_replace('/[^A-Za-z0-9_]/', '', $inspectionAlias) ?: 'inspection';
+    return "EXISTS (SELECT 1 FROM oauthuser report_examiner WHERE TRIM(COALESCE(report_examiner.report_signature_path, '')) <> '' AND (LOWER(TRIM(COALESCE(report_examiner.email, ''))) = LOWER(TRIM(COALESCE({$alias}.examiner, ''))) OR LOWER(TRIM(COALESCE(report_examiner.name, ''))) = LOWER(TRIM(COALESCE({$alias}.examiner, ''))) OR LOWER(TRIM(COALESCE(report_examiner.preferred_username, ''))) = LOWER(TRIM(COALESCE({$alias}.examiner, '')))))";
+}
+
 function current_user_role(): ?string
 {
     $user = current_user();

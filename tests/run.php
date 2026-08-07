@@ -20,6 +20,7 @@ $tests = [
     'import_directory_debug_api_test.php',
     'inspection_filter_test.php',
     'user_reminder_test.php',
+    'signature_gate_test.php',
     'device_ui_test.php',
     'user_customer_access_test.php',
     'navbar_sticky_test.php',

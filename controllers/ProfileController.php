@@ -114,18 +114,35 @@ final class ProfileController
             }
 
             $upload = $_FILES['report_signature'] ?? null;
-            if (!is_array($upload) || (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-                $_SESSION['fehlermeldung'] = 'Bitte eine PNG- oder JPEG-Datei auswählen.';
-                return [303, ['Location' => $profileUrl], ''];
+            $drawnSignature = trim((string) ($_POST['signature_drawing'] ?? ''));
+            $signatureBytes = null;
+            $tmp = '';
+            $size = 0;
+            $mime = '';
+            $dimensions = false;
+            if ($drawnSignature !== '') {
+                if (!preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', $drawnSignature, $matches)) {
+                    $_SESSION['fehlermeldung'] = 'Die gezeichnete Unterschrift ist ungültig.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                $signatureBytes = base64_decode($matches[1], true);
+                $size = is_string($signatureBytes) ? strlen($signatureBytes) : 0;
+                $mime = is_string($signatureBytes) ? (new finfo(FILEINFO_MIME_TYPE))->buffer($signatureBytes) : '';
+                $dimensions = is_string($signatureBytes) ? @getimagesizefromstring($signatureBytes) : false;
+            } else {
+                if (!is_array($upload) || (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                    $_SESSION['fehlermeldung'] = 'Bitte zeichne eine Unterschrift oder wähle eine PNG- bzw. JPEG-Datei aus.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                if ((int) ($upload['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+                    $_SESSION['fehlermeldung'] = 'Die Unterschrift konnte nicht hochgeladen werden.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                $tmp = (string) ($upload['tmp_name'] ?? '');
+                $size = (int) ($upload['size'] ?? 0);
+                $mime = $tmp !== '' && is_file($tmp) ? (new finfo(FILEINFO_MIME_TYPE))->file($tmp) : '';
+                $dimensions = $tmp !== '' && is_file($tmp) ? @getimagesize($tmp) : false;
             }
-            if ((int) ($upload['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
-                $_SESSION['fehlermeldung'] = 'Die Unterschrift konnte nicht hochgeladen werden.';
-                return [303, ['Location' => $profileUrl], ''];
-            }
-            $tmp = (string) ($upload['tmp_name'] ?? '');
-            $size = (int) ($upload['size'] ?? 0);
-            $mime = $tmp !== '' && is_file($tmp) ? (new finfo(FILEINFO_MIME_TYPE))->file($tmp) : '';
-            $dimensions = $tmp !== '' && is_file($tmp) ? @getimagesize($tmp) : false;
             if ($size < 1 || $size > 2 * 1024 * 1024 || !in_array($mime, ['image/png', 'image/jpeg'], true) || $dimensions === false) {
                 $_SESSION['fehlermeldung'] = 'Erlaubt sind PNG oder JPEG bis 2 MB.';
                 return [303, ['Location' => $profileUrl], ''];
@@ -143,7 +160,10 @@ final class ProfileController
             $extension = $mime === 'image/png' ? 'png' : 'jpg';
             $target = $directory . '/user-' . (int) $user->id . '.' . $extension;
             $oldPath = trim((string) ($user->report_signature_path ?? ''));
-            if (!move_uploaded_file($tmp, $target)) {
+            $stored = $signatureBytes !== null
+                ? file_put_contents($target, $signatureBytes, LOCK_EX) !== false
+                : move_uploaded_file($tmp, $target);
+            if (!$stored) {
                 $_SESSION['fehlermeldung'] = 'Die Unterschrift konnte nicht gespeichert werden.';
                 return [303, ['Location' => $profileUrl], ''];
             }
@@ -153,7 +173,8 @@ final class ProfileController
             $user->report_signature_updated_at = date(DATE_ATOM);
             R::store($user);
             audit_log('profilsignatur_gespeichert', ['oauthuser_id' => (int) $user->id]);
-            $_SESSION['meldung'] = 'Die Unterschrift wurde gespeichert und wird für neue Prüfberichte verwendet.';
+            $queuedReports = self::queueMissingReportsForExaminer($user);
+            $_SESSION['meldung'] = 'Die Unterschrift wurde gespeichert.' . ($queuedReports > 0 ? ' ' . $queuedReports . ' fertige Prüfung(en) werden nun im Hintergrund als Bericht erzeugt.' : ' Neue Prüfberichte werden nun freigegeben.');
             return [303, ['Location' => $profileUrl], ''];
         }
 
@@ -184,6 +205,30 @@ final class ProfileController
     {
         $items = json_decode((string) ($user->instruction_certificates_json ?? ''), true);
         return is_array($items) ? array_values(array_filter($items, static fn($item): bool => is_array($item) && trim((string) ($item['id'] ?? '')) !== '')) : [];
+    }
+
+    private static function queueMissingReportsForExaminer($user): int
+    {
+        $identifiers = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => mb_strtolower(trim((string) $value)),
+            [(string) ($user->email ?? ''), (string) ($user->name ?? ''), (string) ($user->preferred_username ?? '')]
+        ), static fn(string $value): bool => $value !== '')));
+        if ($identifiers === []) return 0;
+        $marks = implode(',', array_fill(0, count($identifiers), '?'));
+        $ids = array_map('intval', R::getCol(
+            "SELECT id FROM inspection WHERE LOWER(TRIM(COALESCE(examiner, ''))) IN ($marks) AND result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND TRIM(COALESCE(report_path, '')) = '' ORDER BY id",
+            $identifiers
+        ));
+        if ($ids === []) return 0;
+        BackgroundJobService::enqueue('pdf_regenerate', [
+            'type' => 'pdf_regenerate',
+            'inspection_ids' => $ids,
+            'owner_user_id' => (int) $user->id,
+        ], [
+            'total' => count($ids),
+            'dedupe_key' => 'signature-reports:' . (int) $user->id . ':' . hash('sha256', implode(',', $ids) . '|' . (string) ($user->report_signature_updated_at ?? '')),
+        ]);
+        return count($ids);
     }
 
     private static function validDate(string $value): string|false

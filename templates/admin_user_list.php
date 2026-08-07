@@ -47,6 +47,7 @@
                                         <div class="text-break">ID: <?= htmlspecialchars($user['sub']) ?></div>
                                     <?php endif; ?>
                                 </div>
+                                <div class="mt-2"><span class="badge text-bg-<?= !empty($user['report_signature_ready']) ? 'success' : 'warning text-dark' ?>" title="<?= !empty($user['report_signature_ready']) ? 'Unterschrift für Prüfberichte vorhanden' : 'Ohne Unterschrift kann dieser Nutzer keine Prüfung abschließen' ?>"><i class="fa-solid <?= !empty($user['report_signature_ready']) ? 'fa-signature' : 'fa-pen-nib' ?> me-1" aria-hidden="true"></i><?= !empty($user['report_signature_ready']) ? 'Unterschrift hinterlegt' : 'Unterschrift fehlt' ?></span></div>
                                 <div class="small text-body-secondary mt-1">Logins: <?= htmlspecialchars((string) $user['login_count']) ?></div>
                             </td>
                             <td>

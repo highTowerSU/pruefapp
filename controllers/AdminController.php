@@ -284,6 +284,8 @@ class AdminController
                 'last_login_at' => $lastLogin,
                 'raw_last_login_at' => $rawLastLogin,
                 'sub' => (string) ($bean->sub ?? ''),
+                'report_signature_ready' => examiner_has_report_signature($email !== '' ? $email : $name),
+                'report_signature_updated_at' => (string) ($bean->report_signature_updated_at ?? ''),
                 'customer_ids' => array_map('intval', R::getCol('SELECT customer_id FROM oauthuser_customer WHERE oauthuser_id = ?', [(int) $bean->id])),
                 'customer_access' => array_column(
                     R::getAll('SELECT customer_id, include_descendants FROM oauthuser_customer WHERE oauthuser_id = ?', [(int) $bean->id]),

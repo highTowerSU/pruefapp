@@ -200,7 +200,7 @@ try {
             }
         }
 
-        $missing = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND TRIM(COALESCE(report_path, '')) = ''");
+        $missing = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND TRIM(COALESCE(report_path, '')) = '' AND " . inspection_report_signature_sql('inspection'));
         if ($missing > 0) {
             BackgroundJobService::enqueue(
                 'missing_reports',
