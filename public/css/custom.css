@@ -195,6 +195,20 @@ label.form-check-label > i {
 }
 
 /* Einwertige TomSelect-Felder bleiben kompakt und umbrechen nicht. */
+.ts-hidden-accessible,
+select.form-select + .ts-wrapper {
+  border: 0 !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  position: absolute !important;
+  white-space: nowrap !important;
+  width: 1px !important;
+}
+
 .ts-wrapper.single .ts-control {
   display: flex;
   align-items: center;

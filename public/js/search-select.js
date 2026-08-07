@@ -38,5 +38,8 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => initializeSearchSelects(document));
-  document.body.addEventListener('htmx:afterSwap', event => initializeSearchSelects(event.target));
+
+  // htmx:load is emitted after a fragment has been inserted and processed.
+  // That matters for outerHTML swaps of configuration cards.
+  document.body.addEventListener('htmx:load', event => initializeSearchSelects(event.detail.elt));
 })();
