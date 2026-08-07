@@ -537,6 +537,11 @@ function seed_inspection_types(): void
         R::exec("UPDATE inspection_type_requirement SET active = 1 WHERE code IN ('electrical_basic', 'electrical_instruction', 'electrical_vefk', 'ladder_basic', 'ladder_instruction')");
         set_app_config('inspection_requirements_v1_activated', '1');
     }
+    // VEFK is a tenant responsibility/assignment, not a personal document type.
+    if (get_app_config('electrical_vefk_document_type_removed') !== '1') {
+        R::exec("UPDATE inspection_type_requirement SET active = 0 WHERE code = 'electrical_vefk'");
+        set_app_config('electrical_vefk_document_type_removed', '1');
+    }
     foreach ([
         ['electrical', 'electrical_basic', 'Elektroprüfer-Befähigung', null, 1, 10],
         ['electrical', 'electrical_instruction', 'Elektro-Unterweisung', 365, 0, 20],

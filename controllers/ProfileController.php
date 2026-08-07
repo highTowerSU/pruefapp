@@ -127,6 +127,45 @@ final class ProfileController
                 $_SESSION['meldung'] = 'Unterweisungsnachweis gespeichert und den gewählten Prüfarten zugeordnet.' . ($queuedReports > 0 ? ' ' . $queuedReports . ' fertige Prüfberichte werden nun im Hintergrund erzeugt.' : '');
                 return [303, ['Location' => $profileUrl], ''];
             }
+            if ($action === 'upload_followup') {
+                $certificateId = trim((string) ($_POST['certificate_id'] ?? ''));
+                $date = self::validDate((string) ($_POST['followup_date'] ?? ''));
+                $upload = $_FILES['followup_certificate'] ?? null;
+                if ($certificateId === '' || $date === false || $date === '' || !is_array($upload) || (int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                    $_SESSION['fehlermeldung'] = 'Bitte Folgeunterweisung, Datum und PDF angeben.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                $tmp = (string) ($upload['tmp_name'] ?? '');
+                $mime = $tmp !== '' && is_file($tmp) ? (new finfo(FILEINFO_MIME_TYPE))->file($tmp) : '';
+                if ($mime !== 'application/pdf' || (int) ($upload['size'] ?? 0) > 10 * 1024 * 1024) {
+                    $_SESSION['fehlermeldung'] = 'Der Folgeunterweisungsnachweis muss ein PDF bis 10 MB sein.';
+                    return [303, ['Location' => $profileUrl], ''];
+                }
+                $certificates = self::certificates($user); $found = false;
+                foreach ($certificates as &$certificate) {
+                    if ((string) ($certificate['id'] ?? '') !== $certificateId) continue;
+                    $directory = app_data_root() . '/user-instructions/' . (int) $user->id;
+                    if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) throw new RuntimeException('Das Nachweisverzeichnis konnte nicht angelegt werden.');
+                    $followupId = bin2hex(random_bytes(8)); $target = $directory . '/' . $followupId . '.pdf';
+                    if (!move_uploaded_file($tmp, $target)) throw new RuntimeException('Die Folgeunterweisung konnte nicht gespeichert werden.');
+                    @chmod($target, 0660);
+                    $certificate['followups'][] = ['id' => $followupId, 'date' => $date, 'kind' => mb_substr(trim((string) ($_POST['followup_kind'] ?? 'Folgeunterweisung')), 0, 80), 'title' => mb_substr(trim((string) ($_POST['followup_title'] ?? '')), 0, 240), 'path' => $target, 'name' => mb_substr((string) ($upload['name'] ?? 'Folgeunterweisung.pdf'), 0, 240), 'created_at' => date(DATE_ATOM)];
+                    // A current follow-up renews the linked qualification until the
+                    // next configured training date; the original certificate remains in history.
+                    foreach (array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? [])))) as $qualificationId) {
+                        $requirement = R::getRow('SELECT validity_days FROM inspection_type_requirement r JOIN user_qualification q ON q.requirement_code = r.code WHERE q.id = ? LIMIT 1', [$qualificationId]);
+                        $expiresAt = (int) ($requirement['validity_days'] ?? 0) > 0 ? date('Y-m-d', strtotime($date . ' +' . (int) $requirement['validity_days'] . ' days')) : '';
+                        R::exec('UPDATE user_qualification SET expires_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [$expiresAt, date(DATE_ATOM), $qualificationId, (int) $user->id]);
+                    }
+                    $found = true; break;
+                }
+                unset($certificate);
+                if (!$found) { $_SESSION['fehlermeldung'] = 'Befähigung nicht gefunden.'; return [303, ['Location' => $profileUrl], '']; }
+                $user->instruction_certificates_json = json_encode($certificates, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); R::store($user);
+                audit_log('folgeunterweisung_gespeichert', ['oauthuser_id' => (int) $user->id, 'certificate_id' => $certificateId]);
+                $_SESSION['meldung'] = 'Folgeunterweisung zur Befähigung hinzugefügt.';
+                return [303, ['Location' => $profileUrl . '#qualifications'], ''];
+            }
             if ($action === 'delete_certificate') {
                 $certificateId = trim((string) ($_POST['certificate_id'] ?? ''));
                 $remaining = [];
@@ -316,6 +355,10 @@ final class ProfileController
         $id = trim((string) ($params['certificateId'] ?? ''));
         foreach (self::certificates($viewer) as $certificate) {
             if ((string) ($certificate['id'] ?? '') !== $id || !is_file((string) ($certificate['path'] ?? ''))) continue;
+            $followupIndex = filter_input(INPUT_GET, 'followup', FILTER_VALIDATE_INT);
+            if ($followupIndex !== null && $followupIndex !== false && isset($certificate['followups'][(int) $followupIndex]) && is_file((string) ($certificate['followups'][(int) $followupIndex]['path'] ?? ''))) {
+                $certificate = $certificate['followups'][(int) $followupIndex];
+            }
             $filename = str_replace('"', '', basename((string) ($certificate['name'] ?? 'unterweisungsnachweis.pdf')));
             header('Content-Type: application/pdf'); header('Content-Disposition: inline; filename="' . $filename . '"'); header('Content-Length: ' . filesize((string) $certificate['path'])); readfile((string) $certificate['path']); exit;
         }
