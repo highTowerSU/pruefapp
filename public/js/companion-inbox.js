@@ -31,7 +31,10 @@
         const input = document.getElementById(button.dataset.companionFor);
         const items = valuesFor(root, button.dataset.companionKind || 'barcode');
         if (!input) return;
-        const old = window.bootstrap?.Popover.getInstance(button); if (old) old.dispose();
+        const old = window.bootstrap?.Popover.getInstance(button);
+        // A field button is a toggle: the second click closes its own menu.
+        if (old && button.getAttribute('aria-describedby')) { old.dispose(); return; }
+        if (old) old.dispose();
         const content = items.length ? `<div class="d-grid gap-1">${items.map((item) => `<button type="button" class="btn btn-sm btn-primary text-start" data-companion-choose="${item.dataset.itemId}" data-companion-target="${button.dataset.companionFor}"><i class="fa-solid fa-arrow-down me-1"></i>${escapeHtml(item.dataset.itemValue || item.textContent.trim())}</button>`).join('')}</div>` : (root.dataset.hasActiveConnection === '1' ? '<span class="small">Noch keine passenden Werte vom Smartphone empfangen.</span>' : '<span class="small">Noch kein Smartphone verbunden. Im Profil unter „Companion-Geräte“ einen QR-Code erzeugen und auf dem Handy öffnen.</span>');
         const popover = new window.bootstrap.Popover(button, {html: true, sanitize: false, trigger: 'manual', placement: 'bottom', content});
         popover.show();
