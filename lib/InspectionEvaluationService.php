@@ -341,6 +341,12 @@ final class InspectionEvaluationService
         };
     }
 
+    /** Only these are actual electrical measurements, never CSV metadata. */
+    public static function isSupportedMeasurementKey(string $key): bool
+    {
+        return in_array($key, ['RPE', 'RSL', 'RISO', 'IPE', 'IBER', 'IEA', 'KABEL', 'FI/RCD', 'SICHTPRÜFUNG'], true);
+    }
+
     private static function measurementLabel(string $key): string
     {
         return match ($key) {

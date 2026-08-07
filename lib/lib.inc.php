@@ -475,6 +475,14 @@ function ensure_structure_schema(): void
     R::exec('CREATE INDEX IF NOT EXISTS idx_billing_export_status ON billing_export (status, updated_at)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_device_finding_open ON device_finding (device_id, state, blocked)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_user_qualification_requirement ON user_qualification (oauthuser_id, requirement_code, expires_at)');
+    // Earlier CSV imports accidentally copied the source column
+    // “Bezeichnung” (normally e.g. “Klasse I”) into the measurement table.
+    // The immutable raw CSV remains available; only this derived display row
+    // is removed so it can neither confuse users nor affect evaluation.
+    if (get_app_config('inspection_measurement_metadata_cleanup_v1') !== '1') {
+        R::exec("DELETE FROM inspection_measurement WHERE UPPER(TRIM(COALESCE(measurement_key, ''))) IN ('BEZEICHNUNG', 'PRÜFART', 'PRUEFART')");
+        set_app_config('inspection_measurement_metadata_cleanup_v1', '1');
+    }
     if (get_app_config('billing_v1_initialized') !== '1') {
         R::exec("UPDATE inspection SET billing_eligibility = CASE WHEN billable = 1 THEN 'billable' ELSE 'not_billable' END, billing_status = CASE WHEN billing_exported_at IS NULL OR billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END WHERE billing_eligibility IS NULL OR billing_eligibility = '' OR billing_status IS NULL OR billing_status = ''");
         set_app_config('billing_v1_initialized', '1');

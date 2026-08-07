@@ -68,6 +68,7 @@ try {
         ['name' => 'RPE', 'value' => '0.2', 'unit' => 'Ohm', 'result' => 'bestanden'],
         ['name' => 'RISO', 'value' => '20', 'unit' => 'MOhm', 'result' => 'bestanden'],
         ['name' => 'IPE', 'value' => '0.1', 'unit' => 'mA', 'result' => 'bestanden'],
+        ['name' => 'Bezeichnung', 'value' => 'Klasse I', 'unit' => '', 'result' => ''],
     ], JSON_UNESCAPED_UNICODE);
     $importedId = (int) R::store($imported);
 
@@ -99,6 +100,9 @@ try {
         || (int) R::getCell('SELECT COUNT(*) FROM inspection_measurement WHERE inspection_id = ?', [$importedId]) !== 3
     ) {
         throw new RuntimeException('Strukturierte Antworten oder Messwerte fehlen nach der Migration.');
+    }
+    if ((int) R::getCell("SELECT COUNT(*) FROM inspection_measurement WHERE inspection_id = ? AND measurement_key = 'BEZEICHNUNG'", [$importedId]) !== 0) {
+        throw new RuntimeException('CSV-Metadaten wurden fälschlich als Messwert gespeichert.');
     }
     $snapshot = R::getRow('SELECT * FROM inspection_source_snapshot WHERE inspection_id = ?', [$importedId]);
     if (($snapshot['source_row_json'] ?? '') !== '{"source":"original"}' || trim((string) ($snapshot['legacy_row_json'] ?? '')) === '') {

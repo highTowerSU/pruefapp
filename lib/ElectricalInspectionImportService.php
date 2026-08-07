@@ -411,9 +411,12 @@ final class ElectricalInspectionImportService
                 $measurements[] = $measurement;
             }
         }
+        $metadataColumns = ['Speicher Nr', 'Speicherplatz', 'Prüfdatum', 'date', 'Datum', 'Prüfergebnis', 'number', 'Nummer', 'Prüfungsnr', 'Bezeichnung', 'Prüfart', 'Typ', 'Hersteller', 'Modell', 'Raumnummer', 'Raum'];
         foreach ($values as $key => $value) {
             if ($value === '' || $key === 'RISO Spannung' || in_array($key, $header, true) && (str_contains(strtolower($key), 'wert') || str_contains(strtolower($key), 'einheit') || str_contains(strtolower($key), 'ergebnis'))) continue;
-            if (in_array($key, ['Speicher Nr', 'Speicherplatz', 'Prüfdatum', 'date', 'Datum', 'Prüfergebnis', 'number', 'Nummer', 'Prüfungsnr'], true)) continue;
+            // “Bezeichnung” in a Benning export means protection class, not a
+            // measurement. Keep it in raw_json, but never present it as one.
+            if (in_array($key, $metadataColumns, true)) continue;
             if (count($measurements) < 30) $measurements[] = ['name' => $key, 'value' => $value, 'unit' => '', 'result' => ''];
         }
         $cableLength = $this->value($values, ['Kabellänge', 'Leitungslänge', 'cable_length_m', 'cable_length']);

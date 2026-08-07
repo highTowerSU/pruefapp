@@ -71,7 +71,7 @@ final class InspectionDataService
         R::exec('DELETE FROM inspection_measurement WHERE inspection_id = ?', [$inspectionId]);
         foreach (array_values($measurements) as $position => $measurement) {
             $key = InspectionEvaluationService::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? ''));
-            if ($key === '') {
+            if (!InspectionEvaluationService::isSupportedMeasurementKey($key)) {
                 continue;
             }
             $evaluated = InspectionEvaluationService::evaluateMeasurement($inspection, $measurement + ['measurement_key' => $key]);
