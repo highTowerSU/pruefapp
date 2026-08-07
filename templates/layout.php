@@ -301,6 +301,7 @@ $assetVersion = app_asset_version();
     <script src="<?= htmlspecialchars(url_for('node_modules/tom-select/dist/js/tom-select.complete.min.js'), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('public/js/search-select.js') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/js/tabulator.min.js'), ENT_QUOTES) ?>"></script>
+    <script src="<?= htmlspecialchars(url_for('public/js/qrcode.min.js') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>"></script>
     <script>
         (() => {
             'use strict';

@@ -14,6 +14,7 @@ $checks = [
     [str_contains($service, 'random_bytes(24)') && str_contains($service, "state IN ('pending', 'connected')") && str_contains($service, 'owner_user_id'), 'Die Kopplung besitzt keinen ausreichenden Token-, Ablauf- oder Nutzerbezug.'],
     [str_contains($controller, 'InspectionCompanionService::connect') && str_contains($controller, 'DeviceMediaService::storeUpload') && str_contains($controller, 'pruef_companion_barcode') && str_contains($service, 'owner_user_id'), 'Companion-Scans oder Fotos werden nicht serverseitig abgesichert verarbeitet.'],
     [str_contains($mobile, 'BarcodeDetector') && str_contains($mobile, 'facingMode') && str_contains($mobile, 'capture="environment"'), 'Die mobile Companion-Ansicht unterstützt Scanner oder Kamera nicht.'],
+    [str_contains((string) file_get_contents(dirname(__DIR__) . '/templates/inspection_companion_panel.php'), 'companion-qr-code') && str_contains($layout, 'qrcode.min.js'), 'Der Pairing-Link wird nicht als lokaler QR-Code bereitgestellt.'],
     [str_contains($routes, '/companion/{token}') && str_contains($routes, '/companion/{token}/barcode'), 'Companion-Routen fehlen.'],
     [str_contains($layout, 'action-nav-empty') && str_contains($layout, 'min-height: 2.65rem'), 'Die Aktionsnavigation reserviert keinen Platz gegen Layout-Sprünge.'],
 ];
