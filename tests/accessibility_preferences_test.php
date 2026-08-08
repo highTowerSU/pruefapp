@@ -23,7 +23,7 @@ accessibility_assert(str_contains($layout, 'data-display-preferences-form'), 'Da
 accessibility_assert(str_contains($profile, 'save_display_preferences') && str_contains($profile, 'Schwarz / Gelb'), 'Das Profil muss die Barrierefreiheitsoptionen anbieten.');
 accessibility_assert(str_contains($css, ':focus-visible') && str_contains($css, 'forced-colors: active'), 'Die zentralen Fokus- und Hochkontrastregeln fehlen.');
 accessibility_assert(str_contains($css, 'data-motion="reduce"') && str_contains($css, 'data-font-scale="xxlarge"'), 'Bewegungs- und abgestufte Schriftoptionen fehlen.');
-accessibility_assert(str_contains($service, "FONT_WEIGHTS = ['standard', 'bold']") && str_contains($css, 'data-font-weight="bold"'), 'Die gespeicherte stärkere Textdarstellung fehlt.');
+accessibility_assert(str_contains($service, "FONT_WEIGHTS = ['standard', 'bold']") && str_contains($css, 'data-font-weight="bold"] body'), 'Die gespeicherte stärkere Textdarstellung muss appweit greifen.');
 accessibility_assert(str_contains($css, '--bs-emphasis-color') && str_contains($css, '.alert-danger'), 'Die Kontrastmodi müssen auch Bootstrap-Komponenten eindeutig einfärben.');
 accessibility_assert(str_contains($css, ':root[data-contrast="yellow_black"]') && str_contains($css, '--bs-body-color: #ffdf00;'), 'Schwarz/Gelb muss Gelb als helle Kontrastfarbe verwenden.');
 accessibility_assert(str_contains($navbar, 'Darstellung &amp; Barrierefreiheit'), 'Die Darstellungseinstellungen müssen aus der Navbar erreichbar sein.');
