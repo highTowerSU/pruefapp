@@ -16,7 +16,13 @@ final class DisplayPreferenceService
     {
         $defaults = ['theme' => 'auto', 'contrast' => 'standard', 'font_scale' => 'standard', 'motion' => 'system'];
         if (($userId ?? 0) < 1) return $defaults;
-        $row = R::getRow('SELECT theme, contrast, font_scale, motion FROM user_display_preference WHERE oauthuser_id = ?', [$userId]);
+        try {
+            $row = R::getRow('SELECT theme, contrast, font_scale, motion FROM user_display_preference WHERE oauthuser_id = ?', [$userId]);
+        } catch (Throwable) {
+            // A rolling deployment must not make the profile unusable before
+            // the schema update has reached the active database connection.
+            return $defaults;
+        }
         if ($row === []) return $defaults;
         foreach ($defaults as $key => $fallback) {
             $allowed = match ($key) {
@@ -36,17 +42,20 @@ final class DisplayPreferenceService
             'font_scale' => self::value($values['font_scale'] ?? '', self::FONT_SCALES, 'standard'),
             'motion' => self::value($values['motion'] ?? '', self::MOTIONS, 'system'),
         ];
-        $bean = R::findOne('user_display_preference', ' oauthuser_id = ? ', [$userId]);
-        if ($bean === null) {
-            $bean = R::dispense('user_display_preference');
-            $bean->oauthuser_id = $userId;
+        // RedBean deliberately rejects bean types containing underscores.
+        // This table uses a descriptive SQL name, therefore keep persistence
+        // explicit instead of dispensing a bean named user_display_preference.
+        $updatedAt = date(DATE_ATOM);
+        $updated = R::exec(
+            'UPDATE user_display_preference SET theme = ?, contrast = ?, font_scale = ?, motion = ?, updated_at = ? WHERE oauthuser_id = ?',
+            [$preference['theme'], $preference['contrast'], $preference['font_scale'], $preference['motion'], $updatedAt, $userId]
+        );
+        if ($updated === 0) {
+            R::exec(
+                'INSERT INTO user_display_preference (oauthuser_id, theme, contrast, font_scale, motion, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+                [$userId, $preference['theme'], $preference['contrast'], $preference['font_scale'], $preference['motion'], $updatedAt]
+            );
         }
-        $bean->theme = $preference['theme'];
-        $bean->contrast = $preference['contrast'];
-        $bean->font_scale = $preference['font_scale'];
-        $bean->motion = $preference['motion'];
-        $bean->updated_at = date(DATE_ATOM);
-        R::store($bean);
         return $preference;
     }
 
