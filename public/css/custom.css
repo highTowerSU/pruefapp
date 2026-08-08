@@ -430,6 +430,9 @@ html, body { max-width: 100%; overflow-x: hidden; }
 :root[data-font-scale="xxlarge"] { font-size: 140%; }
 :root[data-font-weight="bold"] body { font-weight: 600; }
 :root[data-font-weight="bold"] :is(.btn, .dropdown-item, .page-link, #page-action-navigation, .navbar) { font-weight: 600; }
+:root[data-font-family="sans"] body { font-family: Verdana, Arial, Helvetica, sans-serif; }
+:root[data-font-family="serif"] body { font-family: Georgia, "Times New Roman", serif; }
+:root[data-font-family="mono"] body { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
 
 :root[data-motion="reduce"] *,
 :root[data-motion="reduce"] *::before,
