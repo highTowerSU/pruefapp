@@ -22,7 +22,8 @@ accessibility_assert(str_contains($layout, 'id="main-content"') && str_contains(
 accessibility_assert(str_contains($layout, 'data-display-preferences-form'), 'Darstellungsänderungen sollen vor dem Speichern direkt sichtbar sein.');
 accessibility_assert(str_contains($profile, 'save_display_preferences') && str_contains($profile, 'Schwarz / Gelb'), 'Das Profil muss die Barrierefreiheitsoptionen anbieten.');
 accessibility_assert(str_contains($css, ':focus-visible') && str_contains($css, 'forced-colors: active'), 'Die zentralen Fokus- und Hochkontrastregeln fehlen.');
-accessibility_assert(str_contains($css, 'data-motion="reduce"') && str_contains($css, 'data-font-scale="large"'), 'Bewegungs- und Schriftoptionen fehlen.');
+accessibility_assert(str_contains($css, 'data-motion="reduce"') && str_contains($css, 'data-font-scale="xxlarge"'), 'Bewegungs- und abgestufte Schriftoptionen fehlen.');
+accessibility_assert(str_contains($css, '--bs-emphasis-color') && str_contains($css, '.alert-danger'), 'Die Kontrastmodi müssen auch Bootstrap-Komponenten eindeutig einfärben.');
 accessibility_assert(str_contains($navbar, 'Darstellung &amp; Barrierefreiheit'), 'Die Darstellungseinstellungen müssen aus der Navbar erreichbar sein.');
 
 echo "OK: accessibility preferences\n";

@@ -8,7 +8,7 @@ final class DisplayPreferenceService
 {
     public const THEMES = ['light', 'dark', 'auto'];
     public const CONTRASTS = ['standard', 'system', 'yellow_black', 'green_black'];
-    public const FONT_SCALES = ['standard', 'large'];
+    public const FONT_SCALES = ['standard', 'large', 'xlarge', 'xxlarge'];
     public const MOTIONS = ['system', 'reduce'];
 
     /** @return array{theme:string,contrast:string,font_scale:string,motion:string} */
