@@ -460,19 +460,41 @@ html, body { max-width: 100%; overflow-x: hidden; }
   --bs-danger-rgb: 255, 92, 92;
 }
 
+:root[data-contrast="white_black"] {
+  color-scheme: dark;
+  --app-primary: #fff;
+  --app-primary-text: #000;
+  --app-focus-color: #ffdf00;
+  --bs-body-bg: #000;
+  --bs-body-color: #fff;
+  --bs-emphasis-color: #fff;
+  --bs-secondary-bg: #111;
+  --bs-tertiary-bg: #1d1d1d;
+  --bs-secondary-color: #fff;
+  --bs-tertiary-color: #fff;
+  --bs-border-color: #fff;
+  --bs-link-color: #fff;
+  --bs-link-hover-color: #ffdf00;
+  --bs-primary-rgb: 255, 255, 255;
+  --bs-success-rgb: 0, 255, 136;
+  --bs-info-rgb: 0, 208, 255;
+  --bs-warning-rgb: 255, 223, 0;
+  --bs-danger-rgb: 255, 92, 92;
+}
+
 :root[data-contrast="green_black"] {
   color-scheme: dark;
   --app-primary: #00e676;
   --app-primary-text: #000;
-  --app-focus-color: #fff;
+  --app-focus-color: #00ff88;
   --bs-body-bg: #000;
-  --bs-body-color: #fff;
-  --bs-emphasis-color: #fff;
+  --bs-body-color: #00ff88;
+  --bs-emphasis-color: #00ff88;
   --bs-secondary-bg: #101510;
   --bs-tertiary-bg: #1a251a;
-  --bs-secondary-color: #e4f8e8;
-  --bs-tertiary-color: #fff;
-  --bs-border-color: #fff;
+  --bs-secondary-color: #b7ffcf;
+  --bs-tertiary-color: #b7ffcf;
+  --bs-border-color: #00ff88;
   --bs-link-color: #6dff9d;
   --bs-link-hover-color: #c5ffd6;
   --bs-primary-rgb: 0, 230, 118;
@@ -482,9 +504,11 @@ html, body { max-width: 100%; overflow-x: hidden; }
   --bs-danger-rgb: 255, 92, 92;
 }
 
-:root[data-contrast="yellow_black"] .navbar-themed,
-:root[data-contrast="green_black"] .navbar-themed { --navbar-bg: #000 !important; --navbar-color: #fff !important; }
+:root[data-contrast="white_black"] .navbar-themed { --navbar-bg: #000 !important; --navbar-color: #fff !important; }
+:root[data-contrast="yellow_black"] .navbar-themed { --navbar-bg: #000 !important; --navbar-color: #ffdf00 !important; }
+:root[data-contrast="green_black"] .navbar-themed { --navbar-bg: #000 !important; --navbar-color: #00ff88 !important; }
 
+:root[data-contrast="white_black"] :is(.card, .modal-content, .dropdown-menu, .offcanvas, .list-group-item, .form-control, .form-select, .input-group-text),
 :root[data-contrast="yellow_black"] :is(.card, .modal-content, .dropdown-menu, .offcanvas, .list-group-item, .form-control, .form-select, .input-group-text),
 :root[data-contrast="green_black"] :is(.card, .modal-content, .dropdown-menu, .offcanvas, .list-group-item, .form-control, .form-select, .input-group-text) {
   color: var(--bs-body-color);
@@ -492,14 +516,17 @@ html, body { max-width: 100%; overflow-x: hidden; }
   border-color: var(--bs-border-color);
 }
 
+:root[data-contrast="white_black"] :is(.text-body-secondary, .text-body-tertiary, .text-secondary, .form-text),
 :root[data-contrast="yellow_black"] :is(.text-body-secondary, .text-body-tertiary, .text-secondary, .form-text),
 :root[data-contrast="green_black"] :is(.text-body-secondary, .text-body-tertiary, .text-secondary, .form-text) { color: var(--bs-secondary-color) !important; opacity: 1; }
 
+:root[data-contrast="white_black"] :is(.btn, .badge, .alert),
 :root[data-contrast="yellow_black"] :is(.btn, .badge, .alert),
 :root[data-contrast="green_black"] :is(.btn, .badge, .alert) { border-width: 2px; font-weight: 600; }
 
-:root[data-contrast="yellow_black"] :is(.btn-secondary, .btn-outline-secondary, .btn-light, .btn-outline-light),
-:root[data-contrast="green_black"] :is(.btn-secondary, .btn-outline-secondary, .btn-light, .btn-outline-light) { color: #fff; background: #000; border-color: #fff; }
+:root[data-contrast="white_black"] :is(.btn-secondary, .btn-outline-secondary, .btn-light, .btn-outline-light) { color: #fff; background: #000; border-color: #fff; }
+:root[data-contrast="yellow_black"] :is(.btn-secondary, .btn-outline-secondary, .btn-light, .btn-outline-light) { color: #ffdf00; background: #000; border-color: #ffdf00; }
+:root[data-contrast="green_black"] :is(.btn-secondary, .btn-outline-secondary, .btn-light, .btn-outline-light) { color: #00ff88; background: #000; border-color: #00ff88; }
 
 :root[data-contrast="yellow_black"] :is(.btn-success, .text-bg-success, .alert-success),
 :root[data-contrast="green_black"] :is(.btn-success, .text-bg-success, .alert-success) { color: #000; background-color: #00ff88; border-color: #00ff88; }

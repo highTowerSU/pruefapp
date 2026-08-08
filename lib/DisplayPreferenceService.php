@@ -7,7 +7,7 @@ use RedBeanPHP\R;
 final class DisplayPreferenceService
 {
     public const THEMES = ['light', 'dark', 'auto'];
-    public const CONTRASTS = ['standard', 'system', 'yellow_black', 'green_black'];
+    public const CONTRASTS = ['standard', 'system', 'white_black', 'yellow_black', 'green_black'];
     public const FONT_SCALES = ['standard', 'large', 'xlarge', 'xxlarge'];
     public const MOTIONS = ['system', 'reduce'];
 

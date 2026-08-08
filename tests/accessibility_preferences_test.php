@@ -16,7 +16,7 @@ $css = file_get_contents($root . '/public/css/custom.css');
 $navbar = file_get_contents($root . '/templates/_navbar.php');
 
 accessibility_assert(str_contains($schema, 'userdisplaypreference'), 'Die Darstellungseinstellungen benötigen eine persistente RedBean-Tabelle.');
-accessibility_assert(str_contains($service, "'yellow_black'") && str_contains($service, "'green_black'"), 'Die Kontrastpaletten müssen serverseitig validiert werden.');
+accessibility_assert(str_contains($service, "'white_black'") && str_contains($service, "'yellow_black'") && str_contains($service, "'green_black'"), 'Die Kontrastpaletten müssen serverseitig validiert werden.');
 accessibility_assert(str_contains($service, "R::dispense('userdisplaypreference'") && str_contains($service, "R::findOne('userdisplaypreference'"), 'Darstellungseinstellungen müssen als RedBean-Beans gespeichert werden.');
 accessibility_assert(str_contains($layout, 'id="main-content"') && str_contains($layout, 'class="skip-link"'), 'Das Layout benötigt eine Skip-Link-Navigation zum Hauptinhalt.');
 accessibility_assert(str_contains($layout, 'data-display-preferences-form'), 'Darstellungsänderungen sollen vor dem Speichern direkt sichtbar sein.');
