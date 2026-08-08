@@ -36,9 +36,9 @@ $photoTypes = $allowTypePlate
 <?php if ($inline): ?></div><?php else: ?></form><?php endif; ?>
 <style>
   .media-upload-component{background:var(--bs-tertiary-bg);container-type:inline-size}
-  .media-upload-layout{display:grid;gap:1rem;align-items:end}
+  .media-upload-layout{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"source" "type" "caption" "hint" "action";gap:.8rem;align-items:start}
   .media-upload-source{min-width:0}.media-upload-source .input-group{min-width:0}
-  .media-upload-hint{align-self:center;overflow-wrap:anywhere}.media-upload-action{display:flex;justify-content:flex-end}
+  .media-upload-hint{align-self:start;overflow-wrap:anywhere}.media-upload-action{display:flex;justify-content:flex-start}
   .media-upload-component .form-control,.media-upload-component .form-select,.media-upload-component .btn{min-height:2.75rem}
   .media-upload-paste{min-height:2.75rem;padding:.55rem .75rem;border:1px dashed var(--bs-border-color);border-radius:var(--bs-border-radius);color:var(--bs-secondary-color);cursor:text}
   .media-upload-paste:focus{outline:0;border-color:var(--bs-primary);box-shadow:0 0 0 .2rem rgba(var(--bs-primary-rgb),.2)}
@@ -46,6 +46,6 @@ $photoTypes = $allowTypePlate
   .media-upload-component .form-text,.media-upload-component .small{overflow-wrap:anywhere}
   .media-upload-source{grid-area:source}.media-upload-type{grid-area:type}.media-upload-caption{grid-area:caption}.media-upload-hint{grid-area:hint}.media-upload-action{grid-area:action}
   @container (min-width: 34rem){.media-upload-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"source source" "type caption" "hint action"}.media-upload-layout-simple{grid-template-areas:"source source" "hint action"}}
-  @container (min-width: 54rem){.media-upload-layout{grid-template-columns:minmax(16rem,1.05fr) minmax(9rem,.45fr) minmax(15rem,1fr) auto;grid-template-areas:"source type caption action" "source hint hint hint"}.media-upload-layout-simple{grid-template-columns:minmax(16rem,1fr) minmax(14rem,1fr) auto;grid-template-areas:"source hint action"}}
+  @container (min-width: 54rem){.media-upload-layout{grid-template-columns:minmax(16rem,1.05fr) minmax(9rem,.45fr) minmax(15rem,1fr) auto;grid-template-areas:"source type caption action" "source hint hint hint"}.media-upload-layout-simple{grid-template-columns:minmax(16rem,1fr) minmax(14rem,1fr) auto;grid-template-areas:"source hint action"}.media-upload-action{align-self:start;padding-top:2rem;justify-content:flex-end}.media-upload-layout-simple .media-upload-action{padding-top:0;align-self:center}}
   @media(max-width:575.98px){.media-upload-submit{width:100%}.media-upload-paste span{display:block;margin-top:.15rem}.media-upload-action{justify-content:stretch}}
 </style>
