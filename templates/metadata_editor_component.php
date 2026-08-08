@@ -19,6 +19,9 @@ if ($metadataValue === '{}') $metadataValue = '';
   const init = (editor) => {
     if (editor.dataset.metadataBound) return;
     editor.dataset.metadataBound = '1';
+    // Older device pages include a legacy initializer at the end of the
+    // template. Mark it as handled too, so one editor is never bound twice.
+    editor.dataset.bound = '1';
     const rows = editor.querySelector('.metadata-visual-rows');
     const json = editor.querySelector('[data-metadata-json]');
     const normalizeMac = value => (String(value).toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 12).match(/.{1,2}/g) || []).join(':');
