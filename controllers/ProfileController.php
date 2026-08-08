@@ -25,6 +25,13 @@ final class ProfileController
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!$canEdit) return forbidden_response();
             $action = trim((string) ($_POST['action'] ?? 'upload_signature'));
+            if ($action === 'save_display_preferences') {
+                if ($adminView) return forbidden_response();
+                $preference = DisplayPreferenceService::save((int) $user->id, $_POST);
+                audit_log('nutzerdarstellung_aktualisiert', ['oauthuser_id' => (int) $user->id, 'contrast' => $preference['contrast'], 'font_scale' => $preference['font_scale']]);
+                $_SESSION['meldung'] = 'Darstellung wurde gespeichert.';
+                return [303, ['Location' => $profileUrl . '#display-preferences'], ''];
+            }
             if ($action === 'create_companion_workspace') {
                 // A pairing token belongs to the actual user's work session,
                 // never to an administrator viewing somebody else's profile.
@@ -383,7 +390,8 @@ final class ProfileController
             $certificate['confirmed_at'] = (string) ($latestConfirmation['confirmed_at'] ?? '');
         }
         unset($certificate);
-        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'profileCompanionTokens' => $profileCompanionTokens, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView]);
+        $displayPreference = DisplayPreferenceService::forUser((int) $user->id);
+        $content = render_template('profile.php', ['user' => $user, 'signature' => $signature, 'followups' => $followups, 'certificates' => $certificates, 'qualifications' => $qualifications, 'qualificationRequirements' => $qualificationRequirements, 'inspectionTypes' => $inspectionTypes, 'inspectionPermissions' => $inspectionPermissions, 'activeCompanionSessions' => $activeCompanionSessions, 'profileCompanionTokens' => $profileCompanionTokens, 'canEdit' => $canEdit, 'canConfirmQualifications' => $canConfirmQualifications, 'profileUrl' => $profileUrl, 'adminView' => $adminView, 'displayPreference' => $displayPreference]);
         return [200, [], render_template('layout.php', ['title' => $adminView ? 'Benutzerprofil' : 'Mein Profil', 'content' => $content])];
     }
 

@@ -5,6 +5,7 @@
 /** @var array<int, array<string, string>> $certificates */
  $canEdit = $canEdit ?? true; $profileUrl = $profileUrl ?? url_for('profil'); $certificates = $certificates ?? [];
  $qualifications = $qualifications ?? []; $qualificationRequirements = $qualificationRequirements ?? []; $inspectionTypes = $inspectionTypes ?? []; $inspectionPermissions = $inspectionPermissions ?? []; $activeCompanionSessions = $activeCompanionSessions ?? []; $profileCompanionTokens = $profileCompanionTokens ?? []; $canConfirmQualifications = (bool) ($canConfirmQualifications ?? false);
+ $displayPreference = $displayPreference ?? ['theme' => 'auto', 'contrast' => 'standard', 'font_scale' => 'standard', 'motion' => 'system'];
 ?>
 <header class="page-header mb-4">
   <h1 class="mb-1"><i class="fa-solid fa-user-pen me-2" aria-hidden="true"></i><?= !empty($adminView) ? 'Benutzerprofil' : 'Mein Profil' ?></h1>
@@ -12,6 +13,19 @@
 </header>
 
 <?php if (empty($adminView)): ?>
+<section class="card shadow-sm mb-4" id="display-preferences" data-action-nav="Darstellung" data-action-icon="fa-universal-access">
+  <div class="card-header fw-semibold"><i class="fa-solid fa-universal-access me-2" aria-hidden="true"></i>Darstellung &amp; Barrierefreiheit</div>
+  <div class="card-body">
+    <p class="small text-body-secondary">Diese Einstellungen gelten für dein Benutzerkonto auf allen angemeldeten Geräten. Browser-Zoom bleibt jederzeit zusätzlich möglich.</p>
+    <?php if ($canEdit): ?><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" class="row g-3" data-display-preferences-form><input type="hidden" name="action" value="save_display_preferences">
+      <div class="col-12 col-md-6"><label class="form-label" for="display-theme">Farbschema</label><select class="form-select" id="display-theme" name="theme"><option value="auto"<?= $displayPreference['theme'] === 'auto' ? ' selected' : '' ?>>Automatisch</option><option value="light"<?= $displayPreference['theme'] === 'light' ? ' selected' : '' ?>>Hell</option><option value="dark"<?= $displayPreference['theme'] === 'dark' ? ' selected' : '' ?>>Dunkel</option></select></div>
+      <div class="col-12 col-md-6"><label class="form-label" for="display-contrast">Kontrast</label><select class="form-select" id="display-contrast" name="contrast"><option value="standard"<?= $displayPreference['contrast'] === 'standard' ? ' selected' : '' ?>>Standard</option><option value="system"<?= $displayPreference['contrast'] === 'system' ? ' selected' : '' ?>>Betriebssystem-Hochkontrast</option><option value="yellow_black"<?= $displayPreference['contrast'] === 'yellow_black' ? ' selected' : '' ?>>Schwarz / Gelb</option><option value="green_black"<?= $displayPreference['contrast'] === 'green_black' ? ' selected' : '' ?>>Schwarz / Grün</option></select></div>
+      <div class="col-12 col-md-6"><label class="form-label" for="display-font-scale">Leseschrift</label><select class="form-select" id="display-font-scale" name="font_scale"><option value="standard"<?= $displayPreference['font_scale'] === 'standard' ? ' selected' : '' ?>>Standardgröße</option><option value="large"<?= $displayPreference['font_scale'] === 'large' ? ' selected' : '' ?>>Größere Schrift</option></select></div>
+      <div class="col-12 col-md-6"><label class="form-label" for="display-motion">Bewegung</label><select class="form-select" id="display-motion" name="motion"><option value="system"<?= $displayPreference['motion'] === 'system' ? ' selected' : '' ?>>Betriebssystemvorgabe</option><option value="reduce"<?= $displayPreference['motion'] === 'reduce' ? ' selected' : '' ?>>Bewegung reduzieren</option></select></div>
+      <div class="col-12"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Darstellung speichern</button></div>
+    </form><?php endif; ?>
+  </div>
+</section>
 <section class="card shadow-sm mb-4" id="companion-sessions" data-action-nav="Companion-Geräte" data-action-icon="fa-mobile-screen-button">
   <div class="card-header fw-semibold d-flex justify-content-between align-items-center gap-2"><span><i class="fa-solid fa-mobile-screen-button me-2" aria-hidden="true"></i>Companion-Geräte</span><span class="badge text-bg-info"><?= count($activeCompanionSessions) ?></span></div>
   <div class="card-body">

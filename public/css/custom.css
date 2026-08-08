@@ -404,6 +404,85 @@ html, body { max-width: 100%; overflow-x: hidden; }
   details.card > summary.card-header { min-height: 2.9rem; display: flex; align-items: center; }
 }
 
+/* Barrierefreiheit: sichtbarer Fokus, Sprungmarke und gespeicherte Darstellung. */
+.skip-link {
+  position: fixed;
+  z-index: 2000;
+  top: .5rem;
+  left: .5rem;
+  padding: .65rem .9rem;
+  color: #000;
+  background: #ffdf00;
+  border: 2px solid #000;
+  border-radius: .35rem;
+  transform: translateY(-150%);
+}
+
+.skip-link:focus { transform: translateY(0); }
+
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 3px solid var(--app-focus-color, #ffbf00) !important;
+  outline-offset: 2px;
+}
+
+:root[data-font-scale="large"] { font-size: 112.5%; }
+
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
+}
+
+:root[data-contrast="yellow_black"] {
+  --app-primary: #ffdf00;
+  --app-primary-text: #000;
+  --app-focus-color: #fff;
+  --bs-body-bg: #000;
+  --bs-body-color: #fff;
+  --bs-secondary-bg: #111;
+  --bs-tertiary-bg: #1d1d1d;
+  --bs-secondary-color: #f2f2f2;
+  --bs-border-color: #fff;
+  --bs-link-color: #ffeb3b;
+  --bs-link-hover-color: #fff38a;
+}
+
+:root[data-contrast="green_black"] {
+  --app-primary: #00e676;
+  --app-primary-text: #000;
+  --app-focus-color: #fff;
+  --bs-body-bg: #000;
+  --bs-body-color: #fff;
+  --bs-secondary-bg: #101510;
+  --bs-tertiary-bg: #1a251a;
+  --bs-secondary-color: #e4f8e8;
+  --bs-border-color: #fff;
+  --bs-link-color: #6dff9d;
+  --bs-link-hover-color: #c5ffd6;
+}
+
+:root[data-contrast="yellow_black"] .navbar-themed,
+:root[data-contrast="green_black"] .navbar-themed { --navbar-bg: #000 !important; --navbar-color: #fff !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="system"] *,
+  :root[data-motion="system"] *::before,
+  :root[data-motion="system"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .skip-link { forced-color-adjust: none; }
+  :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible { outline-color: Highlight !important; }
+}
+
 /* Keep the device action's main action and chevron visually attached at every
    viewport size; generic mobile button groups are allowed to wrap. */
 .device-form > .col-12.text-end > .btn-group {

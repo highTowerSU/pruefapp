@@ -13,9 +13,11 @@ $primaryRgb = strlen($primaryHex) === 6
     ? implode(', ', [hexdec(substr($primaryHex, 0, 2)), hexdec(substr($primaryHex, 2, 2)), hexdec(substr($primaryHex, 4, 2))])
     : '13, 110, 253';
 $assetVersion = app_asset_version();
+$layoutUser = current_user();
+$displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ?? 0));
 ?>
 <!DOCTYPE html>
-<html lang="de" data-bs-theme="auto">
+<html lang="de" data-bs-theme="auto" data-theme-preference="<?= htmlspecialchars($displayPreference['theme'], ENT_QUOTES) ?>" data-contrast="<?= htmlspecialchars($displayPreference['contrast'], ENT_QUOTES) ?>" data-font-scale="<?= htmlspecialchars($displayPreference['font_scale'], ENT_QUOTES) ?>" data-motion="<?= htmlspecialchars($displayPreference['motion'], ENT_QUOTES) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -25,12 +27,20 @@ $assetVersion = app_asset_version();
         (() => {
             'use strict';
 
-            const storageKey = 'theme';
-            const getStoredTheme = () => localStorage.getItem(storageKey);
-            const setStoredTheme = theme => localStorage.setItem(storageKey, theme);
+            const storageKey = 'theme-preview';
+            const preferenceEndpoint = <?= json_encode($layoutUser !== null ? url_for('profil') : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            let serverPreference = <?= json_encode($displayPreference, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            const getStoredTheme = () => sessionStorage.getItem(storageKey);
+            const setStoredTheme = theme => sessionStorage.setItem(storageKey, theme);
+
+            const persistPreference = () => {
+                if (!preferenceEndpoint) return;
+                const body = new URLSearchParams({action: 'save_display_preferences', ...serverPreference});
+                fetch(preferenceEndpoint, {method: 'POST', credentials: 'same-origin', body, headers: {'X-Requested-With': 'XMLHttpRequest'}}).catch(() => {});
+            };
 
             const getPreferredTheme = () => {
-                const storedTheme = getStoredTheme();
+                const storedTheme = serverPreference.theme === 'auto' ? getStoredTheme() : serverPreference.theme;
                 if (storedTheme) {
                     return storedTheme;
                 }
@@ -39,12 +49,19 @@ $assetVersion = app_asset_version();
             };
 
             const setTheme = theme => {
+                document.documentElement.setAttribute('data-theme-preference', theme);
                 if (theme === 'auto') {
                     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                     document.documentElement.setAttribute('data-bs-theme', systemPrefersDark ? 'dark' : 'light');
                 } else {
                     document.documentElement.setAttribute('data-bs-theme', theme);
                 }
+            };
+
+            const applyAccessibilityPreference = () => {
+                document.documentElement.setAttribute('data-contrast', serverPreference.contrast || 'standard');
+                document.documentElement.setAttribute('data-font-scale', serverPreference.font_scale || 'standard');
+                document.documentElement.setAttribute('data-motion', serverPreference.motion || 'system');
             };
 
             const themeOrder = ['light', 'dark', 'auto'];
@@ -85,12 +102,15 @@ $assetVersion = app_asset_version();
                 cycleButton.setAttribute('title', description);
             };
 
-            const applyTheme = (theme) => {
+            const applyTheme = (theme, persist = false) => {
+                serverPreference = {...serverPreference, theme};
                 setStoredTheme(theme);
                 setTheme(theme);
                 updateThemeUI(theme);
+                if (persist) persistPreference();
             };
 
+            applyAccessibilityPreference();
             setTheme(getPreferredTheme());
 
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -100,7 +120,7 @@ $assetVersion = app_asset_version();
             });
 
             window.addEventListener('DOMContentLoaded', () => {
-                const initialTheme = getStoredTheme() || 'auto';
+                const initialTheme = serverPreference.theme === 'auto' ? (getStoredTheme() || 'auto') : serverPreference.theme;
                 updateThemeUI(initialTheme);
 
                 const navbar = document.getElementById('appNavbarContent');
@@ -115,17 +135,34 @@ $assetVersion = app_asset_version();
                 document.querySelectorAll('[data-bs-theme-value]').forEach(button => {
                     button.addEventListener('click', () => {
                         const theme = button.getAttribute('data-bs-theme-value');
-                        applyTheme(theme);
+                        applyTheme(theme, true);
                     });
                 });
 
                 const cycleButton = document.getElementById('themeCycleButton');
                 if (cycleButton) {
                     cycleButton.addEventListener('click', () => {
-                        const storedTheme = getStoredTheme() || cycleButton.dataset.currentTheme || 'auto';
+                        const storedTheme = serverPreference.theme === 'auto' ? (getStoredTheme() || cycleButton.dataset.currentTheme || 'auto') : serverPreference.theme;
                         const currentIndex = themeOrder.indexOf(storedTheme);
                         const nextTheme = themeOrder[(currentIndex + 1) % themeOrder.length] || themeOrder[0];
-                        applyTheme(nextTheme);
+                        applyTheme(nextTheme, true);
+                    });
+                }
+
+                const preferenceForm = document.querySelector('[data-display-preferences-form]');
+                if (preferenceForm) {
+                    preferenceForm.addEventListener('change', () => {
+                        const values = new FormData(preferenceForm);
+                        serverPreference = {
+                            theme: String(values.get('theme') || 'auto'),
+                            contrast: String(values.get('contrast') || 'standard'),
+                            font_scale: String(values.get('font_scale') || 'standard'),
+                            motion: String(values.get('motion') || 'system')
+                        };
+                        applyAccessibilityPreference();
+                        setTheme(serverPreference.theme === 'auto'
+                            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                            : serverPreference.theme);
                     });
                 }
             });
@@ -204,8 +241,9 @@ $assetVersion = app_asset_version();
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
+<a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <?php include "templates/_navbar.php"; ?>
-<main class="flex-grow-1">
+<main id="main-content" class="flex-grow-1" tabindex="-1">
 <div class="container app-main-container py-4">
     <header class="page-header mb-4 noprint">
       <h1 class="mb-1"><?= htmlspecialchars($title ?? ($branding['app_title'] ?? 'Seite')) ?></h1>
@@ -214,11 +252,11 @@ $assetVersion = app_asset_version();
       <?php endif; ?>
     </header>
         <?php if (!empty($_SESSION['meldung'])): ?>
-  <div class="alert alert-info"><?= htmlspecialchars($_SESSION['meldung']) ?></div>
+  <div class="alert alert-info" role="status" aria-live="polite"><?= htmlspecialchars($_SESSION['meldung']) ?></div>
   <?php unset($_SESSION['meldung']); ?>
   <?php endif; ?>
 <?php if (!empty($_SESSION['fehlermeldung'])): ?>
-  <div class="alert alert-danger"><?= htmlspecialchars($_SESSION['fehlermeldung']) ?></div>
+  <div class="alert alert-danger" role="alert"><?= htmlspecialchars($_SESSION['fehlermeldung']) ?></div>
   <?php unset($_SESSION['fehlermeldung']); ?>
 <?php endif; ?>
 <?php if ((int) ($_SESSION['impersonator_user_id'] ?? 0) > 0): ?>

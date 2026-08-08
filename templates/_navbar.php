@@ -254,6 +254,10 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
             <li><button type="button" class="dropdown-item" data-bs-theme-value="light"><i class="fas fa-sun me-2"></i>Hell</button></li>
             <li><button type="button" class="dropdown-item" data-bs-theme-value="dark"><i class="fas fa-moon me-2"></i>Dunkel</button></li>
             <li><button type="button" class="dropdown-item" data-bs-theme-value="auto"><i class="fas fa-circle-half-stroke me-2"></i>Automatisch</button></li>
+            <?php if ($authUser !== null): ?>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil') . '#display-preferences', ENT_QUOTES) ?>"><i class="fa-solid fa-universal-access me-2" aria-hidden="true"></i>Darstellung &amp; Barrierefreiheit</a></li>
+            <?php endif; ?>
           </ul>
         </div>
       </div>
