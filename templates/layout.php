@@ -17,7 +17,7 @@ $layoutUser = current_user();
 $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ?? 0));
 ?>
 <!DOCTYPE html>
-<html lang="de" data-bs-theme="auto" data-theme-preference="<?= htmlspecialchars($displayPreference['theme'], ENT_QUOTES) ?>" data-contrast="<?= htmlspecialchars($displayPreference['contrast'], ENT_QUOTES) ?>" data-font-scale="<?= htmlspecialchars($displayPreference['font_scale'], ENT_QUOTES) ?>" data-motion="<?= htmlspecialchars($displayPreference['motion'], ENT_QUOTES) ?>">
+<html lang="de" data-bs-theme="auto" data-theme-preference="<?= htmlspecialchars($displayPreference['theme'], ENT_QUOTES) ?>" data-contrast="<?= htmlspecialchars($displayPreference['contrast'], ENT_QUOTES) ?>" data-font-scale="<?= htmlspecialchars($displayPreference['font_scale'], ENT_QUOTES) ?>" data-font-weight="<?= htmlspecialchars($displayPreference['font_weight'], ENT_QUOTES) ?>" data-motion="<?= htmlspecialchars($displayPreference['motion'], ENT_QUOTES) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -60,7 +60,8 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
 
             const applyAccessibilityPreference = () => {
                 document.documentElement.setAttribute('data-contrast', serverPreference.contrast || 'standard');
-                document.documentElement.setAttribute('data-font-scale', serverPreference.font_scale || 'standard');
+                        document.documentElement.setAttribute('data-font-scale', serverPreference.font_scale || 'standard');
+                        document.documentElement.setAttribute('data-font-weight', serverPreference.font_weight || 'standard');
                 document.documentElement.setAttribute('data-motion', serverPreference.motion || 'system');
             };
 
@@ -157,6 +158,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
                             theme: String(values.get('theme') || 'auto'),
                             contrast: String(values.get('contrast') || 'standard'),
                             font_scale: String(values.get('font_scale') || 'standard'),
+                            font_weight: values.get('font_weight') === 'bold' ? 'bold' : 'standard',
                             motion: String(values.get('motion') || 'system')
                         };
                         applyAccessibilityPreference();

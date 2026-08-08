@@ -428,6 +428,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 :root[data-font-scale="large"] { font-size: 112.5%; }
 :root[data-font-scale="xlarge"] { font-size: 125%; }
 :root[data-font-scale="xxlarge"] { font-size: 140%; }
+:root[data-font-weight="bold"] :is(p, li, td, th, label, .form-control, .form-select, .form-text, .btn, .dropdown-item, .nav-link) { font-weight: 600; }
 
 :root[data-motion="reduce"] *,
 :root[data-motion="reduce"] *::before,
