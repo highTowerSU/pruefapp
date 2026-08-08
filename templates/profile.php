@@ -13,8 +13,8 @@
 </header>
 
 <?php if (empty($adminView)): ?>
-<section class="card shadow-sm mb-4" id="display-preferences" data-action-nav="Darstellung" data-action-icon="fa-universal-access">
-  <div class="card-header fw-semibold"><i class="fa-solid fa-universal-access me-2" aria-hidden="true"></i>Darstellung &amp; Barrierefreiheit</div>
+<details class="card shadow-sm mb-4" id="display-preferences" data-action-nav="Darstellung" data-action-icon="fa-universal-access">
+  <summary class="card-header fw-semibold"><i class="fa-solid fa-universal-access me-2" aria-hidden="true"></i>Darstellung &amp; Barrierefreiheit</summary>
   <div class="card-body">
     <p class="small text-body-secondary">Diese Einstellungen gelten für dein Benutzerkonto auf allen angemeldeten Geräten. Browser-Zoom bleibt jederzeit zusätzlich möglich.</p>
     <?php if ($canEdit): ?><form method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" class="row g-3" data-display-preferences-form><input type="hidden" name="action" value="save_display_preferences">
@@ -27,7 +27,7 @@
       <div class="col-12"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Darstellung speichern</button></div>
     </form><?php endif; ?>
   </div>
-</section>
+</details>
 <section class="card shadow-sm mb-4" id="companion-sessions" data-action-nav="Companion-Geräte" data-action-icon="fa-mobile-screen-button">
   <div class="card-header fw-semibold d-flex justify-content-between align-items-center gap-2"><span><i class="fa-solid fa-mobile-screen-button me-2" aria-hidden="true"></i>Companion-Geräte</span><span class="badge text-bg-info"><?= count($activeCompanionSessions) ?></span></div>
   <div class="card-body">

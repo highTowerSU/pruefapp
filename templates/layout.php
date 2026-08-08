@@ -169,6 +169,11 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
                             : serverPreference.theme);
                     });
                 }
+
+                if (window.location.hash === '#display-preferences') {
+                    const displayPreferences = document.getElementById('display-preferences');
+                    if (displayPreferences?.tagName === 'DETAILS') displayPreferences.open = true;
+                }
             });
         })();
     </script>

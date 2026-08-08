@@ -29,5 +29,6 @@ accessibility_assert(str_contains($css, '#page-action-navigation') && str_contai
 accessibility_assert(str_contains($css, '--bs-emphasis-color') && str_contains($css, '.alert-danger'), 'Die Kontrastmodi müssen auch Bootstrap-Komponenten eindeutig einfärben.');
 accessibility_assert(str_contains($css, ':root[data-contrast="yellow_black"]') && str_contains($css, '--bs-body-color: #ffdf00;'), 'Schwarz/Gelb muss Gelb als helle Kontrastfarbe verwenden.');
 accessibility_assert(str_contains($navbar, 'Darstellung &amp; Barrierefreiheit'), 'Die Darstellungseinstellungen müssen aus der Navbar erreichbar sein.');
+accessibility_assert(str_contains($profile, '<details class="card shadow-sm mb-4" id="display-preferences"'), 'Die Darstellungseinstellungen müssen im Profil einklappbar sein.');
 
 echo "OK: accessibility preferences\n";
