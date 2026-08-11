@@ -145,6 +145,21 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           placeholder: `${label} suchen oder mit Enter neu anlegen`,
           render: { option: (data, escape) => `<div${data.value === 'Nicht erkennbar' ? ' class="fw-semibold"' : ''}>${escape(data.text)}</div>` }
         });
+        // The dropdown-input plugin owns the visible input. Handle Enter
+        // explicitly there so a deliberate new value is reliably retained,
+        // while blur continues to reject accidental free text.
+        selects[field].control_input.addEventListener('keydown', event => {
+          if (event.key !== 'Enter') return;
+          const typed = selects[field].control_input.value.trim();
+          if (typed === '') return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          const exact = Object.values(selects[field].options).find(option => String(option.value).localeCompare(typed, undefined, {sensitivity: 'accent'}) === 0);
+          const value = exact ? String(exact.value) : typed;
+          if (!exact) selects[field].addOption({value, text: value});
+          selects[field].setValue(value, true);
+          selects[field].close();
+        }, true);
         if (initialValue) selects[field].setValue(initialValue, true);
         input.addEventListener('blur', () => {
           const typed = selects[field].control_input.value.trim();
