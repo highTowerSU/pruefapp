@@ -38,6 +38,7 @@ $checks = [
     [str_contains($controller, '$_GET[\'field\']') && str_contains($choices, 'data-companion-choose') && str_contains($layout, 'companion-inbox.js'), 'Companion-Feldwerte werden nicht gezielt per HTMX nachgeladen.'],
     [str_contains($draftMediaService, 'stageCompanionPhoto') && str_contains($draftMediaService, '@copy((string) $item[\'path\']') && str_contains($inboxService, 'time() - 1800'), 'Ein Companion-Foto bleibt nach der Übernahme nicht bis zum Sitzungsende wiederverwendbar.'],
     [str_contains($companionInboxJs, "activeDraftType !== 'type_plate'") && str_contains($companionInboxJs, 'Companion-Foto ausgewählt. Bitte Fotoart prüfen'), 'Die normale Companion-Fotoauswahl startet fälschlich eine Typenschildauswertung.'],
+    [str_contains($panel, '<details class="card shadow-sm mb-3" id="inspection-companion-panel"') && str_contains($panel, "\$session !== [] ? ' open' : ''"), 'Der Prüf-Companion ist nicht einklappbar und öffnet sich nach einer Kopplung nicht gezielt.'],
 ];
 
 foreach ($checks as [$ok, $message]) if (!$ok) throw new RuntimeException($message);
