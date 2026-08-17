@@ -48,7 +48,7 @@ $renderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 $billingController = (string) file_get_contents(dirname(__DIR__) . '/controllers/BillingController.php');
 $reportController = (string) file_get_contents(dirname(__DIR__) . '/controllers/ReportController.php');
-foreach (['name="examiner"', 'name="due_status"'] as $needle) {
+foreach (['name="examiner"', 'name="due_status"', 'name="year"', 'name="sort"', 'name="per_page"'] as $needle) {
     if (!str_contains($renderer, $needle)) {
         throw new RuntimeException("Gemeinsames Filterfeld fehlt: {$needle}");
     }
