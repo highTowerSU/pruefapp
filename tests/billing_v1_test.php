@@ -45,3 +45,6 @@ foreach ($checks as [$ok, $message]) {
 }
 
 echo "PASS: billing v1 status, history, HTMX UI and routes are present\n";
+foreach (['c.id = ?', 's.id = ?', 'b.id = ?', 'f.id = ?', 'r.id = ?', 'i.test_date >= ?', 'i.test_date <= ?'] as $condition) {
+    if (!str_contains($controller, "'" . $condition . "'")) throw new RuntimeException('Abrechnungsfilter muss den SQL-Platzhalter enthalten: ' . $condition);
+}

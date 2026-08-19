@@ -294,7 +294,19 @@ final class BillingController
         elseif ($customerLink === 'sevdesk_missing') $where .= " AND (c.id IS NULL OR COALESCE(c.sevdesk_customer_id, '') = '')";
         if ($ids !== []) { $where .= ' AND i.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'; array_push($args, ...$ids); }
         if (($q = trim((string) ($filters['q'] ?? ''))) !== '') { $where .= ' AND (i.external_number LIKE ? OR d.external_number LIKE ? OR d.name LIKE ? OR c.name LIKE ?)'; array_push($args, '%' . $q . '%', '%' . $q . '%', '%' . $q . '%', '%' . $q . '%'); }
-        foreach (['customer_id' => 'c.id', 'site_id' => 's.id', 'building_id' => 'b.id', 'floor_id' => 'f.id', 'room_id' => 'r.id', 'from' => 'i.test_date >= ?', 'to' => 'i.test_date <= ?'] as $key => $condition) { if (($value = trim((string) ($filters[$key] ?? ''))) !== '') { $where .= ' AND ' . $condition; $args[] = in_array($key, ['customer_id', 'site_id', 'building_id', 'floor_id', 'room_id'], true) ? (int) $value : $value; } }
+        foreach ([
+            'customer_id' => 'c.id = ?',
+            'site_id' => 's.id = ?',
+            'building_id' => 'b.id = ?',
+            'floor_id' => 'f.id = ?',
+            'room_id' => 'r.id = ?',
+            'from' => 'i.test_date >= ?',
+            'to' => 'i.test_date <= ?',
+        ] as $key => $condition) {
+            if (($value = trim((string) ($filters[$key] ?? ''))) === '') continue;
+            $where .= ' AND ' . $condition;
+            $args[] = in_array($key, ['customer_id', 'site_id', 'building_id', 'floor_id', 'room_id'], true) ? (int) $value : $value;
+        }
         $examiner = trim((string) ($filters['examiner'] ?? ''));
         if ($examiner !== '') {
             $where .= " AND LOWER(TRIM(COALESCE(i.examiner, ''))) = LOWER(?)";
