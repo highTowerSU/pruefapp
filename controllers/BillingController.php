@@ -238,7 +238,7 @@ final class BillingController
         $eligibilityFilter = trim((string) ($filters['eligibility'] ?? 'billable'));
         $statusFilter = trim((string) ($filters['billing_status'] ?? ''));
         $eligibilityFilter = in_array($eligibilityFilter, ['all', 'billable', 'not_billable'], true) ? $eligibilityFilter : 'billable';
-        $statusFilter = $statusFilter === '' ? 'not_exported' : ($statusFilter === 'all' ? '' : $statusFilter);
+        $statusFilter = $statusFilter === '' ? 'not_billed' : ($statusFilter === 'all' ? '' : $statusFilter);
         // Abrechnungsstart ist 2025; Altbestand bis einschließlich 2024 bleibt
         // sichtbar in Prüfungen, wird aber niemals für einen Export angeboten.
         $where = InspectionEvaluationService::sqlStatusExpression('i') . " IN ('passed','failed') AND i.test_date >= '2025-01-01'";
@@ -247,7 +247,12 @@ final class BillingController
             $where .= " AND COALESCE(i.billing_eligibility, CASE WHEN i.billable = 1 THEN 'billable' ELSE 'not_billable' END) = ?";
             $args[] = $eligibilityFilter;
         }
-        if ($statusFilter !== '') { $where .= ' AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = \'\' THEN \'not_exported\' ELSE \'exported\' END) = ?'; $args[] = $statusFilter; }
+        if ($statusFilter === 'not_billed') {
+            $where .= " AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) IN ('not_exported','export_failed','manually_unexported')";
+        } elseif ($statusFilter !== '') {
+            $where .= ' AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = \'\' THEN \'not_exported\' ELSE \'exported\' END) = ?';
+            $args[] = $statusFilter;
+        }
         $customerLink = trim((string) ($filters['customer_link'] ?? ''));
         if ($customerLink === 'assigned') $where .= ' AND c.id IS NOT NULL';
         elseif ($customerLink === 'missing') $where .= ' AND c.id IS NULL';

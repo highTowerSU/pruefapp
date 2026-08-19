@@ -27,6 +27,7 @@ $checks = [
     [str_contains($renderer, 'customer_link') && str_contains($renderer, 'Kunde vorhanden') && str_contains($renderer, 'SevDesk fehlt') && str_contains($renderer, 'Exportiert / abgerechnet'), 'Billing customer-link and invoice-state filters are incomplete.'],
     [str_contains($controller, "\$eligibilityFilter !== 'all'") && str_contains($controller, "\$customerLink === 'sevdesk_missing'"), 'Billing filters are not enforced on the server.'],
     [str_contains($renderer, 'name="sort"') && str_contains($controller, "'test_date_desc' =>") && str_contains($controller, 'ORDER BY {$orderBy}'), 'Billing sort options are not enforced on the server.'],
+    [str_contains($renderer, 'Noch nicht abgerechnet (Standard)') && str_contains($controller, "\$statusFilter === 'not_billed'") && str_contains($controller, "'export_failed','manually_unexported'"), 'Default billing status must include retryable, non-billed exports.'],
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],
     [str_contains($template, "if (\$status !== 'exported')") && str_contains($template, 'form-check-input billing-check'), 'Non-billable inspections must remain selectable for bulk eligibility changes.'],
     [str_contains($detail, 'Abrechnungshistorie'), 'Inspection billing history is missing.'],
