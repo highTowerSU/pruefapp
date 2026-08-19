@@ -50,6 +50,10 @@ final class BillingController
     {
         if (!current_user_can_manage_billing()) return forbidden_response();
         $ids = array_values(array_filter(array_map('intval', (array) ($_POST['inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0));
+        $selectionScope = (string) ($_POST['selection_scope'] ?? 'selection');
+        $filters = $selectionScope === 'all' ? self::filtersFromSelectionQuery((string) ($_POST['filter_query'] ?? '')) : [];
+        $allFilteredRows = $selectionScope === 'all' ? self::rows([], $filters) : [];
+        if ($selectionScope === 'all') $ids = array_map(static fn(array $row): int => (int) $row['id'], $allFilteredRows);
         $action = (string) ($_POST['action'] ?? 'csv');
         if (in_array($action, ['set_billable', 'set_not_billable'], true)) {
             if ($ids === []) { $_SESSION['billing_message'] = 'Bitte mindestens eine Prüfung auswählen.'; return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], '']; }
@@ -61,7 +65,7 @@ final class BillingController
             $_SESSION['billing_message'] = count($ids) . ' Prüfung(en) aktualisiert.';
             return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
         }
-        $rows = self::rows($ids);
+        $rows = $selectionScope === 'all' ? $allFilteredRows : self::rows($ids, $filters);
         if ($rows === []) { $_SESSION['billing_message'] = 'Bitte mindestens eine nicht exportierte, abrechenbare Prüfung auswählen.'; return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], '']; }
         if ($action === 'csv') return self::csv($rows);
         $exportedByUser = current_user();
@@ -230,6 +234,19 @@ final class BillingController
             array_push($args, ...$dueCondition['params']);
         }
         return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billing_invoice_item bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billing_invoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);
+    }
+
+    /** @return array<string,string> */
+    private static function filtersFromSelectionQuery(string $query): array
+    {
+        $query = (string) (parse_url($query, PHP_URL_QUERY) ?? $query);
+        parse_str($query, $values);
+        $filters = [];
+        foreach (['q', 'eligibility', 'billing_status', 'customer_id', 'site_id', 'building_id', 'floor_id', 'room_id', 'from', 'to', 'examiner', 'due_status'] as $key) {
+            if (!isset($values[$key]) || is_array($values[$key])) continue;
+            $filters[$key] = mb_substr(trim((string) $values[$key]), 0, 160);
+        }
+        return $filters;
     }
 
     private static function csv(array $rows): array
