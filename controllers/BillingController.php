@@ -175,7 +175,7 @@ final class BillingController
                     // PHP converts numeric array keys to integers. SevDesk's
                     // API client deliberately accepts its customer ID only as
                     // a string, so retain that boundary explicitly.
-                    $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0), (int) ($tenant->sevdesk_tax_rule ?? 1), (float) ($tenant->sevdesk_tax_rate ?? 19));
+                    $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0), (int) ($tenant->sevdesk_tax_rule ?? 1), (float) ($tenant->sevdesk_tax_rate ?? 19), (string) ($tenant->sevdesk_contact_person_id ?? ''));
                     $exportId = (string) ($response['objects']['id'] ?? $response['id'] ?? '');
                     if ($exportId === '') throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück.');
                     $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response);
@@ -402,8 +402,14 @@ final class BillingController
         if (str_contains($message, 'createDraftInvoice') || str_contains($message, 'Argument #')) {
             return 'Der Export konnte nicht gestartet werden. Bitte erneut versuchen.';
         }
-        if (preg_match('/(?:HTTP|cURL|timeout|timed out|Connection)/i', $message)) {
+        if (str_contains($message, 'SevDesk-Ansprechperson fehlt')) {
+            return 'Für diesen Mandanten fehlt die SevDesk-Ansprechperson. Bitte in der Mandantenverwaltung hinterlegen.';
+        }
+        if (preg_match('/(?:cURL|timeout|timed out|Connection|Netzwerkfehler)/i', $message)) {
             return 'SevDesk ist momentan nicht erreichbar. Bitte später erneut versuchen.';
+        }
+        if (preg_match('/SevDesk antwortet mit HTTP \d{3}/', $message)) {
+            return 'SevDesk hat den Entwurf abgelehnt. Details stehen im Audit-Protokoll.';
         }
         return 'Der letzte SevDesk-Export ist fehlgeschlagen. Details stehen im Audit-Protokoll.';
     }

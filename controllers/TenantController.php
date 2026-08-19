@@ -216,6 +216,7 @@ class TenantController
                     $company->sevdesk_regie_rate = $data['sevdesk_regie_rate'];
                     $company->sevdesk_tax_rule = $data['sevdesk_tax_rule'];
                     $company->sevdesk_tax_rate = $data['sevdesk_tax_rate'];
+                    $company->sevdesk_contact_person_id = $data['sevdesk_contact_person_id'];
                     $company->legal_impressum_label = $data['legal_impressum_label'];
                     $company->legal_impressum_url = $data['legal_impressum_url'];
                     $company->legal_privacy_label = $data['legal_privacy_label'];
@@ -287,6 +288,7 @@ class TenantController
             $companyData['sevdesk_regie_rate'] = $data['sevdesk_regie_rate'];
             $companyData['sevdesk_tax_rule'] = $data['sevdesk_tax_rule'];
             $companyData['sevdesk_tax_rate'] = $data['sevdesk_tax_rate'];
+            $companyData['sevdesk_contact_person_id'] = $data['sevdesk_contact_person_id'];
             $companyData['legal_impressum_label'] = $data['legal_impressum_label'];
             $companyData['legal_impressum_url'] = $data['legal_impressum_url'];
             $companyData['legal_privacy_label'] = $data['legal_privacy_label'];
@@ -340,6 +342,8 @@ class TenantController
         $allowedTaxRules = [1, 2, 3, 4, 5, 11, 17, 18, 19, 20, 21];
         if (!in_array($data['sevdesk_tax_rule'], $allowedTaxRules, true)) $data['sevdesk_tax_rule'] = 1;
         if (in_array($data['sevdesk_tax_rule'], [2, 4, 5, 11, 17, 21], true)) $data['sevdesk_tax_rate'] = 0;
+        $data['sevdesk_contact_person_id'] = trim((string) ($input['sevdesk_contact_person_id'] ?? ''));
+        if ($data['sevdesk_contact_person_id'] !== '' && !preg_match('/^\d+$/', $data['sevdesk_contact_person_id'])) $data['sevdesk_contact_person_id'] = '';
         foreach (['primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
             $data[$field] = self::sanitizeColor((string) ($input[$field] ?? ''));
         }
@@ -450,6 +454,7 @@ class TenantController
             'sevdesk_regie_rate' => (float) ($company->sevdesk_regie_rate ?? 0),
             'sevdesk_tax_rule' => (int) ($company->sevdesk_tax_rule ?? 1),
             'sevdesk_tax_rate' => (float) ($company->sevdesk_tax_rate ?? 19),
+            'sevdesk_contact_person_id' => (string) ($company->sevdesk_contact_person_id ?? ''),
             'legal_impressum_label' => (string) ($company->legal_impressum_label ?? ''),
             'legal_impressum_url' => (string) ($company->legal_impressum_url ?? ''),
             'legal_privacy_label' => (string) ($company->legal_privacy_label ?? ''),

@@ -19,6 +19,7 @@ $checks = [
     [str_contains($controller, 'missingSevDeskCustomerMessage') && str_contains($controller, "abrechnung_export_blockiert"), 'SevDesk export must validate customer links before creating invoices.'],
     [str_contains($controller, 'createDraftInvoice((string) $customerId'), 'SevDesk customer IDs must remain strings at the API boundary.'],
     [str_contains($controller, 'sevdesk_tax_rule') && str_contains($controller, 'sevdesk_tax_rate'), 'Billing must pass the configured SevDesk tax rule and tax rate.'],
+    [str_contains($controller, 'sevdesk_contact_person_id') && str_contains($controller, 'SevDesk hat den Entwurf abgelehnt'), 'Billing must pass and explain the SevDesk contact person.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
     [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
