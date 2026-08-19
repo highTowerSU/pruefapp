@@ -237,13 +237,22 @@ final class BillingController
     {
         $eligibilityFilter = trim((string) ($filters['eligibility'] ?? 'billable'));
         $statusFilter = trim((string) ($filters['billing_status'] ?? ''));
-        $eligibilityFilter = in_array($eligibilityFilter, ['billable', 'not_billable'], true) ? $eligibilityFilter : 'billable';
+        $eligibilityFilter = in_array($eligibilityFilter, ['all', 'billable', 'not_billable'], true) ? $eligibilityFilter : 'billable';
+        $statusFilter = $statusFilter === '' ? 'not_exported' : ($statusFilter === 'all' ? '' : $statusFilter);
         // Abrechnungsstart ist 2025; Altbestand bis einschließlich 2024 bleibt
         // sichtbar in Prüfungen, wird aber niemals für einen Export angeboten.
-        $where = "COALESCE(i.billing_eligibility, CASE WHEN i.billable = 1 THEN 'billable' ELSE 'not_billable' END) = ? AND " . InspectionEvaluationService::sqlStatusExpression('i') . " IN ('passed','failed') AND i.test_date >= '2025-01-01'";
-        $args = [$eligibilityFilter];
+        $where = InspectionEvaluationService::sqlStatusExpression('i') . " IN ('passed','failed') AND i.test_date >= '2025-01-01'";
+        $args = [];
+        if ($eligibilityFilter !== 'all') {
+            $where .= " AND COALESCE(i.billing_eligibility, CASE WHEN i.billable = 1 THEN 'billable' ELSE 'not_billable' END) = ?";
+            $args[] = $eligibilityFilter;
+        }
         if ($statusFilter !== '') { $where .= ' AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = \'\' THEN \'not_exported\' ELSE \'exported\' END) = ?'; $args[] = $statusFilter; }
-        else if ($eligibilityFilter === 'billable') $where .= " AND COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) IN ('not_exported','manually_unexported','export_failed')";
+        $customerLink = trim((string) ($filters['customer_link'] ?? ''));
+        if ($customerLink === 'assigned') $where .= ' AND c.id IS NOT NULL';
+        elseif ($customerLink === 'missing') $where .= ' AND c.id IS NULL';
+        elseif ($customerLink === 'sevdesk_linked') $where .= " AND c.id IS NOT NULL AND COALESCE(c.sevdesk_customer_id, '') <> ''";
+        elseif ($customerLink === 'sevdesk_missing') $where .= " AND (c.id IS NULL OR COALESCE(c.sevdesk_customer_id, '') = '')";
         if ($ids !== []) { $where .= ' AND i.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'; array_push($args, ...$ids); }
         if (($q = trim((string) ($filters['q'] ?? ''))) !== '') { $where .= ' AND (i.external_number LIKE ? OR d.external_number LIKE ? OR d.name LIKE ? OR c.name LIKE ?)'; array_push($args, '%' . $q . '%', '%' . $q . '%', '%' . $q . '%', '%' . $q . '%'); }
         foreach (['customer_id' => 'c.id', 'site_id' => 's.id', 'building_id' => 'b.id', 'floor_id' => 'f.id', 'room_id' => 'r.id', 'from' => 'i.test_date >= ?', 'to' => 'i.test_date <= ?'] as $key => $condition) { if (($value = trim((string) ($filters[$key] ?? ''))) !== '') { $where .= ' AND ' . $condition; $args[] = in_array($key, ['customer_id', 'site_id', 'building_id', 'floor_id', 'room_id'], true) ? (int) $value : $value; } }
@@ -260,7 +269,15 @@ final class BillingController
             $where .= ' AND (' . $dueCondition['sql'] . ')';
             array_push($args, ...$dueCondition['params']);
         }
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);
+        $orderBy = match ((string) ($filters['sort'] ?? 'customer')) {
+            'test_date_desc' => 'i.test_date DESC, i.id DESC',
+            'test_date_asc' => 'i.test_date ASC, i.id ASC',
+            'inspection' => 'i.external_number ASC, i.id ASC',
+            'device' => 'd.external_number ASC, i.test_date DESC, i.id DESC',
+            'billing_status' => "COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) ASC, i.test_date DESC, i.id DESC",
+            default => 'c.name ASC, i.test_date ASC, i.id ASC',
+        };
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
     }
 
     /** @return array<string,string> */
@@ -269,7 +286,7 @@ final class BillingController
         $query = (string) (parse_url($query, PHP_URL_QUERY) ?? $query);
         parse_str($query, $values);
         $filters = [];
-        foreach (['q', 'eligibility', 'billing_status', 'customer_id', 'site_id', 'building_id', 'floor_id', 'room_id', 'from', 'to', 'examiner', 'due_status'] as $key) {
+        foreach (['q', 'eligibility', 'billing_status', 'customer_link', 'customer_id', 'site_id', 'building_id', 'floor_id', 'room_id', 'from', 'to', 'examiner', 'due_status', 'sort'] as $key) {
             if (!isset($values[$key]) || is_array($values[$key])) continue;
             $filters[$key] = mb_substr(trim((string) $values[$key]), 0, 160);
         }

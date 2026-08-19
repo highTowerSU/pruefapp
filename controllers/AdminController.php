@@ -41,7 +41,7 @@ class AdminController
         }
         if ($summary === 'billing') {
             $filters = [];
-            foreach (['q', 'eligibility', 'billing_status', 'customer_id', 'site_id', 'building_id', 'floor_id', 'room_id', 'from', 'to', 'examiner', 'due_status'] as $key) {
+            foreach (['q', 'eligibility', 'billing_status', 'customer_link', 'customer_id', 'site_id', 'building_id', 'floor_id', 'room_id', 'from', 'to', 'examiner', 'due_status', 'sort'] as $key) {
                 if (isset($_GET[$key]) && !is_array($_GET[$key])) $filters[$key] = mb_substr(trim((string) $_GET[$key]), 0, 160);
             }
             $ids = array_filter(array_map('intval', explode(',', (string) ($_GET['ids'] ?? ''))));
