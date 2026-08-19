@@ -169,9 +169,10 @@ final class BillingController
                 $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) an SevDesk übertragen.';
             } catch (Throwable $exception) {
                 $export->status = 'failed'; $export->error_details = mb_substr($exception->getMessage(), 0, 2000); $export->updated_at = date(DATE_ATOM); R::store($export);
-                foreach ($rows as $row) R::exec("UPDATE inspection SET billing_status = 'export_failed', billing_last_error = ? WHERE id = ? AND billing_status <> 'exported'", [$exception->getMessage(), $row['id']]);
+                $displayError = self::displayExportError($exception);
+                foreach ($rows as $row) R::exec("UPDATE inspection SET billing_status = 'export_failed', billing_last_error = ? WHERE id = ? AND billing_status <> 'exported'", [$displayError, $row['id']]);
                 audit_log('abrechnung_export_fehlgeschlagen', ['inspection_ids' => array_column($rows, 'id'), 'error' => $exception->getMessage(), 'export_id' => (int) $export->id]);
-                $_SESSION['billing_message'] = 'SevDesk-Export fehlgeschlagen: ' . $exception->getMessage();
+                $_SESSION['billing_message'] = 'SevDesk-Export fehlgeschlagen: ' . $displayError;
             }
         }
         return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
@@ -372,5 +373,18 @@ final class BillingController
         return 'SevDesk-Entwurf nicht gestartet: Für folgende Auswahl fehlt die Kundenverknüpfung zu SevDesk: '
             . implode('; ', $details)
             . '. Bitte im Kundenprofil den Mandanten und die SevDesk-Kundennummer/-ID hinterlegen; bei „Kein Kunde zugeordnet“ zuerst Raum, Standort und Kundenstruktur des Geräts prüfen.';
+    }
+
+    /** Keep technical provider exceptions in the audit log, not in every table row. */
+    private static function displayExportError(Throwable $exception): string
+    {
+        $message = trim($exception->getMessage());
+        if (str_contains($message, 'createDraftInvoice') || str_contains($message, 'Argument #')) {
+            return 'Der Export konnte nicht gestartet werden. Bitte erneut versuchen.';
+        }
+        if (preg_match('/(?:HTTP|cURL|timeout|timed out|Connection)/i', $message)) {
+            return 'SevDesk ist momentan nicht erreichbar. Bitte später erneut versuchen.';
+        }
+        return 'Der letzte SevDesk-Export ist fehlgeschlagen. Details stehen im Audit-Protokoll.';
     }
 }
