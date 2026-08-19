@@ -175,7 +175,7 @@ final class BillingController
                     // PHP converts numeric array keys to integers. SevDesk's
                     // API client deliberately accepts its customer ID only as
                     // a string, so retain that boundary explicitly.
-                    $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0));
+                    $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0), (int) ($tenant->sevdesk_tax_rule ?? 1), (float) ($tenant->sevdesk_tax_rate ?? 19));
                     $exportId = (string) ($response['objects']['id'] ?? $response['id'] ?? '');
                     if ($exportId === '') throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück.');
                     $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response);

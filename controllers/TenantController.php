@@ -214,6 +214,8 @@ class TenantController
                     if ($data['sevdesk_api_token'] !== '') $company->sevdesk_api_token = $data['sevdesk_api_token'];
                     $company->sevdesk_inspection_rate = $data['sevdesk_inspection_rate'];
                     $company->sevdesk_regie_rate = $data['sevdesk_regie_rate'];
+                    $company->sevdesk_tax_rule = $data['sevdesk_tax_rule'];
+                    $company->sevdesk_tax_rate = $data['sevdesk_tax_rate'];
                     $company->legal_impressum_label = $data['legal_impressum_label'];
                     $company->legal_impressum_url = $data['legal_impressum_url'];
                     $company->legal_privacy_label = $data['legal_privacy_label'];
@@ -283,6 +285,8 @@ class TenantController
             $companyData['sevdesk_api_token'] = '';
             $companyData['sevdesk_inspection_rate'] = $data['sevdesk_inspection_rate'];
             $companyData['sevdesk_regie_rate'] = $data['sevdesk_regie_rate'];
+            $companyData['sevdesk_tax_rule'] = $data['sevdesk_tax_rule'];
+            $companyData['sevdesk_tax_rate'] = $data['sevdesk_tax_rate'];
             $companyData['legal_impressum_label'] = $data['legal_impressum_label'];
             $companyData['legal_impressum_url'] = $data['legal_impressum_url'];
             $companyData['legal_privacy_label'] = $data['legal_privacy_label'];
@@ -331,6 +335,11 @@ class TenantController
         $data['sevdesk_api_token'] = trim((string) ($input['sevdesk_api_token'] ?? ''));
         $data['sevdesk_inspection_rate'] = max(0, (float) str_replace(',', '.', (string) ($input['sevdesk_inspection_rate'] ?? '0')));
         $data['sevdesk_regie_rate'] = max(0, (float) str_replace(',', '.', (string) ($input['sevdesk_regie_rate'] ?? '0')));
+        $data['sevdesk_tax_rule'] = (int) ($input['sevdesk_tax_rule'] ?? 1);
+        $data['sevdesk_tax_rate'] = max(0, (float) str_replace(',', '.', (string) ($input['sevdesk_tax_rate'] ?? '19')));
+        $allowedTaxRules = [1, 2, 3, 4, 5, 11, 17, 18, 19, 20, 21];
+        if (!in_array($data['sevdesk_tax_rule'], $allowedTaxRules, true)) $data['sevdesk_tax_rule'] = 1;
+        if (in_array($data['sevdesk_tax_rule'], [2, 4, 5, 11, 17, 21], true)) $data['sevdesk_tax_rate'] = 0;
         foreach (['primary_color', 'primary_text_color', 'light_color', 'dark_color'] as $field) {
             $data[$field] = self::sanitizeColor((string) ($input[$field] ?? ''));
         }
@@ -439,6 +448,8 @@ class TenantController
             'sevdesk_api_token' => '',
             'sevdesk_inspection_rate' => (float) ($company->sevdesk_inspection_rate ?? 0),
             'sevdesk_regie_rate' => (float) ($company->sevdesk_regie_rate ?? 0),
+            'sevdesk_tax_rule' => (int) ($company->sevdesk_tax_rule ?? 1),
+            'sevdesk_tax_rate' => (float) ($company->sevdesk_tax_rate ?? 19),
             'legal_impressum_label' => (string) ($company->legal_impressum_label ?? ''),
             'legal_impressum_url' => (string) ($company->legal_impressum_url ?? ''),
             'legal_privacy_label' => (string) ($company->legal_privacy_label ?? ''),
