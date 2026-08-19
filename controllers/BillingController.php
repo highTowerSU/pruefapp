@@ -176,12 +176,16 @@ final class BillingController
                     // API client deliberately accepts its customer ID only as
                     // a string, so retain that boundary explicitly.
                     $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0), (int) ($tenant->sevdesk_tax_rule ?? 1), (float) ($tenant->sevdesk_tax_rate ?? 19), (string) ($tenant->sevdesk_contact_person_id ?? ''));
-                    $exportId = (string) ($response['objects']['id'] ?? $response['id'] ?? '');
-                    if ($exportId === '') throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück.');
+                    $sevDeskInvoice = self::sevDeskInvoiceResponse($response);
+                    $exportId = $sevDeskInvoice['id'];
+                    if ($exportId === '') {
+                        $fields = implode(', ', array_slice(array_map('strval', array_keys($response)), 0, 8));
+                        throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück' . ($fields !== '' ? ' (Antwortfelder: ' . $fields . ')' : '') . '.');
+                    }
                     $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response);
                     $export->invoice_id = $invoiceId;
                     $export->sevdesk_invoice_id = $exportId;
-                    $export->sevdesk_invoice_number = (string) ($response['objects']['invoiceNumber'] ?? $response['invoiceNumber'] ?? '');
+                    $export->sevdesk_invoice_number = $sevDeskInvoice['number'];
                     foreach ($items as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ?, billing_exported_by = ? WHERE id = ?', [date(DATE_ATOM), $exportId, $exportedBy, $row['id']]);
                     audit_log('abrechnung_exportiert', ['inspection_ids' => array_column($items, 'id'), 'exported_by' => $exportedBy, 'export_id' => $exportId, 'invoice_id' => $invoiceId]);
                 }
@@ -190,9 +194,10 @@ final class BillingController
             } catch (Throwable $exception) {
                 $export->status = 'failed'; $export->error_details = mb_substr($exception->getMessage(), 0, 2000); $export->updated_at = date(DATE_ATOM); R::store($export);
                 $displayError = self::displayExportError($exception);
-                foreach ($rows as $row) R::exec("UPDATE inspection SET billing_status = 'export_failed', billing_last_error = ? WHERE id = ? AND billing_status <> 'exported'", [$displayError, $row['id']]);
+                $errorReference = 'Fehler-ID: Export #' . (int) $export->id;
+                foreach ($rows as $row) R::exec("UPDATE inspection SET billing_status = 'export_failed', billing_last_error = ?, billing_last_export_id = ? WHERE id = ? AND billing_status <> 'exported'", [$displayError . ' ' . $errorReference, (int) $export->id, $row['id']]);
                 audit_log('abrechnung_export_fehlgeschlagen', ['inspection_ids' => array_column($rows, 'id'), 'error' => $exception->getMessage(), 'export_id' => (int) $export->id]);
-                $_SESSION['billing_message'] = 'SevDesk-Export fehlgeschlagen: ' . $displayError;
+                $_SESSION['billing_message'] = 'SevDesk-Export fehlgeschlagen (Fehler-ID: Export #' . (int) $export->id . '): ' . $displayError;
             }
         }
         return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
@@ -260,8 +265,9 @@ final class BillingController
         $invoice->customer_id = (int) ($first['customer_id'] ?? 0) ?: null;
         $invoice->tenant_id = (int) (get_branding()['company_id'] ?? 0) ?: null;
         $invoice->sevdesk_invoice_id = $externalId;
-        $invoice->sevdesk_invoice_number = (string) ($response['objects']['invoiceNumber'] ?? $response['invoiceNumber'] ?? '');
-        $invoice->sevdesk_url = (string) ($response['objects']['url'] ?? $response['url'] ?? '');
+        $sevDeskInvoice = self::sevDeskInvoiceResponse($response);
+        $invoice->sevdesk_invoice_number = $sevDeskInvoice['number'];
+        $invoice->sevdesk_url = $sevDeskInvoice['url'];
         $invoice->invoice_number = 'PR-' . date('Ymd-His');
         $invoice->invoice_date = date('Y-m-d');
         $invoice->status = $status;
@@ -280,7 +286,7 @@ final class BillingController
             $item->description = (string) ($row['device_number'] ?? '') . ' · ' . (string) ($row['device_name'] ?? 'Prüfung');
             $item->active = 1; $item->assigned_at = date(DATE_ATOM); $item->source = $status === 'sevdesk' ? 'sevdesk' : 'manual'; $item->created_at = date(DATE_ATOM);
             R::store($item);
-            R::exec("UPDATE inspection SET billing_status = 'exported', billing_active_invoice_item_id = ?, billing_last_error = '' WHERE id = ?", [(int) $item->id, (int) ($row['id'] ?? 0)]);
+            R::exec("UPDATE inspection SET billing_status = 'exported', billing_active_invoice_item_id = ?, billing_last_error = '', billing_last_export_id = NULL WHERE id = ?", [(int) $item->id, (int) ($row['id'] ?? 0)]);
         }
         R::commit();
         return $invoiceId;
@@ -352,7 +358,7 @@ final class BillingController
             'billing_status' => "COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) ASC, i.test_date DESC, i.id DESC",
             default => 'c.name ASC, i.test_date ASC, i.id ASC',
         };
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
     }
 
     /** @return array<string,string> */
@@ -411,6 +417,35 @@ final class BillingController
         if (preg_match('/SevDesk antwortet mit HTTP \d{3}/', $message)) {
             return 'SevDesk hat den Entwurf abgelehnt. Details stehen im Audit-Protokoll.';
         }
-        return 'Der letzte SevDesk-Export ist fehlgeschlagen. Details stehen im Audit-Protokoll.';
+        if (str_contains($message, 'keine Rechnungs-ID zurück')) {
+            return 'SevDesk hat geantwortet, aber keine Rechnungs-ID zurückgeliefert. Es wurde keine Prüfung als abgerechnet markiert.';
+        }
+        return 'Der Export ist fehlgeschlagen. Die technische Ursache steht im Audit-Protokoll.';
+    }
+
+    /** @return array{id:string,number:string,url:string} */
+    private static function sevDeskInvoiceResponse(array $response): array
+    {
+        // SevDesk-Varianten liefern die Rechnung direkt, unter objects oder
+        // als Element in einer Objektliste. Wir lesen nur Rechnungsfelder.
+        $candidates = [$response];
+        foreach (['object', 'objects', 'invoice'] as $key) {
+            if (isset($response[$key]) && is_array($response[$key])) $candidates[] = $response[$key];
+        }
+        foreach ($candidates as $candidate) {
+            if (!is_array($candidate)) continue;
+            foreach ($candidate as $value) if (is_array($value)) $candidates[] = $value;
+        }
+        foreach ($candidates as $candidate) {
+            if (!is_array($candidate)) continue;
+            $id = trim((string) ($candidate['id'] ?? $candidate['invoiceId'] ?? ''));
+            if ($id === '') continue;
+            return [
+                'id' => $id,
+                'number' => trim((string) ($candidate['invoiceNumber'] ?? $candidate['number'] ?? '')),
+                'url' => trim((string) ($candidate['url'] ?? $candidate['link'] ?? '')),
+            ];
+        }
+        return ['id' => '', 'number' => '', 'url' => ''];
     }
 }

@@ -472,6 +472,7 @@ function ensure_structure_schema(): void
             'billing_status' => "TEXT NOT NULL DEFAULT 'not_exported'",
             'billing_active_invoice_item_id' => 'INTEGER NULL',
             'billing_last_error' => "TEXT NOT NULL DEFAULT ''",
+            'billing_last_export_id' => 'INTEGER NULL',
             'inspection_type_code' => "TEXT NOT NULL DEFAULT 'electrical'",
             'device_attributes_snapshot_json' => "TEXT NOT NULL DEFAULT '{}'",
             'failed_action' => "TEXT NOT NULL DEFAULT ''",
