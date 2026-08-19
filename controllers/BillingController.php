@@ -263,7 +263,8 @@ final class BillingController
         $id = (int) ($params['id'] ?? 0);
         $invoice = R::load('billinginvoice', $id);
         if (!$invoice->id) return [404, [], 'Rechnung nicht gefunden.'];
-        if (trim((string) ($invoice->sevdesk_url ?? '')) === '' && trim((string) ($invoice->sevdesk_invoice_id ?? '')) !== '') {
+        $storedSevDeskUrl = trim((string) ($invoice->sevdesk_url ?? ''));
+        if (($storedSevDeskUrl === '' || str_starts_with($storedSevDeskUrl, 'https://my.sevdesk.de/#/invoice/')) && trim((string) ($invoice->sevdesk_invoice_id ?? '')) !== '') {
             $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
             $invoice->sevdesk_url = self::sevDeskInvoiceUrl((string) ($tenant->sevdesk_api_url ?? ''), (string) $invoice->sevdesk_invoice_id);
             if ($invoice->sevdesk_url !== '') R::store($invoice);
@@ -541,6 +542,6 @@ final class BillingController
     private static function sevDeskInvoiceUrl(string $apiUrl, string $invoiceId): string
     {
         if (parse_url($apiUrl, PHP_URL_HOST) !== 'my.sevdesk.de' || trim($invoiceId) === '') return '';
-        return 'https://my.sevdesk.de/#/invoice/' . rawurlencode($invoiceId);
+        return 'https://my.sevdesk.de/fi/edit/type/RE/id/' . rawurlencode($invoiceId);
     }
 }
