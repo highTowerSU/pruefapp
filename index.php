@@ -189,6 +189,7 @@ $routes = [
     ['GET', '/mandanten', fn($params, $isHx) => TenantController::index($params, $isHx)],
     ['GET', '/mandanten/neu', fn($params, $isHx) => TenantController::create($params, $isHx)],
     ['POST', '/mandanten/neu', fn($params, $isHx) => TenantController::store($params, $isHx)],
+    ['GET', '/mandanten/{id}/sevdesk-benutzer', fn($params, $isHx) => TenantController::sevDeskUsers($params, $isHx)],
     ['GET', '/mandanten/{id}/bearbeiten', fn($params, $isHx) => TenantController::edit($params, $isHx)],
     ['POST', '/mandanten/{id}/bearbeiten', fn($params, $isHx) => TenantController::update($params, $isHx)],
     ['POST', '/mandanten/{id}/standard', fn($params, $isHx) => TenantController::makeDefault($params, $isHx)],

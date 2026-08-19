@@ -84,6 +84,27 @@ class TenantController
         return self::handleForm($company, true);
     }
 
+    /** HTMX fragment: reads possible invoice contact persons from SevDesk. */
+    public static function sevDeskUsers(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $company = (new TenantRepository())->find((int) ($params['id'] ?? 0));
+        if ($company === null || !$company->id) return [404, [], 'Mandant nicht gefunden.'];
+        try {
+            $client = new SevDeskClient((string) ($company->sevdesk_api_url ?? ''), (string) ($company->sevdesk_api_token ?? ''));
+            if (!$client->configured()) throw new RuntimeException('Bitte zuerst SevDesk-API-URL und API-Token speichern.');
+            $users = array_values(array_filter(array_map(static function (array $user): array {
+                $id = trim((string) ($user['id'] ?? ''));
+                $name = trim(implode(' ', array_filter([(string) ($user['firstName'] ?? ''), (string) ($user['lastName'] ?? '')])));
+                $email = trim((string) ($user['email'] ?? ''));
+                return ['id' => $id, 'label' => $name !== '' ? $name . ($email !== '' ? ' · ' . $email : '') : ($email !== '' ? $email : 'SevDesk-Benutzer #' . $id)];
+            }, $client->users()), static fn(array $user): bool => $user['id'] !== ''));
+            return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('company_sevdesk_contact_person.php', ['users' => $users, 'selectedId' => (string) ($company->sevdesk_contact_person_id ?? ''), 'error' => null])];
+        } catch (Throwable $error) {
+            return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('company_sevdesk_contact_person.php', ['users' => [], 'selectedId' => (string) ($company->sevdesk_contact_person_id ?? ''), 'error' => $error->getMessage()])];
+        }
+    }
+
     public static function makeDefault(array $params, bool $isHx): array
     {
         if (!current_user_is_superadmin()) {

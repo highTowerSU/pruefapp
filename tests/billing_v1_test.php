@@ -9,6 +9,7 @@ $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_detail.php');
 $devices = (string) file_get_contents(dirname(__DIR__) . '/templates/device_index.php');
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
+$tenantController = (string) file_get_contents(dirname(__DIR__) . '/controllers/TenantController.php');
 $renderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
 
 $checks = [
@@ -20,6 +21,7 @@ $checks = [
     [str_contains($controller, 'createDraftInvoice((string) $customerId'), 'SevDesk customer IDs must remain strings at the API boundary.'],
     [str_contains($controller, 'sevdesk_tax_rule') && str_contains($controller, 'sevdesk_tax_rate'), 'Billing must pass the configured SevDesk tax rule and tax rate.'],
     [str_contains($controller, 'sevdesk_contact_person_id') && str_contains($controller, 'SevDesk hat den Entwurf abgelehnt'), 'Billing must pass and explain the SevDesk contact person.'],
+    [str_contains($routes, "'/mandanten/{id}/sevdesk-benutzer'") && str_contains($tenantController, 'public static function sevDeskUsers'), 'SevDesk contact-person selection route is missing.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
     [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
