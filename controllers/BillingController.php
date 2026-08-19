@@ -140,9 +140,10 @@ final class BillingController
         $examinerOptions = InspectionFilterService::examinerOptions();
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
+        $invoices = self::recentInvoices();
         $messageInvoiceIds = array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_message_invoice_ids'] ?? [])), static fn(int $id): bool => $id > 0));
         $messageInvoices = $messageInvoiceIds === [] ? [] : R::findAll('billinginvoice', ' id IN (' . implode(',', array_fill(0, count($messageInvoiceIds), '?')) . ') ORDER BY id DESC ', $messageInvoiceIds);
-        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'messageInvoices' => $messageInvoices, 'filters' => $_GET]);
+        $content = render_template('billing_index.php', ['rows' => $rows, 'invoices' => $invoices, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'messageInvoices' => $messageInvoices, 'filters' => $_GET]);
         unset($_SESSION['billing_message']);
         unset($_SESSION['billing_message_invoice_ids']);
         return $isHx ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content] : [200, [], render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content])];
@@ -473,6 +474,20 @@ final class BillingController
             default => 'c.name ASC, i.test_date ASC, i.id ASC',
         };
         return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function recentInvoices(): array
+    {
+        $tenantId = (int) (get_branding()['company_id'] ?? 0);
+        return R::getAll(
+            'SELECT inv.id, inv.invoice_number, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_date, inv.status, inv.created_at, c.name AS customer_name, '
+            . 'SUM(CASE WHEN bi.active = 1 THEN 1 ELSE 0 END) AS inspection_count, '
+            . 'COUNT(DISTINCT CASE WHEN bi.active = 1 THEN bi.device_id END) AS device_count '
+            . 'FROM billinginvoice inv LEFT JOIN customer c ON c.id = inv.customer_id LEFT JOIN billinginvoiceitem bi ON bi.invoice_id = inv.id '
+            . 'WHERE inv.tenant_id = ? GROUP BY inv.id ORDER BY inv.created_at DESC, inv.id DESC LIMIT 20',
+            [$tenantId]
+        );
     }
 
     /** @return array<string,string> */

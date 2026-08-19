@@ -25,6 +25,7 @@ $checks = [
     [str_contains($schema, 'billing_last_export_id') && str_contains($controller, 'sevDeskInvoiceResponse') && str_contains($controller, 'Fehler-ID: Export #'), 'Billing failures must retain an internal error reference and support SevDesk response variants.'],
     [str_contains($controller, 'billing_message_invoice_ids') && str_contains($template, 'messageInvoices') && str_contains($template, 'Rechnung <?= '), 'Successful SevDesk exports must link their created invoices in the confirmation.'],
     [str_contains($controller, 'sevDeskInvoiceUrl') && str_contains($controller, '/fi/edit/type/RE/id/') && str_contains($template, 'In SevDesk öffnen'), 'Created SevDesk invoices must have a direct external link.'],
+    [str_contains($controller, 'recentInvoices') && str_contains($template, 'Rechnungsübersicht') && str_contains($template, 'inspection_count'), 'Billing page needs an invoice overview with linked inspection totals.'],
     [str_contains($controller, 'public static function debugInvoice') && str_contains($controller, 'regie_minutes_total') && str_contains($tenantController, 'public static function sevDeskUsers'), 'Protected billing diagnostics must expose invoice regie source values.'],
     [str_contains($routes, "'/mandanten/{id}/sevdesk-benutzer'") && str_contains($tenantController, 'public static function sevDeskUsers'), 'SevDesk contact-person selection route is missing.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
