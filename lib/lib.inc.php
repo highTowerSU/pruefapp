@@ -68,6 +68,7 @@ require_once __DIR__ . '/router.php';
 require_once __DIR__ . '/branding.php';
 require_once __DIR__ . '/audit_log.php';
 require_once __DIR__ . '/DisplayPreferenceService.php';
+require_once __DIR__ . '/ApplicationFailureService.php';
 require_once __DIR__ . '/InspectionEvaluationService.php';
 require_once __DIR__ . '/InspectionTypeService.php';
 require_once __DIR__ . '/DeviceFindingService.php';
@@ -374,6 +375,7 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS device_draft_media (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL UNIQUE, owner_user_id INTEGER NOT NULL, media_type TEXT NOT NULL DEFAULT 'condition', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL, original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, proposal_json TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, expires_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_companion_session (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_id INTEGER NOT NULL, owner_user_id INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, state TEXT NOT NULL DEFAULT 'pending', companion_user_id INTEGER NULL, latest_barcode TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, connected_at TEXT NULL, last_activity_at TEXT NULL, expires_at TEXT NOT NULL, disconnected_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_companion_item (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL, kind TEXT NOT NULL, value TEXT NOT NULL DEFAULT '', media_type TEXT NOT NULL DEFAULT '', caption TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '', original_name TEXT NOT NULL DEFAULT '', mime TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', used_target TEXT NOT NULL DEFAULT '', used_at TEXT NULL, created_at TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS appfailure (id INTEGER PRIMARY KEY AUTOINCREMENT, request_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL DEFAULT 'exception', exception_class TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '', source_file TEXT NOT NULL DEFAULT '', source_line INTEGER NOT NULL DEFAULT 0, trace TEXT NOT NULL DEFAULT '', request_method TEXT NOT NULL DEFAULT '', request_path TEXT NOT NULL DEFAULT '', query_keys_json TEXT NOT NULL DEFAULT '[]', user_id INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS cron_log (id INTEGER PRIMARY KEY AUTOINCREMENT, run_at TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'info', message TEXT NOT NULL DEFAULT '')",
         'CREATE INDEX IF NOT EXISTS idx_customer_parent ON customer (parent_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_site_customer ON site (customer_id)',
@@ -397,6 +399,7 @@ function ensure_structure_schema(): void
         'CREATE INDEX IF NOT EXISTS idx_device_draft_media_owner ON device_draft_media (owner_user_id, expires_at)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_companion_inspection ON inspection_companion_session (inspection_id, state, expires_at)',
         'CREATE INDEX IF NOT EXISTS idx_inspection_companion_item_session ON inspection_companion_item (session_id, status, id)',
+        'CREATE INDEX IF NOT EXISTS idx_appfailure_created ON appfailure (created_at)',
     ];
 
     foreach ($statements as $statement) {

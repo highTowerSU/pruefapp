@@ -7,6 +7,27 @@ use Ceneos\PhpBase\Tenant\TenantRepository;
 
 final class BillingController
 {
+    /** Read-only support diagnostic for the exact export selection query. */
+    public static function debugSelection(array $filters = [], array $ids = []): array
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0));
+        try {
+            $rows = self::rows($ids, $filters);
+            return [
+                'ok' => true,
+                'count' => count($rows),
+                'rows' => array_slice(array_map(static fn(array $row): array => [
+                    'id' => (int) $row['id'], 'inspection' => (string) $row['external_number'],
+                    'date' => (string) $row['test_date'], 'customer' => (string) $row['customer_name'],
+                    'billing_eligibility' => (string) $row['billing_eligibility'], 'billing_status' => (string) $row['billing_status'],
+                    'invoice_number' => (string) $row['invoice_number'],
+                ], $rows), 0, 50),
+            ];
+        } catch (Throwable $error) {
+            return ['ok' => false, 'exception_class' => get_class($error), 'error' => $error->getMessage(), 'trace' => $error->getTraceAsString()];
+        }
+    }
+
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_billing()) return forbidden_response();

@@ -15,6 +15,7 @@ $renderApplicationError = static function (string $requestId): void {
 $handleApplicationFailure = static function (Throwable $throwable) use ($renderApplicationError): void {
     $requestId = strtoupper(bin2hex(random_bytes(4)));
     error_log('[pruefapp][' . $requestId . '] ' . get_class($throwable) . ': ' . $throwable->getMessage() . ' in ' . $throwable->getFile() . ':' . $throwable->getLine() . PHP_EOL . $throwable->getTraceAsString());
+    ApplicationFailureService::record($requestId, $throwable);
     $renderApplicationError($requestId);
 };
 set_exception_handler($handleApplicationFailure);
@@ -22,7 +23,9 @@ register_shutdown_function(static function () use ($renderApplicationError): voi
     $last = error_get_last();
     if (!$last || !in_array($last['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) return;
     $requestId = strtoupper(bin2hex(random_bytes(4)));
-    error_log('[pruefapp][' . $requestId . '] Fatal error: ' . ($last['message'] ?? 'Unbekannter Fehler') . ' in ' . ($last['file'] ?? '?') . ':' . ($last['line'] ?? '?'));
+    $error = new ErrorException((string) ($last['message'] ?? 'Unbekannter Fehler'), 0, (int) ($last['type'] ?? E_ERROR), (string) ($last['file'] ?? '?'), (int) ($last['line'] ?? 0));
+    error_log('[pruefapp][' . $requestId . '] Fatal error: ' . $error->getMessage() . ' in ' . $error->getFile() . ':' . $error->getLine());
+    ApplicationFailureService::record($requestId, $error, true);
     $renderApplicationError($requestId);
 });
 $renderNotFound = static function (): string {

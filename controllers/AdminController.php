@@ -39,6 +39,20 @@ class AdminController
         if ($summary === 'user-permissions') {
             return self::userPermissionsApiDebug($headers);
         }
+        if ($summary === 'billing') {
+            $filters = [];
+            foreach (['q', 'eligibility', 'billing_status', 'customer_id', 'site_id', 'building_id', 'floor_id', 'room_id', 'from', 'to', 'examiner', 'due_status'] as $key) {
+                if (isset($_GET[$key]) && !is_array($_GET[$key])) $filters[$key] = mb_substr(trim((string) $_GET[$key]), 0, 160);
+            }
+            $ids = array_filter(array_map('intval', explode(',', (string) ($_GET['ids'] ?? ''))));
+            return [200, $headers, json_encode(['summary' => 'billing'] + BillingController::debugSelection($filters, $ids), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+        }
+        $failureId = strtoupper(trim((string) ($_GET['failure_id'] ?? '')));
+        if ($failureId !== '') {
+            if (!preg_match('/^[A-F0-9]{8}$/', $failureId)) return [400, $headers, json_encode(['ok' => false, 'error' => 'Ungültige Vorgangs-ID.'], JSON_UNESCAPED_UNICODE)];
+            $failure = ApplicationFailureService::find($failureId);
+            return [200, $headers, json_encode(['ok' => $failure !== null, 'failure' => $failure], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+        }
         if ($query === '' || mb_strlen($query) > 120) {
             return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) oder directory (freigegebener Importpfad) fehlt.'], JSON_UNESCAPED_UNICODE)];
         }
