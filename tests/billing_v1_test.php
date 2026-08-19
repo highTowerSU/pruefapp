@@ -17,6 +17,7 @@ $checks = [
     [str_contains($controller, "R::dispense('billingexport')") && str_contains($controller, "R::dispense('billinginvoice')"), 'Billing beans must use RedBean-compatible names without underscores.'],
     [str_contains($controller, 'idempotency_key') && str_contains($controller, "status = 'running'"), 'Export idempotency is missing.'],
     [str_contains($controller, 'missingSevDeskCustomerMessage') && str_contains($controller, "abrechnung_export_blockiert"), 'SevDesk export must validate customer links before creating invoices.'],
+    [str_contains($controller, 'createDraftInvoice((string) $customerId'), 'SevDesk customer IDs must remain strings at the API boundary.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
     [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
