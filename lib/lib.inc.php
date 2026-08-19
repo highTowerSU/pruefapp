@@ -1416,6 +1416,15 @@ if ($aktuelleSeite === 'callback.php') {
             $loginUrl .= (str_contains($loginUrl, '?') ? '&' : '?') . 'redirect=' . rawurlencode($requestedTarget);
         }
 
+        // A redirect followed by XMLHttpRequest ends as a 200 response with
+        // the complete login page. HTMX would otherwise swap that page into a
+        // small panel. Tell HTMX explicitly to perform a top-level redirect.
+        if (($_SERVER['HTTP_HX_REQUEST'] ?? '') === 'true') {
+            header('HX-Redirect: ' . $loginUrl);
+            http_response_code(204);
+            exit;
+        }
+
         header('Location: ' . $loginUrl);
         exit;
     }
