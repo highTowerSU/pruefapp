@@ -100,12 +100,12 @@ final class BillingController
             $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
             $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? ''));
             $exportKey = hash('sha256', implode(',', array_map('intval', array_column($rows, 'id'))) . '|' . (int) (current_user()->id ?? 0) . '|' . (string) floor(time() / 10));
-            $existingExport = R::findOne('billing_export', ' idempotency_key = ? ', [$exportKey]);
+            $existingExport = R::findOne('billingexport', ' idempotency_key = ? ', [$exportKey]);
             if ($existingExport && in_array((string) $existingExport->status, ['pending', 'running', 'succeeded'], true)) {
                 $_SESSION['billing_message'] = $existingExport->status === 'succeeded' ? 'Dieser Export wurde bereits erfolgreich verarbeitet.' : 'Dieser Export wird bereits verarbeitet.';
                 return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
             }
-            $export = $existingExport ?: R::dispense('billing_export');
+            $export = $existingExport ?: R::dispense('billingexport');
             $export->idempotency_key = $exportKey; $export->owner_user_id = (int) (current_user()->id ?? 0); $export->status = 'running'; $export->inspection_ids_json = json_encode(array_map('intval', array_column($rows, 'id'))); $export->updated_at = date(DATE_ATOM); if (!$export->created_at) $export->created_at = date(DATE_ATOM); R::store($export);
             $byCustomer = [];
             foreach ($rows as $row) $byCustomer[(string) $row['sevdesk_customer_id']][] = $row;
@@ -141,7 +141,7 @@ final class BillingController
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden.'];
         $eligibility = trim((string) ($_POST['eligibility'] ?? ''));
         if (!in_array($eligibility, ['billable', 'not_billable'], true)) return [422, [], 'Ungültige Abrechenbarkeit.'];
-        $hasActiveInvoice = (int) R::getCell('SELECT COUNT(*) FROM billing_invoice_item WHERE inspection_id = ? AND active = 1', [(int) $inspection->id]) > 0;
+        $hasActiveInvoice = (int) R::getCell('SELECT COUNT(*) FROM billinginvoiceitem WHERE inspection_id = ? AND active = 1', [(int) $inspection->id]) > 0;
         if ($hasActiveInvoice && ($_POST['confirm_exported'] ?? '') !== '1') return [409, [], 'Diese Prüfung ist bereits einer Rechnung zugeordnet. Bitte die Änderung ausdrücklich bestätigen.'];
         if ($eligibility === 'not_billable' && trim((string) ($_POST['reason'] ?? '')) === '') return [422, [], 'Bitte einen Grund für die Nichtabrechenbarkeit angeben.'];
         $old = (string) ($inspection->billing_eligibility ?? ($inspection->billable ? 'billable' : 'not_billable'));
@@ -166,7 +166,7 @@ final class BillingController
         if ($reason === '') return [422, [], 'Bitte einen Grund für das Zurücksetzen angeben.'];
         R::begin();
         try {
-            $items = R::findAll('billing_invoice_item', ' inspection_id = ? AND active = 1 ', [$inspectionId]);
+            $items = R::findAll('billinginvoiceitem', ' inspection_id = ? AND active = 1 ', [$inspectionId]);
             foreach ($items as $item) { $item->active = 0; $item->deactivated_at = date(DATE_ATOM); $item->deactivation_reason = $reason; R::store($item); }
             $inspection->billing_status = 'manually_unexported'; $inspection->billing_active_invoice_item_id = null; $inspection->billing_last_error = ''; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
             R::commit();
@@ -180,9 +180,9 @@ final class BillingController
     {
         if (!current_user_can_manage_billing()) return forbidden_response();
         $id = (int) ($params['id'] ?? 0);
-        $invoice = R::load('billing_invoice', $id);
+        $invoice = R::load('billinginvoice', $id);
         if (!$invoice->id) return [404, [], 'Rechnung nicht gefunden.'];
-        $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billing_invoice_item bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
+        $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
         $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items]);
         return [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];
     }
@@ -192,7 +192,7 @@ final class BillingController
         $first = $rows[0] ?? [];
         R::begin();
         try {
-        $invoice = R::dispense('billing_invoice');
+        $invoice = R::dispense('billinginvoice');
         $invoice->customer_id = (int) ($first['customer_id'] ?? 0) ?: null;
         $invoice->tenant_id = (int) (get_branding()['company_id'] ?? 0) ?: null;
         $invoice->sevdesk_invoice_id = $externalId;
@@ -208,7 +208,7 @@ final class BillingController
         $invoice->updated_at = date(DATE_ATOM);
         $invoiceId = (int) R::store($invoice);
         foreach ($rows as $row) {
-            $item = R::dispense('billing_invoice_item');
+            $item = R::dispense('billinginvoiceitem');
             $item->invoice_id = $invoiceId;
             $item->inspection_id = (int) ($row['id'] ?? 0);
             $item->device_id = (int) ($row['device_id'] ?? 0);
@@ -254,7 +254,7 @@ final class BillingController
             $where .= ' AND (' . $dueCondition['sql'] . ')';
             array_push($args, ...$dueCondition['params']);
         }
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billing_invoice_item bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billing_invoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY c.name, i.test_date, i.id", $args);
     }
 
     /** @return array<string,string> */

@@ -811,8 +811,8 @@ final class InspectionController
             if ($room->id) $inspection->room_snapshot = class_exists('StructureController') ? StructureController::roomIdentifier($room, $floor, $area) : (string) ($room->name ?: $room->number);
         }
         $raw = json_decode((string) ($inspection->raw_json ?? ''), true) ?: [];
-        $billingInvoice = R::getRow('SELECT bi.invoice_id, bi.quantity, bi.active, inv.sevdesk_invoice_id, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_number, inv.invoice_date, inv.status FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? AND bi.active = 1 ORDER BY inv.id DESC LIMIT 1', [(int) $inspection->id]);
-        $billingHistory = R::getAll('SELECT bi.invoice_id, bi.active, bi.assigned_at, bi.deactivated_at, bi.deactivation_reason, inv.invoice_number, inv.sevdesk_invoice_number FROM billing_invoice_item bi JOIN billing_invoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? ORDER BY bi.id DESC', [(int) $inspection->id]);
+        $billingInvoice = R::getRow('SELECT bi.invoice_id, bi.quantity, bi.active, inv.sevdesk_invoice_id, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_number, inv.invoice_date, inv.status FROM billinginvoiceitem bi JOIN billinginvoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? AND bi.active = 1 ORDER BY inv.id DESC LIMIT 1', [(int) $inspection->id]);
+        $billingHistory = R::getAll('SELECT bi.invoice_id, bi.active, bi.assigned_at, bi.deactivated_at, bi.deactivation_reason, inv.invoice_number, inv.sevdesk_invoice_number FROM billinginvoiceitem bi JOIN billinginvoice inv ON inv.id=bi.invoice_id WHERE bi.inspection_id = ? ORDER BY bi.id DESC', [(int) $inspection->id]);
         $measurements = InspectionDataService::measurements((int) $inspection->id);
         $checklist = InspectionDataService::answers((int) $inspection->id);
         $diagnostics = current_user_is_superadmin() ? InspectionDataService::diagnostics((int) $inspection->id) : [];

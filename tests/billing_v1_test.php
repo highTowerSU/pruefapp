@@ -13,7 +13,8 @@ $renderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.
 
 $checks = [
     [str_contains($schema, 'billing_eligibility') && str_contains($schema, 'billing_status'), 'Billing status fields are missing.'],
-    [str_contains($schema, 'CREATE TABLE IF NOT EXISTS billing_export'), 'Billing export history table is missing.'],
+    [str_contains($schema, 'CREATE TABLE IF NOT EXISTS billingexport'), 'Billing export history table is missing.'],
+    [str_contains($controller, "R::dispense('billingexport')") && str_contains($controller, "R::dispense('billinginvoice')"), 'Billing beans must use RedBean-compatible names without underscores.'],
     [str_contains($controller, 'idempotency_key') && str_contains($controller, "status = 'running'"), 'Export idempotency is missing.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],

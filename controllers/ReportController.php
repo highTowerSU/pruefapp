@@ -73,7 +73,7 @@ final class ReportController
 
     private static function queuePdfBundle(array $ids, string $filterQuery, int $invoiceId, int $maxPages): array
     {
-        if ($invoiceId > 0) $ids = array_map('intval', R::getCol('SELECT DISTINCT device_id FROM billing_invoice_item WHERE invoice_id = ?', [$invoiceId]));
+        if ($invoiceId > 0) $ids = array_map('intval', R::getCol('SELECT DISTINCT device_id FROM billinginvoiceitem WHERE invoice_id = ?', [$invoiceId]));
         if ($ids === []) $ids = self::filteredIds($filterQuery);
         if ($ids === []) return [422, [], 'Keine Geräte für die Sammel-PDF gefunden.'];
         $ownerId = (int) (current_user()->id ?? 0);
