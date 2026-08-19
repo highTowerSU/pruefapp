@@ -31,7 +31,9 @@ document.querySelector('[data-billing-csv-download]')?.addEventListener('click',
   // Content-Disposition-Header selbst verarbeiten und die Datei speichern.
   const download = document.createElement('form');
   download.method = 'post';
-  download.action = source.action;
+  // `action` is also the name of submitted buttons. Accessing `.action`
+  // would therefore yield a RadioNodeList instead of the form URL.
+  download.action = source.getAttribute('action') || window.location.href;
   download.hidden = true;
   const action = document.createElement('input');
   action.type = 'hidden'; action.name = 'action'; action.value = 'csv';

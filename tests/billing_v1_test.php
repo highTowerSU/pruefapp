@@ -19,7 +19,7 @@ $checks = [
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
     [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
     [str_contains($controller, "HX-Trigger' => 'billing-refresh'"), 'Billing status actions must refresh through HTMX.'],
-    [str_contains($template, 'data-billing-csv-download') && str_contains($template, 'download.submit()') && str_contains($template, "action.value = 'csv'"), 'CSV export must use a native browser download instead of an HTMX swap.'],
+    [str_contains($template, 'data-billing-csv-download') && str_contains($template, 'download.submit()') && str_contains($template, "action.value = 'csv'") && str_contains($template, "source.getAttribute('action')"), 'CSV export must use a native browser download instead of an HTMX swap.'],
     [str_contains($template, 'hx-get=') && str_contains($template, 'billing-status'), 'Billing filters are not HTMX-enabled.'],
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],
     [str_contains($template, "if (\$status !== 'exported')") && str_contains($template, 'form-check-input billing-check'), 'Non-billable inspections must remain selectable for bulk eligibility changes.'],
