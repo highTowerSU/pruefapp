@@ -28,6 +28,39 @@ final class BillingController
         }
     }
 
+    /** @return array<string,mixed> Read-only template probe for protected support diagnostics. */
+    public static function debugRender(array $filters = []): array
+    {
+        try {
+            $allRows = self::rows([], $filters);
+            $requestedPerPage = (int) ($filters['per_page'] ?? 50);
+            $perPage = in_array($requestedPerPage, [25, 50, 100], true) ? $requestedPerPage : 50;
+            $page = max(1, min((int) ($filters['page'] ?? 1), max(1, (int) ceil(count($allRows) / $perPage))));
+            $rooms = R::findAll('room', ' ORDER BY name ');
+            $roomLabels = [];
+            foreach ($rooms as $room) {
+                $floor = R::load('floor', (int) $room->floor_id);
+                $building = R::load('building', (int) $floor->building_id);
+                $site = R::load('site', (int) $building->site_id);
+                $customer = R::load('customer', (int) $site->customer_id);
+                $area = (int) ($room->area_id ?? 0) > 0 ? R::load('area', (int) $room->area_id) : null;
+                $roomLabels[(int) $room->id] = implode(' · ', array_filter([trim((string) ($customer->name ?? '')), trim((string) ($site->name ?? '')), StructureController::roomIdentifier($room, $floor, $area)]));
+            }
+            $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
+            $content = render_template('billing_index.php', [
+                'rows' => array_slice($allRows, ($page - 1) * $perPage, $perPage), 'tenant' => $tenant,
+                'customers' => R::findAll('customer', ' ORDER BY name '), 'sites' => R::findAll('site', ' ORDER BY name '),
+                'buildings' => R::findAll('building', ' ORDER BY name '), 'floors' => R::findAll('floor', ' ORDER BY sort_order, name '),
+                'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => InspectionFilterService::examinerOptions(),
+                'configured' => $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '', 'preselectedIds' => [],
+                'page' => $page, 'pages' => max(1, (int) ceil(count($allRows) / $perPage)), 'perPage' => $perPage, 'message' => null, 'filters' => $filters,
+            ]);
+            return ['ok' => true, 'row_count' => count($allRows), 'content_length' => strlen($content), 'has_root' => str_contains($content, 'id="billing-content"')];
+        } catch (Throwable $error) {
+            return ['ok' => false, 'exception_class' => get_class($error), 'error' => $error->getMessage(), 'file' => $error->getFile(), 'line' => $error->getLine(), 'trace' => $error->getTraceAsString()];
+        }
+    }
+
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_billing()) return forbidden_response();
