@@ -14,7 +14,7 @@ foreach ([
     [str_contains($index, 'ApplicationFailureService::record($requestId, $throwable)'), 'Unbehandelte Ausnahmen werden nicht persistiert.'],
     [str_contains($index, 'ApplicationFailureService::record($requestId, $error, true)'), 'Fatale Fehler werden nicht persistiert.'],
     [str_contains($admin, "\$_GET['failure_id']") && str_contains($admin, 'ApplicationFailureService::find'), 'Der geschützte Debug-Endpunkt kann Vorgangs-IDs nicht auflösen.'],
-    [str_contains($admin, "summary === 'billing'") && str_contains($billing, 'public static function debugSelection') && str_contains($billing, 'public static function debugRender'), 'Die schreibgeschützte Abrechnungsdiagnose fehlt.'],
+    [str_contains($admin, "summary === 'billing'") && str_contains($billing, 'public static function debugSelection') && str_contains($billing, 'public static function debugRender') && str_contains($billing, 'public static function debugExportFailures'), 'Die schreibgeschützte Abrechnungsdiagnose fehlt.'],
 ] as [$ok, $message]) {
     if (!$ok) throw new RuntimeException($message);
 }

@@ -62,6 +62,26 @@ final class BillingController
         }
     }
 
+    /** Read-only support view for failed provider calls; available only behind the debug-secret endpoint. */
+    public static function debugExportFailures(): array
+    {
+        try {
+            $exports = R::getAll(
+                "SELECT id, status, sevdesk_invoice_id, error_details, created_at, updated_at FROM billingexport WHERE status = 'failed' ORDER BY id DESC LIMIT 10"
+            );
+            return ['ok' => true, 'exports' => array_map(static fn(array $export): array => [
+                'id' => (int) $export['id'],
+                'status' => (string) $export['status'],
+                'sevdesk_invoice_id' => (string) $export['sevdesk_invoice_id'],
+                'error' => (string) $export['error_details'],
+                'created_at' => (string) $export['created_at'],
+                'updated_at' => (string) $export['updated_at'],
+            ], $exports)];
+        } catch (Throwable $error) {
+            return ['ok' => false, 'exception_class' => get_class($error), 'error' => $error->getMessage()];
+        }
+    }
+
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_billing()) return forbidden_response();
