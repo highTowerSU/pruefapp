@@ -7,6 +7,7 @@ $controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/Billin
 $template = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_index.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_detail.php');
+$invoiceTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_invoice.php');
 $devices = (string) file_get_contents(dirname(__DIR__) . '/templates/device_index.php');
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 $tenantController = (string) file_get_contents(dirname(__DIR__) . '/controllers/TenantController.php');
@@ -25,6 +26,7 @@ $checks = [
     [str_contains($controller, 'billing_message_invoice_ids') && str_contains($template, 'messageInvoices') && str_contains($template, 'Rechnung <?= '), 'Successful SevDesk exports must link their created invoices in the confirmation.'],
     [str_contains($routes, "'/mandanten/{id}/sevdesk-benutzer'") && str_contains($tenantController, 'public static function sevDeskUsers'), 'SevDesk contact-person selection route is missing.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
+    [str_contains($controller, 'public static function deleteDraftInvoice') && str_contains($routes, "'/admin/abrechnung/rechnung/{id}/sevdesk-entwurf-loeschen'") && str_contains($invoiceTemplate, 'Entwurf löschen &amp; neu abrechnen'), 'A confirmed, audited replacement flow for SevDesk drafts is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
     [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
     [str_contains($controller, "HX-Trigger' => 'billing-refresh'"), 'Billing status actions must refresh through HTMX.'],

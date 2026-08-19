@@ -176,6 +176,7 @@ final class BillingController
                 $createdInvoiceIds = [];
                 foreach ($byCustomer as $customerId => $items) {
                     if ($customerId === '') throw new RuntimeException('Kundenverknüpfung zu SevDesk fehlt: ' . $items[0]['customer_name']);
+                    $items = self::invoiceItems($items);
                     // PHP converts numeric array keys to integers. SevDesk's
                     // API client deliberately accepts its customer ID only as
                     // a string, so retain that boundary explicitly.
@@ -262,6 +263,78 @@ final class BillingController
         return [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];
     }
 
+    /** Removes an unmodified SevDesk draft and releases its inspections for a corrected new export. */
+    public static function deleteDraftInvoice(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        if (($_POST['confirm'] ?? '') !== '1') return [422, [], 'Bitte das Löschen ausdrücklich bestätigen.'];
+        $invoice = R::load('billinginvoice', (int) ($params['id'] ?? 0));
+        if (!$invoice->id) return [404, [], 'Rechnung nicht gefunden.'];
+        $sevDeskId = trim((string) ($invoice->sevdesk_invoice_id ?? ''));
+        if ((string) ($invoice->status ?? '') !== 'sevdesk' || $sevDeskId === '') return [409, [], 'Nur ein SevDesk-Entwurf kann hier gelöscht werden.'];
+        $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
+        $transactionStarted = false;
+        try {
+            (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? '')))->deleteDraftInvoice($sevDeskId);
+            R::begin();
+            $transactionStarted = true;
+            $items = R::findAll('billinginvoiceitem', ' invoice_id = ? AND active = 1 ', [(int) $invoice->id]);
+            foreach ($items as $item) {
+                $item->active = 0;
+                $item->deactivated_at = date(DATE_ATOM);
+                $item->deactivation_reason = 'SevDesk-Entwurf gelöscht und für korrigierten Neuversuch freigegeben';
+                R::store($item);
+                R::exec("UPDATE inspection SET billing_status = 'not_exported', billing_active_invoice_item_id = NULL, billing_exported_at = NULL, billing_export_id = '', billing_exported_by = '', billing_last_error = '' WHERE id = ?", [(int) $item->inspection_id]);
+            }
+            $invoice->status = 'deleted';
+            $invoice->updated_at = date(DATE_ATOM);
+            R::store($invoice);
+            R::commit();
+            $transactionStarted = false;
+            audit_log('abrechnung_sevdesk_entwurf_geloescht', ['invoice_id' => (int) $invoice->id, 'sevdesk_invoice_id' => $sevDeskId, 'inspection_count' => count($items)]);
+            $_SESSION['billing_message'] = 'SevDesk-Entwurf gelöscht. ' . count($items) . ' Prüfung(en) sind wieder für einen korrigierten Export freigegeben.';
+        } catch (Throwable $exception) {
+            if ($transactionStarted) R::rollback();
+            audit_log('abrechnung_sevdesk_entwurf_loeschen_fehlgeschlagen', ['invoice_id' => (int) $invoice->id, 'sevdesk_invoice_id' => $sevDeskId, 'error' => $exception->getMessage()]);
+            $_SESSION['billing_message'] = 'SevDesk-Entwurf wurde nicht gelöscht: ' . self::displayExportError($exception);
+        }
+        return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
+    }
+
+    /** @param list<array<string,mixed>> $rows @return list<array<string,mixed>> */
+    private static function invoiceItems(array $rows): array
+    {
+        return array_map(static function (array $row): array {
+            $deviceNumber = trim((string) ($row['device_number'] ?? ''));
+            $deviceName = trim((string) ($row['device_name'] ?? '')) ?: 'Gerät';
+            $manufacturerModel = trim(implode(' ', array_filter([
+                trim((string) ($row['device_manufacturer'] ?? '')),
+                trim((string) ($row['device_model'] ?? '')),
+            ])));
+            $location = array_filter([
+                trim((string) ($row['customer_name'] ?? '')),
+                trim((string) ($row['site_name'] ?? '')),
+                trim((string) ($row['building_name'] ?? '')),
+                trim((string) ($row['floor_name'] ?? '')),
+                trim((string) ($row['room_number'] ?? '')),
+            ]);
+            $row['description'] = 'Elektroprüfung · ' . ($deviceNumber ?: (string) ($row['external_number'] ?? '')) . ' · ' . $deviceName;
+            $details = ['Prüfung: ' . (string) ($row['external_number'] ?? '—')];
+            if ($deviceNumber !== '') $details[] = 'Gerätenummer: ' . $deviceNumber;
+            if ($manufacturerModel !== '') $details[] = 'Hersteller / Modell: ' . $manufacturerModel;
+            if ($location !== []) $details[] = 'Einsatzort: ' . implode(' · ', $location);
+            $row['details'] = implode("\n", $details);
+            if ((int) ($row['regie_minutes'] ?? 0) > 0) {
+                $row['regie_description'] = 'Regiezeit · ' . ($deviceNumber ?: (string) ($row['external_number'] ?? 'Prüfung'));
+                $regieDetails = ['Prüfung: ' . (string) ($row['external_number'] ?? '—'), 'Dauer: ' . (int) $row['regie_minutes'] . ' Minuten'];
+                if (trim((string) ($row['regie_reason'] ?? '')) !== '') $regieDetails[] = 'Begründung: ' . trim((string) $row['regie_reason']);
+                if ($location !== []) $regieDetails[] = 'Einsatzort: ' . implode(' · ', $location);
+                $row['regie_details'] = implode("\n", $regieDetails);
+            }
+            return $row;
+        }, $rows);
+    }
+
     private static function recordInvoice(array $rows, string $externalId, string $status, array $response = []): int
     {
         $first = $rows[0] ?? [];
@@ -289,7 +362,7 @@ final class BillingController
             $item->inspection_id = (int) ($row['id'] ?? 0);
             $item->device_id = (int) ($row['device_id'] ?? 0);
             $item->quantity = 1;
-            $item->description = (string) ($row['device_number'] ?? '') . ' · ' . (string) ($row['device_name'] ?? 'Prüfung');
+            $item->description = (string) ($row['description'] ?? ((string) ($row['device_number'] ?? '') . ' · ' . (string) ($row['device_name'] ?? 'Prüfung')));
             $item->active = 1; $item->assigned_at = date(DATE_ATOM); $item->source = $status === 'sevdesk' ? 'sevdesk' : 'manual'; $item->created_at = date(DATE_ATOM);
             R::store($item);
             R::exec("UPDATE inspection SET billing_status = 'exported', billing_active_invoice_item_id = ?, billing_last_error = '', billing_last_export_id = NULL WHERE id = ?", [(int) $item->id, (int) ($row['id'] ?? 0)]);
@@ -364,7 +437,7 @@ final class BillingController
             'billing_status' => "COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) ASC, i.test_date DESC, i.id DESC",
             default => 'c.name ASC, i.test_date ASC, i.id ASC',
         };
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
     }
 
     /** @return array<string,string> */

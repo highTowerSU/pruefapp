@@ -161,6 +161,7 @@ $routes = [
     ['GET', '/geraete/zip/{id}/download', fn($params, $isHx) => ReportController::zipDownload($params, $isHx)],
     ['GET', '/admin/abrechnung', fn($params, $isHx) => BillingController::index($params, $isHx)],
     ['GET', '/admin/abrechnung/rechnung/{id}', fn($params, $isHx) => BillingController::invoice($params, $isHx)],
+    ['POST', '/admin/abrechnung/rechnung/{id}/sevdesk-entwurf-loeschen', fn($params, $isHx) => BillingController::deleteDraftInvoice($params, $isHx)],
     ['POST', '/admin/abrechnung/export', fn($params, $isHx) => BillingController::export($params, $isHx)],
     ['POST', '/admin/abrechnung/pruefung/{id}/abrechenbarkeit', fn($params, $isHx) => BillingController::eligibility($params, $isHx)],
     ['POST', '/admin/abrechnung/pruefung/{id}/export-zuruecksetzen', fn($params, $isHx) => BillingController::resetExport($params, $isHx)],
