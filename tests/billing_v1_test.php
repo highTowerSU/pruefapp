@@ -22,6 +22,7 @@ $checks = [
     [str_contains($controller, 'sevdesk_tax_rule') && str_contains($controller, 'sevdesk_tax_rate'), 'Billing must pass the configured SevDesk tax rule and tax rate.'],
     [str_contains($controller, 'sevdesk_contact_person_id') && str_contains($controller, 'SevDesk hat den Entwurf abgelehnt'), 'Billing must pass and explain the SevDesk contact person.'],
     [str_contains($schema, 'billing_last_export_id') && str_contains($controller, 'sevDeskInvoiceResponse') && str_contains($controller, 'Fehler-ID: Export #'), 'Billing failures must retain an internal error reference and support SevDesk response variants.'],
+    [str_contains($controller, 'billing_message_invoice_ids') && str_contains($template, 'messageInvoices') && str_contains($template, 'Rechnung <?= '), 'Successful SevDesk exports must link their created invoices in the confirmation.'],
     [str_contains($routes, "'/mandanten/{id}/sevdesk-benutzer'") && str_contains($tenantController, 'public static function sevDeskUsers'), 'SevDesk contact-person selection route is missing.'],
     [str_contains($controller, 'public static function resetExport'), 'Manual export reset endpoint is missing.'],
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],

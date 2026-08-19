@@ -116,8 +116,11 @@ final class BillingController
         $examinerOptions = InspectionFilterService::examinerOptions();
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
-        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'filters' => $_GET]);
+        $messageInvoiceIds = array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_message_invoice_ids'] ?? [])), static fn(int $id): bool => $id > 0));
+        $messageInvoices = $messageInvoiceIds === [] ? [] : R::findAll('billinginvoice', ' id IN (' . implode(',', array_fill(0, count($messageInvoiceIds), '?')) . ') ORDER BY id DESC ', $messageInvoiceIds);
+        $content = render_template('billing_index.php', ['rows' => $rows, 'tenant' => $tenant, 'customers' => $customers, 'sites' => $sites, 'buildings' => $buildings, 'floors' => $floors, 'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => $examinerOptions, 'configured' => $configured, 'preselectedIds' => $preselectedIds, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'message' => $_SESSION['billing_message'] ?? null, 'messageInvoices' => $messageInvoices, 'filters' => $_GET]);
         unset($_SESSION['billing_message']);
+        unset($_SESSION['billing_message_invoice_ids']);
         return $isHx ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content] : [200, [], render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content])];
     }
 
@@ -170,6 +173,7 @@ final class BillingController
             $byCustomer = [];
             foreach ($rows as $row) $byCustomer[(string) $row['sevdesk_customer_id']][] = $row;
             try {
+                $createdInvoiceIds = [];
                 foreach ($byCustomer as $customerId => $items) {
                     if ($customerId === '') throw new RuntimeException('Kundenverknüpfung zu SevDesk fehlt: ' . $items[0]['customer_name']);
                     // PHP converts numeric array keys to integers. SevDesk's
@@ -183,6 +187,7 @@ final class BillingController
                         throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück' . ($fields !== '' ? ' (Antwortfelder: ' . $fields . ')' : '') . '.');
                     }
                     $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response);
+                    $createdInvoiceIds[] = $invoiceId;
                     $export->invoice_id = $invoiceId;
                     $export->sevdesk_invoice_id = $exportId;
                     $export->sevdesk_invoice_number = $sevDeskInvoice['number'];
@@ -191,6 +196,7 @@ final class BillingController
                 }
                 $export->status = 'succeeded'; $export->updated_at = date(DATE_ATOM); R::store($export);
                 $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) an SevDesk übertragen.';
+                $_SESSION['billing_message_invoice_ids'] = array_values(array_unique($createdInvoiceIds));
             } catch (Throwable $exception) {
                 $export->status = 'failed'; $export->error_details = mb_substr($exception->getMessage(), 0, 2000); $export->updated_at = date(DATE_ATOM); R::store($export);
                 $displayError = self::displayExportError($exception);
