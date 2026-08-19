@@ -19,6 +19,7 @@ $checks = [
     [str_contains($controller, 'public static function eligibility'), 'Eligibility endpoint is missing.'],
     [str_contains($controller, "i.test_date >= '2025-01-01'"), 'Pre-2025 inspections must not be billable.'],
     [str_contains($controller, "HX-Trigger' => 'billing-refresh'"), 'Billing status actions must refresh through HTMX.'],
+    [str_contains($template, 'data-billing-csv-download') && str_contains($template, 'download.submit()') && str_contains($template, "action.value = 'csv'"), 'CSV export must use a native browser download instead of an HTMX swap.'],
     [str_contains($template, 'hx-get=') && str_contains($template, 'billing-status'), 'Billing filters are not HTMX-enabled.'],
     [str_contains($template, 'Export zurücksetzen'), 'Billing reset action is missing from the UI.'],
     [str_contains($template, "if (\$status !== 'exported')") && str_contains($template, 'form-check-input billing-check'), 'Non-billable inspections must remain selectable for bulk eligibility changes.'],
@@ -27,7 +28,7 @@ $checks = [
     [str_contains($devices, 'billing_status') && str_contains($devices, 'billing_eligibility'), 'Device billing filters are missing.'],
     [str_contains($devices, 'Abrechnung vorbereiten') && str_contains($deviceController, "\$action === 'billing'"), 'Device billing bulk action is missing.'],
     [str_contains($renderer, 'render_common_filter_panel') && str_contains($devices, 'device-common-filter') && str_contains($template, 'billing-common-filter') && !str_contains($devices, 'display:none') && !str_contains($template, 'display:none'), 'Shared filter renderer is missing from both views.'],
-    [str_contains($deviceController, "if (\$isHx) return [200") && str_contains($renderer, "'#device-page'"), 'Device HTMX partial rendering is missing.'],
+    [str_contains($deviceController, "if (\$isHx) return [200") && str_contains($renderer, "'#device-page'") && str_contains($renderer, 'change from:select delay:120ms') && str_contains($renderer, 'Filter wird angewendet'), 'Device HTMX partial rendering or immediate filter feedback is missing.'],
     [str_contains($controller, '$requestedPerPage = (int) ($_GET[\'per_page\'] ?? 50)') && str_contains($controller, '$perPage = in_array($requestedPerPage'), 'Billing pagination must use a safe default page size.'],
 ];
 
