@@ -98,6 +98,12 @@ final class BillingController
             $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) als exportiert markiert. Rechnung #' . $invoiceId . ' wurde angelegt.';
         } elseif ($action === 'sevdesk') {
             $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
+            $missingCustomerRows = array_values(array_filter($rows, static fn(array $row): bool => (int) ($row['customer_id'] ?? 0) <= 0 || trim((string) ($row['sevdesk_customer_id'] ?? '')) === ''));
+            if ($missingCustomerRows !== []) {
+                $_SESSION['billing_message'] = self::missingSevDeskCustomerMessage($missingCustomerRows);
+                audit_log('abrechnung_export_blockiert', ['inspection_ids' => array_column($missingCustomerRows, 'id'), 'reason' => 'missing_sevdesk_customer']);
+                return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
+            }
             $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? ''));
             $exportKey = hash('sha256', implode(',', array_map('intval', array_column($rows, 'id'))) . '|' . (int) (current_user()->id ?? 0) . '|' . (string) floor(time() / 10));
             $existingExport = R::findOne('billingexport', ' idempotency_key = ? ', [$exportKey]);
@@ -278,5 +284,22 @@ final class BillingController
         fputcsv($out, ['Prüfung', 'Datum', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung', 'SevDesk-Kundennummer'], ';');
         foreach ($rows as $row) fputcsv($out, [$row['external_number'], $row['test_date'], $row['customer_name'], $row['device_number'] . ' · ' . $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', $row['result_status'], $row['regie_minutes'], $row['regie_reason'], $row['sevdesk_customer_number'] ?: ($row['sevdesk_customer_id'] ?: 'FEHLT')], ';');
         fclose($out); return [200, [], ''];
+    }
+
+    /** @param list<array<string,mixed>> $rows */
+    private static function missingSevDeskCustomerMessage(array $rows): string
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $customer = trim((string) ($row['customer_name'] ?? '')) ?: 'Kein Kunde zugeordnet';
+            $groups[$customer][] = (string) ($row['external_number'] ?? ('#' . (int) ($row['id'] ?? 0)));
+        }
+        $details = [];
+        foreach ($groups as $customer => $inspections) {
+            $details[] = $customer . ' (' . implode(', ', array_slice(array_unique($inspections), 0, 5)) . (count($inspections) > 5 ? ', …' : '') . ')';
+        }
+        return 'SevDesk-Entwurf nicht gestartet: Für folgende Auswahl fehlt die Kundenverknüpfung zu SevDesk: '
+            . implode('; ', $details)
+            . '. Bitte im Kundenprofil den Mandanten und die SevDesk-Kundennummer/-ID hinterlegen; bei „Kein Kunde zugeordnet“ zuerst Raum, Standort und Kundenstruktur des Geräts prüfen.';
     }
 }
