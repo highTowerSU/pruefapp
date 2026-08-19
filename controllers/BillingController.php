@@ -82,6 +82,30 @@ final class BillingController
         }
     }
 
+    /** Read-only support diagnostic for an internal invoice and its regie source values. */
+    public static function debugInvoice(int $invoiceId): array
+    {
+        try {
+            $invoice = R::load('billinginvoice', $invoiceId);
+            if (!$invoice->id) return ['ok' => false, 'error' => 'Rechnung nicht gefunden.'];
+            $items = R::getAll(
+                'SELECT bi.id AS item_id, bi.active, i.id AS inspection_id, i.external_number, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name FROM billinginvoiceitem bi JOIN inspection i ON i.id = bi.inspection_id JOIN device d ON d.id = bi.device_id WHERE bi.invoice_id = ? ORDER BY i.id',
+                [$invoiceId]
+            );
+            $regieItems = array_values(array_filter($items, static fn(array $item): bool => (int) ($item['regie_minutes'] ?? 0) > 0));
+            return [
+                'ok' => true,
+                'invoice' => ['id' => (int) $invoice->id, 'status' => (string) $invoice->status, 'sevdesk_invoice_id' => (string) $invoice->sevdesk_invoice_id],
+                'inspection_count' => count($items),
+                'regie_inspection_count' => count($regieItems),
+                'regie_minutes_total' => array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $regieItems)),
+                'regie_items' => $regieItems,
+            ];
+        } catch (Throwable $error) {
+            return ['ok' => false, 'exception_class' => get_class($error), 'error' => $error->getMessage()];
+        }
+    }
+
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_billing()) return forbidden_response();

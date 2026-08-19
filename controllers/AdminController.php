@@ -45,11 +45,14 @@ class AdminController
                 if (isset($_GET[$key]) && !is_array($_GET[$key])) $filters[$key] = mb_substr(trim((string) $_GET[$key]), 0, 160);
             }
             $ids = array_filter(array_map('intval', explode(',', (string) ($_GET['ids'] ?? ''))));
-            $result = ($_GET['export_failures'] ?? '') === '1'
+            $invoiceId = max(0, (int) ($_GET['invoice_id'] ?? 0));
+            $result = $invoiceId > 0
+                ? BillingController::debugInvoice($invoiceId)
+                : (($_GET['export_failures'] ?? '') === '1'
                 ? BillingController::debugExportFailures()
                 : (($_GET['render'] ?? '') === '1'
                     ? BillingController::debugRender($filters)
-                    : BillingController::debugSelection($filters, $ids));
+                    : BillingController::debugSelection($filters, $ids)));
             return [200, $headers, json_encode(['summary' => 'billing'] + $result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
         }
         $failureId = strtoupper(trim((string) ($_GET['failure_id'] ?? '')));
