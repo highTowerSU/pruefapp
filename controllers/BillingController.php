@@ -188,6 +188,11 @@ final class BillingController
                         throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück' . ($fields !== '' ? ' (Antwortfelder: ' . $fields . ')' : '') . '.');
                     }
                     $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response);
+                    $storedInvoice = R::load('billinginvoice', $invoiceId);
+                    if (trim((string) ($storedInvoice->sevdesk_url ?? '')) === '') {
+                        $storedInvoice->sevdesk_url = self::sevDeskInvoiceUrl((string) ($tenant->sevdesk_api_url ?? ''), $exportId);
+                        R::store($storedInvoice);
+                    }
                     $createdInvoiceIds[] = $invoiceId;
                     $export->invoice_id = $invoiceId;
                     $export->sevdesk_invoice_id = $exportId;
@@ -258,6 +263,11 @@ final class BillingController
         $id = (int) ($params['id'] ?? 0);
         $invoice = R::load('billinginvoice', $id);
         if (!$invoice->id) return [404, [], 'Rechnung nicht gefunden.'];
+        if (trim((string) ($invoice->sevdesk_url ?? '')) === '' && trim((string) ($invoice->sevdesk_invoice_id ?? '')) !== '') {
+            $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
+            $invoice->sevdesk_url = self::sevDeskInvoiceUrl((string) ($tenant->sevdesk_api_url ?? ''), (string) $invoice->sevdesk_invoice_id);
+            if ($invoice->sevdesk_url !== '') R::store($invoice);
+        }
         $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
         $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items]);
         return [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];
@@ -526,5 +536,11 @@ final class BillingController
             ];
         }
         return ['id' => '', 'number' => '', 'url' => ''];
+    }
+
+    private static function sevDeskInvoiceUrl(string $apiUrl, string $invoiceId): string
+    {
+        if (parse_url($apiUrl, PHP_URL_HOST) !== 'my.sevdesk.de' || trim($invoiceId) === '') return '';
+        return 'https://my.sevdesk.de/#/invoice/' . rawurlencode($invoiceId);
     }
 }
