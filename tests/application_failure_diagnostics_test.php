@@ -10,7 +10,7 @@ $billing = (string) file_get_contents(dirname(__DIR__) . '/controllers/BillingCo
 
 foreach ([
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS appfailure'), 'Die persistente Fehlerdiagnose-Tabelle fehlt.'],
-    [str_contains($service, "R::dispense('appfailure')") && str_contains($service, 'getTraceAsString()'), 'Fehlerdiagnosen speichern keinen Stacktrace.'],
+    [str_contains($service, 'INSERT INTO appfailure') && str_contains($service, 'getTraceAsString()'), 'Fehlerdiagnosen speichern keinen Stacktrace.'],
     [str_contains($index, 'ApplicationFailureService::record($requestId, $throwable)'), 'Unbehandelte Ausnahmen werden nicht persistiert.'],
     [str_contains($index, 'ApplicationFailureService::record($requestId, $error, true)'), 'Fatale Fehler werden nicht persistiert.'],
     [str_contains($admin, "\$_GET['failure_id']") && str_contains($admin, 'ApplicationFailureService::find'), 'Der geschützte Debug-Endpunkt kann Vorgangs-IDs nicht auflösen.'],

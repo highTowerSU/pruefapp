@@ -9,23 +9,39 @@ final class ApplicationFailureService
 {
     public static function record(string $requestId, Throwable $error, bool $fatal = false): void
     {
+        $values = [
+            $requestId,
+            $fatal ? 'fatal' : 'exception',
+            get_class($error),
+            mb_substr($error->getMessage(), 0, 4000),
+            mb_substr($error->getFile(), 0, 1000),
+            $error->getLine(),
+            mb_substr($error->getTraceAsString(), 0, 30000),
+            mb_substr((string) ($_SERVER['REQUEST_METHOD'] ?? ''), 0, 16),
+            mb_substr((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/'), 0, 2000),
+            json_encode(array_values(array_map('strval', array_keys($_GET))), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+            (int) ($_SESSION['auth_user_id'] ?? 0),
+            date(DATE_ATOM),
+        ];
         try {
-            $failure = R::dispense('appfailure');
-            $failure->request_id = $requestId;
-            $failure->kind = $fatal ? 'fatal' : 'exception';
-            $failure->exception_class = get_class($error);
-            $failure->message = mb_substr($error->getMessage(), 0, 4000);
-            $failure->source_file = mb_substr($error->getFile(), 0, 1000);
-            $failure->source_line = $error->getLine();
-            $failure->trace = mb_substr($error->getTraceAsString(), 0, 30000);
-            $failure->request_method = mb_substr((string) ($_SERVER['REQUEST_METHOD'] ?? ''), 0, 16);
-            $failure->request_path = mb_substr((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/'), 0, 2000);
-            $failure->query_keys_json = json_encode(array_values(array_map('strval', array_keys($_GET))), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-            $failure->user_id = (int) ($_SESSION['user']['id'] ?? 0);
-            $failure->created_at = date(DATE_ATOM);
-            R::store($failure);
+            // Do not use a bean here. This code runs while another bean or a
+            // transaction may have failed; a parameterised insert has no
+            // model hooks and is therefore the most reliable last-resort log.
+            R::exec(
+                'INSERT INTO appfailure (request_id, kind, exception_class, message, source_file, source_line, trace, request_method, request_path, query_keys_json, user_id, created_at) '
+                . 'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                $values
+            );
         } catch (Throwable $recordingError) {
-            error_log('[pruefapp][' . $requestId . '] Fehlerdiagnose konnte nicht gespeichert werden: ' . $recordingError->getMessage());
+            // The legacy bean path remains a compatibility fallback for
+            // installations whose appfailure table is managed externally.
+            try {
+                $failure = R::dispense('appfailure');
+                [$failure->request_id, $failure->kind, $failure->exception_class, $failure->message, $failure->source_file, $failure->source_line, $failure->trace, $failure->request_method, $failure->request_path, $failure->query_keys_json, $failure->user_id, $failure->created_at] = $values;
+                R::store($failure);
+            } catch (Throwable $fallbackError) {
+                error_log('[pruefapp][' . $requestId . '] Fehlerdiagnose konnte nicht gespeichert werden: ' . $recordingError->getMessage() . ' / Fallback: ' . $fallbackError->getMessage());
+            }
         }
     }
 

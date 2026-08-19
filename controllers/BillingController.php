@@ -55,7 +55,8 @@ final class BillingController
                 'configured' => $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '', 'preselectedIds' => [],
                 'page' => $page, 'pages' => max(1, (int) ceil(count($allRows) / $perPage)), 'perPage' => $perPage, 'message' => null, 'filters' => $filters,
             ]);
-            return ['ok' => true, 'row_count' => count($allRows), 'content_length' => strlen($content), 'has_root' => str_contains($content, 'id="billing-content"')];
+            $pageHtml = render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content]);
+            return ['ok' => true, 'row_count' => count($allRows), 'content_length' => strlen($content), 'page_length' => strlen($pageHtml), 'has_root' => str_contains($content, 'id="billing-content"')];
         } catch (Throwable $error) {
             return ['ok' => false, 'exception_class' => get_class($error), 'error' => $error->getMessage(), 'file' => $error->getFile(), 'line' => $error->getLine(), 'trace' => $error->getTraceAsString()];
         }
