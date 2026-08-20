@@ -104,6 +104,7 @@ $routes = [
     ['GET', '/kundeninfos/{id}', fn($params, $isHx) => CustomerInfoController::view($params, $isHx)],
     ['GET', '/kundeninfos/{id}/datei', fn($params, $isHx) => CustomerInfoController::file($params, $isHx)],
     ['POST', '/struktur/kunden', fn($params, $isHx) => StructureController::createCustomer($params, $isHx)],
+    ['GET', '/struktur/kunden/{id}/sevdesk-adressen', fn($params, $isHx) => StructureController::sevdeskCustomerAddresses($params, $isHx)],
     ['POST', '/struktur/standorte', fn($params, $isHx) => StructureController::createSite($params, $isHx)],
     ['POST', '/struktur/gebaeude', fn($params, $isHx) => StructureController::createBuilding($params, $isHx)],
     ['POST', '/struktur/etagen', fn($params, $isHx) => StructureController::createFloor($params, $isHx)],
