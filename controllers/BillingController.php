@@ -174,7 +174,8 @@ final class BillingController
         $exportedByUser = current_user();
         $exportedBy = trim((string) (($exportedByUser->name ?? '') ?: ($exportedByUser->email ?? '')));
         if ($action === 'mark') {
-            $invoiceId = self::recordInvoice($rows, 'manual', 'marked');
+            $invoiceItems = self::invoiceItems($rows);
+            $invoiceId = self::recordInvoice($invoiceItems, 'manual', 'marked', [], self::invoiceContext($invoiceItems));
             foreach ($rows as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ?, billing_exported_by = ? WHERE id = ?', [date(DATE_ATOM), 'manual', $exportedBy, $row['id']]);
             audit_log('abrechnung_exportiert', ['inspection_ids' => array_column($rows, 'id'), 'exported_by' => $exportedBy, 'export_id' => 'manual']);
             $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) als exportiert markiert. Rechnung #' . $invoiceId . ' wurde angelegt.';
@@ -202,17 +203,18 @@ final class BillingController
                 foreach ($byCustomer as $customerId => $items) {
                     if ($customerId === '') throw new RuntimeException('Kundenverknüpfung zu SevDesk fehlt: ' . $items[0]['customer_name']);
                     $items = self::invoiceItems($items);
+                    $invoiceContext = self::invoiceContext($items);
                     // PHP converts numeric array keys to integers. SevDesk's
                     // API client deliberately accepts its customer ID only as
                     // a string, so retain that boundary explicitly.
-                    $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0), (int) ($tenant->sevdesk_tax_rule ?? 1), (float) ($tenant->sevdesk_tax_rate ?? 19), (string) ($tenant->sevdesk_contact_person_id ?? ''));
+                    $response = $client->createDraftInvoice((string) $customerId, 'PR-' . date('Ymd-His'), date('Y-m-d'), $items, (float) ($tenant->sevdesk_inspection_rate ?? 0), (float) ($tenant->sevdesk_regie_rate ?? 0), (int) ($tenant->sevdesk_tax_rule ?? 1), (float) ($tenant->sevdesk_tax_rate ?? 19), (string) ($tenant->sevdesk_contact_person_id ?? ''), $invoiceContext['sevdesk']);
                     $sevDeskInvoice = self::sevDeskInvoiceResponse($response);
                     $exportId = $sevDeskInvoice['id'];
                     if ($exportId === '') {
                         $fields = implode(', ', array_slice(array_map('strval', array_keys($response)), 0, 8));
                         throw new RuntimeException('SevDesk lieferte keine Rechnungs-ID zurück' . ($fields !== '' ? ' (Antwortfelder: ' . $fields . ')' : '') . '.');
                     }
-                    $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response);
+                    $invoiceId = self::recordInvoice($items, $exportId, 'sevdesk', $response, $invoiceContext);
                     $storedInvoice = R::load('billinginvoice', $invoiceId);
                     if (trim((string) ($storedInvoice->sevdesk_url ?? '')) === '') {
                         $storedInvoice->sevdesk_url = self::sevDeskInvoiceUrl((string) ($tenant->sevdesk_api_url ?? ''), $exportId);
@@ -223,7 +225,7 @@ final class BillingController
                     $export->sevdesk_invoice_id = $exportId;
                     $export->sevdesk_invoice_number = $sevDeskInvoice['number'];
                     foreach ($items as $row) R::exec('UPDATE inspection SET billing_exported_at = ?, billing_export_id = ?, billing_exported_by = ? WHERE id = ?', [date(DATE_ATOM), $exportId, $exportedBy, $row['id']]);
-                    audit_log('abrechnung_exportiert', ['inspection_ids' => array_column($items, 'id'), 'exported_by' => $exportedBy, 'export_id' => $exportId, 'invoice_id' => $invoiceId]);
+                    audit_log('abrechnung_exportiert', ['inspection_ids' => array_column($items, 'id'), 'exported_by' => $exportedBy, 'export_id' => $exportId, 'invoice_id' => $invoiceId, 'performance_date_from' => $invoiceContext['performance_date_from'], 'performance_date_until' => $invoiceContext['performance_date_until']]);
                 }
                 $export->status = 'succeeded'; $export->updated_at = date(DATE_ATOM); R::store($export);
                 $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) an SevDesk übertragen.';
@@ -356,6 +358,7 @@ final class BillingController
             ]);
             $row['description'] = 'Elektroprüfung · ' . ($deviceNumber ?: (string) ($row['external_number'] ?? '')) . ' · ' . $deviceName;
             $details = ['Prüfung: ' . (string) ($row['external_number'] ?? '—')];
+            if (trim((string) ($row['test_date'] ?? '')) !== '') $details[] = 'Prüfdatum: ' . self::formatDate((string) $row['test_date']);
             if ($deviceNumber !== '') $details[] = 'Gerätenummer: ' . $deviceNumber;
             if ($manufacturerModel !== '') $details[] = 'Hersteller / Modell: ' . $manufacturerModel;
             if ($location !== []) $details[] = 'Einsatzort: ' . implode(' · ', $location);
@@ -371,7 +374,8 @@ final class BillingController
         }, $rows);
     }
 
-    private static function recordInvoice(array $rows, string $externalId, string $status, array $response = []): int
+    /** @param array{performance_date_from?:string,performance_date_until?:string,recipient_name?:string,recipient_contact_name?:string,recipient_address?:string,sevdesk?:array<string,string>} $context */
+    private static function recordInvoice(array $rows, string $externalId, string $status, array $response = [], array $context = []): int
     {
         $first = $rows[0] ?? [];
         R::begin();
@@ -385,6 +389,11 @@ final class BillingController
         $invoice->sevdesk_url = $sevDeskInvoice['url'];
         $invoice->invoice_number = 'PR-' . date('Ymd-His');
         $invoice->invoice_date = date('Y-m-d');
+        $invoice->performance_date_from = (string) ($context['performance_date_from'] ?? '');
+        $invoice->performance_date_until = (string) ($context['performance_date_until'] ?? '');
+        $invoice->recipient_name = (string) ($context['recipient_name'] ?? '');
+        $invoice->recipient_contact_name = (string) ($context['recipient_contact_name'] ?? '');
+        $invoice->recipient_address = (string) ($context['recipient_address'] ?? '');
         $invoice->status = $status;
         $invoice->exported_by = trim((string) (($user = current_user())->name ?? ($user->email ?? '')));
         $invoice->exported_at = date(DATE_ATOM);
@@ -409,6 +418,51 @@ final class BillingController
             R::rollback();
             throw $exception;
         }
+    }
+
+    /**
+     * The invoice date is the creation date.  SevDesk's delivery fields are
+     * used exclusively for the actual inspection/service dates.
+     *
+     * @param list<array<string,mixed>> $rows
+     * @return array{performance_date_from:string,performance_date_until:string,recipient_name:string,recipient_contact_name:string,recipient_address:string,sevdesk:array<string,string>}
+     */
+    private static function invoiceContext(array $rows): array
+    {
+        $first = $rows[0] ?? [];
+        $dates = array_values(array_unique(array_filter(array_map(static fn(array $row): string => trim((string) ($row['test_date'] ?? '')), $rows), static fn(string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1)));
+        sort($dates);
+        $from = $dates[0] ?? '';
+        $until = $dates[count($dates) - 1] ?? '';
+        $recipientName = trim((string) ($first['invoice_recipient_name'] ?? ''));
+        $contactName = trim((string) ($first['invoice_contact_name'] ?? ''));
+        $addressLines = array_filter([
+            $recipientName,
+            $contactName,
+            trim((string) ($first['invoice_address_street'] ?? '')),
+            trim(trim((string) ($first['invoice_address_zip'] ?? '')) . ' ' . trim((string) ($first['invoice_address_city'] ?? ''))),
+            trim((string) ($first['invoice_address_country'] ?? '')),
+        ]);
+        // A partial override would remove the complete contact address in
+        // SevDesk. Only send one when it can stand on its own.
+        $hasPostalAddress = trim((string) ($first['invoice_address_street'] ?? '')) !== ''
+            && (trim((string) ($first['invoice_address_zip'] ?? '')) !== '' || trim((string) ($first['invoice_address_city'] ?? '')) !== '');
+        $address = $hasPostalAddress ? implode("\n", $addressLines) : '';
+        $headText = $from === '' ? '' : ($from === $until
+            ? 'Leistungsdatum: ' . self::formatDate($from)
+            : 'Leistungszeitraum: ' . self::formatDate($from) . ' bis ' . self::formatDate($until));
+        $sevdesk = [];
+        if ($address !== '') $sevdesk['address'] = $address;
+        if ($from !== '') $sevdesk['delivery_date'] = self::formatDate($from);
+        if ($until !== '' && $until !== $from) $sevdesk['delivery_date_until'] = self::formatDate($until);
+        if ($headText !== '') $sevdesk['head_text'] = $headText;
+        return ['performance_date_from' => $from, 'performance_date_until' => $until, 'recipient_name' => $recipientName, 'recipient_contact_name' => $contactName, 'recipient_address' => $address, 'sevdesk' => $sevdesk];
+    }
+
+    private static function formatDate(string $date): string
+    {
+        $timestamp = strtotime($date);
+        return $timestamp === false ? $date : date('d.m.Y', $timestamp);
     }
 
     /** @return list<array<string,mixed>> */
@@ -473,7 +527,7 @@ final class BillingController
             'billing_status' => "COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) ASC, i.test_date DESC, i.id DESC",
             default => 'c.name ASC, i.test_date ASC, i.id ASC',
         };
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, c.invoice_recipient_name, c.invoice_contact_name, c.invoice_address_street, c.invoice_address_zip, c.invoice_address_city, c.invoice_address_country, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
     }
 
     /** @return list<array<string,mixed>> */

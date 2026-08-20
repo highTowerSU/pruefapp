@@ -20,6 +20,8 @@ $checks = [
     [str_contains($controller, 'idempotency_key') && str_contains($controller, "status = 'running'"), 'Export idempotency is missing.'],
     [str_contains($controller, 'missingSevDeskCustomerMessage') && str_contains($controller, "abrechnung_export_blockiert"), 'SevDesk export must validate customer links before creating invoices.'],
     [str_contains($controller, 'createDraftInvoice((string) $customerId'), 'SevDesk customer IDs must remain strings at the API boundary.'],
+    [str_contains($controller, 'invoiceContext') && str_contains($controller, 'performance_date_from') && str_contains($controller, 'delivery_date_until'), 'SevDesk exports must derive and persist the service period from inspection dates.'],
+    [str_contains($schema, 'invoice_recipient_name') && str_contains($schema, 'invoice_address_street') && str_contains($controller, 'invoice_contact_name'), 'Customer invoice recipient and address data are missing.'],
     [str_contains($controller, 'sevdesk_tax_rule') && str_contains($controller, 'sevdesk_tax_rate'), 'Billing must pass the configured SevDesk tax rule and tax rate.'],
     [str_contains($controller, 'sevdesk_contact_person_id') && str_contains($controller, 'SevDesk hat den Entwurf abgelehnt'), 'Billing must pass and explain the SevDesk contact person.'],
     [str_contains($schema, 'billing_last_export_id') && str_contains($controller, 'sevDeskInvoiceResponse') && str_contains($controller, 'Fehler-ID: Export #'), 'Billing failures must retain an internal error reference and support SevDesk response variants.'],

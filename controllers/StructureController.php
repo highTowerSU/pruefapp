@@ -218,6 +218,12 @@ class StructureController
             if ($entity->tenant_id <= 0) return self::redirectWithError('Bitte dem Kunden einen Mandanten zuordnen.');
             $entity->sevdesk_customer_id = trim((string) ($_POST['sevdesk_customer_id'] ?? ''));
             $entity->sevdesk_customer_number = trim((string) ($_POST['sevdesk_customer_number'] ?? ''));
+            $entity->invoice_recipient_name = trim((string) ($_POST['invoice_recipient_name'] ?? ''));
+            $entity->invoice_contact_name = trim((string) ($_POST['invoice_contact_name'] ?? ''));
+            $entity->invoice_address_street = trim((string) ($_POST['invoice_address_street'] ?? ''));
+            $entity->invoice_address_zip = trim((string) ($_POST['invoice_address_zip'] ?? ''));
+            $entity->invoice_address_city = trim((string) ($_POST['invoice_address_city'] ?? ''));
+            $entity->invoice_address_country = trim((string) ($_POST['invoice_address_country'] ?? '')) ?: 'Deutschland';
         }
         $entity->{$definition['parent']} = $parentId > 0 ? $parentId : null;
         $description = trim((string) ($_POST['description'] ?? ''));
