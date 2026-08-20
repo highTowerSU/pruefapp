@@ -90,14 +90,17 @@ class StructureController
         if (!$customer->id) return [404, [], 'Kunde nicht gefunden.'];
         $tenant = (new TenantRepository())->find((int) ($customer->tenant_id ?? 0));
         $addresses = [];
+        $persons = [];
         $error = '';
         try {
             if (!$tenant || trim((string) ($customer->sevdesk_customer_id ?? '')) === '') throw new RuntimeException('Bitte zuerst einen SevDesk-Kunden auswählen und speichern.');
-            $addresses = (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? '')))->contactAddresses((string) $customer->sevdesk_customer_id);
+            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? ''));
+            $addresses = $client->contactAddresses((string) $customer->sevdesk_customer_id);
+            $persons = $client->contactPersons((string) $customer->sevdesk_customer_id);
         } catch (Throwable $exception) {
             $error = $exception->getMessage();
         }
-        return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('customer_sevdesk_addresses.php', ['customer' => $customer, 'addresses' => $addresses, 'error' => $error])];
+        return [200, ['Content-Type' => 'text/html; charset=utf-8'], render_template('customer_sevdesk_addresses.php', ['customer' => $customer, 'addresses' => $addresses, 'persons' => $persons, 'error' => $error])];
     }
 
     public static function bulkAction(array $params, bool $isHx): array
@@ -243,6 +246,7 @@ class StructureController
             $entity->invoice_address_city = trim((string) ($_POST['invoice_address_city'] ?? ''));
             $entity->invoice_address_country = trim((string) ($_POST['invoice_address_country'] ?? '')) ?: 'Deutschland';
             $entity->sevdesk_contact_address_id = trim((string) ($_POST['sevdesk_contact_address_id'] ?? ''));
+            $entity->sevdesk_contact_person_id = trim((string) ($_POST['sevdesk_contact_person_id'] ?? ''));
         }
         $entity->{$definition['parent']} = $parentId > 0 ? $parentId : null;
         $description = trim((string) ($_POST['description'] ?? ''));
