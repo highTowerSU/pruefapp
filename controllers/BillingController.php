@@ -205,6 +205,8 @@ final class BillingController
         }
         $rows = $selectionScope === 'all' ? $allFilteredRows : self::rows($ids, $filters);
         if ($rows === []) { $_SESSION['billing_message'] = 'Bitte mindestens eine nicht exportierte, abrechenbare Prüfung auswählen.'; return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], '']; }
+        foreach ($rows as &$row) $row['sevdesk_invoice_customer_id'] = self::sevDeskInvoiceCustomerId($row);
+        unset($row);
         if ($action === 'csv') return self::csv($rows);
         $exportedByUser = current_user();
         $exportedBy = trim((string) (($exportedByUser->name ?? '') ?: ($exportedByUser->email ?? '')));
@@ -216,7 +218,7 @@ final class BillingController
             $_SESSION['billing_message'] = count($rows) . ' Prüfung(en) als exportiert markiert. Rechnung #' . $invoiceId . ' wurde angelegt.';
         } elseif ($action === 'sevdesk') {
             $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
-            $missingCustomerRows = array_values(array_filter($rows, static fn(array $row): bool => (int) ($row['customer_id'] ?? 0) <= 0 || trim((string) ($row['sevdesk_customer_id'] ?? '')) === ''));
+            $missingCustomerRows = array_values(array_filter($rows, static fn(array $row): bool => (int) ($row['customer_id'] ?? 0) <= 0 || trim((string) ($row['sevdesk_invoice_customer_id'] ?? '')) === ''));
             if ($missingCustomerRows !== []) {
                 $_SESSION['billing_message'] = self::missingSevDeskCustomerMessage($missingCustomerRows);
                 audit_log('abrechnung_export_blockiert', ['inspection_ids' => array_column($missingCustomerRows, 'id'), 'reason' => 'missing_sevdesk_customer']);
@@ -232,7 +234,7 @@ final class BillingController
             $export = $existingExport ?: R::dispense('billingexport');
             $export->idempotency_key = $exportKey; $export->owner_user_id = (int) (current_user()->id ?? 0); $export->status = 'running'; $export->inspection_ids_json = json_encode(array_map('intval', array_column($rows, 'id'))); $export->updated_at = date(DATE_ATOM); if (!$export->created_at) $export->created_at = date(DATE_ATOM); R::store($export);
             $byCustomer = [];
-            foreach ($rows as $row) $byCustomer[(string) $row['sevdesk_customer_id']][] = $row;
+            foreach ($rows as $row) $byCustomer[(string) $row['sevdesk_invoice_customer_id']][] = $row;
             try {
                 $createdInvoiceIds = [];
                 foreach ($byCustomer as $customerId => $items) {
@@ -395,7 +397,25 @@ final class BillingController
         $remoteCustomer = is_array($remote['customer'] ?? null) ? $remote['customer'] : [];
         $remoteCustomerId = trim((string) (($remoteContact['id'] ?? '') ?: ($remoteCustomer['id'] ?? '') ?: (is_scalar($remote['contact'] ?? null) ? $remote['contact'] : '')));
         $customer = null;
-        if ($remoteCustomerId !== '') $customer = R::findOne('customer', ' sevdesk_customer_id=? OR sevdesk_customer_number=? ', [$remoteCustomerId, $remoteCustomerId]);
+        $sevDeskCustomerIds = $remoteCustomerId === '' ? [] : [$remoteCustomerId];
+        if ($remoteCustomerId !== '') {
+            // An invoice can name an Ansprechpartner as `contact`.  Resolve
+            // its parent contact first: that parent is the actual SevDesk
+            // Rechnungskunde and maps to our main customer number.
+            try {
+                $contact = $client->contactById($remoteCustomerId);
+                $parentId = trim((string) (($contact['parent']['id'] ?? '') ?: ($contact['parentId'] ?? '')));
+                if ($parentId !== '') array_unshift($sevDeskCustomerIds, $parentId);
+            } catch (Throwable) {
+                // Keep the invoice readable even if an old contact was
+                // removed at SevDesk; the stored contact ID remains a
+                // secondary lookup and the UI can still request review.
+            }
+        }
+        foreach (array_unique($sevDeskCustomerIds) as $sevDeskCustomerId) {
+            $customer = R::findOne('customer', ' sevdesk_customer_id=? OR sevdesk_customer_number=? ', [$sevDeskCustomerId, $sevDeskCustomerId]);
+            if ($customer) break;
+        }
         // Older SevDesk exports do not always embed the contact ID.  An exact
         // recipient-name match is still deterministic and only used to link
         // the invoice to its existing customer master record.
@@ -881,6 +901,29 @@ final class BillingController
             $filters[$key] = mb_substr(trim((string) $values[$key]), 0, 160);
         }
         return $filters;
+    }
+
+    /**
+     * Uses a selected subcustomer's own SevDesk number.  If it has none, walk
+     * up the customer tree and invoice the first configured main customer.
+     * This separates the invoice recipient/contact from the actual SevDesk
+     * billing customer.
+     *
+     * @param array<string,mixed> $row
+     */
+    private static function sevDeskInvoiceCustomerId(array $row): string
+    {
+        $customerId = (int) ($row['customer_id'] ?? 0);
+        $seen = [];
+        while ($customerId > 0 && !isset($seen[$customerId])) {
+            $seen[$customerId] = true;
+            $customer = R::load('customer', $customerId);
+            if (!$customer->id) break;
+            $sevDeskId = trim((string) $customer->sevdesk_customer_id);
+            if ($sevDeskId !== '') return $sevDeskId;
+            $customerId = (int) $customer->parent_customer_id;
+        }
+        return '';
     }
 
     private static function csv(array $rows): array

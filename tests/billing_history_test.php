@@ -28,6 +28,8 @@ $checks = [
     [str_contains($billing, 'assignHistoricalBatch') && str_contains($billing, 'historical_batch_confirmed') && str_contains($routes, '/historisch-zuordnen-sammeln'), 'Die bestätigte Sammelzuordnung historischer Prüfungen fehlt.'],
     [str_contains($billing, 'historicalSuggestion') && str_contains($detail, 'Zuordnungsvorschlag prüfen') && str_contains($detail, 'Auswahl gesammelt zuordnen'), 'Ein prüfbarer Sammelvorschlag für historische Rechnungen fehlt.'],
     [str_contains($billing, 'sevdesk_customer_id=? OR sevdesk_customer_number=?') && str_contains($billing, 'remote_address_name') && str_contains($billing, 'suggestion_reason'), 'Die SevDesk-Kundenverknüpfung oder ihre Debug-Diagnose ist nicht robust genug.'],
+    [str_contains($billing, 'contactById($remoteCustomerId)') && str_contains($billing, "['parent']['id']"), 'SevDesk-Ansprechpersonen werden nicht bis zum Hauptkunden aufgelöst.'],
+    [str_contains($billing, 'sevDeskInvoiceCustomerId') && str_contains($billing, 'parent_customer_id'), 'Unterkunden werden beim SevDesk-Export nicht sauber gegen den Hauptkunden aufgelöst.'],
     [str_contains($billing, 'normalizedCustomerLabel') && str_contains($billing, 'raw_unity'), 'Rechnungsempfänger mit Kontaktpräfix oder SevDesk-Einheiten sind nicht diagnostizierbar.'],
     [str_contains($billing, 'releaseCancelledInvoice') && str_contains($billing, 'SevDesk-Rechnung wurde storniert'), 'Stornierte SevDesk-Rechnungen geben Prüfungen nicht nachvollziehbar frei.'],
     [str_contains($billing, 'classifyPosition') && str_contains($detail, 'positionen-klassifizieren'), 'Rechnungspositionen können nicht überprüfbar klassifiziert werden.'],
