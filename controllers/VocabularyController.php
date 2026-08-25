@@ -21,6 +21,12 @@ final class VocabularyController
                 } catch (Throwable $exception) {
                     $error = $exception->getMessage();
                 }
+            } elseif ($action === 'cancel_pending_suggestions') {
+                $count = DeviceVocabularyService::cancelPendingSuggestions();
+                audit_log('stammdaten_ki_einzelaufgaben_abgebrochen', ['count' => $count]);
+                $message = $count > 0
+                    ? $count . ' automatische KI-Einzelaufgabe(n) werden abgebrochen.'
+                    : 'Keine automatischen KI-Einzelaufgaben mehr offen.';
             } else {
                 $reviewId = (int) ($_POST['review_id'] ?? 0);
                 $review = R::getRow('SELECT * FROM device_vocabulary_review WHERE id = ? LIMIT 1', [$reviewId]);

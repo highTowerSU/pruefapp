@@ -627,11 +627,9 @@ final class ElectricalInspectionImportService
         $device->updated_at = date(DATE_ATOM);
         if (!$device->created_at) $device->created_at = $device->updated_at;
         R::store($device);
-        DeviceVocabularyService::enqueueReview([
-            'manufacturer' => (string) $device->manufacturer,
-            'device_model' => (string) $device->device_model,
-            'name' => (string) $device->name,
-        ]);
+        // Historical imports may contain thousands of existing spellings. They
+        // are reviewed only through the explicit, resumable admin batch – not
+        // as one network job per imported device value.
         return ['device' => $device, 'created' => $created];
     }
 

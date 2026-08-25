@@ -130,6 +130,17 @@ final class DeviceVocabularyService
         ]);
     }
 
+    /** Stops only automatic one-value jobs; an explicitly started scan remains intact. */
+    public static function cancelPendingSuggestions(): int
+    {
+        $cancelled = 0;
+        foreach (BackgroundJobService::pending(1000) as $job) {
+            if ((string) ($job['type'] ?? '') !== 'vocabulary_suggestion') continue;
+            if (BackgroundJobService::requestCancellation((string) ($job['id'] ?? ''))) $cancelled++;
+        }
+        return $cancelled;
+    }
+
     public static function storeSuggestion(string $field, string $value, array $proposal): int
     {
         self::assertField($field);
