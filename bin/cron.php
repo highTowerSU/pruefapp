@@ -141,16 +141,17 @@ try {
         }
     }
     $duplicateAuditVersion = trim((string) get_app_config('inspection_duplicate_audit_version', ''));
-    if ($duplicateAuditVersion !== '1') {
+    if ($duplicateAuditVersion !== '2') {
         $duplicateAuditTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> ''");
         if ($duplicateAuditTotal > 0) {
+            BackgroundJobService::supersedePendingType('inspection_duplicate_audit', 'Eine präzisere Dublettenprüfung ersetzt diesen Lauf.');
             BackgroundJobService::enqueue(
                 'inspection_duplicate_audit',
                 ['type' => 'inspection_duplicate_audit'],
-                ['total' => $duplicateAuditTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-audit:v1', 'cancellable' => false]
+                ['total' => $duplicateAuditTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-audit:v2', 'cancellable' => false]
             );
         } else {
-            set_app_config('inspection_duplicate_audit_version', '1');
+            set_app_config('inspection_duplicate_audit_version', '2');
         }
     }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));

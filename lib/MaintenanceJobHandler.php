@@ -231,6 +231,15 @@ final class MaintenanceJobHandler
      */
     private static function inspectionDuplicateAudit(array $checkpoint, int $current, int $total, callable $tick): array
     {
+        if (empty($checkpoint['audit_v2_reset'])) {
+            // V1 paired every record of a device history with every other
+            // nearby record. Historic importer merges can make that a very
+            // large and misleading matrix. These are generated findings, not
+            // user decisions, so clear only open V1 findings before the
+            // narrower V2 scan. Resolved findings are retained.
+            R::exec("DELETE FROM inspectiondupreview WHERE status='open'");
+            $checkpoint['audit_v2_reset'] = true;
+        }
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $found = max(0, (int) ($checkpoint['found'] ?? 0));
         if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> ''");
@@ -238,13 +247,13 @@ final class MaintenanceJobHandler
             $lastId = (int) $row['id'];
             $number = trim((string) $row['external_number']);
             $peers = R::getAll(
-                "SELECT id, external_number, test_date FROM inspection
+                "SELECT id, external_number, test_date, CAST(ABS(julianday(test_date)-julianday(?)) AS INTEGER) AS days_apart FROM inspection
                  WHERE device_id=? AND id<? AND COALESCE(test_date, '')<>''
                    AND ABS(julianday(test_date)-julianday(?))<=180
                  ORDER BY test_date, id",
-                [(int) $row['device_id'], $lastId, (string) $row['test_date']]
+                [(string) $row['test_date'], (int) $row['device_id'], $lastId, (string) $row['test_date']]
             );
-            foreach ($peers as $peer) {
+            foreach ($peers as $peerIndex => $peer) {
                 $peerNumber = trim((string) $peer['external_number']);
                 $findingType = '';
                 $severity = 'warning';
@@ -254,10 +263,15 @@ final class MaintenanceJobHandler
                 } elseif (self::inspectionNumberBase($number) !== '' && self::inspectionNumberBase($number) === $peerNumber) {
                     $findingType = 'import_suffix';
                     $severity = 'danger';
-                } else {
+                } elseif (count($peers) === 1 && $peerIndex === 0) {
                     $findingType = 'short_interval';
+                } else {
+                    // Several records in a short period usually indicate a
+                    // historic device merge. Do not emit every pair: exact
+                    // number duplicates above still remain visible.
+                    continue;
                 }
-                $days = abs((int) ((new DateTimeImmutable((string) $row['test_date']))->diff(new DateTimeImmutable((string) $peer['test_date']))->format('%r%a')));
+                $days = max(0, (int) ($peer['days_apart'] ?? 0));
                 $reason = match ($findingType) {
                     'same_inspection_number' => 'Gleiche Prüfnummer am selben Gerät und Datum/Zeitraum: möglicher Importdoppelgänger.',
                     'import_suffix' => 'Nummer mit Import-Suffix am selben Gerät: möglicher künstlicher Doppelimport.',
@@ -278,9 +292,10 @@ final class MaintenanceJobHandler
                 $found++;
             }
             $current++;
-            $tick(['last_id' => $lastId, 'found' => $found], $current, $total, $number ?: (string) $lastId, $peers === [] ? 'Keine nahe Wiederholungsprüfung gefunden.' : 'Mögliche Wiederholungen wurden zur manuellen Prüfung vorgemerkt.');
+            $checkpoint = ['audit_v2_reset' => true, 'last_id' => $lastId, 'found' => $found];
+            $tick($checkpoint, $current, $total, $number ?: (string) $lastId, $peers === [] ? 'Keine nahe Wiederholungsprüfung gefunden.' : 'Mögliche Wiederholungen wurden zur manuellen Prüfung vorgemerkt.');
         }
-        set_app_config('inspection_duplicate_audit_version', '1');
+        set_app_config('inspection_duplicate_audit_version', '2');
         return ['processed' => $current, 'found' => $found];
     }
 

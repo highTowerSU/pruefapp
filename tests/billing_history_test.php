@@ -47,7 +47,7 @@ $checks = [
     [str_contains($detail, 'Alle auswählen') && str_contains($detail, 'Erste <?= $requiredDeviceQuantity ?> auswählen') && str_contains($detail, 'data-historical-candidate-form'), 'Der historische Zuordnungsvorschlag bietet keine sichere Sammelauswahl.'],
     [str_contains($schema, 'billingregietransfer') && str_contains($billing, 'transferRegie') && str_contains($routes, '/regie-uebertragen') && str_contains($detail, 'Regiezeit auf andere Rechnung umbuchen'), 'Eine nachvollziehbare Regie-Umbuchung zwischen Rechnungen fehlt.'],
     [str_contains($billing, 'billed_device_target') && str_contains($billingIndex, '$inspectionCount . \'/\' . $target') && str_contains($billing, 'duplicate_devices'), 'Die Rechnungsübersicht zeigt historische Prüfungen nicht gegen die Rechnungsmenge oder erklärt doppelte Geräte nicht.'],
-    [str_contains($maintenance, 'inspectionDuplicateAudit') && str_contains($maintenance, 'short_interval') && str_contains($schema, 'inspectiondupreview') && str_contains($adminController, 'enqueueInspectionDuplicateAudit') && str_contains($worker, "'inspection_duplicate_audit'"), 'Der einmalige, nicht-destruktive Prüfungsdubletten-Audit fehlt.'],
+    [str_contains($maintenance, 'inspectionDuplicateAudit') && str_contains($maintenance, 'count($peers) === 1') && str_contains($schema, 'inspectiondupreview') && str_contains($adminController, 'enqueueInspectionDuplicateAudit') && str_contains($worker, "'inspection_duplicate_audit'") && str_contains($cron, 'inspection-duplicate-audit:v2'), 'Der einmalige, nicht-destruktive Prüfungsdubletten-Audit fehlt.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
