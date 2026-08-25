@@ -20,6 +20,7 @@ final class BackgroundJobService
         'missing_reports' => 'Fehlende Prüfberichte',
         'phoenix_pdf_restore' => 'Original-PDFs wiederherstellen',
         'report_migration' => 'PDF-Aufbereitung',
+        'all_report_regeneration' => 'Alle Prüfberichte neu erzeugen',
         'measurement_migration' => 'Messdaten-Aufbereitung',
         'pending_measurement_import' => 'Messdaten importieren',
         'inspection_data_migration' => 'Prüfungsdaten migrieren',
@@ -82,7 +83,7 @@ final class BackgroundJobService
         if ($job === null) return;
         JobQueue::finish($jobId, 'done', $result, $message !== '' ? $message : self::label($job['type']) . ' abgeschlossen.');
         $owner = (int) $job['owner_user_id'];
-        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation'], true) ? self::adminUserIds() : []);
+        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation'], true) ? self::adminUserIds() : []);
         if ($recipients !== []) {
             NotificationRepository::publish($recipients, self::label($job['type']) . ' abgeschlossen', $message ?: 'Die Aufgabe wurde erfolgreich abgeschlossen.', [
                 'category' => str_contains($job['type'], 'import') || $job['type'] === 'phoenix_sync' ? 'import' : 'background_job',
@@ -229,7 +230,7 @@ final class BackgroundJobService
             'legacy_classification_migration' => 50,
             'import_result_reconciliation' => 45,
             'inspection_data_migration' => 40,
-            'examiner_migration', 'phoenix_pdf_restore', 'report_migration', 'measurement_migration' => 30,
+            'examiner_migration', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration' => 30,
             'pdf_regenerate', 'missing_reports' => 20,
             'pdf_bundle' => 0,
             'pdf_zip', 'inspection_pdf_zip' => -10,

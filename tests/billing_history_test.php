@@ -10,6 +10,8 @@ $importer = (string) file_get_contents(dirname(__DIR__) . '/lib/ElectricalInspec
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_invoice.php');
 $client = (string) file_get_contents(dirname(__DIR__, 2) . '/ceneos-php-base/src/Integration/SevDeskClient.php');
+$maintenance = (string) file_get_contents(dirname(__DIR__) . '/lib/MaintenanceJobHandler.php');
+$cron = (string) file_get_contents(dirname(__DIR__) . '/bin/cron.php');
 
 $checks = [
     [str_contains($schema, 'inspectionbillingbackup') && str_contains($schema, 'public_id') && str_contains($schema, 'billinginvoiceposition'), 'Die gesicherte Historienmigration oder Positionsspeicherung fehlt.'],
@@ -30,6 +32,7 @@ $checks = [
     [str_contains($billing, 'billed_regie_minutes') && str_contains($detail, 'Regie aus Import') && str_contains($detail, 'Es wird nichts aus der Rechnung auf Prüfungen verteilt.'), 'Historische Rechnungsregie wird nicht sauber von importierter Prüfungsregie getrennt.'],
     [str_contains($billing, 'effectivePositionKind') && str_contains($detail, 'SevDesk-Positionen') && str_contains($detail, 'Min. Regie'), 'Importierte Regiepositionen sind vor der separaten Positionsbestätigung nicht sichtbar.'],
     [str_contains($importer, "['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']") && str_contains($importer, 'ods_regiezeit') && str_contains($importer, 'normalizeRegieMinutes'), 'Die Regiezeit aus gekoppelten Phoenix-/ODS-Importen wird nicht übernommen und gesichert.'],
+    [str_contains($maintenance, 'allReportRegeneration') && str_contains($cron, 'benning-import-regie:v1') && str_contains($cron, 'all-reports-after-benning-regie:v1'), 'Der Regie-Reimport stößt keine fortsetzbare Neuerzeugung aller aktuellen Prüfberichte an.'],
     [str_contains($billing, 'historicalSuggestion') && str_contains($detail, 'Zuordnungsvorschlag prüfen') && str_contains($detail, 'Auswahl gesammelt zuordnen'), 'Ein prüfbarer Sammelvorschlag für historische Rechnungen fehlt.'],
     [str_contains($billing, 'sevdesk_customer_id=? OR sevdesk_customer_number=?') && str_contains($billing, 'remote_address_name') && str_contains($billing, 'suggestion_reason'), 'Die SevDesk-Kundenverknüpfung oder ihre Debug-Diagnose ist nicht robust genug.'],
     [str_contains($billing, 'contactById($remoteCustomerId)') && str_contains($billing, "['parent']['id']"), 'SevDesk-Ansprechpersonen werden nicht bis zum Hauptkunden aufgelöst.'],

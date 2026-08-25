@@ -29,6 +29,7 @@ final class MaintenanceJobHandler
         return match ($type) {
             'missing_reports' => self::missingReports($checkpoint, $current, $total, $tick),
             'report_migration' => self::reportMigration($checkpoint, $current, $total, $tick),
+            'all_report_regeneration' => self::allReportRegeneration($payload, $checkpoint, $current, $total, $tick),
             'phoenix_pdf_restore' => self::restorePhoenixPdfs($checkpoint, $current, $total, $tick),
             'measurement_migration' => self::measurementMigration($checkpoint, $current, $total, $tick),
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
@@ -447,6 +448,28 @@ final class MaintenanceJobHandler
         }
 
         self::writeMarker($marker, ['version' => 3, 'last_id' => $lastId, 'completed' => true, 'completed_at' => date(DATE_ATOM), 'created' => $created]);
+        return ['created' => $created, 'processed' => $current];
+    }
+
+    /** Regenerates every report-capable current inspection after a data repair. */
+    private static function allReportRegeneration(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $created = max(0, (int) ($checkpoint['created'] ?? 0));
+        $eligible = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
+        if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
+
+        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            self::renderReport($lastId, true);
+            $current++;
+            $created++;
+            $checkpoint = ['last_id' => $lastId, 'created' => $created];
+            $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), 'Prüfbericht wurde nach dem Datenabgleich neu erzeugt.');
+        }
+
+        $marker = trim((string) ($payload['completion_marker'] ?? ''));
+        if ($marker !== '') self::writeMarker($marker, ['completed' => true, 'completed_at' => date(DATE_ATOM), 'created' => $created]);
         return ['created' => $created, 'processed' => $current];
     }
 

@@ -164,7 +164,10 @@ try {
         }
     }
     $benningDirectory = trim((string) (get_app_config('benning_reimport_directory', '') ?: getenv('PRUEFAPP_BENNING_REIMPORT_DIR')));
-    $benningImportMarker = $migrationRoot . '/benning-import-v3.done';
+    // v4 repairs ODS Regiezeit values that previous CSV/ODS imports dropped.
+    // The configured GUI path remains the only source; no hidden path is
+    // introduced by the cron job.
+    $benningImportMarker = $migrationRoot . '/benning-import-regie-v1.done';
     if ($benningDirectory !== '' && is_dir($benningDirectory) && !is_file($benningImportMarker)) {
         $reportsDirectory = trim((string) (get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_BENNING_REPORTS_DIR')));
         BackgroundJobService::enqueue('directory_import', [
@@ -172,7 +175,21 @@ try {
             'directory' => $benningDirectory,
             'reports_directory' => $reportsDirectory,
             'completion_marker' => $benningImportMarker,
-        ], ['dedupe_key' => 'maintenance:benning-import:v3', 'cancellable' => false]);
+        ], ['dedupe_key' => 'maintenance:benning-import-regie:v1', 'cancellable' => false]);
+    }
+    $allReportsMarker = $migrationRoot . '/benning-import-regie-reports-v1.done';
+    if (is_file($benningImportMarker) && !is_file($allReportsMarker)) {
+        $eligibleReports = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
+        $reportTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligibleReports}");
+        if ($reportTotal > 0) {
+            BackgroundJobService::enqueue('all_report_regeneration', ['type' => 'all_report_regeneration', 'completion_marker' => $allReportsMarker], [
+                'total' => $reportTotal,
+                'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v1',
+                'cancellable' => false,
+            ]);
+        } else {
+            file_put_contents($allReportsMarker, json_encode(['completed' => true, 'created' => 0, 'completed_at' => date(DATE_ATOM)]), LOCK_EX);
+        }
     }
     // Report jobs must only see canonical data. This gate also prevents the
     // older JSON/measurement maintenance paths from racing the new migration.
