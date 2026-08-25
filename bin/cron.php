@@ -209,17 +209,32 @@ try {
         $eligibleReports = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
         $reportTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligibleReports}");
         if ($reportTotal > 0) {
-            $supersededReports = BackgroundJobService::supersedePendingType('all_report_regeneration', 'Wird durch einen neueren vollständigen Berichtslauf ersetzt.');
-            if ($supersededReports > 0) $log($supersededReports . ' älterer Berichtslauf/-läufe werden durch den aktuellen Datenabgleich ersetzt.', 'info');
-            BackgroundJobService::enqueue('all_report_regeneration', [
-                'type' => 'all_report_regeneration',
-                'completion_config_key' => 'benning_import_regie_reports_version',
-                'completion_config_value' => $allReportsVersion,
-            ], [
-                'total' => $reportTotal,
-                'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v3',
-                'cancellable' => true,
-            ]);
+            $replacementAlreadyRunning = false;
+            foreach (BackgroundJobService::pending(1000) as $reportJob) {
+                if ((string) ($reportJob['type'] ?? '') !== 'all_report_regeneration') continue;
+                $payload = (array) ($reportJob['payload'] ?? []);
+                if ((string) ($payload['completion_config_key'] ?? '') === 'benning_import_regie_reports_version'
+                    && (string) ($payload['completion_config_value'] ?? '') === $allReportsVersion
+                ) {
+                    $replacementAlreadyRunning = true;
+                    break;
+                }
+            }
+            // Only replace an older run once. Otherwise every cron tick would
+            // cancel the freshly queued successor before it can make progress.
+            if (!$replacementAlreadyRunning) {
+                $supersededReports = BackgroundJobService::supersedePendingType('all_report_regeneration', 'Wird durch einen neueren vollständigen Berichtslauf ersetzt.');
+                if ($supersededReports > 0) $log($supersededReports . ' älterer Berichtslauf/-läufe werden durch den aktuellen Datenabgleich ersetzt.', 'info');
+                BackgroundJobService::enqueue('all_report_regeneration', [
+                    'type' => 'all_report_regeneration',
+                    'completion_config_key' => 'benning_import_regie_reports_version',
+                    'completion_config_value' => $allReportsVersion,
+                ], [
+                    'total' => $reportTotal,
+                    'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v3',
+                    'cancellable' => true,
+                ]);
+            }
         } else {
             set_app_config('benning_import_regie_reports_version', $allReportsVersion);
         }
