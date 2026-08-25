@@ -164,34 +164,20 @@ try {
         }
     }
     $benningDirectory = trim((string) (get_app_config('benning_reimport_directory', '') ?: getenv('PRUEFAPP_BENNING_REIMPORT_DIR')));
-    // v4 repairs ODS Regiezeit values that previous CSV/ODS imports dropped.
     // The configured GUI path remains the only source; no hidden path is
-    // introduced by the cron job.
-    // Version 6 only completes when a source actually exposes per-inspection
-    // Regiezeit: paired Benning CSV/ODS or a JSONL record with a Regie field.
-    $benningImportVersion = '6';
+    // introduced by the cron job. Version 7 is a complete, source-preserving
+    // re-import: it records every CSV/JSONL row on its inspection, keeps the
+    // current device master data intact and makes Phoenix source PDFs active.
+    // It deliberately runs once after deployment even when no Regie field is
+    // present, because the source/asset migration is independent of Regie.
+    $benningImportVersion = '7';
     $benningImportCompleted = (string) get_app_config('benning_import_regie_reimport_version', '') === $benningImportVersion;
-    $hasPairedRegieSource = false;
-    $hasJsonlRegieSource = false;
-    if ($benningDirectory !== '' && is_dir($benningDirectory)) {
-        try {
-            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($benningDirectory, FilesystemIterator::SKIP_DOTS));
-            foreach ($iterator as $candidate) {
-                if (!$candidate instanceof SplFileInfo || !$candidate->isFile() || strtolower($candidate->getExtension()) !== 'csv') continue;
-                if (is_file(substr($candidate->getPathname(), 0, -4) . '.ods')) { $hasPairedRegieSource = true; break; }
-            }
-            if (!$hasPairedRegieSource) {
-                foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($benningDirectory, FilesystemIterator::SKIP_DOTS)) as $candidate) {
-                    if (!$candidate instanceof SplFileInfo || !$candidate->isFile() || strtolower($candidate->getExtension()) !== 'jsonl') continue;
-                    $sample = (string) @file_get_contents($candidate->getPathname(), false, null, 0, 1048576);
-                    if (preg_match('/"[^"\\r\\n]*(?:regie|mehraufwand|zusätz|zusatz|extra(?:[ _-]?(?:work|aufwand))?|additional|arbeits(?:zeit|aufwand)|cost[ _-]?plus)[^"\\r\\n]*"\\s*:/iu', $sample) === 1) { $hasJsonlRegieSource = true; break; }
-                }
-            }
-        } catch (Throwable $exception) {
-            $log('Regie-Reimport: Importverzeichnis konnte nicht nach CSV/ODS-Paaren durchsucht werden.', 'warning', ['directory' => $benningDirectory, 'error' => $exception->getMessage()]);
-        }
-    }
-    if ($benningDirectory !== '' && is_dir($benningDirectory) && ($hasPairedRegieSource || $hasJsonlRegieSource) && !$benningImportCompleted) {
+    if ($benningDirectory !== '' && is_dir($benningDirectory) && !$benningImportCompleted) {
+        // A report generated before the source-preserving import may have
+        // replaced a Phoenix original. Stop it once; a complete report run is
+        // queued only after the import has finished.
+        $supersededReports = BackgroundJobService::supersedePendingType('all_report_regeneration', 'Wartet auf den vollständigen Quellen-Reimport.');
+        if ($supersededReports > 0) $log($supersededReports . ' Berichtslauf/-läufe warten auf den vollständigen Quellen-Reimport.', 'info');
         $reportsDirectory = trim((string) (get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_BENNING_REPORTS_DIR')));
         BackgroundJobService::enqueue('directory_import', [
             'type' => 'directory_import',
@@ -199,11 +185,11 @@ try {
             'reports_directory' => $reportsDirectory,
             'completion_config_key' => 'benning_import_regie_reimport_version',
             'completion_config_value' => $benningImportVersion,
-        ], ['dedupe_key' => 'maintenance:benning-import-regie:v2', 'cancellable' => false]);
-    } elseif ($benningDirectory !== '' && is_dir($benningDirectory) && !$hasPairedRegieSource && !$hasJsonlRegieSource && !$benningImportCompleted) {
-        $log('Regie-Reimport wartet: Es wurde weder ein CSV/ODS-Paar noch ein JSONL-Regiefeld gefunden.', 'warning', ['directory' => $benningDirectory]);
+        ], ['dedupe_key' => 'maintenance:inspection-source-reimport:v7', 'cancellable' => false]);
+    } elseif ($benningDirectory === '' || !is_dir($benningDirectory)) {
+        $log('Quellen-Reimport wartet: Das in der Importverwaltung hinterlegte Importverzeichnis ist nicht verfügbar.', 'warning', ['directory' => $benningDirectory]);
     }
-    $allReportsVersion = '3';
+    $allReportsVersion = '4';
     $allReportsCompleted = (string) get_app_config('benning_import_regie_reports_version', '') === $allReportsVersion;
     if ($benningImportCompleted && !$allReportsCompleted) {
         $eligibleReports = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
@@ -231,7 +217,7 @@ try {
                     'completion_config_value' => $allReportsVersion,
                 ], [
                     'total' => $reportTotal,
-                    'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v3',
+                    'dedupe_key' => 'maintenance:all-reports-after-source-reimport:v4',
                     'cancellable' => true,
                 ]);
             }
