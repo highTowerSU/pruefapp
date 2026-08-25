@@ -497,10 +497,13 @@ final class ElectricalInspectionImportService
             $derivedProtectionClass
         );
         $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
-        if (array_key_exists('regie_minutes', $record) || array_key_exists('regie_time_raw', $record)) {
-            $inspection->regie_minutes = $this->normalizeRegieMinutes($record['regie_minutes'] ?? $record['regie_time_raw'] ?? '');
+        $regie = $this->regieFromRecord($record);
+        if ($regie['found']) {
+            $inspection->regie_minutes = $this->normalizeRegieMinutes($regie['value']);
+            if (is_array($record['raw'] ?? null)) $record['raw']['import_regie_field'] = $regie['field'];
         }
-        if (array_key_exists('regie_reason', $record)) $inspection->regie_reason = trim((string) $record['regie_reason']);
+        $regieReason = $this->recordValueByNormalizedKeys($record, ['regiereason', 'regiegrund', 'mehraufwandgrund', 'additionalworkreason']);
+        if ($regieReason['found']) $inspection->regie_reason = trim((string) $regieReason['value']);
         $inspection->result_status = InspectionEvaluationService::normalizeStatus(
             (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null))
         );
@@ -935,6 +938,38 @@ final class ElectricalInspectionImportService
         // values in the ODS "Regiezeit" column are already whole minutes.
         if ($hours || (str_contains($numberText, '.') && $number >= 0 && $number <= 24)) $number *= 60;
         return max(0, (int) round($number));
+    }
+
+    /** @param array<string,mixed> $record @return array{found:bool,value:mixed,field:string} */
+    private function regieFromRecord(array $record): array
+    {
+        return $this->recordValueByNormalizedKeys($record, [
+            'regieminutes', 'regieminute', 'regiezeit', 'regiezeitminuten', 'regiezeitminute', 'regiezeitmin',
+            'regietime', 'regietimeraw', 'regie', 'mehraufwand', 'mehraufwandminuten', 'mehraufwandmin',
+            'additionalwork', 'additionalworkminutes', 'additionaltime',
+        ]);
+    }
+
+    /** Finds a scalar import field by key, including one nested JSON object. */
+    private function recordValueByNormalizedKeys(array $record, array $acceptedKeys): array
+    {
+        $wanted = array_fill_keys($acceptedKeys, true);
+        $stack = [['data' => $record, 'prefix' => '', 'depth' => 0]];
+        while ($stack !== []) {
+            $current = array_pop($stack);
+            foreach ((array) $current['data'] as $key => $value) {
+                $field = trim((string) $key);
+                $normalized = strtolower(preg_replace('/[^a-z0-9]+/i', '', $field) ?: '');
+                $path = (string) $current['prefix'] . $field;
+                if (isset($wanted[$normalized]) && !is_array($value) && trim((string) $value) !== '') {
+                    return ['found' => true, 'value' => $value, 'field' => $path];
+                }
+                if (is_array($value) && (int) $current['depth'] < 1) {
+                    $stack[] = ['data' => $value, 'prefix' => $path . '.', 'depth' => (int) $current['depth'] + 1];
+                }
+            }
+        }
+        return ['found' => false, 'value' => '', 'field' => ''];
     }
 
     private function matchingOdsPath(string $csvPath): ?string

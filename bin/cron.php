@@ -167,11 +167,12 @@ try {
     // v4 repairs ODS Regiezeit values that previous CSV/ODS imports dropped.
     // The configured GUI path remains the only source; no hidden path is
     // introduced by the cron job.
-    // Version 2 only completes when the paired Benning CSV/ODS source is
-    // present. A JSONL export alone does not contain per-inspection Regiezeit.
-    $benningImportVersion = '2';
+    // Version 3 only completes when a source actually exposes per-inspection
+    // Regiezeit: paired Benning CSV/ODS or a JSONL record with a Regie field.
+    $benningImportVersion = '3';
     $benningImportCompleted = (string) get_app_config('benning_import_regie_reimport_version', '') === $benningImportVersion;
     $hasPairedRegieSource = false;
+    $hasJsonlRegieSource = false;
     if ($benningDirectory !== '' && is_dir($benningDirectory)) {
         try {
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($benningDirectory, FilesystemIterator::SKIP_DOTS));
@@ -179,11 +180,18 @@ try {
                 if (!$candidate instanceof SplFileInfo || !$candidate->isFile() || strtolower($candidate->getExtension()) !== 'csv') continue;
                 if (is_file(substr($candidate->getPathname(), 0, -4) . '.ods')) { $hasPairedRegieSource = true; break; }
             }
+            if (!$hasPairedRegieSource) {
+                foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($benningDirectory, FilesystemIterator::SKIP_DOTS)) as $candidate) {
+                    if (!$candidate instanceof SplFileInfo || !$candidate->isFile() || strtolower($candidate->getExtension()) !== 'jsonl') continue;
+                    $sample = (string) @file_get_contents($candidate->getPathname(), false, null, 0, 1048576);
+                    if (preg_match('/"[^"\\r\\n]*(?:regie|mehraufwand)[^"\\r\\n]*"\\s*:/iu', $sample) === 1) { $hasJsonlRegieSource = true; break; }
+                }
+            }
         } catch (Throwable $exception) {
             $log('Regie-Reimport: Importverzeichnis konnte nicht nach CSV/ODS-Paaren durchsucht werden.', 'warning', ['directory' => $benningDirectory, 'error' => $exception->getMessage()]);
         }
     }
-    if ($benningDirectory !== '' && is_dir($benningDirectory) && $hasPairedRegieSource && !$benningImportCompleted) {
+    if ($benningDirectory !== '' && is_dir($benningDirectory) && ($hasPairedRegieSource || $hasJsonlRegieSource) && !$benningImportCompleted) {
         $reportsDirectory = trim((string) (get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_BENNING_REPORTS_DIR')));
         BackgroundJobService::enqueue('directory_import', [
             'type' => 'directory_import',
@@ -192,8 +200,8 @@ try {
             'completion_config_key' => 'benning_import_regie_reimport_version',
             'completion_config_value' => $benningImportVersion,
         ], ['dedupe_key' => 'maintenance:benning-import-regie:v2', 'cancellable' => false]);
-    } elseif ($benningDirectory !== '' && is_dir($benningDirectory) && !$hasPairedRegieSource && !$benningImportCompleted) {
-        $log('Regie-Reimport wartet: Es wurde kein zusammengehöriges CSV/ODS-Paar gefunden. JSON/JSONL allein enthält keine Regiezeiten.', 'warning', ['directory' => $benningDirectory]);
+    } elseif ($benningDirectory !== '' && is_dir($benningDirectory) && !$hasPairedRegieSource && !$hasJsonlRegieSource && !$benningImportCompleted) {
+        $log('Regie-Reimport wartet: Es wurde weder ein CSV/ODS-Paar noch ein JSONL-Regiefeld gefunden.', 'warning', ['directory' => $benningDirectory]);
     }
     $allReportsVersion = '2';
     $allReportsCompleted = (string) get_app_config('benning_import_regie_reports_version', '') === $allReportsVersion;
