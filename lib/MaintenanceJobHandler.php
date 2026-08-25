@@ -306,12 +306,15 @@ final class MaintenanceJobHandler
     }
 
     /**
-     * Archives only unequivocal re-import copies: same device, source type,
-     * source file, inspection number and test date.  Nothing is deleted.  If
-     * a historical/SevDesk import had linked the duplicate to an invoice, the
-     * invoice-item history is retained but its active allocation is released.
-     * This makes a later reconciliation show the real discrepancy instead of
-     * silently counting an import error as a billable device.
+     * Archives only unequivocal re-import copies.  Besides a repeat from the
+     * very same source file, this includes a Phoenix JSON export mirrored by
+     * its original Benning CSV record: same device, inspection number, date
+     * and result.  CSV is the primary measurement source, JSON the transport
+     * export.  Nothing is deleted.  If a historical/SevDesk import had linked
+     * the duplicate to an invoice, the invoice-item history is retained but
+     * its active allocation is released.  This makes a later reconciliation
+     * show the real discrepancy instead of silently counting an import error
+     * as a billable device.
      *
      * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
      */
@@ -322,27 +325,28 @@ final class MaintenanceJobHandler
         $released = max(0, (int) ($checkpoint['released'] ?? 0));
         if ($total <= 0) {
             $total = (int) R::getCell("SELECT COUNT(*) FROM inspection later
-                WHERE later.id > (SELECT MIN(earlier.id) FROM inspection earlier
-                    WHERE earlier.device_id=later.device_id
-                      AND earlier.source_type=later.source_type
-                      AND COALESCE(earlier.source_file,'')=COALESCE(later.source_file,'')
-                      AND earlier.external_number=later.external_number
-                      AND earlier.test_date=later.test_date)
-                  AND later.source_type IN ('csv','json')
+                WHERE later.source_type='json'
+                  AND EXISTS (SELECT 1 FROM inspection canonical
+                    WHERE canonical.device_id=later.device_id
+                      AND canonical.source_type='csv'
+                      AND canonical.external_number=later.external_number
+                      AND canonical.test_date=later.test_date
+                      AND COALESCE(canonical.result_status,'')=COALESCE(later.result_status,'')
+                      AND COALESCE(canonical.archived_at,'')='')
                   AND TRIM(COALESCE(later.source_file,''))<>''
                   AND TRIM(COALESCE(later.external_number,''))<>''
                   AND TRIM(COALESCE(later.test_date,''))<>''
                   AND COALESCE(later.archived_at,'')='' ");
         }
-        while ($row = R::getRow("SELECT later.id AS duplicate_id, MIN(earlier.id) AS canonical_id, later.external_number, later.test_date
+        while ($row = R::getRow("SELECT later.id AS duplicate_id, MIN(canonical.id) AS canonical_id, later.external_number, later.test_date
             FROM inspection later
-            JOIN inspection earlier ON earlier.device_id=later.device_id
-              AND earlier.source_type=later.source_type
-              AND COALESCE(earlier.source_file,'')=COALESCE(later.source_file,'')
-              AND earlier.external_number=later.external_number
-              AND earlier.test_date=later.test_date
-              AND earlier.id<later.id
-            WHERE later.id>? AND later.source_type IN ('csv','json')
+            JOIN inspection canonical ON canonical.device_id=later.device_id
+              AND canonical.source_type='csv'
+              AND canonical.external_number=later.external_number
+              AND canonical.test_date=later.test_date
+              AND COALESCE(canonical.result_status,'')=COALESCE(later.result_status,'')
+              AND COALESCE(canonical.archived_at,'')=''
+            WHERE later.id>? AND later.source_type='json'
               AND TRIM(COALESCE(later.source_file,''))<>''
               AND TRIM(COALESCE(later.external_number,''))<>''
               AND TRIM(COALESCE(later.test_date,''))<>''
@@ -357,7 +361,7 @@ final class MaintenanceJobHandler
                 $duplicate = R::load('inspection', $duplicateId);
                 if (!(int) $duplicate->id || trim((string) $duplicate->archived_at) !== '') { R::commit(); continue; }
                 $now = date(DATE_ATOM);
-                $reason = 'Eindeutige Re-Importdublettenprüfung: gleiche Quelle, Prüfnummer und gleiches Prüfdatum; Originalprüfung #' . $canonicalId . '.';
+                $reason = 'Eindeutige Re-Importdublettenprüfung: Phoenix-JSON-Spiegelung einer gleichlautenden Benning-CSV (gleiches Gerät, Prüfnummer, Prüfdatum und Ergebnis); Originalprüfung #' . $canonicalId . '.';
                 $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$duplicateId]);
                 foreach ($activeItems as $item) {
                     $item->active = 0;
@@ -389,7 +393,7 @@ final class MaintenanceJobHandler
             $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
             $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Eindeutige Re-Importdublettenprüfung archiviert und aus aktiven Rechnungszuordnungen gelöst.');
         }
-        set_app_config('inspection_duplicate_archive_version', '1');
+        set_app_config('inspection_duplicate_archive_version', '2');
         return compact('archived', 'released');
     }
 
