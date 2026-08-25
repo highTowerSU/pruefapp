@@ -552,6 +552,17 @@ final class MaintenanceJobHandler
         $inspection = R::load('inspection', $inspectionId);
         $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
         if (!$inspection->id || !$device || !$device->id) throw new RuntimeException('Prüfung oder Gerät wurde nicht gefunden.');
+        // Phoenix exports have an authoritative source PDF.  Do not replace
+        // it with a reconstructed current report; Benning imports do not have
+        // such a source file and continue through the normal generator below.
+        $existingReport = trim((string) ($inspection->report_path ?? ''));
+        $sourcePdf = $existingReport !== '' && !str_starts_with(ltrim($existingReport, '/'), 'reports/current/')
+            ? (str_starts_with($existingReport, '/') ? $existingReport : app_data_root() . '/' . $existingReport)
+            : '';
+        if ((string) ($inspection->source_type ?? '') === 'json' && $sourcePdf !== '' && is_file($sourcePdf)) {
+            InspectionDataService::registerReportAsset($inspectionId, 'legacy_original', $sourcePdf, true);
+            return;
+        }
         if ((string) ($inspection->classification ?? '') === 'legacy') throw new RuntimeException('Legacy-Berichte werden nicht neu erzeugt.');
         if (!InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification)) throw new RuntimeException('Die Prüfung ist nicht für einen Bericht freigegeben.');
         if (!examiner_has_report_signature((string) $inspection->examiner)) throw new RuntimeException('Der eingetragene Prüfer hat keine hinterlegte Unterschrift.');

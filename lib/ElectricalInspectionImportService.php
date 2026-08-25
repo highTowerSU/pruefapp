@@ -454,22 +454,33 @@ final class ElectricalInspectionImportService
         $date = $this->normalizeDate((string) ($record['test_date'] ?? $record['date'] ?? ''));
         $external = $this->yearNumber($rawExternal, $date);
         $dedupe = hash('sha256', implode('|', [$sourceType, $external, $slot, $date, (string) ($record['result_status'] ?? '')]));
-        $deviceResult = $this->findOrCreateDevice($record);
         $inspection = R::findOne('inspection', ' dedupe_key = ? ', [$dedupe]);
         if ($inspection === null && $rawExternal !== $external) {
             $legacyDedupe = hash('sha256', implode('|', [$sourceType, $rawExternal, $slot, $date, (string) ($record['result_status'] ?? '')]));
             $inspection = R::findOne('inspection', ' dedupe_key = ? ', [$legacyDedupe]);
         }
-        // A measurement export can arrive shortly after the inspector opened
-        // the same annual inspection manually. It supplements that unfinished
-        // row; it must never create a misleading "-2" inspection.
-        if ($inspection === null) {
-            $inspection = $this->findOpenInspectionForImport((int) $deviceResult['device']->id, $external);
+        // An import is evidence for a particular inspection, not authority to
+        // move the device master record.  In particular, re-importing a 2025
+        // Phoenix/Benning export must not put a device back into its old room
+        // or replace newer manufacturer/model data.
+        $deviceResult = null;
+        if ($inspection !== null && (int) ($inspection->device_id ?? 0) > 0) {
+            $existingDevice = R::load('device', (int) $inspection->device_id);
+            if ((int) $existingDevice->id > 0) $deviceResult = ['device' => $existingDevice, 'created' => false];
+        }
+        if ($deviceResult === null) {
+            $deviceResult = $this->findOrCreateDevice($record);
+            // A measurement export can arrive shortly after the inspector opened
+            // the same annual inspection manually. It supplements that unfinished
+            // row; it must never create a misleading "-2" inspection.
+            if ($inspection === null) {
+                $inspection = $this->findOpenInspectionForImport((int) $deviceResult['device']->id, $external);
+            }
         }
         $created = $inspection === null;
         $inspection ??= R::dispense('inspection');
         if (trim((string) ($inspection->public_id ?? '')) === '') $inspection->public_id = 'prf_' . bin2hex(random_bytes(16));
-        $inspection->device_id = (int) $deviceResult['device']->id;
+        if ($created || (int) ($inspection->device_id ?? 0) <= 0) $inspection->device_id = (int) $deviceResult['device']->id;
         $inspection->dedupe_key = $dedupe;
         $inspection->source_type = $sourceType;
         $inspection->source_file = basename($sourcePath);
@@ -538,10 +549,17 @@ final class ElectricalInspectionImportService
         $inspection->checklist_json = json_encode($record['checklist'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->raw_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $report = $this->copyReport($rawExternal);
-        if ($report !== null) $inspection->report_path = $report;
+        // Phoenix provides the original signed/source PDF.  It is the active
+        // report for that imported inspection; Benning has no such PDF and
+        // therefore remains eligible for a generated report.
+        if ($report !== null && $sourceType === 'json') $inspection->report_path = $report;
         $inspection->updated_at = date(DATE_ATOM);
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
         R::store($inspection);
+        $this->persistSourceSnapshot($inspection, $sourceType, $sourcePath, $record, $report);
+        if ($report !== null && $sourceType === 'json') {
+            InspectionDataService::registerReportAsset((int) $inspection->id, 'legacy_original', app_data_root() . '/' . $report, true);
+        }
         $deviceInfo = ['id' => (int) $deviceResult['device']->id, 'number' => $external, 'name' => (string) $deviceResult['device']->name];
         audit_log($created ? 'import_datensatz_importiert' : 'import_datensatz_aktualisiert', [
             '_correlation_id' => (string) ($record['_audit_correlation_id'] ?? ''),
@@ -593,7 +611,9 @@ final class ElectricalInspectionImportService
         $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
         $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' external_number = ? ', [$legacy]) : null;
         $device ??= $external !== '' ? R::findOne('device', ' legacy_number = ? ', [$external]) : null;
-        $device ??= $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
+        // Speicherplätze are export-local.  They are only a last resort when
+        // an old row has no durable device number at all.
+        $device ??= $external === '' && $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
         $created = $device === null;
         if (!$created && $legacy !== '' && $legacy !== '-' && $external !== '') {
             $oldDevices = R::findAll('device', ' (legacy_number = ? OR external_number = ?) AND id <> ? ', [$legacy, $legacy, (int) $device->id]);
@@ -606,13 +626,13 @@ final class ElectricalInspectionImportService
             }
         }
         $device ??= R::dispense('device');
-        $device->external_number = $external;
-        $device->legacy_number = $legacy === '-' ? '' : $legacy;
-        $device->storage_slot = $slot;
-        if (array_key_exists('warming_device', $record)) $device->warming_device = filter_var($record['warming_device'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+        if ($created || trim((string) ($device->external_number ?? '')) === '') $device->external_number = $external;
+        if ($created || trim((string) ($device->legacy_number ?? '')) === '') $device->legacy_number = $legacy === '-' ? '' : $legacy;
+        if ($created || trim((string) ($device->storage_slot ?? '')) === '') $device->storage_slot = $slot;
+        if (array_key_exists('warming_device', $record) && ($created || !isset($device->warming_device))) $device->warming_device = filter_var($record['warming_device'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
-        if ($room !== '') $device->room_snapshot = $room;
-        $roomBean = $this->ensureImportedRoom($record, $room);
+        if ($room !== '' && ($created || trim((string) ($device->room_snapshot ?? '')) === '')) $device->room_snapshot = $room;
+        $roomBean = ($created || !(int) ($device->room_id ?? 0)) ? $this->ensureImportedRoom($record, $room) : null;
         if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         $recordVocabulary = DeviceVocabularyService::canonicalizeDeviceValues([
             'name' => (string) ($record['device_type'] ?? $record['device_model'] ?? ''),
@@ -623,17 +643,17 @@ final class ElectricalInspectionImportService
         if ($this->isProtectionClass($preferredName)) $preferredName = '';
         $currentName = trim((string) ($device->name ?? ''));
         $legacyModelName = trim((string) ($record['device_model'] ?? ''));
-        if ($preferredName !== '' && ($legacy !== '' || $currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
+        if ($preferredName !== '' && ($created || $currentName === '' || $currentName === $external || $currentName === $legacyModelName || str_starts_with($currentName, 'Gerät '))) $device->name = $preferredName;
         if (trim((string) ($device->name ?? '')) === '' || $this->isProtectionClass((string) $device->name)) $device->name = 'Gerät ' . ($external ?: $slot);
         foreach (['device_model' => 'device_model', 'manufacturer' => 'manufacturer', 'serial_number' => 'serial_number', 'inventory_number' => 'inventory_number'] as $target => $source) {
-            if (!empty($record[$source])) $device->$target = isset($recordVocabulary[$target]) ? $recordVocabulary[$target] : $this->importValue((string) $record[$source]);
+            if (!empty($record[$source]) && ($created || trim((string) ($device->$target ?? '')) === '')) $device->$target = isset($recordVocabulary[$target]) ? $recordVocabulary[$target] : $this->importValue((string) $record[$source]);
         }
         $serial = trim((string) ($record['serial_number'] ?? $record['serial'] ?? ''));
-        if ($serial !== '') $device->serial_number = $this->importValue($serial);
+        if ($serial !== '' && ($created || trim((string) ($device->serial_number ?? '')) === '')) $device->serial_number = $this->importValue($serial);
         $description = trim((string) ($record['free_text'] ?? $record['device_note'] ?? ''));
         if ($description !== '' && trim((string) ($device->comment ?? '')) === '') $device->comment = mb_substr($description, 0, 1000);
-        if (!empty($record['comment'])) $device->comment = (string) $record['comment'];
-        if ($room !== '') {
+        if (!empty($record['comment']) && ($created || trim((string) ($device->comment ?? '')) === '')) $device->comment = (string) $record['comment'];
+        if ($room !== '' && ($created || !(int) ($device->room_id ?? 0))) {
             $roomBean = $this->findRoomByIdentifier($room);
             if ($roomBean !== null) $device->room_id = (int) $roomBean->id;
         }
@@ -882,6 +902,48 @@ final class ElectricalInspectionImportService
         $target = $this->storageRoot . '/' . $name;
         if (!is_file($target)) copy($this->reportsByNumber[$number], $target);
         return 'reports/' . $name;
+    }
+
+    /** @param array<string,mixed> $record */
+    private function persistSourceSnapshot(
+        \RedBeanPHP\OODBBean $inspection,
+        string $sourceType,
+        string $sourcePath,
+        array $record,
+        ?string $report
+    ): void {
+        $inspectionId = (int) $inspection->id;
+        if ($inspectionId <= 0) return;
+        $sourceRow = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
+        $originalPath = $report !== null && $sourceType === 'json' ? app_data_root() . '/' . $report : '';
+        $existing = R::getRow('SELECT id, original_report_path, original_report_checksum FROM inspection_source_snapshot WHERE inspection_id = ?', [$inspectionId]);
+        if ($existing !== []) {
+            // source_row_json intentionally follows the latest import file;
+            // legacy_row_json remains the immutable pre-migration snapshot.
+            $keepPath = trim((string) ($existing['original_report_path'] ?? ''));
+            $path = $originalPath !== '' ? $originalPath : $keepPath;
+            $checksum = $path !== '' && is_file($path) ? (string) hash_file('sha256', $path) : (string) ($existing['original_report_checksum'] ?? '');
+            R::exec(
+                'UPDATE inspection_source_snapshot SET source_type = ?, source_file = ?, source_row_json = ?, original_report_path = ?, original_report_checksum = ? WHERE inspection_id = ?',
+                [$sourceType, basename($sourcePath), $sourceRow, $path, $checksum, $inspectionId]
+            );
+            return;
+        }
+        $classification = trim((string) ($inspection->classification ?? ''));
+        R::exec(
+            'INSERT INTO inspection_source_snapshot (inspection_id, classification, source_type, source_file, source_row_json, legacy_row_json, original_report_path, original_report_checksum, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $inspectionId,
+                $classification,
+                $sourceType,
+                basename($sourcePath),
+                $sourceRow,
+                json_encode($inspection->export(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}',
+                $originalPath,
+                $originalPath !== '' && is_file($originalPath) ? (string) hash_file('sha256', $originalPath) : '',
+                date(DATE_ATOM),
+            ]
+        );
     }
 
     /** @return array<string, array<string, mixed>> */
