@@ -2,16 +2,32 @@
   <div><h1 class="h3 mb-1">Rechnung #<?= (int) $invoice->id ?></h1><p class="text-body-secondary mb-0">Abrechnungsnachweis und verknüpfte Prüfungen</p></div>
   <a class="btn btn-outline-secondary" href="<?= htmlspecialchars(url_for('admin/abrechnung'), ENT_QUOTES) ?>">Zur Abrechnung</a>
 </div>
+<?php
+$reconciliation = $reconciliation ?? [];
+$formatQuantity = static function (mixed $value): string {
+  $number = (float) $value;
+  return fmod($number, 1.0) === 0.0 ? (string) (int) $number : rtrim(rtrim(number_format($number, 3, ',', '.'), '0'), ',');
+};
+$sevDeskPositions = array_map(static function (array $position) use ($formatQuantity): string {
+  $suffix = BillingController::displaySevDeskUnit((string) ($position['unit'] ?? ''));
+  $label = trim((string) ($position['name'] ?? ''));
+  $line = trim($formatQuantity($position['quantity'] ?? 0) . ' ' . $suffix . ' ' . $label);
+  if ((string) ($position['suggested_kind'] ?? '') === 'regie' && (int) ($position['regie_minutes'] ?? 0) > 0) {
+    $line .= ' (' . (int) $position['regie_minutes'] . ' Min. Regie)';
+  }
+  return $line;
+}, $reconciliation['positions'] ?? []);
+?>
 <dl class="row">
   <dt class="col-sm-3">Rechnungsnummer</dt><dd class="col-sm-9"><?= htmlspecialchars((string) ($invoice->invoice_number ?: '—')) ?></dd>
   <dt class="col-sm-3">SevDesk-ID</dt><dd class="col-sm-9"><?= htmlspecialchars((string) ($invoice->sevdesk_invoice_id ?: '—')) ?><?php if (trim((string) ($invoice->sevdesk_url ?? '')) !== ''): ?> · <a href="<?= htmlspecialchars((string) $invoice->sevdesk_url, ENT_QUOTES) ?>" target="_blank" rel="noopener">In SevDesk öffnen</a><?php endif; ?></dd>
   <dt class="col-sm-3">SevDesk-Rechnungsnummer</dt><dd class="col-sm-9"><?= htmlspecialchars((string) ($invoice->sevdesk_invoice_number ?: '—')) ?></dd>
   <dt class="col-sm-3">Datum</dt><dd class="col-sm-9"><?= htmlspecialchars((string) ($invoice->invoice_date ?: '—')) ?></dd>
+  <dt class="col-sm-3">SevDesk-Positionen</dt><dd class="col-sm-9"><?= $sevDeskPositions === [] ? '—' : htmlspecialchars(implode(' · ', $sevDeskPositions)) ?></dd>
   <dt class="col-sm-3">Leistungszeitraum</dt><dd class="col-sm-9"><?php $from = trim((string) ($invoice->performance_date_from ?? '')); $until = trim((string) ($invoice->performance_date_until ?? '')); ?><?= htmlspecialchars($from === '' ? '—' : ($from === $until || $until === '' ? $from : $from . ' bis ' . $until)) ?></dd>
   <?php if (trim((string) ($invoice->recipient_address ?? '')) !== ''): ?><dt class="col-sm-3">Rechnungsempfänger</dt><dd class="col-sm-9"><?= nl2br(htmlspecialchars((string) $invoice->recipient_address)) ?></dd><?php endif; ?>
   <dt class="col-sm-3">Status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary"><?= htmlspecialchars((string) $invoice->status) ?></span></dd>
 </dl>
-<?php $reconciliation = $reconciliation ?? []; ?>
 <section class="card mb-4" id="billing-reconciliation">
   <div class="card-header fw-semibold"><i class="fa-solid fa-scale-balanced me-2" aria-hidden="true"></i>Rechnungsabgleich</div>
   <div class="card-body">
@@ -44,9 +60,9 @@
     <?php endif; ?>
   </div>
 </section>
-<?php if (current_user_is_superadmin()): $suggestion = $suggestion ?? ['candidates' => [], 'reason' => '']; $devicePositions = array_values(array_filter($reconciliation['positions'] ?? [], static fn(array $position): bool => (string) $position['kind'] === 'device')); $regiePositions = array_values(array_filter($reconciliation['positions'] ?? [], static fn(array $position): bool => (string) $position['kind'] === 'regie')); ?>
+<?php if (current_user_is_superadmin()): $suggestion = $suggestion ?? ['candidates' => [], 'reason' => '']; $devicePositions = array_values(array_filter($reconciliation['positions'] ?? [], static fn(array $position): bool => in_array((string) $position['kind'], ['device'], true) || ((string) $position['kind'] === 'unclassified' && (string) $position['suggested_kind'] === 'device'))); $regiePositions = array_values(array_filter($reconciliation['positions'] ?? [], static fn(array $position): bool => in_array((string) $position['kind'], ['regie'], true) || ((string) $position['kind'] === 'unclassified' && (string) $position['suggested_kind'] === 'regie'))); ?>
 <details class="card mb-4"<?= $suggestion['candidates'] !== [] ? ' open' : '' ?>><summary class="card-header fw-semibold"><i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Zuordnungsvorschlag prüfen<?= $suggestion['candidates'] !== [] ? ' · ' . count($suggestion['candidates']) . ' Prüfungen' : '' ?></summary><div class="card-body">
-  <p class="small text-body-secondary"><?= htmlspecialchars((string) $suggestion['reason']) ?> Es wird nichts automatisch abgerechnet oder zugeordnet.</p>
+  <p class="small text-body-secondary"><?= htmlspecialchars((string) $suggestion['reason']) ?> Es wird nichts automatisch abgerechnet oder zugeordnet. Mit der bestätigten Sammelzuordnung werden die oben vorgeschlagenen Positionsarten verbindlich gespeichert.</p>
   <?php if ($suggestion['candidates'] !== [] && $devicePositions !== []): $remainingRegie = max(0, (int) ($reconciliation['regieTarget'] ?? 0) - (int) ($reconciliation['regieActual'] ?? 0)); ?><form method="post" action="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/historisch-zuordnen-sammeln'), ENT_QUOTES) ?>"><div class="table-responsive mb-3"><table class="table table-sm align-middle"><thead><tr><th><span class="visually-hidden">Auswahl</span></th><th>Prüfung</th><th>Datum</th><th>Gerät</th><th>Ergebnis</th><th>Regie</th></tr></thead><tbody><?php foreach ($suggestion['candidates'] as $candidate): ?><tr><td><input class="form-check-input" type="checkbox" name="inspection_ids[]" value="<?= (int) $candidate['id'] ?>" checked aria-label="<?= htmlspecialchars((string) $candidate['external_number'], ENT_QUOTES) ?> zuordnen"></td><td><?= htmlspecialchars((string) $candidate['external_number']) ?></td><td><?= htmlspecialchars((string) $candidate['test_date']) ?></td><td><?= htmlspecialchars((string) $candidate['device_number'] . ' · ' . $candidate['device_name']) ?></td><td><?= htmlspecialchars((string) $candidate['result_status']) ?></td><td><?= (int) $candidate['regie_minutes'] ?> Min.</td></tr><?php endforeach; ?></tbody></table></div><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Als Geräteposition zuordnen</label><select class="form-select" name="device_position_id" required><?php foreach ($devicePositions as $position): ?><option value="<?= (int) $position['id'] ?>"><?= htmlspecialchars((string) $position['position_number'] . ' · ' . $position['name']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Regieposition</label><select class="form-select" name="regie_position_id"><option value="">Keine Regie zuordnen</option><?php foreach ($regiePositions as $position): ?><option value="<?= (int) $position['id'] ?>"<?= $remainingRegie > 0 && $position === $regiePositions[0] ? ' selected' : '' ?>><?= htmlspecialchars((string) $position['position_number'] . ' · ' . $position['name']) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Historische Regie</label><div class="input-group"><input class="form-control" type="number" name="historical_regie_minutes" min="0" value="<?= $remainingRegie ?>" aria-describedby="historical-regie-help"><span class="input-group-text">Min.</span></div></div><div class="col-md-3"><label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" required> <span class="form-check-label">Liste geprüft</span></label><button class="btn btn-primary w-100" type="submit"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Auswahl gesammelt zuordnen</button></div><div class="col-12"><div class="form-text" id="historical-regie-help">Die Rechnung weist <?= $remainingRegie ?> Min. Regie aus. Diese werden nur in der Abrechnungszuordnung gleichmäßig auf die bestätigte Auswahl verteilt; originale Prüf- und Messdaten bleiben unverändert.</div></div></div></form><?php elseif ($suggestion['candidates'] !== []): ?><div class="alert alert-warning mb-0">Bitte oben mindestens eine Rechnungsposition als „Geräte“ bestätigen. Danach steht der Sammelvorschlag bereit.</div><?php endif; ?>
 </div></details>
 <?php endif; ?>

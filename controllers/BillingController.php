@@ -354,17 +354,39 @@ final class BillingController
         $positions = [$devicePositionId]; if ($regiePositionId > 0) $positions[] = $regiePositionId;
         if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceposition WHERE invoice_id=? AND id IN (' . implode(',', array_fill(0, count($positions), '?')) . ')', array_merge([$invoiceId], $positions)) !== count($positions)) return [422, [], 'Die gewählte Rechnungsposition gehört nicht zu dieser Rechnung.'];
         $devicePosition = R::load('billinginvoiceposition', $devicePositionId);
-        if ((string) $devicePosition->kind !== 'device') return [422, [], 'Bitte zuerst eine Geräteposition als „Geräte“ klassifizieren.'];
+        $deviceKind = self::effectivePositionKind([
+            'kind' => (string) $devicePosition->kind,
+            'suggested_kind' => (string) $devicePosition->suggested_kind,
+        ]);
+        if ($deviceKind !== 'device') return [422, [], 'Bitte eine Geräteposition auswählen.'];
+        $regiePosition = null;
         if ($historicalRegieTotal > 0 && $regiePositionId <= 0) return [422, [], 'Für die historische Regiezeit bitte eine Regieposition auswählen.'];
         if ($regiePositionId > 0) {
             $regiePosition = R::load('billinginvoiceposition', $regiePositionId);
-            if ((string) $regiePosition->kind !== 'regie') return [422, [], 'Die ausgewählte Regieposition ist nicht als Regie klassifiziert.'];
+            $regieKind = self::effectivePositionKind([
+                'kind' => (string) $regiePosition->kind,
+                'suggested_kind' => (string) $regiePosition->suggested_kind,
+            ]);
+            if ($regieKind !== 'regie') return [422, [], 'Die ausgewählte Rechnungsposition ist keine Regieposition.'];
         }
         $inspections = R::findAll('inspection', ' id IN (' . implode(',', array_fill(0, count($inspectionIds), '?')) . ') ', $inspectionIds);
         if (count($inspections) !== count($inspectionIds)) return [404, [], 'Mindestens eine Prüfung wurde nicht gefunden.'];
         foreach ($inspectionIds as $inspectionId) if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceitem WHERE inspection_id=? AND active=1', [$inspectionId]) > 0) return [409, [], 'Mindestens eine ausgewählte Prüfung besitzt bereits eine aktive Rechnungszuordnung.'];
         R::begin();
         try {
+            // The read-only SevDesk import provides a safe classification
+            // proposal. Confirming the reviewed batch makes that proposal
+            // explicit in the same transaction as the actual assignments.
+            if ((string) $devicePosition->kind === 'unclassified') {
+                $devicePosition->kind = 'device';
+                $devicePosition->updated_at = date(DATE_ATOM);
+                R::store($devicePosition);
+            }
+            if ($regiePosition && (string) $regiePosition->kind === 'unclassified') {
+                $regiePosition->kind = 'regie';
+                $regiePosition->updated_at = date(DATE_ATOM);
+                R::store($regiePosition);
+            }
             $remainingRegie = $historicalRegieTotal;
             $remainingInspections = count($inspectionIds);
             foreach ($inspectionIds as $inspectionId) {
@@ -477,11 +499,12 @@ final class BillingController
             $rawUnit = (string) (($position['unity']['name'] ?? '') ?: ($position['unity']['id'] ?? ''));
             $item->name = $name; $item->details = $details; $item->quantity = (float) ($position['quantity'] ?? 0); $item->unit = self::displaySevDeskUnit($rawUnit);
             $item->suggested_kind = preg_match('/regie|mehraufwand|zeit/i', $name . ' ' . $details) ? 'regie' : 'device';
-            if ($item->suggested_kind === 'regie' && (!in_array((string) $item->kind, ['regie', 'other'], true) || (int) $item->regie_minutes <= 0)) {
+            if ($item->suggested_kind === 'regie' && (string) $item->kind !== 'other') {
                 // Historical Malteser invoices store Mehraufwand as counted
                 // three-minute units (e.g. 8 = 24 min), despite using Stk.
-                // as the SevDesk unity.  The position title is the decisive
-                // signal; a normal device quantity must never be converted.
+                // Recalculate on every sync: old imports treated those rows
+                // as hours, although a true hour unit (e.g. 2.2 h) remains
+                // correctly converted to 132 minutes.
                 $item->regie_minutes = $item->unit === 'Stk.'
                     ? (int) round((float) $item->quantity * 3)
                     : (preg_match('/min(?:ute)?/i', (string) $item->unit)
@@ -576,8 +599,12 @@ final class BillingController
     {
         $positions = R::getAll('SELECT * FROM billinginvoiceposition WHERE invoice_id=? ORDER BY CAST(position_number AS INTEGER), id', [$invoiceId]);
         $items = R::getAll('SELECT * FROM billinginvoiceitem WHERE invoice_id=? AND active=1', [$invoiceId]);
-        $deviceTarget = array_sum(array_map(static fn(array $p): float => (string) $p['kind'] === 'device' ? (float) $p['quantity'] : 0.0, $positions));
-        $regieTarget = array_sum(array_map(static fn(array $p): int => (string) $p['kind'] === 'regie' ? (int) $p['regie_minutes'] : 0, $positions));
+        // Suggestions are deliberately not treated as a confirmed mapping,
+        // but they must already be visible in the read-only reconciliation.
+        // Otherwise a clear SevDesk value such as 2.2 h disappears until an
+        // unrelated intermediate save was made in the UI.
+        $deviceTarget = array_sum(array_map(static fn(array $p): float => self::effectivePositionKind($p) === 'device' ? (float) $p['quantity'] : 0.0, $positions));
+        $regieTarget = array_sum(array_map(static fn(array $p): int => self::effectivePositionKind($p) === 'regie' ? (int) $p['regie_minutes'] : 0, $positions));
         $deviceActual = array_sum(array_map(static fn(array $item): float => (float) $item['quantity'], $items));
         $regieActual = array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $items));
         $duplicates = (int) R::getCell('SELECT COUNT(*) FROM (SELECT i.external_number FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id WHERE bi.invoice_id=? AND bi.active=1 GROUP BY i.external_number HAVING COUNT(*)>1) duplicates', [$invoiceId]);
@@ -585,6 +612,15 @@ final class BillingController
         $invoice = R::load('billinginvoice', $invoiceId);
         $result = (string) $invoice->status === 'cancelled' ? 'storniert' : ($unclassified > 0 || $items === [] ? 'Zuordnung unvollständig' : (abs($deviceTarget - $deviceActual) > 0.0001 ? 'Geräteanzahl abweichend' : ($regieTarget !== $regieActual ? 'Regiezeit abweichend' : ($duplicates > 0 ? 'Zuordnung unvollständig' : 'vollständig passend'))));
         return compact('positions', 'items', 'deviceTarget', 'deviceActual', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
+    }
+
+    /** @param array<string,mixed> $position */
+    private static function effectivePositionKind(array $position): string
+    {
+        $kind = (string) ($position['kind'] ?? '');
+        if (in_array($kind, ['device', 'regie', 'other'], true)) return $kind;
+        $suggested = (string) ($position['suggested_kind'] ?? '');
+        return in_array($suggested, ['device', 'regie', 'other'], true) ? $suggested : 'unclassified';
     }
 
     /** @param array<string,mixed> $reconciliation @return array{candidates:list<array<string,mixed>>,reason:string} */
