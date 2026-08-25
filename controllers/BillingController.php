@@ -420,6 +420,40 @@ final class BillingController
         return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
     }
 
+    /** Saves all displayed invoice position classifications in one reviewed request. */
+    public static function classifyPositions(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $invoiceId = (int) ($params['id'] ?? 0);
+        $invoice = R::load('billinginvoice', $invoiceId);
+        $submitted = (array) ($_POST['positions'] ?? []);
+        if (!$invoice->id || $submitted === []) return [422, [], 'Keine Rechnungspositionen zum Speichern vorhanden.'];
+        R::begin();
+        try {
+            foreach ($submitted as $positionId => $values) {
+                if (!is_array($values)) continue;
+                $position = R::load('billinginvoiceposition', (int) $positionId);
+                if (!$position->id || (int) $position->invoice_id !== $invoiceId) throw new RuntimeException('Eine Rechnungsposition gehört nicht zu dieser Rechnung.');
+                $kind = (string) ($values['kind'] ?? '');
+                // An intentionally empty field remains unresolved; it is not
+                // an error and is shown as such in the reconciliation.
+                if ($kind === '') continue;
+                if (!in_array($kind, ['device', 'regie', 'other'], true)) throw new RuntimeException('Ungültige Positionsart.');
+                $position->kind = $kind;
+                if ($kind === 'regie') $position->regie_minutes = max(0, (int) ($values['regie_minutes'] ?? 0));
+                $position->updated_at = date(DATE_ATOM); R::store($position);
+            }
+            R::commit();
+        } catch (Throwable $exception) { R::rollback(); return [422, [], $exception->getMessage()]; }
+        self::refreshInvoiceBillingStates($invoiceId);
+        audit_log('abrechnung_rechnungspositionen_klassifiziert', ['invoice_id' => $invoiceId, 'count' => count($submitted)]);
+        if ($isHx) {
+            $response = self::invoice(['id' => $invoiceId], true);
+            return [200, ['Content-Type' => 'text/html; charset=utf-8'], $response[2]];
+        }
+        return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
+    }
+
     private static function refreshInvoiceBillingStates(int $invoiceId): void
     {
         $invoice = R::load('billinginvoice', $invoiceId); $check = self::reconciliation($invoiceId);

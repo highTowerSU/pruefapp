@@ -23,24 +23,24 @@
     </div>
     <div class="mt-3"><span class="badge text-bg-<?= (($reconciliation['result'] ?? '') === 'vollständig passend') ? 'success' : 'warning text-dark' ?>"><?= htmlspecialchars((string) ($reconciliation['result'] ?? 'Zuordnung unvollständig')) ?></span><span class="small text-body-secondary ms-2">Doppelte Prüfnummern: <?= (int) ($reconciliation['duplicates'] ?? 0) ?> · Nicht klassifizierte Rechnungspositionen: <?= (int) ($reconciliation['unclassified'] ?? 0) ?></span></div>
     <?php if (($reconciliation['positions'] ?? []) !== []): ?>
+      <?php if (current_user_is_superadmin()): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/positionen-klassifizieren'), ENT_QUOTES) ?>" hx-post="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/positionen-klassifizieren'), ENT_QUOTES) ?>" hx-target="#billing-reconciliation" hx-select="#billing-reconciliation" hx-swap="outerHTML"><?php endif; ?>
       <div class="table-responsive mt-3"><table class="table table-sm mb-0"><thead><tr><th>Position</th><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>Zuordnung</th></tr></thead><tbody>
       <?php foreach ($reconciliation['positions'] as $position): $storedKind = (string) $position['kind']; $suggestedKind = (string) $position['suggested_kind']; $selectedKind = in_array($storedKind, ['device', 'regie', 'other'], true) ? $storedKind : (in_array($suggestedKind, ['device', 'regie', 'other'], true) ? $suggestedKind : ''); ?>
         <tr><td><?= htmlspecialchars((string) $position['position_number']) ?></td><td><?= htmlspecialchars((string) $position['name']) ?></td><td><?= htmlspecialchars((string) $position['quantity']) ?></td><td><?= htmlspecialchars((string) $position['unit']) ?></td><td>
           <?php if (current_user_is_superadmin()): ?>
-            <form method="post" action="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/position-klassifizieren'), ENT_QUOTES) ?>" hx-post="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/position-klassifizieren'), ENT_QUOTES) ?>" hx-trigger="submit, change from:select[name='kind']" hx-target="#billing-reconciliation" hx-select="#billing-reconciliation" hx-swap="outerHTML" class="d-flex flex-wrap gap-1 align-items-center">
-              <input type="hidden" name="position_id" value="<?= (int) $position['id'] ?>">
-              <select class="form-select form-select-sm" name="kind" aria-label="Positionsart" required>
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+              <select class="form-select form-select-sm" name="positions[<?= (int) $position['id'] ?>][kind]" aria-label="Positionsart">
                 <option value="" disabled<?= $selectedKind === '' ? ' selected' : '' ?>>Bitte festlegen</option>
                 <?php foreach (['device' => 'Geräte', 'regie' => 'Regie', 'other' => 'Sonstige'] as $value => $label): ?><option value="<?= $value ?>"<?= $selectedKind === $value ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?>
               </select>
-              <input class="form-control form-control-sm" name="regie_minutes" type="number" min="0" value="<?= (int) $position['regie_minutes'] ?>" aria-label="Regiezeit in Minuten" title="Nur bei Regie: Minuten">
-              <button class="btn btn-sm btn-primary" type="submit"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Übernehmen</button>
+              <input class="form-control form-control-sm" name="positions[<?= (int) $position['id'] ?>][regie_minutes]" type="number" min="0" value="<?= (int) $position['regie_minutes'] ?>" aria-label="Regiezeit in Minuten" title="Nur bei Regie: Minuten">
               <?php if ($storedKind === 'unclassified' && $selectedKind !== ''): ?><span class="small text-body-secondary"><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Vorschlag – bitte prüfen</span><?php endif; ?>
-            </form>
+            </div>
           <?php else: ?><span class="badge text-bg-secondary"><?= htmlspecialchars($storedKind === 'unclassified' ? 'Bitte festlegen' : $storedKind) ?></span><?php endif; ?>
         </td></tr>
       <?php endforeach; ?>
       </tbody></table></div>
+      <?php if (current_user_is_superadmin()): ?><div class="d-flex justify-content-end mt-3"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Alle Positionen übernehmen</button></div></form><?php endif; ?>
     <?php endif; ?>
   </div>
 </section>
