@@ -460,6 +460,7 @@ final class ElectricalInspectionImportService
         }
         $created = $inspection === null;
         $inspection ??= R::dispense('inspection');
+        if (trim((string) ($inspection->public_id ?? '')) === '') $inspection->public_id = 'prf_' . bin2hex(random_bytes(16));
         $inspection->device_id = (int) $deviceResult['device']->id;
         $inspection->dedupe_key = $dedupe;
         $inspection->source_type = $sourceType;

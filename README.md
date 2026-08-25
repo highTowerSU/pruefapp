@@ -270,6 +270,17 @@ Rechnungen und Exporthistorien starten bei einer neuen Installation leer. Bei
 bestehenden Prüfungen werden die bisherigen `billable`- und Exportfelder in die
 neuen Statusspalten gespiegelt; alte Zuordnungen werden nicht erfunden.
 
+Der berechtigte Geräte-CSV exportiert eine vollständige, unveränderliche
+Prüfungshistorie (eine Zeile je Prüfvorgang) einschließlich Rechnungs- und
+Regiedaten. Jede Prüfung besitzt dafür eine stabile `pruefung_id`; historische
+Zeitdaten bleiben leer, wenn sie nicht tatsächlich vorliegen. Bestehende
+SevDesk-Rechnungen können ausschließlich lesend importiert werden. Ihre
+Positionen müssen vor dem Abgleich als Geräte-, Regie- oder sonstige Position
+klassifiziert und historische Prüfungen ausdrücklich zugeordnet werden.
+Erst eine finale, nicht stornierte Rechnung mit exakt passender Geräte- und
+Regiezeit-Summe setzt die zugeordneten Prüfungen auf `abgerechnet`; unklare
+Altzuordnungen bleiben offen beziehungsweise unvollständig.
+
 Der Bootstrap einschließlich externer Konfiguration und SQLite-Anbindung wird
 mit einer temporären, isolierten Instanz geprüft:
 

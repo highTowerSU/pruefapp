@@ -242,6 +242,127 @@ final class BillingController
         return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
     }
 
+    /** Imports existing SevDesk invoices read-only; no inspection is linked automatically. */
+    public static function syncSevDeskInvoices(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $numbers = preg_split('/[\s,;]+/', trim((string) ($_POST['invoice_numbers'] ?? ''))) ?: [];
+        $numbers = array_values(array_unique(array_filter(array_map('trim', $numbers))));
+        if ($numbers === []) return [422, [], 'Bitte mindestens eine Rechnungsnummer angeben.'];
+        $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
+        try {
+            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? ''), (string) ($tenant->sevdesk_api_token ?? ''));
+            $invoices = $client->invoicesByNumbers($numbers);
+            foreach ($invoices as $remote) self::storeSyncedInvoice($client, $remote);
+            audit_log('abrechnung_sevdesk_sync', ['requested_numbers' => $numbers, 'found' => count($invoices)]);
+            $_SESSION['billing_message'] = count($invoices) . ' SevDesk-Rechnung(en) gelesen. Zuordnungen bleiben bis zur Bestätigung unverbindlich.';
+        } catch (Throwable $exception) {
+            audit_log('abrechnung_sevdesk_sync_fehlgeschlagen', ['requested_numbers' => $numbers, 'error' => $exception->getMessage()]);
+            $_SESSION['billing_message'] = 'SevDesk-Abgleich fehlgeschlagen: ' . self::displayExportError($exception);
+        }
+        return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
+    }
+
+    /** Confirms one historical inspection-to-invoice-position mapping explicitly. */
+    public static function assignHistorical(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $invoiceId = (int) ($params['id'] ?? 0); $inspectionId = (int) ($_POST['inspection_id'] ?? 0);
+        $devicePositionId = (int) ($_POST['device_position_id'] ?? 0); $regiePositionId = (int) ($_POST['regie_position_id'] ?? 0);
+        $invoice = R::load('billinginvoice', $invoiceId); $inspection = R::load('inspection', $inspectionId);
+        if (!$invoice->id || !$inspection->id || $devicePositionId <= 0) return [422, [], 'Bitte Rechnung, Prüfung und Geräteposition auswählen.'];
+        if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceitem WHERE inspection_id=? AND active=1', [$inspectionId]) > 0) return [409, [], 'Diese Prüfung besitzt bereits eine aktive Rechnungszuordnung.'];
+        $positions = [$devicePositionId]; if ($regiePositionId > 0) $positions[] = $regiePositionId;
+        if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceposition WHERE invoice_id=? AND id IN (' . implode(',', array_fill(0, count($positions), '?')) . ')', array_merge([$invoiceId], $positions)) !== count($positions)) return [422, [], 'Die gewählte Rechnungsposition gehört nicht zu dieser Rechnung.'];
+        R::begin();
+        try {
+            $item = R::dispense('billinginvoiceitem');
+            $item->invoice_id = $invoiceId; $item->inspection_id = $inspectionId; $item->device_id = (int) $inspection->device_id;
+            $item->quantity = max(0, (int) ($_POST['quantity'] ?? $inspection->billing_device_quantity ?? 1));
+            $item->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? $inspection->regie_minutes ?? 0)); $item->regie_reason = (string) $inspection->regie_reason;
+            $item->combination_id = (string) $inspection->billing_combination_id; $item->combination_relevant = (int) $inspection->billing_combination_relevant; $item->combination_reason = (string) $inspection->billing_combination_reason;
+            $item->description = 'Historisch bestätigt'; $item->active = 1; $item->assigned_at = date(DATE_ATOM); $item->source = 'historical_confirmed'; $item->created_at = date(DATE_ATOM); $itemId = (int) R::store($item);
+            foreach ($positions as $positionId) { $link = R::dispense('billinginvoiceitemposition'); $link->invoice_item_id = $itemId; $link->invoice_position_id = $positionId; $link->allocation_kind = $positionId === $regiePositionId ? 'regie' : 'device'; $link->created_at = date(DATE_ATOM); R::store($link); }
+            $inspection->billing_active_invoice_item_id = $itemId; $inspection->billing_status = 'export_pending'; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+            R::commit();
+        } catch (Throwable $exception) { R::rollback(); throw $exception; }
+        audit_log('abrechnung_historisch_zugeordnet', ['invoice_id' => $invoiceId, 'inspection_id' => $inspectionId, 'positions' => $positions]);
+        self::refreshInvoiceBillingStates($invoiceId);
+        return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
+    }
+
+    /** @param array<string,mixed> $remote */
+    private static function storeSyncedInvoice(SevDeskClient $client, array $remote): void
+    {
+        $sevdeskId = trim((string) ($remote['id'] ?? ''));
+        $number = trim((string) ($remote['invoiceNumber'] ?? ''));
+        if ($sevdeskId === '' || $number === '') return;
+        $invoice = R::findOne('billinginvoice', ' sevdesk_invoice_id = ? OR sevdesk_invoice_number = ? ', [$sevdeskId, $number]) ?: R::dispense('billinginvoice');
+        $remoteStatus = (string) ($remote['status'] ?? '');
+        $invoice->sevdesk_invoice_id = $sevdeskId; $invoice->sevdesk_invoice_number = $number;
+        $invoice->invoice_number = $number; $invoice->invoice_date = substr((string) ($remote['invoiceDate'] ?? ''), 0, 10);
+        $invoice->sevdesk_status = $remoteStatus; $invoice->status = in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft';
+        $invoice->raw_json = json_encode($remote, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $invoice->synced_at = date(DATE_ATOM); $invoice->updated_at = date(DATE_ATOM); if (!$invoice->created_at) $invoice->created_at = date(DATE_ATOM);
+        $invoiceId = (int) R::store($invoice);
+        foreach ($client->invoicePositions($sevdeskId) as $position) {
+            $externalId = trim((string) ($position['id'] ?? ''));
+            if ($externalId === '') continue;
+            $item = R::findOne('billinginvoiceposition', ' invoice_id=? AND sevdesk_position_id=? ', [$invoiceId, $externalId]) ?: R::dispense('billinginvoiceposition');
+            $name = trim((string) ($position['name'] ?? '')); $details = trim((string) ($position['text'] ?? ''));
+            $item->invoice_id = $invoiceId; $item->sevdesk_position_id = $externalId; $item->position_number = (string) ($position['positionNumber'] ?? $externalId);
+            $item->name = $name; $item->details = $details; $item->quantity = (float) ($position['quantity'] ?? 0); $item->unit = (string) (($position['unity']['name'] ?? '') ?: ($position['unity']['id'] ?? ''));
+            $item->suggested_kind = preg_match('/regie|mehraufwand|zeit/i', $name . ' ' . $details) ? 'regie' : 'device';
+            if ($item->suggested_kind === 'regie' && (int) $item->regie_minutes <= 0) {
+                $item->regie_minutes = preg_match('/min(?:ute)?/i', (string) $item->unit)
+                    ? (int) round((float) $item->quantity)
+                    : (int) round((float) $item->quantity * 60);
+            }
+            if (!in_array((string) $item->kind, ['device', 'regie', 'other'], true)) $item->kind = 'unclassified';
+            $item->raw_json = json_encode($position, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE); $item->updated_at = date(DATE_ATOM); if (!$item->created_at) $item->created_at = date(DATE_ATOM); R::store($item);
+        }
+        self::refreshInvoiceBillingStates($invoiceId);
+    }
+
+    public static function classifyPosition(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $invoiceId = (int) ($params['id'] ?? 0); $positionId = (int) ($_POST['position_id'] ?? 0); $kind = (string) ($_POST['kind'] ?? '');
+        if (!in_array($kind, ['device', 'regie', 'other'], true)) return [422, [], 'Ungültige Positionsart.'];
+        $position = R::load('billinginvoiceposition', $positionId);
+        if (!$position->id || (int) $position->invoice_id !== $invoiceId) return [404, [], 'Rechnungsposition nicht gefunden.'];
+        $position->kind = $kind;
+        if ($kind === 'regie') $position->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
+        $position->updated_at = date(DATE_ATOM); R::store($position); self::refreshInvoiceBillingStates($invoiceId);
+        audit_log('abrechnung_rechnungsposition_klassifiziert', ['invoice_id' => $invoiceId, 'position_id' => $positionId, 'kind' => $kind, 'regie_minutes' => (int) $position->regie_minutes]);
+        return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
+    }
+
+    private static function refreshInvoiceBillingStates(int $invoiceId): void
+    {
+        $invoice = R::load('billinginvoice', $invoiceId); $check = self::reconciliation($invoiceId);
+        foreach (R::getCol('SELECT inspection_id FROM billinginvoiceitem WHERE invoice_id=? AND active=1', [$invoiceId]) as $inspectionId) {
+            $status = in_array((string) $invoice->status, ['final', 'paid'], true) && (string) $check['result'] === 'vollständig passend' ? 'abgerechnet' : 'teilabgerechnet';
+            R::exec('UPDATE inspection SET billing_status=?, updated_at=? WHERE id=?', [$status, date(DATE_ATOM), (int) $inspectionId]);
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private static function reconciliation(int $invoiceId): array
+    {
+        $positions = R::getAll('SELECT * FROM billinginvoiceposition WHERE invoice_id=? ORDER BY CAST(position_number AS INTEGER), id', [$invoiceId]);
+        $items = R::getAll('SELECT * FROM billinginvoiceitem WHERE invoice_id=? AND active=1', [$invoiceId]);
+        $deviceTarget = array_sum(array_map(static fn(array $p): float => (string) $p['kind'] === 'device' ? (float) $p['quantity'] : 0.0, $positions));
+        $regieTarget = array_sum(array_map(static fn(array $p): int => (string) $p['kind'] === 'regie' ? (int) $p['regie_minutes'] : 0, $positions));
+        $deviceActual = array_sum(array_map(static fn(array $item): float => (float) $item['quantity'], $items));
+        $regieActual = array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $items));
+        $duplicates = (int) R::getCell('SELECT COUNT(*) FROM (SELECT i.external_number FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id WHERE bi.invoice_id=? AND bi.active=1 GROUP BY i.external_number HAVING COUNT(*)>1) duplicates', [$invoiceId]);
+        $unclassified = count(array_filter($positions, static fn(array $p): bool => (string) $p['kind'] === 'unclassified'));
+        $invoice = R::load('billinginvoice', $invoiceId);
+        $result = (string) $invoice->status === 'cancelled' ? 'storniert' : ($unclassified > 0 || $items === [] ? 'Zuordnung unvollständig' : (abs($deviceTarget - $deviceActual) > 0.0001 ? 'Geräteanzahl abweichend' : ($regieTarget !== $regieActual ? 'Regiezeit abweichend' : ($duplicates > 0 ? 'Zuordnung unvollständig' : 'vollständig passend'))));
+        return compact('positions', 'items', 'deviceTarget', 'deviceActual', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
+    }
+
     public static function eligibility(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_billing()) return forbidden_response();
@@ -297,7 +418,8 @@ final class BillingController
             if ($invoice->sevdesk_url !== '') R::store($invoice);
         }
         $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
-        $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items]);
+        $candidates = R::getAll("SELECT i.id, i.external_number, i.test_date, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.test_date >= '2025-01-01' AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1) ORDER BY i.test_date DESC, i.id DESC LIMIT 500");
+        $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items, 'reconciliation' => self::reconciliation($id), 'candidates' => $candidates]);
         return [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];
     }
 

@@ -23,6 +23,9 @@ final class ReportController
         if ($ids === []) return [422, [], 'Bitte mindestens ein Gerät auswählen.'];
         $devices = self::devices($ids);
         if ($devices === []) return [422, [], 'Keine Datensätze für den gewählten Filter gefunden. Bitte Filter und Auswahl prüfen.'];
+        if ($format === 'csv' && $reportType === '' && current_user_can_manage_billing()) {
+            return self::inspectionBillingCsv($ids);
+        }
         if ($reportType === 'daily' || $reportType === 'weekly') {
             $date = trim((string) ($_POST['daily_date'] ?? '')); $toDate = '';
             if ($reportType === 'weekly' && $date !== '') { $dateObject = new DateTimeImmutable($date); $date = $dateObject->modify('monday this week')->format('Y-m-d'); $toDate = $dateObject->modify('sunday this week')->format('Y-m-d'); }
@@ -281,6 +284,49 @@ final class ReportController
         $rows = [['Gerätenummer', 'Bezeichnung', 'Hersteller', 'Typ/Modell', 'Kunde', 'Standort', 'Gebäude', 'Etage', 'Bereich', 'Raum', 'Letzte Prüfnummer', 'Letzte Prüfung', 'Nächste Prüfung', 'Ergebnis']];
         foreach ($devices as $d) $rows[] = [(string) $d['external_number'], (string) $d['name'], (string) $d['manufacturer'], (string) $d['device_model'], (string) $d['customer_name'], (string) $d['site_name'], (string) $d['building_name'], (string) $d['floor_name'], (string) $d['area_name'], (string) ($d['room_number'] ?: $d['room_name']), (string) $d['inspection_number'], (string) $d['test_date'], (string) $d['next_due_date'], (string) $d['result_status']];
         return $rows;
+    }
+
+    /** Complete, immutable inspection history for billing-capable roles. */
+    private static function inspectionBillingCsv(array $deviceIds): array
+    {
+        $marks = implode(',', array_fill(0, count($deviceIds), '?'));
+        $sql = "SELECT i.*, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model,
+            b.name AS building_name, f.name AS floor_name, r.number AS room_number,
+            bi.id AS invoice_item_id, bi.quantity AS invoice_quantity, bi.regie_minutes AS invoice_regie_minutes,
+            bi.combination_id AS invoice_combination_id, bi.combination_relevant AS invoice_combination_relevant,
+            inv.invoice_number, inv.sevdesk_invoice_number, inv.invoice_date, inv.status AS invoice_status, inv.exported_at AS invoice_exported_at
+            FROM inspection i JOIN device d ON d.id=i.device_id
+            LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id
+            LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1
+            LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id
+            WHERE i.device_id IN ($marks) AND COALESCE(i.inspection_type_code, 'electrical')='electrical'
+            ORDER BY i.test_date, i.id";
+        $header = ['pruefung_id','geraetenummer','pruefnummer','pruefdatum','pruefbeginn','pruefende','pruefdauer_minuten','techniker','bezeichnung','hersteller','typ_modell','gebaeude','etage','raum','pruefergebnis','regiezeit_minuten','regiegrund','abrechnungsmenge_geraete','geraetekombination_id','kombination_abrechnungsrelevant','abrechnungsstatus','rechnungsnummer','rechnungsdatum','rechnungsposition','abrechnungsdatum','abrechnungs_batch_id','storno_rechnungsnummer','bemerkung'];
+        $rows = [$header];
+        foreach (R::getAll($sql, $deviceIds) as $row) {
+            $positions = (int) ($row['invoice_item_id'] ?? 0) > 0 ? R::getCol('SELECT p.position_number FROM billinginvoiceitemposition ip JOIN billinginvoiceposition p ON p.id=ip.invoice_position_id WHERE ip.invoice_item_id=? ORDER BY p.position_number', [(int) $row['invoice_item_id']]) : [];
+            $internal = (string) ($row['billing_status'] ?? '');
+            $status = match ($internal) {
+                'exported', 'abgerechnet' => (in_array((string) ($row['invoice_status'] ?? ''), ['final', 'paid'], true) && $positions !== [] ? 'abgerechnet' : 'teilabgerechnet'),
+                'manually_unexported', 'not_exported', '' => ((string) ($row['billing_eligibility'] ?? '') === 'billable' ? 'abrechnungsbereit' : 'offen'),
+                'cancelled', 'storniert' => 'storniert',
+                default => $internal === 'export_pending' ? 'offen' : 'offen',
+            };
+            $invoiceNumber = trim((string) ($row['sevdesk_invoice_number'] ?: $row['invoice_number']));
+            $rows[] = [
+                (string) $row['public_id'], (string) $row['device_number'], (string) $row['external_number'], (string) $row['test_date'],
+                (string) $row['started_at'], (string) $row['finished_at'], $row['duration_minutes'] === null ? '' : (int) $row['duration_minutes'],
+                display_examiner_name((string) $row['examiner']), (string) $row['device_name'], (string) $row['device_manufacturer'], (string) $row['device_model'],
+                (string) $row['building_name'], (string) $row['floor_name'], (string) ($row['room_snapshot'] ?: $row['room_number']),
+                InspectionEvaluationService::presentation((string) $row['result_status'], (string) $row['status'])['label'], (int) $row['regie_minutes'], (string) $row['regie_reason'],
+                (int) (($row['invoice_quantity'] ?? null) !== null ? $row['invoice_quantity'] : ($row['billing_device_quantity'] ?? 1)),
+                (string) (($row['invoice_combination_id'] ?? '') ?: ($row['billing_combination_id'] ?? '')),
+                (int) (($row['invoice_combination_relevant'] ?? null) !== null ? $row['invoice_combination_relevant'] : ($row['billing_combination_relevant'] ?? 1)),
+                $status, $invoiceNumber, (string) $row['invoice_date'], implode(',', array_filter(array_map('strval', $positions))),
+                (string) $row['invoice_exported_at'], (string) ($row['billing_export_id'] ?? ''), '', (string) (($row['metadata_notes'] ?? '') ?: ($row['customer_hint'] ?? '')),
+            ];
+        }
+        return self::csv($rows, 'elektropruefungen-abrechnungsverlauf.csv');
     }
 
     private static function dailyRows(array $deviceIds, string $date, string $examiner, int $customerId, string $toDate = ''): array

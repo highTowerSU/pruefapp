@@ -52,6 +52,7 @@ final class InspectionController
         $inspection->device_id = (int) $device->id;
         $inspection->external_number = self::uniqueExternalNumber($expectedNumber);
         $inspection->dedupe_key = hash('sha256', 'manual|' . $device->id . '|' . microtime(true) . '|' . bin2hex(random_bytes(8)));
+        $inspection->public_id = 'prf_' . bin2hex(random_bytes(16));
         $inspection->source_type = 'manual';
         $inspection->source_file = null;
         $inspection->test_date = date('Y-m-d');
