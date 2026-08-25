@@ -154,22 +154,33 @@ try {
             set_app_config('inspection_duplicate_audit_version', '2');
         }
     }
-    // Once the read-only audit has completed, a Phoenix JSON mirror of a
-    // matching Benning CSV record is archived.  The inspection and
-    // invoice-item history remain intact; only the active operational/billing
-    // allocation is released.  Ambiguous suffixes and short-interval repeats
-    // stay for manual review.
+    // Once the read-only audit has completed, unequivocal import copies are
+    // archived: a Phoenix JSON mirror of a matching Benning CSV or an import
+    // suffix from the same source file.  The inspection and invoice-item
+    // history remain intact; only the active operational/billing allocation
+    // is released.  Ambiguous short-interval repeats stay for manual review.
     $duplicateArchiveVersion = trim((string) get_app_config('inspection_duplicate_archive_version', ''));
-    if ($duplicateArchiveVersion !== '2' && $duplicateAuditVersion === '2') {
+    if ($duplicateArchiveVersion !== '3' && $duplicateAuditVersion === '2') {
         $duplicateArchiveTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection later
-            WHERE later.source_type='json'
-              AND EXISTS (SELECT 1 FROM inspection canonical
-                WHERE canonical.device_id=later.device_id
-                  AND canonical.source_type='csv'
-                  AND canonical.external_number=later.external_number
-                  AND canonical.test_date=later.test_date
-                  AND COALESCE(canonical.result_status,'')=COALESCE(later.result_status,'')
-                  AND COALESCE(canonical.archived_at,'')='')
+            WHERE (
+                (later.source_type='json' AND EXISTS (SELECT 1 FROM inspection canonical
+                    WHERE canonical.device_id=later.device_id
+                      AND canonical.source_type='csv'
+                      AND canonical.external_number=later.external_number
+                      AND canonical.test_date=later.test_date
+                      AND COALESCE(canonical.result_status,'')=COALESCE(later.result_status,'')
+                      AND COALESCE(canonical.archived_at,'')=''))
+                OR
+                (SUBSTRING_INDEX(later.external_number, '-', -1) REGEXP '^[2-9][0-9]*$'
+                 AND EXISTS (SELECT 1 FROM inspection canonical
+                    WHERE canonical.device_id=later.device_id
+                      AND canonical.source_type=later.source_type
+                      AND COALESCE(canonical.source_file,'')=COALESCE(later.source_file,'')
+                      AND canonical.external_number=LEFT(later.external_number, LENGTH(later.external_number)-LENGTH(SUBSTRING_INDEX(later.external_number, '-', -1))-1)
+                      AND canonical.test_date=later.test_date
+                      AND COALESCE(canonical.result_status,'')=COALESCE(later.result_status,'')
+                      AND COALESCE(canonical.archived_at,'')=''))
+            )
               AND TRIM(COALESCE(later.source_file,''))<>''
               AND TRIM(COALESCE(later.external_number,''))<>''
               AND TRIM(COALESCE(later.test_date,''))<>''
@@ -178,10 +189,10 @@ try {
             BackgroundJobService::enqueue(
                 'inspection_duplicate_archive',
                 ['type' => 'inspection_duplicate_archive'],
-                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v2', 'cancellable' => false]
+                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v3', 'cancellable' => false]
             );
         } else {
-            set_app_config('inspection_duplicate_archive_version', '2');
+            set_app_config('inspection_duplicate_archive_version', '3');
         }
     }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
