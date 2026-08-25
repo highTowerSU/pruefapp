@@ -18,6 +18,12 @@ final class BillingController
         };
     }
 
+    private static function normalizedCustomerLabel(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        return preg_replace('/[^[:alnum:]]+/u', '', $value) ?? '';
+    }
+
     /** Read-only support diagnostic for the exact export selection query. */
     public static function debugSelection(array $filters = [], array $ids = []): array
     {
@@ -120,6 +126,11 @@ final class BillingController
                 'reconciliation' => array_diff_key($reconciliation, ['positions' => true, 'items' => true]),
                 'suggestion_reason' => $suggestion['reason'],
                 'suggested_inspections' => $suggestion['candidates'],
+                'positions' => array_map(static function (array $position): array {
+                    $raw = json_decode((string) ($position['raw_json'] ?? ''), true);
+                    $raw = is_array($raw) ? $raw : [];
+                    return ['number' => (string) $position['position_number'], 'name' => (string) $position['name'], 'quantity' => (float) $position['quantity'], 'unit' => (string) $position['unit'], 'raw_unity' => $raw['unity'] ?? null, 'regie_minutes' => (int) $position['regie_minutes']];
+                }, $reconciliation['positions']),
                 'inspection_count' => count($items),
                 'regie_inspection_count' => count($regieItems),
                 'regie_minutes_total' => array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $regieItems)),
@@ -396,6 +407,21 @@ final class BillingController
             foreach (array_unique($recipientNames) as $recipientName) {
                 $customer = R::findOne('customer', ' LOWER(TRIM(name)) = LOWER(TRIM(?)) ', [$recipientName]);
                 if ($customer) break;
+            }
+            // sevDesk can prefix the delivery contact (e.g. "Max Mustermann
+            // | Kundenfirma"). Match an existing customer only if exactly one
+            // sufficiently specific master-data label occurs in the recipient.
+            if (!$customer) {
+                $haystacks = array_map(static fn(string $value): string => self::normalizedCustomerLabel($value), $recipientNames);
+                $matches = [];
+                foreach (R::findAll('customer') as $candidate) {
+                    foreach ([(string) $candidate->name, (string) $candidate->invoice_recipient_name] as $label) {
+                        $needle = self::normalizedCustomerLabel($label);
+                        if (mb_strlen($needle) < 6) continue;
+                        foreach ($haystacks as $haystack) if ($haystack !== '' && str_contains($haystack, $needle)) $matches[(int) $candidate->id] = $candidate;
+                    }
+                }
+                if (count($matches) === 1) $customer = reset($matches) ?: null;
             }
         }
         if ($customer) $invoice->customer_id = (int) $customer->id;
