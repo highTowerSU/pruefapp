@@ -33,6 +33,9 @@ class AdminController
         if ($summary === 'inspection-overview') {
             return self::inspectionOverviewApiDebug($headers);
         }
+        if ($summary === 'inspection-duplicates') {
+            return self::inspectionDuplicatesApiDebug($headers);
+        }
         if ($summary === 'import-config') {
             return self::importConfigApiDebug($headers);
         }
@@ -98,7 +101,7 @@ class AdminController
             'step' => (int) ($job['step'] ?? 0),
             'total' => (int) ($job['total'] ?? 0),
             'message' => (string) ($job['message'] ?? ''),
-        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['legacy_classification_migration', 'import_result_reconciliation'], true))));
+        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit'], true))));
         return [200, $headers, json_encode([
             'ok' => true,
             'query' => $query,
@@ -107,6 +110,26 @@ class AdminController
             'maintenance_jobs' => $maintenanceJobs,
             'rows' => $rows,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /** Read-only audit summary for duplicate or unusually close inspections. */
+    private static function inspectionDuplicatesApiDebug(array $headers): array
+    {
+        $findings = R::getAll("SELECT review.finding_type, review.severity, review.reason, review.detected_at, review.status,
+            device.external_number AS device_number, device.name AS device_name,
+            earlier.id AS earlier_id, earlier.external_number AS earlier_number, earlier.test_date AS earlier_date,
+            later.id AS later_id, later.external_number AS later_number, later.test_date AS later_date
+            FROM inspectiondupreview review
+            JOIN device ON device.id=review.device_id
+            JOIN inspection earlier ON earlier.id=review.inspection_id
+            JOIN inspection later ON later.id=review.peer_inspection_id
+            WHERE review.status='open'
+            ORDER BY CASE review.severity WHEN 'danger' THEN 0 ELSE 1 END, review.id DESC LIMIT 200");
+        $jobs = array_values(array_map(static fn(array $job): array => [
+            'id' => (string) ($job['id'] ?? ''), 'state' => (string) ($job['state'] ?? ''),
+            'step' => (int) ($job['step'] ?? 0), 'total' => (int) ($job['total'] ?? 0), 'message' => (string) ($job['message'] ?? ''),
+        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => (string) ($job['type'] ?? '') === 'inspection_duplicate_audit')));
+        return [200, $headers, json_encode(['summary' => 'inspection-duplicates', 'ok' => true, 'open_count' => (int) R::getCell("SELECT COUNT(*) FROM inspectiondupreview WHERE status='open'"), 'jobs' => $jobs, 'findings' => $findings], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
     /** Read-only aggregate diagnosis for investigation of import quality. */
