@@ -360,14 +360,20 @@ final class BillingController
     {
         if (!current_user_is_superadmin()) return forbidden_response();
         $invoiceId = (int) ($params['id'] ?? 0); $positionId = (int) ($_POST['position_id'] ?? 0); $kind = (string) ($_POST['kind'] ?? '');
-        if (!in_array($kind, ['device', 'regie', 'other'], true)) return [422, [], 'Ungültige Positionsart.'];
+        if (!in_array($kind, ['device', 'regie', 'other'], true)) {
+            return [422, [], 'Bitte für diese Rechnungsposition Geräte, Regie oder Sonstige festlegen.'];
+        }
         $position = R::load('billinginvoiceposition', $positionId);
         if (!$position->id || (int) $position->invoice_id !== $invoiceId) return [404, [], 'Rechnungsposition nicht gefunden.'];
         $position->kind = $kind;
         if ($kind === 'regie') $position->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
         $position->updated_at = date(DATE_ATOM); R::store($position); self::refreshInvoiceBillingStates($invoiceId);
         audit_log('abrechnung_rechnungsposition_klassifiziert', ['invoice_id' => $invoiceId, 'position_id' => $positionId, 'kind' => $kind, 'regie_minutes' => (int) $position->regie_minutes]);
-        return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
+        if ($isHx) {
+            $response = self::invoice(['id' => $invoiceId], true);
+            return [200, ['Content-Type' => 'text/html; charset=utf-8'], $response[2]];
+        }
+        return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
     }
 
     private static function refreshInvoiceBillingStates(int $invoiceId): void
@@ -452,7 +458,9 @@ final class BillingController
         $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
         $candidates = R::getAll("SELECT i.id, i.external_number, i.test_date, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.test_date >= '2025-01-01' AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1) ORDER BY i.test_date DESC, i.id DESC LIMIT 500");
         $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items, 'reconciliation' => self::reconciliation($id), 'candidates' => $candidates]);
-        return [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];
+        return $isHx
+            ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content]
+            : [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];
     }
 
     /** Removes an unmodified SevDesk draft and releases its inspections for a corrected new export. */
