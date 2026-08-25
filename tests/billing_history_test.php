@@ -26,6 +26,7 @@ $checks = [
     [str_contains($billing, "'1' => 'Stk.'") && str_contains($billing, "'9' => 'h'") && str_contains($detail, 'displaySevDeskUnit'), 'SevDesk-Einheiten werden nicht lesbar dargestellt.'],
     [str_contains($billing, 'assignHistorical') && str_contains($billing, 'historical_confirmed') && str_contains($routes, '/historisch-zuordnen'), 'Die bestätigte historische Zuordnung fehlt.'],
     [str_contains($billing, 'assignHistoricalBatch') && str_contains($billing, 'historical_batch_confirmed') && str_contains($routes, '/historisch-zuordnen-sammeln'), 'Die bestätigte Sammelzuordnung historischer Prüfungen fehlt.'],
+    [str_contains($billing, 'historical_batch_regie_allocated') && str_contains($billing, 'round((float) $item->quantity * 3)') && str_contains($detail, 'Historische Regie'), 'Historische Rechnungsregie kann nicht nachvollziehbar im Sammelabgleich zugeordnet werden.'],
     [str_contains($billing, 'historicalSuggestion') && str_contains($detail, 'Zuordnungsvorschlag prüfen') && str_contains($detail, 'Auswahl gesammelt zuordnen'), 'Ein prüfbarer Sammelvorschlag für historische Rechnungen fehlt.'],
     [str_contains($billing, 'sevdesk_customer_id=? OR sevdesk_customer_number=?') && str_contains($billing, 'remote_address_name') && str_contains($billing, 'suggestion_reason'), 'Die SevDesk-Kundenverknüpfung oder ihre Debug-Diagnose ist nicht robust genug.'],
     [str_contains($billing, 'contactById($remoteCustomerId)') && str_contains($billing, "['parent']['id']"), 'SevDesk-Ansprechpersonen werden nicht bis zum Hauptkunden aufgelöst.'],

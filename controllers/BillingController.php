@@ -346,6 +346,7 @@ final class BillingController
         $inspectionIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
         $devicePositionId = (int) ($_POST['device_position_id'] ?? 0);
         $regiePositionId = (int) ($_POST['regie_position_id'] ?? 0);
+        $historicalRegieTotal = max(0, (int) ($_POST['historical_regie_minutes'] ?? 0));
         $invoice = R::load('billinginvoice', $invoiceId);
         if (!$invoice->id || $inspectionIds === [] || $devicePositionId <= 0 || ($_POST['confirm'] ?? '') !== '1') {
             return [422, [], 'Bitte mindestens eine geprüfte Zuordnung auswählen und ausdrücklich bestätigen.'];
@@ -354,25 +355,41 @@ final class BillingController
         if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceposition WHERE invoice_id=? AND id IN (' . implode(',', array_fill(0, count($positions), '?')) . ')', array_merge([$invoiceId], $positions)) !== count($positions)) return [422, [], 'Die gewählte Rechnungsposition gehört nicht zu dieser Rechnung.'];
         $devicePosition = R::load('billinginvoiceposition', $devicePositionId);
         if ((string) $devicePosition->kind !== 'device') return [422, [], 'Bitte zuerst eine Geräteposition als „Geräte“ klassifizieren.'];
+        if ($historicalRegieTotal > 0 && $regiePositionId <= 0) return [422, [], 'Für die historische Regiezeit bitte eine Regieposition auswählen.'];
+        if ($regiePositionId > 0) {
+            $regiePosition = R::load('billinginvoiceposition', $regiePositionId);
+            if ((string) $regiePosition->kind !== 'regie') return [422, [], 'Die ausgewählte Regieposition ist nicht als Regie klassifiziert.'];
+        }
         $inspections = R::findAll('inspection', ' id IN (' . implode(',', array_fill(0, count($inspectionIds), '?')) . ') ', $inspectionIds);
         if (count($inspections) !== count($inspectionIds)) return [404, [], 'Mindestens eine Prüfung wurde nicht gefunden.'];
         foreach ($inspectionIds as $inspectionId) if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceitem WHERE inspection_id=? AND active=1', [$inspectionId]) > 0) return [409, [], 'Mindestens eine ausgewählte Prüfung besitzt bereits eine aktive Rechnungszuordnung.'];
         R::begin();
         try {
+            $remainingRegie = $historicalRegieTotal;
+            $remainingInspections = count($inspectionIds);
             foreach ($inspectionIds as $inspectionId) {
                 $inspection = $inspections[$inspectionId];
                 $item = R::dispense('billinginvoiceitem');
                 $item->invoice_id = $invoiceId; $item->inspection_id = $inspectionId; $item->device_id = (int) $inspection->device_id;
                 $item->quantity = max(0, (int) ($inspection->billing_device_quantity ?: 1));
-                $item->regie_minutes = max(0, (int) $inspection->regie_minutes); $item->regie_reason = (string) $inspection->regie_reason;
+                $allocatedRegie = max(0, (int) $inspection->regie_minutes);
+                if ($historicalRegieTotal > 0) {
+                    // Legacy invoices provide one aggregate. Split it
+                    // deterministically across the reviewed selected rows;
+                    // do not overwrite the inspection's original data.
+                    $allocatedRegie = (int) ceil($remainingRegie / max(1, $remainingInspections));
+                    $remainingRegie -= $allocatedRegie; $remainingInspections--;
+                }
+                $item->regie_minutes = $allocatedRegie;
+                $item->regie_reason = $historicalRegieTotal > 0 ? 'Historische Rechnungsregie, gesammelt zugeordnet' : (string) $inspection->regie_reason;
                 $item->combination_id = (string) $inspection->billing_combination_id; $item->combination_relevant = (int) $inspection->billing_combination_relevant; $item->combination_reason = (string) $inspection->billing_combination_reason;
-                $item->description = 'Historisch gesammelt bestätigt'; $item->active = 1; $item->assigned_at = date(DATE_ATOM); $item->source = 'historical_batch_confirmed'; $item->created_at = date(DATE_ATOM); $itemId = (int) R::store($item);
+                $item->description = 'Historisch gesammelt bestätigt'; $item->active = 1; $item->assigned_at = date(DATE_ATOM); $item->source = $historicalRegieTotal > 0 ? 'historical_batch_regie_allocated' : 'historical_batch_confirmed'; $item->created_at = date(DATE_ATOM); $itemId = (int) R::store($item);
                 foreach ($positions as $positionId) { $link = R::dispense('billinginvoiceitemposition'); $link->invoice_item_id = $itemId; $link->invoice_position_id = $positionId; $link->allocation_kind = $positionId === $regiePositionId ? 'regie' : 'device'; $link->created_at = date(DATE_ATOM); R::store($link); }
                 $inspection->billing_active_invoice_item_id = $itemId; $inspection->billing_status = 'export_pending'; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
             }
             R::commit();
         } catch (Throwable $exception) { R::rollback(); throw $exception; }
-        audit_log('abrechnung_historisch_gesammelt_zugeordnet', ['invoice_id' => $invoiceId, 'inspection_ids' => $inspectionIds, 'positions' => $positions]);
+        audit_log('abrechnung_historisch_gesammelt_zugeordnet', ['invoice_id' => $invoiceId, 'inspection_ids' => $inspectionIds, 'positions' => $positions, 'historical_regie_minutes' => $historicalRegieTotal]);
         self::refreshInvoiceBillingStates($invoiceId);
         return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
     }
