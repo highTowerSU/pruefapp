@@ -236,6 +236,7 @@ class AdminController
         $counts = ['csv' => 0, 'ods' => 0, 'json' => 0, 'jsonl' => 0, 'pdf' => 0];
         $files = [];
         $csvPaths = [];
+        $jsonlPaths = [];
         try {
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($resolved, \FilesystemIterator::SKIP_DOTS),
@@ -249,6 +250,7 @@ class AdminController
                 $relative = ltrim(substr($file->getPathname(), strlen(rtrim($resolved, '/'))), '/');
                 if (count($files) < 60) $files[] = $relative;
                 if ($extension === 'csv') $csvPaths[] = $file->getPathname();
+                if ($extension === 'jsonl') $jsonlPaths[] = $file->getPathname();
             }
         } catch (\UnexpectedValueException $e) {
             return [500, $headers, json_encode(['ok' => false, 'error' => 'Der Importpfad konnte nicht vollständig gelesen werden.', 'detail' => $e->getMessage()], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)];
@@ -266,6 +268,27 @@ class AdminController
                     'ods_present' => $hasOds,
                 ];
             }
+        }
+        $jsonlRegieFields = [];
+        foreach ($jsonlPaths as $jsonlPath) {
+            $handle = @fopen($jsonlPath, 'rb');
+            if ($handle === false) continue;
+            $lines = 0;
+            try {
+                while ($lines++ < 500 && ($line = fgets($handle)) !== false) {
+                    $row = json_decode($line, true);
+                    if (!is_array($row)) continue;
+                    $stack = [$row];
+                    $depth = 0;
+                    while ($stack !== [] && $depth++ < 2) {
+                        $data = array_pop($stack);
+                        foreach ($data as $key => $value) {
+                            if (preg_match('/regie|mehraufwand|zusatzaufwand|additional[ _-]?work|arbeitszeit/iu', (string) $key) === 1) $jsonlRegieFields[(string) $key] = true;
+                            if (is_array($value)) $stack[] = $value;
+                        }
+                    }
+                }
+            } finally { fclose($handle); }
         }
         $presentImportJob = static fn(array $job): array => [
             'id' => (string) ($job['id'] ?? ''),
@@ -290,6 +313,7 @@ class AdminController
             'importable_file_count' => $counts['csv'] + $counts['json'] + $counts['jsonl'],
             'csv_without_matching_ods_count' => $unpairedCsv,
             'csv_ods_pairs' => $pairs,
+            'jsonl_regie_fields' => array_keys($jsonlRegieFields),
             'sample_files' => $files,
             'pending_import_jobs' => $jobs,
             'recent_import_jobs' => $recentJobs,

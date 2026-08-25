@@ -943,11 +943,13 @@ final class ElectricalInspectionImportService
     /** @param array<string,mixed> $record @return array{found:bool,value:mixed,field:string} */
     private function regieFromRecord(array $record): array
     {
-        return $this->recordValueByNormalizedKeys($record, [
+        $known = $this->recordValueByNormalizedKeys($record, [
             'regieminutes', 'regieminute', 'regiezeit', 'regiezeitminuten', 'regiezeitminute', 'regiezeitmin',
             'regietime', 'regietimeraw', 'regie', 'mehraufwand', 'mehraufwandminuten', 'mehraufwandmin',
-            'additionalwork', 'additionalworkminutes', 'additionaltime',
+            'zusatzaufwand', 'zusatzaufwandminuten', 'arbeitszeit', 'additionalwork', 'additionalworkminutes', 'additionalworktime', 'additionaltime',
         ]);
+        if ($known['found']) return $known;
+        return $this->recordValueByRegiePattern($record);
     }
 
     /** Finds a scalar import field by key, including one nested JSON object. */
@@ -967,6 +969,27 @@ final class ElectricalInspectionImportService
                 if (is_array($value) && (int) $current['depth'] < 1) {
                     $stack[] = ['data' => $value, 'prefix' => $path . '.', 'depth' => (int) $current['depth'] + 1];
                 }
+            }
+        }
+        return ['found' => false, 'value' => '', 'field' => ''];
+    }
+
+    /** Accept provider-specific JSON keys such as ZusatzaufwandZeit safely. */
+    private function recordValueByRegiePattern(array $record): array
+    {
+        $stack = [['data' => $record, 'prefix' => '', 'depth' => 0]];
+        while ($stack !== []) {
+            $current = array_pop($stack);
+            foreach ((array) $current['data'] as $key => $value) {
+                $field = trim((string) $key);
+                $normalized = strtolower(preg_replace('/[^a-z0-9]+/i', '', $field) ?: '');
+                $path = (string) $current['prefix'] . $field;
+                $isRegieField = str_contains($normalized, 'regie') || str_contains($normalized, 'mehraufwand') || str_contains($normalized, 'zusatzaufwand') || str_contains($normalized, 'additionalwork');
+                $isReason = str_contains($normalized, 'grund') || str_contains($normalized, 'reason') || str_contains($normalized, 'comment') || str_contains($normalized, 'note');
+                if ($isRegieField && !$isReason && !is_array($value) && trim((string) $value) !== '') {
+                    return ['found' => true, 'value' => $value, 'field' => $path];
+                }
+                if (is_array($value) && (int) $current['depth'] < 1) $stack[] = ['data' => $value, 'prefix' => $path . '.', 'depth' => (int) $current['depth'] + 1];
             }
         }
         return ['found' => false, 'value' => '', 'field' => ''];
