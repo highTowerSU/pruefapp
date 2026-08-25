@@ -104,9 +104,22 @@ final class BillingController
                 [$invoiceId]
             );
             $regieItems = array_values(array_filter($items, static fn(array $item): bool => (int) ($item['regie_minutes'] ?? 0) > 0));
+            $raw = json_decode((string) ($invoice->raw_json ?? ''), true);
+            $raw = is_array($raw) ? $raw : [];
+            $reconciliation = self::reconciliation($invoiceId);
+            $suggestion = self::historicalSuggestion($invoice, $reconciliation);
             return [
                 'ok' => true,
-                'invoice' => ['id' => (int) $invoice->id, 'status' => (string) $invoice->status, 'sevdesk_invoice_id' => (string) $invoice->sevdesk_invoice_id],
+                'invoice' => [
+                    'id' => (int) $invoice->id, 'number' => (string) ($invoice->sevdesk_invoice_number ?: $invoice->invoice_number),
+                    'status' => (string) $invoice->status, 'sevdesk_invoice_id' => (string) $invoice->sevdesk_invoice_id,
+                    'customer_id' => (int) $invoice->customer_id, 'invoice_date' => (string) $invoice->invoice_date,
+                    'remote_contact' => $raw['contact'] ?? null, 'remote_customer' => $raw['customer'] ?? null,
+                    'remote_address_name' => (string) ($raw['addressName'] ?? $raw['recipientName'] ?? ''),
+                ],
+                'reconciliation' => array_diff_key($reconciliation, ['positions' => true, 'items' => true]),
+                'suggestion_reason' => $suggestion['reason'],
+                'suggested_inspections' => $suggestion['candidates'],
                 'inspection_count' => count($items),
                 'regie_inspection_count' => count($regieItems),
                 'regie_minutes_total' => array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $regieItems)),
@@ -367,11 +380,25 @@ final class BillingController
         // this, the read-only import succeeds but the invoice disappears from
         // the tenant-scoped overview immediately afterwards.
         $invoice->tenant_id = (int) (get_branding()['company_id'] ?? 0);
-        $remoteCustomerId = trim((string) (($remote['contact']['id'] ?? null) ?: ($remote['contact'] ?? '') ?: ($remote['customer']['id'] ?? null)));
-        if ($remoteCustomerId !== '') {
-            $customer = R::findOne('customer', ' sevdesk_customer_id=? ', [$remoteCustomerId]);
-            if ($customer) $invoice->customer_id = (int) $customer->id;
+        $remoteContact = is_array($remote['contact'] ?? null) ? $remote['contact'] : [];
+        $remoteCustomer = is_array($remote['customer'] ?? null) ? $remote['customer'] : [];
+        $remoteCustomerId = trim((string) (($remoteContact['id'] ?? '') ?: ($remoteCustomer['id'] ?? '') ?: (is_scalar($remote['contact'] ?? null) ? $remote['contact'] : '')));
+        $customer = null;
+        if ($remoteCustomerId !== '') $customer = R::findOne('customer', ' sevdesk_customer_id=? OR sevdesk_customer_number=? ', [$remoteCustomerId, $remoteCustomerId]);
+        // Older SevDesk exports do not always embed the contact ID.  An exact
+        // recipient-name match is still deterministic and only used to link
+        // the invoice to its existing customer master record.
+        if (!$customer) {
+            $recipientNames = array_filter(array_map('trim', [
+                (string) ($remoteContact['name'] ?? ''), (string) ($remoteCustomer['name'] ?? ''),
+                (string) ($remote['addressName'] ?? ''), (string) ($remote['recipientName'] ?? ''),
+            ]));
+            foreach (array_unique($recipientNames) as $recipientName) {
+                $customer = R::findOne('customer', ' LOWER(TRIM(name)) = LOWER(TRIM(?)) ', [$recipientName]);
+                if ($customer) break;
+            }
         }
+        if ($customer) $invoice->customer_id = (int) $customer->id;
         $invoice->invoice_number = $number; $invoice->invoice_date = substr((string) ($remote['invoiceDate'] ?? ''), 0, 10);
         $invoice->sevdesk_status = $remoteStatus; $invoice->status = $cancelled ? 'cancelled' : (in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft');
         if ($cancelled) $invoice->cancelled_at = date(DATE_ATOM);
