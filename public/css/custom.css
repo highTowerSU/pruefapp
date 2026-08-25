@@ -308,6 +308,38 @@ label.form-label {
   color: var(--bs-emphasis-color) !important;
 }
 
+/* Reassure mouse and keyboard users which list item they are about to open.
+ * Keep this behind the hover media query: cards must not look permanently
+ * active on touch devices. */
+.table-hover > tbody > tr {
+  transition: background-color .14s ease, box-shadow .14s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .table-hover > tbody > tr:hover {
+    --bs-table-hover-bg: color-mix(in srgb, var(--app-primary, var(--bs-primary)), transparent 86%);
+  }
+
+  details.device-card {
+    transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+  }
+
+  details.device-card:hover {
+    border-color: color-mix(in srgb, var(--app-primary, var(--bs-primary)), var(--bs-border-color) 45%);
+    box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--app-primary, var(--bs-primary)), transparent 87%);
+    transform: translateY(-1px);
+  }
+
+  details.device-card > summary.device-card-summary:hover {
+    background-color: color-mix(in srgb, var(--app-primary, var(--bs-primary)), transparent 92%);
+  }
+}
+
+details.device-card:focus-within {
+  border-color: color-mix(in srgb, var(--app-primary, var(--bs-primary)), var(--bs-border-color) 40%);
+  box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--app-primary, var(--bs-primary)), transparent 78%);
+}
+
 .navbar-themed .btn-outline-navbar {
   color: var(--navbar-color, #ffffff);
   border-color: var(--navbar-color, #ffffff);
