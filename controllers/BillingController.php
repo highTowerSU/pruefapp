@@ -460,10 +460,16 @@ final class BillingController
             $rawUnit = (string) (($position['unity']['name'] ?? '') ?: ($position['unity']['id'] ?? ''));
             $item->name = $name; $item->details = $details; $item->quantity = (float) ($position['quantity'] ?? 0); $item->unit = self::displaySevDeskUnit($rawUnit);
             $item->suggested_kind = preg_match('/regie|mehraufwand|zeit/i', $name . ' ' . $details) ? 'regie' : 'device';
-            if ($item->suggested_kind === 'regie' && (int) $item->regie_minutes <= 0) {
-                $item->regie_minutes = preg_match('/min(?:ute)?/i', (string) $item->unit)
-                    ? (int) round((float) $item->quantity)
-                    : (int) round((float) $item->quantity * 60);
+            if ($item->suggested_kind === 'regie' && (!in_array((string) $item->kind, ['regie', 'other'], true) || (int) $item->regie_minutes <= 0)) {
+                // Historical Malteser invoices store Mehraufwand as counted
+                // three-minute units (e.g. 8 = 24 min), despite using Stk.
+                // as the SevDesk unity.  The position title is the decisive
+                // signal; a normal device quantity must never be converted.
+                $item->regie_minutes = $item->unit === 'Stk.'
+                    ? (int) round((float) $item->quantity * 3)
+                    : (preg_match('/min(?:ute)?/i', (string) $item->unit)
+                        ? (int) round((float) $item->quantity)
+                        : (int) round((float) $item->quantity * 60));
             }
             if (!in_array((string) $item->kind, ['device', 'regie', 'other'], true)) $item->kind = 'unclassified';
             $item->raw_json = json_encode($position, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE); $item->updated_at = date(DATE_ATOM); if (!$item->created_at) $item->created_at = date(DATE_ATOM); R::store($item);
