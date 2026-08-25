@@ -967,6 +967,10 @@ final class ElectricalInspectionImportService
             'regieminutes', 'regieminute', 'regiezeit', 'regiezeitminuten', 'regiezeitminute', 'regiezeitmin',
             'regietime', 'regietimeraw', 'regie', 'mehraufwand', 'mehraufwandminuten', 'mehraufwandmin',
             'zusatzaufwand', 'zusatzaufwandminuten', 'arbeitszeit', 'additionalwork', 'additionalworkminutes', 'additionalworktime', 'additionaltime',
+            // Phoenix legacy JSONL calls the per-inspection surcharge
+            // total_cost_plus / cost_plusN.  Treat it like the other source
+            // variants; a zero remains an explicit zero, never an estimate.
+            'totalcostplus', 'costplus', 'costplusminutes', 'costplustime',
         ]);
         if ($known['found']) return $known;
         return $this->recordValueByRegiePattern($record);
@@ -1005,7 +1009,7 @@ final class ElectricalInspectionImportService
                 $normalized = strtolower(preg_replace('/[^a-z0-9]+/i', '', $field) ?: '');
                 $path = (string) $current['prefix'] . $field;
                 $lowerField = mb_strtolower($field, 'UTF-8');
-                $isRegieField = str_contains($normalized, 'regie') || str_contains($normalized, 'mehraufwand') || str_contains($normalized, 'zusatzaufwand') || str_contains($normalized, 'additionalwork')
+                $isRegieField = str_contains($normalized, 'regie') || str_contains($normalized, 'mehraufwand') || str_contains($normalized, 'zusatzaufwand') || str_contains($normalized, 'additionalwork') || str_contains($normalized, 'costplus')
                     || preg_match('/zusätz|extra(?:work|aufwand)?|additional|arbeits(?:zeit|aufwand)/u', $lowerField) === 1;
                 $isReason = str_contains($normalized, 'grund') || str_contains($normalized, 'reason') || str_contains($normalized, 'comment') || str_contains($normalized, 'note');
                 if ($isRegieField && !$isReason && !is_array($value) && trim((string) $value) !== '') {

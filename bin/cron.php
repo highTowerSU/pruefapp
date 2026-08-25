@@ -167,9 +167,9 @@ try {
     // v4 repairs ODS Regiezeit values that previous CSV/ODS imports dropped.
     // The configured GUI path remains the only source; no hidden path is
     // introduced by the cron job.
-    // Version 5 only completes when a source actually exposes per-inspection
+    // Version 6 only completes when a source actually exposes per-inspection
     // Regiezeit: paired Benning CSV/ODS or a JSONL record with a Regie field.
-    $benningImportVersion = '5';
+    $benningImportVersion = '6';
     $benningImportCompleted = (string) get_app_config('benning_import_regie_reimport_version', '') === $benningImportVersion;
     $hasPairedRegieSource = false;
     $hasJsonlRegieSource = false;
@@ -184,7 +184,7 @@ try {
                 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($benningDirectory, FilesystemIterator::SKIP_DOTS)) as $candidate) {
                     if (!$candidate instanceof SplFileInfo || !$candidate->isFile() || strtolower($candidate->getExtension()) !== 'jsonl') continue;
                     $sample = (string) @file_get_contents($candidate->getPathname(), false, null, 0, 1048576);
-                    if (preg_match('/"[^"\\r\\n]*(?:regie|mehraufwand|zusätz|zusatz|extra(?:[ _-]?(?:work|aufwand))?|additional|arbeits(?:zeit|aufwand))[^"\\r\\n]*"\\s*:/iu', $sample) === 1) { $hasJsonlRegieSource = true; break; }
+                    if (preg_match('/"[^"\\r\\n]*(?:regie|mehraufwand|zusätz|zusatz|extra(?:[ _-]?(?:work|aufwand))?|additional|arbeits(?:zeit|aufwand)|cost[ _-]?plus)[^"\\r\\n]*"\\s*:/iu', $sample) === 1) { $hasJsonlRegieSource = true; break; }
                 }
             }
         } catch (Throwable $exception) {
