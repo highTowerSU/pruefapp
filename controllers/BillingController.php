@@ -632,17 +632,31 @@ final class BillingController
         $until = trim((string) ($invoice->performance_date_until ?? $invoice->invoice_date ?? ''));
         if ($until === '') return ['candidates' => [], 'reason' => 'Für die Rechnung fehlt ein Datum für den sicheren Vorschlagszeitraum.'];
         try { $from = (new DateTimeImmutable($until))->modify('-45 days')->format('Y-m-d'); } catch (Throwable) { return ['candidates' => [], 'reason' => 'Das Rechnungsdatum ist nicht auswertbar.']; }
-        $scope = "s.customer_id=? AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
+        // Older Phoenix rows can retain their historical room only in
+        // inspection.room_snapshot. Do not lose an otherwise unbilled
+        // inspection merely because the current device has since moved or no
+        // longer has a room assigned. The snapshot must still resolve to the
+        // same invoice customer; this is a suggestion safeguard, not a
+        // billing assignment.
+        $locationJoins = ' LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id';
+        $customerScope = "(s.customer_id=? OR EXISTS (
+            SELECT 1 FROM room snapshot_room
+            JOIN floor snapshot_floor ON snapshot_floor.id=snapshot_room.floor_id
+            JOIN building snapshot_building ON snapshot_building.id=snapshot_floor.building_id
+            JOIN site snapshot_site ON snapshot_site.id=snapshot_building.site_id
+            WHERE snapshot_room.number=i.room_snapshot AND snapshot_site.customer_id=?
+        ))";
+        $scope = "{$customerScope} AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
                AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)";
-        $scopeParams = [(int) $invoice->customer_id, $from, $until];
+        $scopeParams = [(int) $invoice->customer_id, (int) $invoice->customer_id, $from, $until];
         $invalidNumbers = (int) R::getCell(
-            "SELECT COUNT(*) FROM inspection i JOIN device d ON d.id=i.device_id JOIN room r ON r.id=d.room_id JOIN floor f ON f.id=r.floor_id JOIN building b ON b.id=f.building_id JOIN site s ON s.id=b.site_id
+            "SELECT COUNT(*) FROM inspection i JOIN device d ON d.id=i.device_id {$locationJoins}
              WHERE {$scope} AND COALESCE(i.external_number, '') NOT REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'",
             $scopeParams
         );
         $rows = R::getAll(
             "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
-             FROM inspection i JOIN device d ON d.id=i.device_id JOIN room r ON r.id=d.room_id JOIN floor f ON f.id=r.floor_id JOIN building b ON b.id=f.building_id JOIN site s ON s.id=b.site_id
+             FROM inspection i JOIN device d ON d.id=i.device_id {$locationJoins}
              WHERE {$scope} AND i.external_number REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'
              ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
             [...$scopeParams, max($needed * 3, 100)]
