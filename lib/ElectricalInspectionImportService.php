@@ -326,6 +326,11 @@ final class ElectricalInspectionImportService
             if (is_array($odsRow)) {
                 $matchedSlots[ltrim($slot, '0')] = true;
                 $record = array_merge($record, $odsRow);
+                if (is_array($record['raw'] ?? null) && trim((string) ($odsRow['regie_time_raw'] ?? '')) !== '') {
+                    // Keep the original ODS value as evidence.  Older
+                    // imports discarded it after joining CSV and ODS rows.
+                    $record['raw']['ods_regiezeit'] = (string) $odsRow['regie_time_raw'];
+                }
                 // In the ODS, “Notiz Gerät” is the actual device description;
                 // the CSV's Bezeichnung is only the protection class.
                 if (trim((string) ($record['device_note'] ?? '')) !== '') $record['device_type'] = trim((string) $record['device_note']);
@@ -420,6 +425,7 @@ final class ElectricalInspectionImportService
             if (count($measurements) < 30) $measurements[] = ['name' => $key, 'value' => $value, 'unit' => '', 'result' => ''];
         }
         $cableLength = $this->value($values, ['Kabellänge', 'Leitungslänge', 'cable_length_m', 'cable_length']);
+        $regieRaw = $this->value($values, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten', 'regie_minutes']);
         return [
             'external_number' => $number,
             'storage_slot' => $slot,
@@ -431,6 +437,8 @@ final class ElectricalInspectionImportService
             'manufacturer' => $this->value($values, ['Hersteller', 'manufacturer']),
             'device_model' => $this->value($values, ['Modell', 'device_model']),
             'room_snapshot' => $this->value($values, ['Raumnummer', 'Raum', 'room']),
+            'regie_minutes' => $this->normalizeRegieMinutes($regieRaw),
+            'regie_time_raw' => $regieRaw,
             'measurements' => $measurements,
             'checklist' => [],
             'raw' => $values,
@@ -489,6 +497,10 @@ final class ElectricalInspectionImportService
             $derivedProtectionClass
         );
         $inspection->examiner = $this->scalarImportValue($record['examiner'] ?? $record['created_by'] ?? '');
+        if (array_key_exists('regie_minutes', $record) || array_key_exists('regie_time_raw', $record)) {
+            $inspection->regie_minutes = $this->normalizeRegieMinutes($record['regie_minutes'] ?? $record['regie_time_raw'] ?? '');
+        }
+        if (array_key_exists('regie_reason', $record)) $inspection->regie_reason = trim((string) $record['regie_reason']);
         $inspection->result_status = InspectionEvaluationService::normalizeStatus(
             (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null))
         );
@@ -860,7 +872,7 @@ final class ElectricalInspectionImportService
         return 'reports/' . $name;
     }
 
-    /** @return array<string, array<string, string>> */
+    /** @return array<string, array<string, mixed>> */
     private function readOds(?string $path): array
     {
         if ($path === null || !class_exists('ZipArchive')) return [];
@@ -897,12 +909,34 @@ final class ElectricalInspectionImportService
                 'room_snapshot' => $this->value($rowData, ['Raumnummer']),
                 'comment' => $this->value($rowData, ['Bemerkung/Kommentar']),
                 'device_note' => $this->value($rowData, ['Notiz Gerät']),
+                // The paired ODS holds the per-device Regiezeit.  It is a
+                // minute value in these Benning/Phoenix sheets (e.g. 6), not
+                // a device master-data field, and must survive the join.
+                'regie_time_raw' => $this->value($rowData, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']),
+                'regie_minutes' => $this->normalizeRegieMinutes($this->value($rowData, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten'])),
                 ];
                 $result[$slot] = $rowData;
                 $result[ltrim($slot, '0')] = $rowData;
             }
         }
         return $result;
+    }
+
+    /** Converts known import variants to the canonical whole-minute value. */
+    private function normalizeRegieMinutes(mixed $raw): int
+    {
+        if (is_int($raw)) return max(0, $raw);
+        if (is_float($raw)) return max(0, (int) round($raw));
+        $text = trim((string) $raw);
+        if ($text === '') return 0;
+        $hours = preg_match('/(?:\bh\b|stunde)/iu', $text) === 1;
+        if (preg_match('/-?\d+(?:[.,]\d+)?/', $text, $match) !== 1) return 0;
+        $numberText = str_replace(',', '.', $match[0]);
+        $number = (float) $numberText;
+        // A naked decimal such as 2,2 is an old decimal-hour export. Integer
+        // values in the ODS "Regiezeit" column are already whole minutes.
+        if ($hours || (str_contains($numberText, '.') && $number >= 0 && $number <= 24)) $number *= 60;
+        return max(0, (int) round($number));
     }
 
     private function matchingOdsPath(string $csvPath): ?string
