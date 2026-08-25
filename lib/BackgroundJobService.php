@@ -28,6 +28,7 @@ final class BackgroundJobService
         'import_result_reconciliation' => 'Import-Ergebnisse abgleichen',
         'inspection_duplicate_audit' => 'Prüfungsdubletten prüfen',
         'inspection_duplicate_archive' => 'Importdubletten archivieren',
+        'inspection_manual_csv_consolidation' => 'Manuelle Entwürfe mit CSV-Prüfungen zusammenführen',
         'inspection_pdf_zip' => 'Ausgewählte Prüfberichte',
         'vocabulary_suggestion' => 'KI-Stammdatenprüfung',
         'vocabulary_review_scan' => 'Stammdaten mit KI prüfen',
@@ -109,7 +110,7 @@ final class BackgroundJobService
         if ($job === null) return;
         JobQueue::finish($jobId, 'done', $result, $message !== '' ? $message : self::label($job['type']) . ' abgeschlossen.');
         $owner = (int) $job['owner_user_id'];
-        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_archive'], true) ? self::adminUserIds() : []);
+        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_archive', 'inspection_manual_csv_consolidation'], true) ? self::adminUserIds() : []);
         if ($recipients !== []) {
             NotificationRepository::publish($recipients, self::label($job['type']) . ' abgeschlossen', $message ?: 'Die Aufgabe wurde erfolgreich abgeschlossen.', [
                 'category' => str_contains($job['type'], 'import') || $job['type'] === 'phoenix_sync' ? 'import' : 'background_job',
@@ -257,6 +258,7 @@ final class BackgroundJobService
             'import_result_reconciliation' => 45,
             'inspection_duplicate_audit' => 35,
             'inspection_duplicate_archive' => 36,
+            'inspection_manual_csv_consolidation' => 37,
             'inspection_data_migration' => 40,
             'examiner_migration', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration' => 30,
             'pdf_regenerate', 'missing_reports' => 20,

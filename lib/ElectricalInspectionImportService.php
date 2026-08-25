@@ -540,9 +540,10 @@ final class ElectricalInspectionImportService
         }
         $regieReason = $this->recordValueByNormalizedKeys($record, ['regiereason', 'regiegrund', 'mehraufwandgrund', 'additionalworkreason']);
         if ($regieReason['found']) $inspection->regie_reason = trim((string) $regieReason['value']);
-        $inspection->result_status = InspectionEvaluationService::normalizeStatus(
+        $sourceResult = InspectionEvaluationService::normalizeStatus(
             (string) ($record['result_status'] ?? $this->status($record['audit_ok'] ?? null))
         );
+        $inspection->result_status = $sourceResult;
         $importVocabulary = DeviceVocabularyService::canonicalizeDeviceValues([
             'name' => (string) ($record['device_type'] ?? ''),
             'manufacturer' => (string) ($record['manufacturer'] ?? ''),
@@ -555,10 +556,17 @@ final class ElectricalInspectionImportService
         $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $importMeasurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
-        foreach ($importMeasurements as $measurement) {
-            if (!is_array($measurement) || !in_array(strtoupper(trim((string) ($measurement['name'] ?? ''))), ['RSL', 'RPE'], true)) continue;
-            $measured = (float) str_replace(',', '.', (string) ($measurement['value'] ?? ''));
-            if ($measured > 0 && $measured > (float) $inspection->rsl_limit_ohm) { $inspection->result_status = InspectionEvaluationService::FAILED; break; }
+        // The overall result in a Benning CSV is the authoritative source
+        // decision.  A missing cable length must not turn an explicitly
+        // "bestanden" source row into "nicht bestanden" merely because the
+        // generic fallback limit happens to be 0.3 Ohm.  Derive a result from
+        // RPE/RSL only when the source did not provide a usable overall one.
+        if (!in_array($sourceResult, [InspectionEvaluationService::PASSED, InspectionEvaluationService::FAILED], true)) {
+            foreach ($importMeasurements as $measurement) {
+                if (!is_array($measurement) || !in_array(strtoupper(trim((string) ($measurement['name'] ?? ''))), ['RSL', 'RPE'], true)) continue;
+                $measured = (float) str_replace(',', '.', (string) ($measurement['value'] ?? ''));
+                if ($measured > 0 && $measured > (float) $inspection->rsl_limit_ohm) { $inspection->result_status = InspectionEvaluationService::FAILED; break; }
+            }
         }
         $inspection->checklist_json = json_encode($record['checklist'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->raw_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

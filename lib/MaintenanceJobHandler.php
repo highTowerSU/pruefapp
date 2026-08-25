@@ -37,6 +37,7 @@ final class MaintenanceJobHandler
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
+            'inspection_manual_csv_consolidation' => self::consolidateManualCsvDuplicates($checkpoint, $current, $total, $tick),
             'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
             'vocabulary_review_scan' => self::vocabularyReviewScan($checkpoint, $current, $total, $tick),
             'vocabulary_normalization' => self::vocabularyNormalization($checkpoint, $current, $total, $tick),
@@ -305,6 +306,26 @@ final class MaintenanceJobHandler
         return preg_match('/^(.+-\\d{2})-[2-9][0-9]*$/', $number, $match) ? (string) $match[1] : '';
     }
 
+    /** @return array{date:string,result_status:string} Original CSV facts, never derived values. */
+    private static function csvSourceFacts(int $inspectionId): array
+    {
+        $source = json_decode((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [$inspectionId]), true);
+        if (!is_array($source)) return ['date' => '', 'result_status' => ''];
+        $value = trim((string) ($source['Prüfdatum'] ?? $source['pruefdatum'] ?? $source['date'] ?? $source['Datum'] ?? ''));
+        $dateValue = '';
+        foreach (['!d/m/Y', '!d.m.Y', '!d.m.y', '!Y-m-d'] as $format) {
+            $date = DateTimeImmutable::createFromFormat($format, $value);
+            if ($date !== false) { $dateValue = $date->format('Y-m-d'); break; }
+        }
+        if ($dateValue === '' && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $value) === 1) $dateValue = $value;
+        $rawResult = trim((string) ($source['Prüfergebnis'] ?? $source['pruefergebnis'] ?? $source['result'] ?? ''));
+        $result = InspectionEvaluationService::normalizeStatus($rawResult);
+        return [
+            'date' => $dateValue,
+            'result_status' => in_array($result, [InspectionEvaluationService::PASSED, InspectionEvaluationService::FAILED], true) ? $result : '',
+        ];
+    }
+
     /**
      * Archives only unequivocal re-import copies.  This includes an import
      * suffix (-2, -3, ...) from the very same source file as well as a Phoenix
@@ -415,6 +436,135 @@ final class MaintenanceJobHandler
         }
         set_app_config('inspection_duplicate_archive_version', '3');
         return compact('archived', 'released');
+    }
+
+    /**
+     * Consolidates an abandoned manual draft with its later completed CSV
+     * import.  The import remains the factual inspection: its CSV test date,
+     * result and measurements stay untouched.  The manual record is archived
+     * rather than deleted and its original number is restored on the CSV row.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function consolidateManualCsvDuplicates(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $consolidated = max(0, (int) ($checkpoint['consolidated'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        if ($total <= 0) {
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection
+                WHERE source_type='manual' AND status='in_progress'
+                  AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''");
+        }
+        while ($manualRow = R::getRow("SELECT id, device_id, external_number, test_date
+            FROM inspection
+            WHERE id>? AND source_type='manual' AND status='in_progress'
+              AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''
+            ORDER BY id LIMIT 1", [$lastId])) {
+            $manualId = (int) $manualRow['id'];
+            $lastId = $manualId;
+            $manualNumber = trim((string) $manualRow['external_number']);
+            $manualDate = trim((string) $manualRow['test_date']);
+            $canonical = null;
+            $canonicalSourceDate = '';
+            foreach (R::findAll('inspection', " device_id=? AND source_type='csv' AND status='completed' AND COALESCE(archived_at,'')='' ORDER BY test_date, id ", [(int) $manualRow['device_id']]) as $candidate) {
+                $candidateNumber = trim((string) $candidate->external_number);
+                $candidateFacts = self::csvSourceFacts((int) $candidate->id);
+                $candidateDate = $candidateFacts['date'] ?: trim((string) $candidate->test_date);
+                if (self::inspectionNumberBase($candidateNumber) !== $manualNumber || $candidateDate === '' || $manualDate === '') continue;
+                try {
+                    $days = (int) (new DateTimeImmutable($manualDate))->diff(new DateTimeImmutable($candidateDate))->format('%r%a');
+                } catch (Throwable) {
+                    continue;
+                }
+                if ($days < 0 || $days > 7) continue;
+                $canonical = $candidate;
+                $canonicalSourceDate = $candidateDate;
+                $canonicalSourceResult = $candidateFacts['result_status'];
+                break;
+            }
+            $current++;
+            if ($canonical === null) {
+                $checkpoint = array_merge($checkpoint, ['last_id' => $lastId, 'consolidated' => $consolidated, 'released' => $released]);
+                $tick($checkpoint, $current, max($total, $current), $manualNumber, 'Kein passender abgeschlossener CSV-Import innerhalb von sieben Tagen; manueller Entwurf bleibt unverändert.');
+                continue;
+            }
+            R::begin();
+            try {
+                $manual = R::load('inspection', $manualId);
+                $csv = R::load('inspection', (int) $canonical->id);
+                if (!(int) $manual->id || !(int) $csv->id || trim((string) $manual->archived_at) !== '') { R::commit(); continue; }
+                $collision = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number=? AND COALESCE(archived_at,'')='' AND id NOT IN (?, ?)", [$manualNumber, $manualId, (int) $csv->id]);
+                if ($collision > 0) { R::commit(); continue; }
+                $now = date(DATE_ATOM);
+                foreach (['metadata_notes', 'customer_hint'] as $field) {
+                    if (trim((string) ($csv->$field ?? '')) === '' && trim((string) ($manual->$field ?? '')) !== '') $csv->$field = $manual->$field;
+                }
+                $previousCsvDate = trim((string) $csv->test_date);
+                $previousCsvResult = trim((string) $csv->result_status);
+                if ($canonicalSourceDate !== '' && $canonicalSourceDate !== $previousCsvDate) {
+                    $previousDue = trim((string) $csv->next_due_date);
+                    try {
+                        if ($previousDue !== '' && $previousCsvDate !== '') {
+                            $intervalDays = max(0, (int) (new DateTimeImmutable($previousCsvDate))->diff(new DateTimeImmutable($previousDue))->format('%r%a'));
+                            if ($intervalDays > 0) $csv->next_due_date = (new DateTimeImmutable($canonicalSourceDate))->modify('+' . $intervalDays . ' days')->format('Y-m-d');
+                        }
+                    } catch (Throwable) {
+                        // A malformed historic due date must never prevent the factual CSV date from being restored.
+                    }
+                    $csv->test_date = $canonicalSourceDate;
+                }
+                if ($canonicalSourceResult !== '' && $canonicalSourceResult !== $previousCsvResult) {
+                    $csv->result_status = $canonicalSourceResult;
+                }
+                $csv->external_number = $manualNumber;
+                $csv->updated_at = $now;
+                R::store($csv);
+                $reason = 'Manueller Entwurf wurde mit der abgeschlossenen CSV-Prüfung #' . (int) $csv->id . ' zusammengeführt; CSV-Datum ' . $canonicalSourceDate . ' und CSV-Ergebnis bleiben maßgeblich.';
+                $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$manualId]);
+                foreach ($activeItems as $item) {
+                    $item->active = 0;
+                    $item->deactivated_at = $now;
+                    $item->deactivation_reason = $reason;
+                    R::store($item);
+                    $released++;
+                }
+                $manual->archived_at = $now;
+                $manual->archived_reason = $reason;
+                $manual->duplicate_of_inspection_id = (int) $csv->id;
+                $manual->billable = 0;
+                $manual->billing_eligibility = 'not_billable';
+                $manual->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $manual->billing_not_billable_comment = $reason;
+                $manual->billing_status = 'historisch_nicht_eindeutig';
+                $manual->billing_active_invoice_item_id = null;
+                $manual->updated_at = $now;
+                R::store($manual);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? AND peer_inspection_id=?) OR (inspection_id=? AND peer_inspection_id=?)", [$now, $reason, $manualId, (int) $csv->id, (int) $csv->id, $manualId]);
+                R::commit();
+                audit_log('manueller_pruefentwurf_zusammengefuehrt', ['_category' => 'import', 'manual_inspection_id' => $manualId, 'csv_inspection_id' => (int) $csv->id, 'csv_test_date' => (string) $csv->test_date, 'released_invoice_items' => count($activeItems)]);
+                $consolidated++;
+                $regenerated = is_array($checkpoint['report_inspection_ids'] ?? null) ? $checkpoint['report_inspection_ids'] : [];
+                $regenerated[] = (int) $csv->id;
+                $checkpoint['report_inspection_ids'] = array_values(array_unique(array_filter(array_map('intval', $regenerated))));
+                $message = 'Manueller Entwurf archiviert; CSV-Prüfung übernimmt Originaldatum und -ergebnis aus der CSV-Zeile.';
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            $checkpoint = array_merge($checkpoint, ['last_id' => $lastId, 'consolidated' => $consolidated, 'released' => $released]);
+            $tick($checkpoint, $current, max($total, $current), $manualNumber, $message);
+        }
+        $reportInspectionIds = array_values(array_unique(array_filter(array_map('intval', (array) ($checkpoint['report_inspection_ids'] ?? [])))));
+        if ($reportInspectionIds !== []) {
+            BackgroundJobService::enqueue('all_report_regeneration', ['type' => 'all_report_regeneration', 'inspection_ids' => $reportInspectionIds], [
+                'total' => count($reportInspectionIds),
+                'dedupe_key' => 'maintenance:manual-csv-report-regeneration:v2',
+                'cancellable' => false,
+            ]);
+        }
+        set_app_config('inspection_manual_csv_consolidation_version', '2');
+        return compact('consolidated', 'released');
     }
 
     /**
@@ -657,6 +807,8 @@ final class MaintenanceJobHandler
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $created = max(0, (int) ($checkpoint['created'] ?? 0));
         $eligible = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
+        $inspectionIds = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['inspection_ids'] ?? [])))));
+        if ($inspectionIds !== []) $eligible .= ' AND id IN (' . implode(',', $inspectionIds) . ')';
         if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
 
         while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {

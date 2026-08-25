@@ -195,6 +195,22 @@ try {
             set_app_config('inspection_duplicate_archive_version', '3');
         }
     }
+    // A manual inspection left in progress can be an abandoned entry when a
+    // completed CSV import with the same base number follows shortly after.
+    // The CSV record is kept as the factual result and retains its CSV date.
+    $manualCsvConsolidationVersion = trim((string) get_app_config('inspection_manual_csv_consolidation_version', ''));
+    if ($manualCsvConsolidationVersion !== '2' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '3') {
+        $manualCsvTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual' AND status='in_progress' AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''");
+        if ($manualCsvTotal > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_manual_csv_consolidation',
+                ['type' => 'inspection_manual_csv_consolidation'],
+                ['total' => $manualCsvTotal, 'dedupe_key' => 'maintenance:inspection-manual-csv-consolidation:v2', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_manual_csv_consolidation_version', '2');
+        }
+    }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
     if (get_app_config('device_vocabulary_normalization_version', '') !== '1') {
         $total = (int) R::getCell('SELECT COUNT(*) FROM device');
