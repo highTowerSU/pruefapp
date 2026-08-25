@@ -480,6 +480,17 @@ final class ElectricalInspectionImportService
         $length = (float) str_replace(',', '.', (string) $inspection->cable_length_m);
         $inspection->rsl_limit_ohm = $length > 0 ? min(1, 0.3 + max(0, (int) ceil(($length - 5) / 7.5)) * 0.1) : 0.3;
         $inspection->test_date = $date;
+        $started = $this->recordValueByNormalizedKeys($record, ['startedat', 'teststart', 'inspectionstart', 'pruefbeginn', 'pruefungsbeginn', 'starttime']);
+        $finished = $this->recordValueByNormalizedKeys($record, ['finishedat', 'testend', 'inspectionend', 'pruefende', 'pruefungsende', 'endtime']);
+        $startedAt = $started['found'] ? $this->normalizeDateTime($started['value'], $date) : '';
+        $finishedAt = $finished['found'] ? $this->normalizeDateTime($finished['value'], $date) : '';
+        if ($startedAt !== '') $inspection->started_at = $startedAt;
+        if ($finishedAt !== '') $inspection->finished_at = $finishedAt;
+        $duration = $this->recordValueByNormalizedKeys($record, ['durationminutes', 'testdurationminutes', 'inspectiondurationminutes', 'pruefdauerminuten', 'pruefdauerminuten', 'durationmin']);
+        if ($duration['found']) $inspection->duration_minutes = max(0, $this->normalizeRegieMinutes($duration['value']));
+        elseif ($startedAt !== '' && $finishedAt !== '') {
+            try { $inspection->duration_minutes = max(0, (int) round((strtotime($finishedAt) - strtotime($startedAt)) / 60)); } catch (Throwable) { /* keep existing */ }
+        }
         $nextDue = $this->normalizeDate((string) ($record['next_due_date'] ?? $record['next_audit'] ?? ''));
         // Phoenix occasionally exports the inspection date again as the next
         // due date. That is not a usable interval; use the configured
@@ -940,6 +951,15 @@ final class ElectricalInspectionImportService
         return max(0, (int) round($number));
     }
 
+    private function normalizeDateTime(mixed $raw, string $fallbackDate = ''): string
+    {
+        $text = trim((string) $raw);
+        if ($text === '') return '';
+        if (preg_match('/^\d{1,2}:\d{2}(?::\d{2})?$/', $text) === 1 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fallbackDate) === 1) $text = $fallbackDate . ' ' . $text;
+        try { return (new DateTimeImmutable($text))->format('Y-m-d H:i:s'); }
+        catch (Throwable) { return ''; }
+    }
+
     /** @param array<string,mixed> $record @return array{found:bool,value:mixed,field:string} */
     private function regieFromRecord(array $record): array
     {
@@ -966,7 +986,7 @@ final class ElectricalInspectionImportService
                 if (isset($wanted[$normalized]) && !is_array($value) && trim((string) $value) !== '') {
                     return ['found' => true, 'value' => $value, 'field' => $path];
                 }
-                if (is_array($value) && (int) $current['depth'] < 1) {
+                if (is_array($value) && (int) $current['depth'] < 8) {
                     $stack[] = ['data' => $value, 'prefix' => $path . '.', 'depth' => (int) $current['depth'] + 1];
                 }
             }
@@ -984,12 +1004,14 @@ final class ElectricalInspectionImportService
                 $field = trim((string) $key);
                 $normalized = strtolower(preg_replace('/[^a-z0-9]+/i', '', $field) ?: '');
                 $path = (string) $current['prefix'] . $field;
-                $isRegieField = str_contains($normalized, 'regie') || str_contains($normalized, 'mehraufwand') || str_contains($normalized, 'zusatzaufwand') || str_contains($normalized, 'additionalwork');
+                $lowerField = mb_strtolower($field, 'UTF-8');
+                $isRegieField = str_contains($normalized, 'regie') || str_contains($normalized, 'mehraufwand') || str_contains($normalized, 'zusatzaufwand') || str_contains($normalized, 'additionalwork')
+                    || preg_match('/zusätz|extra(?:work|aufwand)?|additional|arbeits(?:zeit|aufwand)/u', $lowerField) === 1;
                 $isReason = str_contains($normalized, 'grund') || str_contains($normalized, 'reason') || str_contains($normalized, 'comment') || str_contains($normalized, 'note');
                 if ($isRegieField && !$isReason && !is_array($value) && trim((string) $value) !== '') {
                     return ['found' => true, 'value' => $value, 'field' => $path];
                 }
-                if (is_array($value) && (int) $current['depth'] < 1) $stack[] = ['data' => $value, 'prefix' => $path . '.', 'depth' => (int) $current['depth'] + 1];
+                if (is_array($value) && (int) $current['depth'] < 8) $stack[] = ['data' => $value, 'prefix' => $path . '.', 'depth' => (int) $current['depth'] + 1];
             }
         }
         return ['found' => false, 'value' => '', 'field' => ''];

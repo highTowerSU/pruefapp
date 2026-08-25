@@ -280,10 +280,10 @@ class AdminController
                     if (!is_array($row)) continue;
                     $stack = [$row];
                     $depth = 0;
-                    while ($stack !== [] && $depth++ < 2) {
+                    while ($stack !== [] && $depth++ < 8) {
                         $data = array_pop($stack);
                         foreach ($data as $key => $value) {
-                            if (preg_match('/regie|mehraufwand|zusatzaufwand|additional[ _-]?work|arbeitszeit/iu', (string) $key) === 1) $jsonlRegieFields[(string) $key] = true;
+                            if (preg_match('/regie|mehraufwand|zusätz|zusatz|extra(?:[ _-]?(?:work|aufwand))?|additional|arbeits(?:zeit|aufwand)/iu', (string) $key) === 1) $jsonlRegieFields[(string) $key] = true;
                             if (is_array($value)) $stack[] = $value;
                         }
                     }
