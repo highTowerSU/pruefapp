@@ -167,9 +167,23 @@ try {
     // v4 repairs ODS Regiezeit values that previous CSV/ODS imports dropped.
     // The configured GUI path remains the only source; no hidden path is
     // introduced by the cron job.
-    $benningImportVersion = '1';
+    // Version 2 only completes when the paired Benning CSV/ODS source is
+    // present. A JSONL export alone does not contain per-inspection Regiezeit.
+    $benningImportVersion = '2';
     $benningImportCompleted = (string) get_app_config('benning_import_regie_reimport_version', '') === $benningImportVersion;
-    if ($benningDirectory !== '' && is_dir($benningDirectory) && !$benningImportCompleted) {
+    $hasPairedRegieSource = false;
+    if ($benningDirectory !== '' && is_dir($benningDirectory)) {
+        try {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($benningDirectory, FilesystemIterator::SKIP_DOTS));
+            foreach ($iterator as $candidate) {
+                if (!$candidate instanceof SplFileInfo || !$candidate->isFile() || strtolower($candidate->getExtension()) !== 'csv') continue;
+                if (is_file(substr($candidate->getPathname(), 0, -4) . '.ods')) { $hasPairedRegieSource = true; break; }
+            }
+        } catch (Throwable $exception) {
+            $log('Regie-Reimport: Importverzeichnis konnte nicht nach CSV/ODS-Paaren durchsucht werden.', 'warning', ['directory' => $benningDirectory, 'error' => $exception->getMessage()]);
+        }
+    }
+    if ($benningDirectory !== '' && is_dir($benningDirectory) && $hasPairedRegieSource && !$benningImportCompleted) {
         $reportsDirectory = trim((string) (get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_BENNING_REPORTS_DIR')));
         BackgroundJobService::enqueue('directory_import', [
             'type' => 'directory_import',
@@ -177,9 +191,11 @@ try {
             'reports_directory' => $reportsDirectory,
             'completion_config_key' => 'benning_import_regie_reimport_version',
             'completion_config_value' => $benningImportVersion,
-        ], ['dedupe_key' => 'maintenance:benning-import-regie:v1', 'cancellable' => false]);
+        ], ['dedupe_key' => 'maintenance:benning-import-regie:v2', 'cancellable' => false]);
+    } elseif ($benningDirectory !== '' && is_dir($benningDirectory) && !$hasPairedRegieSource && !$benningImportCompleted) {
+        $log('Regie-Reimport wartet: Es wurde kein zusammengehöriges CSV/ODS-Paar gefunden. JSON/JSONL allein enthält keine Regiezeiten.', 'warning', ['directory' => $benningDirectory]);
     }
-    $allReportsVersion = '1';
+    $allReportsVersion = '2';
     $allReportsCompleted = (string) get_app_config('benning_import_regie_reports_version', '') === $allReportsVersion;
     if ($benningImportCompleted && !$allReportsCompleted) {
         $eligibleReports = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
@@ -191,7 +207,7 @@ try {
                 'completion_config_value' => $allReportsVersion,
             ], [
                 'total' => $reportTotal,
-                'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v1',
+                'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v2',
                 'cancellable' => false,
             ]);
         } else {

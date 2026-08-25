@@ -632,15 +632,24 @@ final class BillingController
         $until = trim((string) ($invoice->performance_date_until ?? $invoice->invoice_date ?? ''));
         if ($until === '') return ['candidates' => [], 'reason' => 'Für die Rechnung fehlt ein Datum für den sicheren Vorschlagszeitraum.'];
         try { $from = (new DateTimeImmutable($until))->modify('-45 days')->format('Y-m-d'); } catch (Throwable) { return ['candidates' => [], 'reason' => 'Das Rechnungsdatum ist nicht auswertbar.']; }
+        $scope = "s.customer_id=? AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
+               AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)";
+        $scopeParams = [(int) $invoice->customer_id, $from, $until];
+        $invalidNumbers = (int) R::getCell(
+            "SELECT COUNT(*) FROM inspection i JOIN device d ON d.id=i.device_id JOIN room r ON r.id=d.room_id JOIN floor f ON f.id=r.floor_id JOIN building b ON b.id=f.building_id JOIN site s ON s.id=b.site_id
+             WHERE {$scope} AND COALESCE(i.external_number, '') NOT REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'",
+            $scopeParams
+        );
         $rows = R::getAll(
             "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
              FROM inspection i JOIN device d ON d.id=i.device_id JOIN room r ON r.id=d.room_id JOIN floor f ON f.id=r.floor_id JOIN building b ON b.id=f.building_id JOIN site s ON s.id=b.site_id
-             WHERE s.customer_id=? AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
-               AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)
+             WHERE {$scope} AND i.external_number REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'
              ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
-            [(int) $invoice->customer_id, $from, $until, max($needed * 3, 100)]
+            [...$scopeParams, max($needed * 3, 100)]
         );
-        return ['candidates' => array_slice($rows, 0, $needed), 'reason' => count($rows) < $needed ? 'Im Zeitraum wurden nicht genügend offene Prüfungen gefunden.' : 'Vorschlag: offene Prüfungen des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '.'];
+        $reason = count($rows) < $needed ? 'Im Zeitraum wurden nicht genügend offene Prüfungen gefunden.' : 'Vorschlag: offene Prüfungen des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '.';
+        if ($invalidNumbers > 0) $reason .= ' ' . $invalidNumbers . ' Prüfung(en) mit unplausibler Prüfnummer wurden nicht automatisch vorgeschlagen.';
+        return ['candidates' => array_slice($rows, 0, $needed), 'reason' => $reason];
     }
 
     public static function eligibility(array $params, bool $isHx): array
