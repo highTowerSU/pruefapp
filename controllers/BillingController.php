@@ -591,6 +591,49 @@ final class BillingController
         return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
     }
 
+    /** Transfers unallocated historical regie between two reviewed invoice positions. */
+    public static function transferRegie(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $sourceInvoiceId = (int) ($params['id'] ?? 0);
+        $sourcePositionId = (int) ($_POST['source_position_id'] ?? 0);
+        $targetPositionId = (int) ($_POST['target_position_id'] ?? 0);
+        $minutes = max(0, (int) ($_POST['minutes'] ?? 0));
+        $reason = trim((string) ($_POST['reason'] ?? ''));
+        if (($_POST['confirm'] ?? '') !== '1' || $sourcePositionId <= 0 || $targetPositionId <= 0 || $minutes <= 0 || $reason === '') {
+            return [422, [], 'Bitte Quelle, Ziel, Minuten, Begründung und die ausdrückliche Bestätigung angeben.'];
+        }
+        $sourceInvoice = R::load('billinginvoice', $sourceInvoiceId);
+        $sourcePosition = R::load('billinginvoiceposition', $sourcePositionId);
+        $targetPosition = R::load('billinginvoiceposition', $targetPositionId);
+        $targetInvoice = R::load('billinginvoice', (int) $targetPosition->invoice_id);
+        if (!$sourceInvoice->id || !$sourcePosition->id || (int) $sourcePosition->invoice_id !== $sourceInvoiceId || !$targetPosition->id || !$targetInvoice->id) return [404, [], 'Quell- oder Zielposition wurde nicht gefunden.'];
+        if ((int) $targetInvoice->id === $sourceInvoiceId || (int) $targetInvoice->tenant_id !== (int) $sourceInvoice->tenant_id || (int) $targetInvoice->customer_id !== (int) $sourceInvoice->customer_id) {
+            return [422, [], 'Regie kann nur auf eine andere Rechnung desselben Kunden und Mandanten übertragen werden.'];
+        }
+        if (in_array((string) $sourceInvoice->status, ['cancelled', 'storniert'], true) || in_array((string) $targetInvoice->status, ['cancelled', 'storniert'], true)) return [422, [], 'Stornierte Rechnungen können nicht für eine Regieübertragung verwendet werden.'];
+        $sourceKind = self::effectivePositionKind(['kind' => (string) $sourcePosition->kind, 'suggested_kind' => (string) $sourcePosition->suggested_kind]);
+        $targetKind = self::effectivePositionKind(['kind' => (string) $targetPosition->kind, 'suggested_kind' => (string) $targetPosition->suggested_kind]);
+        if ($sourceKind !== 'regie' || $targetKind !== 'regie') return [422, [], 'Quelle und Ziel müssen jeweils als Regieposition klassifiziert sein.'];
+        $allocated = (int) R::getCell('SELECT COALESCE(SUM(bi.regie_minutes), 0) FROM billinginvoiceitem bi JOIN billinginvoiceitemposition ip ON ip.invoice_item_id=bi.id AND ip.allocation_kind=? WHERE ip.invoice_position_id=? AND bi.active=1', ['regie', $sourcePositionId]);
+        $alreadyTransferred = (int) R::getCell('SELECT COALESCE(SUM(minutes), 0) FROM billingregietransfer WHERE source_position_id=? AND active=1', [$sourcePositionId]);
+        $available = max(0, (int) $sourcePosition->regie_minutes - $allocated - $alreadyTransferred);
+        if ($minutes > $available) return [422, [], 'In der Quellposition sind nur noch ' . $available . ' unzugeordnete Regieminuten übertragbar.'];
+        R::begin();
+        try {
+            $transfer = R::dispense('billingregietransfer');
+            $transfer->source_invoice_id = $sourceInvoiceId; $transfer->source_position_id = $sourcePositionId;
+            $transfer->target_invoice_id = (int) $targetInvoice->id; $transfer->target_position_id = $targetPositionId;
+            $transfer->minutes = $minutes; $transfer->reason = $reason; $transfer->transferred_by = (int) (current_user()->id ?? 0);
+            $transfer->active = 1; $transfer->created_at = date(DATE_ATOM); R::store($transfer);
+            R::commit();
+        } catch (Throwable $exception) { R::rollback(); throw $exception; }
+        audit_log('abrechnung_regie_uebertragen', ['source_invoice_id' => $sourceInvoiceId, 'source_position_id' => $sourcePositionId, 'target_invoice_id' => (int) $targetInvoice->id, 'target_position_id' => $targetPositionId, 'minutes' => $minutes, 'reason' => $reason]);
+        self::refreshInvoiceBillingStates($sourceInvoiceId); self::refreshInvoiceBillingStates((int) $targetInvoice->id);
+        if ($isHx) { $response = self::invoice(['id' => $sourceInvoiceId], true); return [200, ['Content-Type' => 'text/html; charset=utf-8'], $response[2]]; }
+        return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $sourceInvoiceId)], ''];
+    }
+
     private static function refreshInvoiceBillingStates(int $invoiceId): void
     {
         $invoice = R::load('billinginvoice', $invoiceId); $check = self::reconciliation($invoiceId);
@@ -610,14 +653,17 @@ final class BillingController
         // Otherwise a clear SevDesk value such as 2.2 h disappears until an
         // unrelated intermediate save was made in the UI.
         $deviceTarget = array_sum(array_map(static fn(array $p): float => self::effectivePositionKind($p) === 'device' ? (float) $p['quantity'] : 0.0, $positions));
-        $regieTarget = array_sum(array_map(static fn(array $p): int => self::effectivePositionKind($p) === 'regie' ? (int) $p['regie_minutes'] : 0, $positions));
+        $nativeRegieTarget = array_sum(array_map(static fn(array $p): int => self::effectivePositionKind($p) === 'regie' ? (int) $p['regie_minutes'] : 0, $positions));
+        $regieTransferredOut = (int) R::getCell('SELECT COALESCE(SUM(minutes), 0) FROM billingregietransfer WHERE source_invoice_id=? AND active=1', [$invoiceId]);
+        $regieTransferredIn = (int) R::getCell('SELECT COALESCE(SUM(minutes), 0) FROM billingregietransfer WHERE target_invoice_id=? AND active=1', [$invoiceId]);
+        $regieTarget = max(0, $nativeRegieTarget - $regieTransferredOut + $regieTransferredIn);
         $deviceActual = array_sum(array_map(static fn(array $item): float => (float) $item['quantity'], $items));
         $regieActual = array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $items));
         $duplicates = (int) R::getCell('SELECT COUNT(*) FROM (SELECT i.external_number FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id WHERE bi.invoice_id=? AND bi.active=1 GROUP BY i.external_number HAVING COUNT(*)>1) duplicates', [$invoiceId]);
         $unclassified = count(array_filter($positions, static fn(array $p): bool => (string) $p['kind'] === 'unclassified'));
         $invoice = R::load('billinginvoice', $invoiceId);
         $result = (string) $invoice->status === 'cancelled' ? 'storniert' : ($unclassified > 0 || $items === [] ? 'Zuordnung unvollständig' : (abs($deviceTarget - $deviceActual) > 0.0001 ? 'Geräteanzahl abweichend' : ($regieTarget !== $regieActual ? 'Regiezeit abweichend' : ($duplicates > 0 ? 'Zuordnung unvollständig' : 'vollständig passend'))));
-        return compact('positions', 'items', 'deviceTarget', 'deviceActual', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
+        return compact('positions', 'items', 'deviceTarget', 'deviceActual', 'nativeRegieTarget', 'regieTransferredOut', 'regieTransferredIn', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
     }
 
     /** @param array<string,mixed> $position */
@@ -767,7 +813,9 @@ final class BillingController
         $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
         $candidates = R::getAll("SELECT i.id, i.external_number, i.test_date, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.test_date >= '2025-01-01' AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1) ORDER BY i.test_date DESC, i.id DESC LIMIT 500");
         $reconciliation = self::reconciliation($id);
-        $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items, 'reconciliation' => $reconciliation, 'candidates' => $candidates, 'suggestion' => self::historicalSuggestion($invoice, $reconciliation)]);
+        $transferRows = R::getAll('SELECT t.*, si.invoice_number AS source_invoice_number, sp.position_number AS source_position_number, sp.name AS source_position_name, ti.invoice_number AS target_invoice_number, tp.position_number AS target_position_number, tp.name AS target_position_name FROM billingregietransfer t JOIN billinginvoice si ON si.id=t.source_invoice_id JOIN billinginvoiceposition sp ON sp.id=t.source_position_id JOIN billinginvoice ti ON ti.id=t.target_invoice_id JOIN billinginvoiceposition tp ON tp.id=t.target_position_id WHERE t.active=1 AND (t.source_invoice_id=? OR t.target_invoice_id=?) ORDER BY t.created_at DESC, t.id DESC', [$id, $id]);
+        $transferTargets = R::getAll("SELECT p.id AS position_id, p.invoice_id, p.position_number, p.name, p.details, p.regie_minutes, i.invoice_number FROM billinginvoiceposition p JOIN billinginvoice i ON i.id=p.invoice_id WHERE i.id<>? AND i.tenant_id=? AND i.customer_id=? AND i.status NOT IN ('cancelled', 'storniert') AND (p.kind='regie' OR (p.kind='unclassified' AND p.suggested_kind='regie')) ORDER BY i.invoice_date DESC, i.id DESC, CAST(p.position_number AS INTEGER), p.id", [$id, (int) $invoice->tenant_id, (int) $invoice->customer_id]);
+        $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items, 'reconciliation' => $reconciliation, 'candidates' => $candidates, 'suggestion' => self::historicalSuggestion($invoice, $reconciliation), 'transferRows' => $transferRows, 'transferTargets' => $transferTargets]);
         return $isHx
             ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content]
             : [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];

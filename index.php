@@ -167,6 +167,7 @@ $routes = [
     ['POST', '/admin/abrechnung/rechnung/{id}/historisch-zuordnen-sammeln', fn($params, $isHx) => BillingController::assignHistoricalBatch($params, $isHx)],
     ['POST', '/admin/abrechnung/rechnung/{id}/position-klassifizieren', fn($params, $isHx) => BillingController::classifyPosition($params, $isHx)],
     ['POST', '/admin/abrechnung/rechnung/{id}/positionen-klassifizieren', fn($params, $isHx) => BillingController::classifyPositions($params, $isHx)],
+    ['POST', '/admin/abrechnung/rechnung/{id}/regie-uebertragen', fn($params, $isHx) => BillingController::transferRegie($params, $isHx)],
     ['POST', '/admin/abrechnung/rechnung/{id}/sevdesk-entwurf-loeschen', fn($params, $isHx) => BillingController::deleteDraftInvoice($params, $isHx)],
     ['POST', '/admin/abrechnung/export', fn($params, $isHx) => BillingController::export($params, $isHx)],
     ['POST', '/admin/abrechnung/pruefung/{id}/abrechenbarkeit', fn($params, $isHx) => BillingController::eligibility($params, $isHx)],

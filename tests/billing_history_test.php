@@ -42,6 +42,7 @@ $checks = [
     [str_contains($billing, 'classifyPosition') && str_contains($detail, 'positionen-klassifizieren'), 'Rechnungspositionen können nicht überprüfbar klassifiziert werden.'],
     [str_contains($billing, 'classifyPositions') && str_contains($routes, '/positionen-klassifizieren') && str_contains($detail, 'Alle Positionen übernehmen'), 'Rechnungspositionen können nicht gesammelt per HTMX gespeichert werden.'],
     [str_contains($detail, 'Alle auswählen') && str_contains($detail, 'Erste <?= $requiredDeviceQuantity ?> auswählen') && str_contains($detail, 'data-historical-candidate-form'), 'Der historische Zuordnungsvorschlag bietet keine sichere Sammelauswahl.'],
+    [str_contains($schema, 'billingregietransfer') && str_contains($billing, 'transferRegie') && str_contains($routes, '/regie-uebertragen') && str_contains($detail, 'Regiezeit auf andere Rechnung umbuchen'), 'Eine nachvollziehbare Regie-Umbuchung zwischen Rechnungen fehlt.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
