@@ -9,6 +9,7 @@ $inspectionController = (string) file_get_contents(dirname(__DIR__) . '/controll
 $importer = (string) file_get_contents(dirname(__DIR__) . '/lib/ElectricalInspectionImportService.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_invoice.php');
+$billingIndex = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_index.php');
 $client = (string) file_get_contents(dirname(__DIR__, 2) . '/ceneos-php-base/src/Integration/SevDeskClient.php');
 $maintenance = (string) file_get_contents(dirname(__DIR__) . '/lib/MaintenanceJobHandler.php');
 $cron = (string) file_get_contents(dirname(__DIR__) . '/bin/cron.php');
@@ -43,6 +44,7 @@ $checks = [
     [str_contains($billing, 'classifyPositions') && str_contains($routes, '/positionen-klassifizieren') && str_contains($detail, 'Alle Positionen übernehmen'), 'Rechnungspositionen können nicht gesammelt per HTMX gespeichert werden.'],
     [str_contains($detail, 'Alle auswählen') && str_contains($detail, 'Erste <?= $requiredDeviceQuantity ?> auswählen') && str_contains($detail, 'data-historical-candidate-form'), 'Der historische Zuordnungsvorschlag bietet keine sichere Sammelauswahl.'],
     [str_contains($schema, 'billingregietransfer') && str_contains($billing, 'transferRegie') && str_contains($routes, '/regie-uebertragen') && str_contains($detail, 'Regiezeit auf andere Rechnung umbuchen'), 'Eine nachvollziehbare Regie-Umbuchung zwischen Rechnungen fehlt.'],
+    [str_contains($billing, 'billed_device_target') && str_contains($billingIndex, '$inspectionCount . \'/\' . $target') && str_contains($billing, 'duplicate_devices'), 'Die Rechnungsübersicht zeigt historische Prüfungen nicht gegen die Rechnungsmenge oder erklärt doppelte Geräte nicht.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

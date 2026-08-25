@@ -110,6 +110,20 @@ final class BillingController
                 [$invoiceId]
             );
             $regieItems = array_values(array_filter($items, static fn(array $item): bool => (int) ($item['regie_minutes'] ?? 0) > 0));
+            $duplicateDevices = R::getAll(
+                'SELECT bi.device_id, d.external_number AS device_number, d.name AS device_name, COUNT(*) AS inspection_count, GROUP_CONCAT(i.external_number, ", ") AS inspection_numbers
+                 FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id
+                 WHERE bi.invoice_id=? AND bi.active=1
+                 GROUP BY bi.device_id HAVING COUNT(*)>1 ORDER BY d.external_number, bi.device_id',
+                [$invoiceId]
+            );
+            $duplicateInspectionNumbers = R::getAll(
+                'SELECT i.external_number, COUNT(*) AS inspection_count, GROUP_CONCAT(d.external_number, ", ") AS device_numbers
+                 FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id
+                 WHERE bi.invoice_id=? AND bi.active=1
+                 GROUP BY i.external_number HAVING COUNT(*)>1 ORDER BY i.external_number',
+                [$invoiceId]
+            );
             $raw = json_decode((string) ($invoice->raw_json ?? ''), true);
             $raw = is_array($raw) ? $raw : [];
             $reconciliation = self::reconciliation($invoiceId);
@@ -135,6 +149,8 @@ final class BillingController
                 'regie_inspection_count' => count($regieItems),
                 'regie_minutes_total' => array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $regieItems)),
                 'regie_items' => $regieItems,
+                'duplicate_devices' => $duplicateDevices,
+                'duplicate_inspection_numbers' => $duplicateInspectionNumbers,
             ];
         } catch (Throwable $error) {
             return ['ok' => false, 'exception_class' => get_class($error), 'error' => $error->getMessage()];
@@ -1057,7 +1073,9 @@ final class BillingController
         return R::getAll(
             'SELECT inv.id, inv.invoice_number, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_date, inv.status, inv.created_at, c.name AS customer_name, '
             . 'SUM(CASE WHEN bi.active = 1 THEN 1 ELSE 0 END) AS inspection_count, '
-            . 'COUNT(DISTINCT CASE WHEN bi.active = 1 THEN bi.device_id END) AS device_count '
+            . 'COUNT(DISTINCT CASE WHEN bi.active = 1 THEN bi.device_id END) AS device_count, '
+            . "COALESCE((SELECT SUM(position.quantity) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='device' OR (position.kind='unclassified' AND position.suggested_kind='device'))), 0) AS billed_device_target, "
+            . 'COALESCE((SELECT COUNT(*) FROM (SELECT duplicate_item.device_id FROM billinginvoiceitem duplicate_item WHERE duplicate_item.invoice_id=inv.id AND duplicate_item.active=1 GROUP BY duplicate_item.device_id HAVING COUNT(*)>1)), 0) AS repeated_device_count '
             . 'FROM billinginvoice inv LEFT JOIN customer c ON c.id = inv.customer_id LEFT JOIN billinginvoiceitem bi ON bi.invoice_id = inv.id '
             . 'WHERE inv.tenant_id = ? GROUP BY inv.id ORDER BY inv.created_at DESC, inv.id DESC LIMIT 20',
             [$tenantId]
