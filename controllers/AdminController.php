@@ -86,10 +86,15 @@ class AdminController
             );
             $row['expected_legacy'] = trim((string) ($row['test_date'] ?? '')) !== ''
                 && (string) $row['test_date'] < '2025-01-01';
-            $snapshot = json_decode((string) R::getCell('SELECT legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]), true);
+            $snapshotRow = R::getRow('SELECT source_row_json, legacy_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $row['id']]);
+            $snapshot = json_decode((string) ($snapshotRow['legacy_row_json'] ?? ''), true);
             $row['source_snapshot_status'] = is_array($snapshot)
                 ? InspectionEvaluationService::normalizeStatus((string) ($snapshot['result_status'] ?? ''), (string) ($snapshot['status'] ?? ''))
                 : '';
+            if (($_GET['source_row'] ?? '') === '1') {
+                $sourceRow = json_decode((string) ($snapshotRow['source_row_json'] ?? ''), true);
+                $row['source_row'] = is_array($sourceRow) ? $sourceRow : null;
+            }
         }
         unset($row);
         $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
