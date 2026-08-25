@@ -7,6 +7,17 @@ use Ceneos\PhpBase\Tenant\TenantRepository;
 
 final class BillingController
 {
+    /** Converts the SevDesk unity IDs that occur in invoice positions into UI labels. */
+    public static function displaySevDeskUnit(string $unit): string
+    {
+        $value = trim($unit);
+        return match ($value) {
+            '1' => 'Stk.',
+            '2', '9' => 'h',
+            default => $value === '' ? '—' : $value,
+        };
+    }
+
     /** Read-only support diagnostic for the exact export selection query. */
     public static function debugSelection(array $filters = [], array $ids = []): array
     {
@@ -373,7 +384,8 @@ final class BillingController
             $item = R::findOne('billinginvoiceposition', ' invoice_id=? AND sevdesk_position_id=? ', [$invoiceId, $externalId]) ?: R::dispense('billinginvoiceposition');
             $name = trim((string) ($position['name'] ?? '')); $details = trim((string) ($position['text'] ?? ''));
             $item->invoice_id = $invoiceId; $item->sevdesk_position_id = $externalId; $item->position_number = (string) ($position['positionNumber'] ?? $externalId);
-            $item->name = $name; $item->details = $details; $item->quantity = (float) ($position['quantity'] ?? 0); $item->unit = (string) (($position['unity']['name'] ?? '') ?: ($position['unity']['id'] ?? ''));
+            $rawUnit = (string) (($position['unity']['name'] ?? '') ?: ($position['unity']['id'] ?? ''));
+            $item->name = $name; $item->details = $details; $item->quantity = (float) ($position['quantity'] ?? 0); $item->unit = self::displaySevDeskUnit($rawUnit);
             $item->suggested_kind = preg_match('/regie|mehraufwand|zeit/i', $name . ' ' . $details) ? 'regie' : 'device';
             if ($item->suggested_kind === 'regie' && (int) $item->regie_minutes <= 0) {
                 $item->regie_minutes = preg_match('/min(?:ute)?/i', (string) $item->unit)

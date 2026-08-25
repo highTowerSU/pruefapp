@@ -23,6 +23,7 @@ $checks = [
     [str_contains($detail, 'Vorschlag – bitte prüfen') && str_contains($detail, 'hx-target="#billing-reconciliation"'), 'Die Positionsvorschläge oder die Teilaktualisierung des Abgleichs fehlen.'],
     [str_contains($billing, 'reconciliation') && str_contains($billing, 'Geräteanzahl abweichend') && str_contains($billing, 'Regiezeit abweichend') && str_contains($billing, 'vollständig passend'), 'Der Rechnungsabgleich deckt die geforderten Ergebnisse nicht ab.'],
     [str_contains($billing, 'round((float) $item->quantity * 60)') && str_contains($billing, "preg_match('/min(?:ute)?/i'"), 'Historische Regiezeiten werden nicht einheitlich in Minuten normalisiert.'],
+    [str_contains($billing, "'1' => 'Stk.'") && str_contains($billing, "'9' => 'h'") && str_contains($detail, 'displaySevDeskUnit'), 'SevDesk-Einheiten werden nicht lesbar dargestellt.'],
     [str_contains($billing, 'assignHistorical') && str_contains($billing, 'historical_confirmed') && str_contains($routes, '/historisch-zuordnen'), 'Die bestätigte historische Zuordnung fehlt.'],
     [str_contains($billing, 'assignHistoricalBatch') && str_contains($billing, 'historical_batch_confirmed') && str_contains($routes, '/historisch-zuordnen-sammeln'), 'Die bestätigte Sammelzuordnung historischer Prüfungen fehlt.'],
     [str_contains($billing, 'historicalSuggestion') && str_contains($detail, 'Zuordnungsvorschlag prüfen') && str_contains($detail, 'Auswahl gesammelt zuordnen'), 'Ein prüfbarer Sammelvorschlag für historische Rechnungen fehlt.'],
