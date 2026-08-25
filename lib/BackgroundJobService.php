@@ -76,6 +76,30 @@ final class BackgroundJobService
         return $job !== null && JobQueue::requestCancellation((int) $job['id']);
     }
 
+    /**
+     * Replaces obsolete system maintenance work with its successor.
+     *
+     * This is intentionally narrower than a general force-cancel: it is used
+     * only when the scheduler has a newer complete run of the same maintenance
+     * type to enqueue.  Older report jobs used to be non-cancellable, so make
+     * them cooperative first; the worker then stops at its next checkpoint.
+     */
+    public static function supersedePendingType(string $type, string $message): int
+    {
+        $cancelled = 0;
+        foreach (self::pending(1000) as $job) {
+            if ((string) ($job['type'] ?? '') !== $type) continue;
+            if (!in_array((string) ($job['state'] ?? ''), ['queued', 'running', 'cancel_requested'], true)) continue;
+            $id = (int) ($job['database_id'] ?? 0);
+            if ($id <= 0) continue;
+            // A previous release marked maintenance report runs as system
+            // jobs.  Superseding them is safe because a new full run follows.
+            R::exec('UPDATE backgroundjob SET cancellable = 1, message = ?, updated_at = ? WHERE id = ?', [$message, date(DATE_ATOM), $id]);
+            if (JobQueue::requestCancellation($id)) $cancelled++;
+        }
+        return $cancelled;
+    }
+
     /** @param array<string,mixed> $result */
     public static function complete(int $jobId, array $result = [], string $message = ''): void
     {

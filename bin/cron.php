@@ -203,20 +203,22 @@ try {
     } elseif ($benningDirectory !== '' && is_dir($benningDirectory) && !$hasPairedRegieSource && !$hasJsonlRegieSource && !$benningImportCompleted) {
         $log('Regie-Reimport wartet: Es wurde weder ein CSV/ODS-Paar noch ein JSONL-Regiefeld gefunden.', 'warning', ['directory' => $benningDirectory]);
     }
-    $allReportsVersion = '2';
+    $allReportsVersion = '3';
     $allReportsCompleted = (string) get_app_config('benning_import_regie_reports_version', '') === $allReportsVersion;
     if ($benningImportCompleted && !$allReportsCompleted) {
         $eligibleReports = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
         $reportTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligibleReports}");
         if ($reportTotal > 0) {
+            $supersededReports = BackgroundJobService::supersedePendingType('all_report_regeneration', 'Wird durch einen neueren vollständigen Berichtslauf ersetzt.');
+            if ($supersededReports > 0) $log($supersededReports . ' älterer Berichtslauf/-läufe werden durch den aktuellen Datenabgleich ersetzt.', 'info');
             BackgroundJobService::enqueue('all_report_regeneration', [
                 'type' => 'all_report_regeneration',
                 'completion_config_key' => 'benning_import_regie_reports_version',
                 'completion_config_value' => $allReportsVersion,
             ], [
                 'total' => $reportTotal,
-                'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v2',
-                'cancellable' => false,
+                'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v3',
+                'cancellable' => true,
             ]);
         } else {
             set_app_config('benning_import_regie_reports_version', $allReportsVersion);
