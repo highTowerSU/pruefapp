@@ -18,6 +18,7 @@ $checks = [
     [str_contains($inspectionController, "public_id = 'prf_'") && str_contains($importer, "public_id = 'prf_'"), 'Neue manuelle oder importierte Prüfungen erhalten keine unveränderliche Prüf-ID.'],
     [str_contains($client, 'function invoicesByNumbers') && str_contains($client, 'function invoicePositions'), 'Der SevDesk-Client kann Rechnungen und Positionen nicht lesend abgleichen.'],
     [str_contains($billing, 'syncSevDeskInvoices') && str_contains($billing, 'Zuordnungen bleiben bis zur Bestätigung unverbindlich'), 'Der historische SevDesk-Import ist nicht bewusst bestätigungspflichtig.'],
+    [str_contains($billing, "\$invoice->tenant_id = (int) (get_branding()['company_id'] ?? 0)") && str_contains($billing, 'sevdesk_invoice_number IN'), 'Eingelesene SevDesk-Rechnungen werden nicht mandantensicher in der Übersicht geführt.'],
     [str_contains($billing, 'reconciliation') && str_contains($billing, 'Geräteanzahl abweichend') && str_contains($billing, 'Regiezeit abweichend') && str_contains($billing, 'vollständig passend'), 'Der Rechnungsabgleich deckt die geforderten Ergebnisse nicht ab.'],
     [str_contains($billing, 'round((float) $item->quantity * 60)') && str_contains($billing, "preg_match('/min(?:ute)?/i'"), 'Historische Regiezeiten werden nicht einheitlich in Minuten normalisiert.'],
     [str_contains($billing, 'assignHistorical') && str_contains($billing, 'historical_confirmed') && str_contains($routes, '/historisch-zuordnen'), 'Die bestätigte historische Zuordnung fehlt.'],

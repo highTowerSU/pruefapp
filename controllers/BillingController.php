@@ -254,6 +254,16 @@ final class BillingController
             $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? ''), (string) ($tenant->sevdesk_api_token ?? ''));
             $invoices = $client->invoicesByNumbers($numbers);
             foreach ($invoices as $remote) self::storeSyncedInvoice($client, $remote);
+            // Repair records written by the first version of the importer,
+            // which did not persist the tenant. Scope the repair strictly to
+            // the invoice numbers the superadmin entered in this request.
+            $tenantId = (int) (get_branding()['company_id'] ?? 0);
+            if ($tenantId > 0 && $numbers !== []) {
+                R::exec(
+                    'UPDATE billinginvoice SET tenant_id=? WHERE (tenant_id IS NULL OR tenant_id=0) AND sevdesk_invoice_number IN (' . implode(',', array_fill(0, count($numbers), '?')) . ')',
+                    array_merge([$tenantId], $numbers)
+                );
+            }
             audit_log('abrechnung_sevdesk_sync', ['requested_numbers' => $numbers, 'found' => count($invoices)]);
             $_SESSION['billing_message'] = count($invoices) . ' SevDesk-Rechnung(en) gelesen. Zuordnungen bleiben bis zur Bestätigung unverbindlich.';
         } catch (Throwable $exception) {
@@ -303,6 +313,10 @@ final class BillingController
             || in_array(strtolower((string) ($remote['invoiceType'] ?? '')), ['sr', 'storno', 'cancelled'], true)
             || in_array(strtolower($remoteStatus), ['cancelled', 'storniert', 'void'], true);
         $invoice->sevdesk_invoice_id = $sevdeskId; $invoice->sevdesk_invoice_number = $number;
+        // Imported invoices must belong to the active tenant as well.  Without
+        // this, the read-only import succeeds but the invoice disappears from
+        // the tenant-scoped overview immediately afterwards.
+        $invoice->tenant_id = (int) (get_branding()['company_id'] ?? 0);
         $invoice->invoice_number = $number; $invoice->invoice_date = substr((string) ($remote['invoiceDate'] ?? ''), 0, 10);
         $invoice->sevdesk_status = $remoteStatus; $invoice->status = $cancelled ? 'cancelled' : (in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft');
         if ($cancelled) $invoice->cancelled_at = date(DATE_ATOM);
