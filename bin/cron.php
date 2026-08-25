@@ -140,6 +140,19 @@ try {
             set_app_config('import_result_reconciliation_version', '8');
         }
     }
+    $duplicateAuditVersion = trim((string) get_app_config('inspection_duplicate_audit_version', ''));
+    if ($duplicateAuditVersion !== '1') {
+        $duplicateAuditTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> ''");
+        if ($duplicateAuditTotal > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_duplicate_audit',
+                ['type' => 'inspection_duplicate_audit'],
+                ['total' => $duplicateAuditTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-audit:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_duplicate_audit_version', '1');
+        }
+    }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
     if (get_app_config('device_vocabulary_normalization_version', '') !== '1') {
         $total = (int) R::getCell('SELECT COUNT(*) FROM device');

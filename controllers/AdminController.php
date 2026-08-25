@@ -389,15 +389,25 @@ class AdminController
         $migration = BackgroundJobService::pending(200);
         $legacyJob = null;
         $importReconciliationJob = null;
+        $duplicateAuditJob = null;
         foreach ($migration as $job) {
             if (($job['type'] ?? '') === 'legacy_classification_migration') {
                 $legacyJob = $job;
                 break;
             }
             if (($job['type'] ?? '') === 'import_result_reconciliation') $importReconciliationJob = $job;
+            if (($job['type'] ?? '') === 'inspection_duplicate_audit') $duplicateAuditJob = $job;
         }
         $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
-        $content = render_template('admin_inspection_debug.php', compact('query', 'rows', 'unclassified', 'legacyJob', 'importsToReconcile', 'importReconciliationJob'));
+        $duplicateFindings = R::getAll("SELECT review.*, earlier.external_number AS earlier_number, earlier.test_date AS earlier_date, later.external_number AS later_number, later.test_date AS later_date, device.external_number AS device_number, device.name AS device_name
+            FROM inspectiondupreview review
+            JOIN inspection earlier ON earlier.id=review.inspection_id
+            JOIN inspection later ON later.id=review.peer_inspection_id
+            JOIN device ON device.id=review.device_id
+            WHERE review.status='open'
+            ORDER BY CASE review.severity WHEN 'danger' THEN 0 ELSE 1 END, review.detected_at DESC, review.id DESC LIMIT 60");
+        $duplicateOpen = (int) R::getCell("SELECT COUNT(*) FROM inspectiondupreview WHERE status='open'");
+        $content = render_template('admin_inspection_debug.php', compact('query', 'rows', 'unclassified', 'legacyJob', 'importsToReconcile', 'importReconciliationJob', 'duplicateAuditJob', 'duplicateFindings', 'duplicateOpen'));
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', ['title' => 'Prüfungsdiagnose', 'content' => $content])];
     }
@@ -415,6 +425,23 @@ class AdminController
             $_SESSION['meldung'] = $total . ' historische Prüfung(en) wurden zur Legacy-Klassifizierung vorgemerkt.';
         } else {
             $_SESSION['meldung'] = 'Keine unklassifizierten historischen Prüfungen gefunden.';
+        }
+        return [303, ['Location' => url_for('admin/debug/pruefungen')], ''];
+    }
+
+    public static function enqueueInspectionDuplicateAudit(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> ''");
+        if ($total > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_duplicate_audit',
+                ['type' => 'inspection_duplicate_audit', 'owner_user_id' => (int) (current_user()->id ?? 0)],
+                ['total' => $total, 'dedupe_key' => 'maintenance:inspection-duplicate-audit:manual:' . date('YmdHis'), 'cancellable' => false]
+            );
+            $_SESSION['meldung'] = 'Prüfungsdubletten werden im Hintergrund erneut geprüft. Der Lauf verändert keine Prüfungen oder Rechnungen.';
+        } else {
+            $_SESSION['meldung'] = 'Keine datierten Prüfungen zum Prüfen gefunden.';
         }
         return [303, ['Location' => url_for('admin/debug/pruefungen')], ''];
     }

@@ -193,6 +193,7 @@ $routes = [
     ['GET', '/admin/audit-log', fn($params, $isHx) => AdminController::auditLog($params, $isHx)],
     ['GET', '/admin/debug/pruefungen', fn($params, $isHx) => AdminController::inspectionDebug($params, $isHx)],
     ['POST', '/admin/debug/pruefungen/legacy-migration', fn($params, $isHx) => AdminController::enqueueLegacyClassificationMigration($params, $isHx)],
+    ['POST', '/admin/debug/pruefungen/dubletten-pruefen', fn($params, $isHx) => AdminController::enqueueInspectionDuplicateAudit($params, $isHx)],
     ['GET', '/api/debug/inspection', fn($params, $isHx) => AdminController::inspectionApiDebug($params, $isHx)],
     ['GET', '/mandanten', fn($params, $isHx) => TenantController::index($params, $isHx)],
     ['GET', '/mandanten/neu', fn($params, $isHx) => TenantController::create($params, $isHx)],

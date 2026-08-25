@@ -35,6 +35,7 @@ final class MaintenanceJobHandler
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
+            'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
             'vocabulary_review_scan' => self::vocabularyReviewScan($checkpoint, $current, $total, $tick),
             'vocabulary_normalization' => self::vocabularyNormalization($checkpoint, $current, $total, $tick),
@@ -215,6 +216,77 @@ final class MaintenanceJobHandler
         set_app_config('import_result_reconciliation_version', '8');
         set_app_config('import_result_reconciliation_errors', json_encode($errors, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
         return ['reconciled' => $reconciled, 'errors' => $errors, 'processed' => $current];
+    }
+
+    /**
+     * One-time, non-destructive audit for imported duplicate inspections.
+     *
+     * A repeated inspection can be legitimate (for example a repair retest),
+     * so this job deliberately creates review findings rather than deleting,
+     * merging or unbilling historical records. Exact duplicate numbers and
+     * import suffixes are marked critical; any other repeat within 180 days
+     * remains a manual review item.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function inspectionDuplicateAudit(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $found = max(0, (int) ($checkpoint['found'] ?? 0));
+        if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> ''");
+        while ($row = R::getRow("SELECT id, device_id, external_number, test_date FROM inspection WHERE id>? AND COALESCE(test_date, '')<>'' ORDER BY id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            $number = trim((string) $row['external_number']);
+            $peers = R::getAll(
+                "SELECT id, external_number, test_date FROM inspection
+                 WHERE device_id=? AND id<? AND COALESCE(test_date, '')<>''
+                   AND ABS(julianday(test_date)-julianday(?))<=180
+                 ORDER BY test_date, id",
+                [(int) $row['device_id'], $lastId, (string) $row['test_date']]
+            );
+            foreach ($peers as $peer) {
+                $peerNumber = trim((string) $peer['external_number']);
+                $findingType = '';
+                $severity = 'warning';
+                if ($number !== '' && $number === $peerNumber) {
+                    $findingType = 'same_inspection_number';
+                    $severity = 'danger';
+                } elseif (self::inspectionNumberBase($number) !== '' && self::inspectionNumberBase($number) === $peerNumber) {
+                    $findingType = 'import_suffix';
+                    $severity = 'danger';
+                } else {
+                    $findingType = 'short_interval';
+                }
+                $days = abs((int) ((new DateTimeImmutable((string) $row['test_date']))->diff(new DateTimeImmutable((string) $peer['test_date']))->format('%r%a')));
+                $reason = match ($findingType) {
+                    'same_inspection_number' => 'Gleiche Prüfnummer am selben Gerät und Datum/Zeitraum: möglicher Importdoppelgänger.',
+                    'import_suffix' => 'Nummer mit Import-Suffix am selben Gerät: möglicher künstlicher Doppelimport.',
+                    default => 'Zwei Prüfungen desselben Geräts innerhalb von ' . $days . ' Tagen; Wiederholungsprüfung fachlich prüfen.',
+                };
+                $existing = R::findOne('inspectiondupreview', ' inspection_id=? AND peer_inspection_id=? AND finding_type=? ', [(int) $peer['id'], $lastId, $findingType]);
+                if ($existing !== null) continue;
+                $review = R::dispense('inspectiondupreview');
+                $review->inspection_id = (int) $peer['id'];
+                $review->peer_inspection_id = $lastId;
+                $review->device_id = (int) $row['device_id'];
+                $review->finding_type = $findingType;
+                $review->severity = $severity;
+                $review->reason = $reason;
+                $review->status = 'open';
+                $review->detected_at = date(DATE_ATOM);
+                R::store($review);
+                $found++;
+            }
+            $current++;
+            $tick(['last_id' => $lastId, 'found' => $found], $current, $total, $number ?: (string) $lastId, $peers === [] ? 'Keine nahe Wiederholungsprüfung gefunden.' : 'Mögliche Wiederholungen wurden zur manuellen Prüfung vorgemerkt.');
+        }
+        set_app_config('inspection_duplicate_audit_version', '1');
+        return ['processed' => $current, 'found' => $found];
+    }
+
+    private static function inspectionNumberBase(string $number): string
+    {
+        return preg_match('/^(.+-\\d{2})-[2-9][0-9]*$/', $number, $match) ? (string) $match[1] : '';
     }
 
     /**
