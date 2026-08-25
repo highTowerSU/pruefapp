@@ -72,7 +72,7 @@ class AdminController
         }
         $like = '%' . mb_strtolower($query) . '%';
         $rows = R::getAll(
-            'SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.result_status, i.status, i.classification, i.source_type, i.source_file, '
+            'SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.result_status, i.status, i.classification, i.source_type, i.source_file, i.archived_at, i.archived_reason, i.duplicate_of_inspection_id, '
             . 'i.result_reason_code, i.result_reason_text, d.external_number AS device_number, d.name AS device_name '
             . 'FROM inspection i LEFT JOIN device d ON d.id = i.device_id '
             . 'WHERE LOWER(COALESCE(i.external_number, \'\')) LIKE ? OR LOWER(COALESCE(d.external_number, \'\')) LIKE ? '
