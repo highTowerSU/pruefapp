@@ -33,6 +33,9 @@ class AdminController
         if ($summary === 'inspection-overview') {
             return self::inspectionOverviewApiDebug($headers);
         }
+        if ($summary === 'import-config') {
+            return self::importConfigApiDebug($headers);
+        }
         if ($summary === 'ai') {
             return self::aiProviderApiDebug($headers);
         }
@@ -203,9 +206,13 @@ class AdminController
     private static function importDirectoryApiDebug(string $directory, array $headers): array
     {
         $configuredRoot = rtrim(app_data_root(), '/');
+        $configuredImportDirectory = trim((string) get_app_config('benning_reimport_directory', ''));
+        $configuredReportsDirectory = trim((string) get_app_config('benning_reports_directory', ''));
         $allowedRoots = array_values(array_filter([
             '/tmp/berichte',
             $configuredRoot . '/uploads',
+            $configuredImportDirectory,
+            $configuredReportsDirectory,
         ], static fn(string $root): bool => $root !== ''));
         $resolved = realpath($directory);
         $allowed = false;
@@ -286,6 +293,52 @@ class AdminController
             'sample_files' => $files,
             'pending_import_jobs' => $jobs,
             'recent_import_jobs' => $recentJobs,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /** Narrow operational diagnosis for the GUI-configured Phoenix repair cron. */
+    private static function importConfigApiDebug(array $headers): array
+    {
+        $importDirectory = trim((string) get_app_config('benning_reimport_directory', ''));
+        $reportsDirectory = trim((string) get_app_config('benning_reports_directory', ''));
+        $migrationRoot = rtrim(app_data_root(), '/') . '/migrations';
+        $markers = [
+            'regie_reimport' => $migrationRoot . '/benning-import-regie-v1.done',
+            'report_regeneration' => $migrationRoot . '/benning-import-regie-reports-v1.done',
+        ];
+        $present = static fn(array $job): array => [
+            'id' => (string) ($job['id'] ?? ''),
+            'type' => (string) ($job['type'] ?? ''),
+            'state' => (string) ($job['state'] ?? ''),
+            'current' => (int) ($job['current'] ?? 0),
+            'total' => (int) ($job['total'] ?? 0),
+            'message' => (string) ($job['message'] ?? ''),
+            'created_at' => (string) ($job['created_at'] ?? ''),
+            'finished_at' => (string) ($job['finished_at'] ?? ''),
+        ];
+        $repairTypes = ['directory_import', 'all_report_regeneration'];
+        $jobs = array_values(array_map($present, array_filter(
+            array_merge(BackgroundJobService::pending(200), BackgroundJobService::latest(80)),
+            static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), $repairTypes, true)
+        )));
+        $markerState = [];
+        foreach ($markers as $name => $path) {
+            $markerState[$name] = [
+                'exists' => is_file($path),
+                'content' => is_file($path) ? json_decode((string) file_get_contents($path), true) : null,
+            ];
+        }
+        return [200, $headers, json_encode([
+            'ok' => true,
+            'import_directory' => $importDirectory,
+            'import_directory_exists' => $importDirectory !== '' && is_dir($importDirectory),
+            'import_directory_readable' => $importDirectory !== '' && is_readable($importDirectory),
+            'reports_directory' => $reportsDirectory,
+            'reports_directory_exists' => $reportsDirectory !== '' && is_dir($reportsDirectory),
+            'reports_directory_readable' => $reportsDirectory !== '' && is_readable($reportsDirectory),
+            'migration_directory_writable' => is_dir($migrationRoot) && is_writable($migrationRoot),
+            'markers' => $markerState,
+            'jobs' => $jobs,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
