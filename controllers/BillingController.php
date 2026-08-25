@@ -683,7 +683,6 @@ final class BillingController
                      WHERE LOWER(COALESCE(i.source_file, '')) LIKE ?
                        AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
                        AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)
-                       AND i.external_number REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'
                      ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
                     [$sourcePrefix . '_%', $from, $until, max($needed + 1, 100)]
                 );
