@@ -299,9 +299,13 @@ final class BillingController
         if ($sevdeskId === '' || $number === '') return;
         $invoice = R::findOne('billinginvoice', ' sevdesk_invoice_id = ? OR sevdesk_invoice_number = ? ', [$sevdeskId, $number]) ?: R::dispense('billinginvoice');
         $remoteStatus = (string) ($remote['status'] ?? '');
+        $cancelled = !empty($remote['cancelled']) || !empty($remote['isCancelled'])
+            || in_array(strtolower((string) ($remote['invoiceType'] ?? '')), ['sr', 'storno', 'cancelled'], true)
+            || in_array(strtolower($remoteStatus), ['cancelled', 'storniert', 'void'], true);
         $invoice->sevdesk_invoice_id = $sevdeskId; $invoice->sevdesk_invoice_number = $number;
         $invoice->invoice_number = $number; $invoice->invoice_date = substr((string) ($remote['invoiceDate'] ?? ''), 0, 10);
-        $invoice->sevdesk_status = $remoteStatus; $invoice->status = in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft';
+        $invoice->sevdesk_status = $remoteStatus; $invoice->status = $cancelled ? 'cancelled' : (in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft');
+        if ($cancelled) $invoice->cancelled_at = date(DATE_ATOM);
         $invoice->raw_json = json_encode($remote, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         $invoice->synced_at = date(DATE_ATOM); $invoice->updated_at = date(DATE_ATOM); if (!$invoice->created_at) $invoice->created_at = date(DATE_ATOM);
         $invoiceId = (int) R::store($invoice);
@@ -321,7 +325,21 @@ final class BillingController
             if (!in_array((string) $item->kind, ['device', 'regie', 'other'], true)) $item->kind = 'unclassified';
             $item->raw_json = json_encode($position, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE); $item->updated_at = date(DATE_ATOM); if (!$item->created_at) $item->created_at = date(DATE_ATOM); R::store($item);
         }
+        if ($cancelled) self::releaseCancelledInvoice($invoiceId);
         self::refreshInvoiceBillingStates($invoiceId);
+    }
+
+    private static function releaseCancelledInvoice(int $invoiceId): void
+    {
+        foreach (R::findAll('billinginvoiceitem', ' invoice_id=? AND active=1 ', [$invoiceId]) as $item) {
+            $item->active = 0; $item->deactivated_at = date(DATE_ATOM); $item->deactivation_reason = 'SevDesk-Rechnung wurde storniert'; R::store($item);
+            $inspection = R::load('inspection', (int) $item->inspection_id);
+            if (!$inspection->id) continue;
+            $inspection->billing_active_invoice_item_id = null;
+            $inspection->billing_status = (string) $inspection->billing_eligibility === 'billable' ? 'not_exported' : 'cancelled';
+            $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+        }
+        audit_log('abrechnung_sevdesk_storniert', ['invoice_id' => $invoiceId]);
     }
 
     public static function classifyPosition(array $params, bool $isHx): array
