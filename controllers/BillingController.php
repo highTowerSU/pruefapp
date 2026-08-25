@@ -932,7 +932,7 @@ final class BillingController
             'billing_status' => "COALESCE(i.billing_status, CASE WHEN i.billing_exported_at IS NULL OR i.billing_exported_at = '' THEN 'not_exported' ELSE 'exported' END) ASC, i.test_date DESC, i.id DESC",
             default => 'c.name ASC, i.test_date ASC, i.id ASC',
         };
-        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, c.invoice_recipient_name, c.invoice_contact_name, c.invoice_address_street, c.invoice_address_zip, c.invoice_address_city, c.invoice_address_country, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
+        return R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.examiner, i.result_status, i.regie_minutes, i.regie_reason, i.billing_eligibility, i.billing_status, i.billing_not_billable_reason, i.billing_last_error, i.billing_last_export_id, d.external_number AS device_number, d.name AS device_name, d.manufacturer AS device_manufacturer, d.device_model AS device_model, c.id AS customer_id, c.name AS customer_name, c.sevdesk_customer_id, c.sevdesk_customer_number, c.invoice_recipient_name, c.invoice_contact_name, c.invoice_address_street, c.invoice_address_zip, c.invoice_address_city, c.invoice_address_country, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number, bi.invoice_id, bi.regie_minutes AS billed_regie_minutes, bi.regie_reason AS billed_regie_reason, inv.invoice_number, inv.sevdesk_invoice_id FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1 LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE {$where} ORDER BY {$orderBy}", $args);
     }
 
     /** @return list<array<string,mixed>> */
@@ -991,7 +991,14 @@ final class BillingController
         header('Content-Type: text/csv; charset=utf-8'); header('Content-Disposition: attachment; filename="' . $filename . '"');
         $out = fopen('php://output', 'wb'); fwrite($out, "\xEF\xBB\xBF");
         fputcsv($out, ['Prüfung', 'Datum', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung', 'SevDesk-Kundennummer'], ';');
-        foreach ($rows as $row) fputcsv($out, [$row['external_number'], $row['test_date'], $row['customer_name'], $row['device_number'] . ' · ' . $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', $row['result_status'], $row['regie_minutes'], $row['regie_reason'], $row['sevdesk_customer_number'] ?: ($row['sevdesk_customer_id'] ?: 'FEHLT')], ';');
+        foreach ($rows as $row) {
+            // Historic Phoenix rows keep their original measurement data.
+            // Once a reviewed invoice assigns aggregate regie, the billing
+            // allocation is authoritative for the billing-history export.
+            $regieMinutes = $row['billed_regie_minutes'] !== null ? (int) $row['billed_regie_minutes'] : (int) $row['regie_minutes'];
+            $regieReason = $row['billed_regie_minutes'] !== null ? (string) $row['billed_regie_reason'] : (string) $row['regie_reason'];
+            fputcsv($out, [$row['external_number'], $row['test_date'], $row['customer_name'], $row['device_number'] . ' · ' . $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', $row['result_status'], $regieMinutes, $regieReason, $row['sevdesk_customer_number'] ?: ($row['sevdesk_customer_id'] ?: 'FEHLT')], ';');
+        }
         fclose($out); return [200, [], ''];
     }
 
