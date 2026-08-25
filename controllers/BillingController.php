@@ -661,7 +661,37 @@ final class BillingController
              ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
             [...$scopeParams, max($needed * 3, 100)]
         );
-        $reason = count($rows) < $needed ? 'Im Zeitraum wurden nicht genügend offene Prüfungen gefunden.' : 'Vorschlag: offene Prüfungen des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '.';
+        $usedSourceFallback = false;
+        if (count($rows) < $needed) {
+            // Some historic imports were subsequently merged into devices
+            // whose current room is no longer meaningful.  A source-file
+            // prefix such as AK_Elektro-… is a stronger historical customer
+            // signal than that changed device state.  Use it only when it
+            // yields exactly the invoice quantity, and still require explicit
+            // confirmation in the UI.
+            $customerCode = strtolower(trim((string) R::getCell('SELECT code FROM customer WHERE id = ?', [(int) $invoice->customer_id])));
+            if ($customerCode !== '') {
+                $sourceRows = R::getAll(
+                    "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
+                     FROM inspection i JOIN device d ON d.id=i.device_id
+                     WHERE LOWER(COALESCE(i.source_file, '')) LIKE ?
+                       AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
+                       AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)
+                       AND i.external_number REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'
+                     ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
+                    [$customerCode . '_%', $from, $until, max($needed + 1, 100)]
+                );
+                if (count($sourceRows) === $needed) {
+                    $rows = $sourceRows;
+                    $usedSourceFallback = true;
+                }
+            }
+        }
+        $reason = count($rows) < $needed
+            ? 'Im Zeitraum wurden nicht genügend offene Prüfungen gefunden.'
+            : ($usedSourceFallback
+                ? 'Vorschlag aus der historischen Quelldatei des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '. Bitte vor der Sammelzuordnung prüfen.'
+                : 'Vorschlag: offene Prüfungen des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '.');
         if ($invalidNumbers > 0) $reason .= ' ' . $invalidNumbers . ' Prüfung(en) mit unplausibler Prüfnummer wurden nicht automatisch vorgeschlagen.';
         return ['candidates' => array_slice($rows, 0, $needed), 'reason' => $reason];
     }
