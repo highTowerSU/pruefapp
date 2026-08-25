@@ -372,6 +372,12 @@ final class BillingController
         $inspections = R::findAll('inspection', ' id IN (' . implode(',', array_fill(0, count($inspectionIds), '?')) . ') ', $inspectionIds);
         if (count($inspections) !== count($inspectionIds)) return [404, [], 'Mindestens eine Prüfung wurde nicht gefunden.'];
         foreach ($inspectionIds as $inspectionId) if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceitem WHERE inspection_id=? AND active=1', [$inspectionId]) > 0) return [409, [], 'Mindestens eine ausgewählte Prüfung besitzt bereits eine aktive Rechnungszuordnung.'];
+        $reconciliation = self::reconciliation($invoiceId);
+        $expectedDeviceQuantity = max(0, (int) round((float) $reconciliation['deviceTarget'] - (float) $reconciliation['deviceActual']));
+        $selectedDeviceQuantity = array_sum(array_map(static fn(object $inspection): int => max(0, (int) ($inspection->billing_device_quantity ?: 1)), $inspections));
+        if ($selectedDeviceQuantity !== $expectedDeviceQuantity) {
+            return [422, [], 'Für diese Rechnung müssen genau ' . $expectedDeviceQuantity . ' Geräte ausgewählt werden; aktuell sind es ' . $selectedDeviceQuantity . '.'];
+        }
         R::begin();
         try {
             // The read-only SevDesk import provides a safe classification
@@ -686,7 +692,7 @@ final class BillingController
                      ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
                     [$sourcePrefix . '_%', $from, $until, max($needed + 1, 100)]
                 );
-                if (count($sourceRows) === $needed) {
+                if (count($sourceRows) >= $needed) {
                     $rows = $sourceRows;
                     $usedSourceFallback = true;
                     break;
@@ -696,10 +702,12 @@ final class BillingController
         $reason = count($rows) < $needed
             ? 'Im Zeitraum wurden nicht genügend offene Prüfungen gefunden.'
             : ($usedSourceFallback
-                ? 'Vorschlag aus der historischen Quelldatei des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '. Bitte vor der Sammelzuordnung prüfen.'
+                ? (count($rows) === $needed
+                    ? 'Vorschlag aus der historischen Quelldatei des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '. Bitte vor der Sammelzuordnung prüfen.'
+                    : 'Historischer Kandidatenpool aus der Quelldatei des Rechnungskunden: ' . count($rows) . ' Prüfungen gefunden, für diese Rechnung müssen genau ' . $needed . ' gewählt werden.')
                 : 'Vorschlag: offene Prüfungen des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '.');
         if ($invalidNumbers > 0) $reason .= ' ' . $invalidNumbers . ' Prüfung(en) mit unplausibler Prüfnummer wurden nicht automatisch vorgeschlagen.';
-        return ['candidates' => array_slice($rows, 0, $needed), 'reason' => $reason];
+        return ['candidates' => $usedSourceFallback ? $rows : array_slice($rows, 0, $needed), 'reason' => $reason];
     }
 
     public static function eligibility(array $params, bool $isHx): array
