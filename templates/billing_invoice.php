@@ -68,10 +68,17 @@ $sevDeskPositions = array_map(static function (array $position) use ($formatQuan
     $sourceRegie = array_sum(array_map(static fn(array $candidate): int => (int) ($candidate['regie_minutes'] ?? 0), $suggestion['candidates']));
   ?>
     <?php if ($remainingRegie > 0): ?><div class="alert alert-warning py-2"><strong>Regie-Abweichung prüfen:</strong> Die ausgewählten Phoenix-Importprüfungen enthalten <?= $sourceRegie ?> Min. Regie, die Rechnung weist <?= $remainingRegie ?> Min. aus. Es wird nichts aus der Rechnung auf Prüfungen verteilt. Erst nach einem Import- oder Datenabgleich darf eine zusätzliche Regiezeit bewusst ergänzt werden.</div><?php endif; ?>
-    <form method="post" action="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/historisch-zuordnen-sammeln'), ENT_QUOTES) ?>">
+    <?php $requiredDeviceQuantity = max(0, (int) round((float) ($reconciliation['deviceTarget'] ?? 0) - (float) ($reconciliation['deviceActual'] ?? 0))); ?>
+    <form method="post" action="<?= htmlspecialchars(url_for('admin/abrechnung/rechnung/' . (int) $invoice->id . '/historisch-zuordnen-sammeln'), ENT_QUOTES) ?>" data-historical-candidate-form data-required-device-quantity="<?= $requiredDeviceQuantity ?>">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2" role="toolbar" aria-label="Auswahl im Zuordnungsvorschlag">
+        <button class="btn btn-secondary btn-sm" type="button" data-candidate-select="all"><i class="fa-solid fa-check-double me-1" aria-hidden="true"></i>Alle auswählen</button>
+        <button class="btn btn-primary btn-sm" type="button" data-candidate-select="first"><i class="fa-solid fa-list-ol me-1" aria-hidden="true"></i>Erste <?= $requiredDeviceQuantity ?> auswählen</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-candidate-select="none"><i class="fa-solid fa-xmark me-1" aria-hidden="true"></i>Auswahl leeren</button>
+        <span class="small text-body-secondary" data-candidate-selection-status role="status" aria-live="polite"></span>
+      </div>
       <div class="table-responsive mb-3"><table class="table table-sm align-middle"><thead><tr><th><span class="visually-hidden">Auswahl</span></th><th>Prüfung</th><th>Datum</th><th>Gerät</th><th>Ergebnis</th><th>Regie aus Import</th></tr></thead><tbody>
       <?php $exactSuggestion = count($suggestion['candidates']) === (int) ($reconciliation['deviceTarget'] ?? 0) - (int) ($reconciliation['deviceActual'] ?? 0); foreach ($suggestion['candidates'] as $candidate): ?>
-        <tr><td><input class="form-check-input" type="checkbox" name="inspection_ids[]" value="<?= (int) $candidate['id'] ?>"<?= $exactSuggestion ? ' checked' : '' ?> aria-label="<?= htmlspecialchars((string) $candidate['external_number'], ENT_QUOTES) ?> zuordnen"></td><td><?= htmlspecialchars((string) $candidate['external_number']) ?></td><td><?= htmlspecialchars((string) $candidate['test_date']) ?></td><td><?= htmlspecialchars((string) $candidate['device_number'] . ' · ' . $candidate['device_name']) ?></td><td><?= htmlspecialchars((string) $candidate['result_status']) ?></td><td><?= (int) $candidate['regie_minutes'] ?> Min.</td></tr>
+        <tr><td><input class="form-check-input" type="checkbox" name="inspection_ids[]" value="<?= (int) $candidate['id'] ?>" data-candidate-quantity="<?= max(0, (int) ($candidate['billing_device_quantity'] ?: 1)) ?>"<?= $exactSuggestion ? ' checked' : '' ?> aria-label="<?= htmlspecialchars((string) $candidate['external_number'], ENT_QUOTES) ?> zuordnen"></td><td><?= htmlspecialchars((string) $candidate['external_number']) ?></td><td><?= htmlspecialchars((string) $candidate['test_date']) ?></td><td><?= htmlspecialchars((string) $candidate['device_number'] . ' · ' . $candidate['device_name']) ?></td><td><?= htmlspecialchars((string) $candidate['result_status']) ?></td><td><?= (int) $candidate['regie_minutes'] ?> Min.</td></tr>
       <?php endforeach; ?>
       </tbody></table></div>
       <div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Als Geräteposition zuordnen</label><select class="form-select" name="device_position_id" required><?php foreach ($devicePositions as $position): ?><option value="<?= (int) $position['id'] ?>"><?= htmlspecialchars((string) $position['position_number'] . ' · ' . $position['name']) ?></option><?php endforeach; ?></select></div><div class="col-md-3"><label class="form-label">Regieposition</label><select class="form-select" name="regie_position_id"><option value="">Keine Regie zuordnen</option><?php foreach ($regiePositions as $position): ?><option value="<?= (int) $position['id'] ?>"<?= $remainingRegie > 0 && $position === $regiePositions[0] ? ' selected' : '' ?>><?= htmlspecialchars((string) $position['position_number'] . ' · ' . $position['name']) ?></option><?php endforeach; ?></select></div><div class="col-md-2"><label class="form-label">Bestätigte Rechnungsregie</label><div class="input-group"><input class="form-control" type="number" name="historical_regie_minutes" min="0" value="<?= $remainingRegie ?>" aria-describedby="historical-regie-help"><span class="input-group-text">Min.</span></div></div><div class="col-md-3"><label class="form-check mb-2"><input class="form-check-input" type="checkbox" name="confirm" value="1" required> <span class="form-check-label">Liste und Regie geprüft</span></label><button class="btn btn-primary w-100" type="submit"><i class="fa-solid fa-link me-1" aria-hidden="true"></i>Auswahl gesammelt zuordnen</button></div><div class="col-12"><div class="form-text" id="historical-regie-help">Der Rechnungswert ist vorausgefüllt, weil die geprüfte Phoenix-Quelle keine Einzel-Regie enthält. Erst mit dieser Bestätigung wird er nachvollziehbar auf die ausgewählten Prüfungen verteilt; die Importrohwerte bleiben unverändert.</div></div></div>
@@ -86,3 +93,35 @@ $sevDeskPositions = array_map(static function (array $position) use ($formatQuan
 <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Gerät</th><th>Prüfung</th><th>Kunde</th><th>Datum</th><th>Zuordnung</th><th>Menge</th></tr></thead><tbody>
 <?php foreach ($items as $item): ?><tr><td><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $item['device_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $item['device_number']) ?> · <?= htmlspecialchars((string) $item['device_name']) ?></a></td><td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $item['inspection_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $item['inspection_number']) ?></a></td><td><?= htmlspecialchars((string) ($item['customer_name'] ?? '—')) ?></td><td><?= htmlspecialchars((string) $item['test_date']) ?></td><td><span class="badge text-bg-<?= !empty($item['active']) ? 'success' : 'secondary' ?>"><?= !empty($item['active']) ? 'aktiv' : 'historisch' ?></span></td><td><?= htmlspecialchars((string) $item['quantity']) ?></td></tr><?php endforeach; ?>
 <?php if ($items === []): ?><tr><td colspan="6" class="text-body-secondary">Keine verknüpften Positionen.</td></tr><?php endif; ?></tbody></table></div>
+<script>
+(() => {
+  const initializeCandidateSelection = (root = document) => root.querySelectorAll('[data-historical-candidate-form]').forEach(form => {
+    if (form.dataset.candidateSelectionBound === '1') return;
+    form.dataset.candidateSelectionBound = '1';
+    const required = Number.parseInt(form.dataset.requiredDeviceQuantity || '0', 10) || 0;
+    const boxes = () => [...form.querySelectorAll('input[name="inspection_ids[]"]')];
+    const quantity = box => Number.parseInt(box.dataset.candidateQuantity || '1', 10) || 0;
+    const status = form.querySelector('[data-candidate-selection-status]');
+    const update = () => {
+      const selected = boxes().filter(box => box.checked);
+      const selectedQuantity = selected.reduce((total, box) => total + quantity(box), 0);
+      if (status) status.textContent = `${selected.length} Prüfung(en), ${selectedQuantity} von ${required} Gerät(en) ausgewählt`;
+    };
+    form.querySelector('[data-candidate-select="all"]')?.addEventListener('click', () => { boxes().forEach(box => { box.checked = true; }); update(); });
+    form.querySelector('[data-candidate-select="none"]')?.addEventListener('click', () => { boxes().forEach(box => { box.checked = false; }); update(); });
+    form.querySelector('[data-candidate-select="first"]')?.addEventListener('click', () => {
+      let selectedQuantity = 0;
+      boxes().forEach(box => {
+        const value = quantity(box);
+        box.checked = value > 0 && selectedQuantity + value <= required;
+        if (box.checked) selectedQuantity += value;
+      });
+      update();
+    });
+    form.addEventListener('change', event => { if (event.target.matches('input[name="inspection_ids[]"]')) update(); });
+    update();
+  });
+  initializeCandidateSelection();
+  document.addEventListener('htmx:afterSwap', event => initializeCandidateSelection(event.target));
+})();
+</script>

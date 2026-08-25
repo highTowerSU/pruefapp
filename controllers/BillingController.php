@@ -661,7 +661,7 @@ final class BillingController
             $scopeParams
         );
         $rows = R::getAll(
-            "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
+            "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, i.billing_device_quantity, d.external_number AS device_number, d.name AS device_name
              FROM inspection i JOIN device d ON d.id=i.device_id {$locationJoins}
              WHERE {$scope} AND i.external_number REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'
              ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
@@ -684,7 +684,7 @@ final class BillingController
             if (str_contains($customerName, 'antoniuskolleg')) $sourcePrefixes[] = 'ak';
             foreach (array_values(array_unique(array_filter($sourcePrefixes))) as $sourcePrefix) {
                 $sourceRows = R::getAll(
-                    "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
+                    "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, i.billing_device_quantity, d.external_number AS device_number, d.name AS device_name
                      FROM inspection i JOIN device d ON d.id=i.device_id
                      WHERE LOWER(COALESCE(i.source_file, '')) LIKE ?
                        AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
