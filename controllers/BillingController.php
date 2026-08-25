@@ -669,8 +669,14 @@ final class BillingController
             // signal than that changed device state.  Use it only when it
             // yields exactly the invoice quantity, and still require explicit
             // confirmation in the UI.
-            $customerCode = strtolower(trim((string) R::getCell('SELECT code FROM customer WHERE id = ?', [(int) $invoice->customer_id])));
-            if ($customerCode !== '') {
+            $customer = R::getRow('SELECT code, name FROM customer WHERE id = ?', [(int) $invoice->customer_id]);
+            $sourcePrefixes = [strtolower(trim((string) ($customer['code'] ?? '')))];
+            $customerName = mb_strtolower(trim((string) ($customer['name'] ?? '')), 'UTF-8');
+            // The historical Phoenix export used the well-known customer
+            // abbreviation AK, while older customer records may still carry
+            // only the display name "Antoniuskolleg".
+            if (str_contains($customerName, 'antoniuskolleg')) $sourcePrefixes[] = 'ak';
+            foreach (array_values(array_unique(array_filter($sourcePrefixes))) as $sourcePrefix) {
                 $sourceRows = R::getAll(
                     "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
                      FROM inspection i JOIN device d ON d.id=i.device_id
@@ -679,11 +685,12 @@ final class BillingController
                        AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)
                        AND i.external_number REGEXP '^[0-9]+-[0-9]{2}(-[0-9]+)?$'
                      ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
-                    [$customerCode . '_%', $from, $until, max($needed + 1, 100)]
+                    [$sourcePrefix . '_%', $from, $until, max($needed + 1, 100)]
                 );
                 if (count($sourceRows) === $needed) {
                     $rows = $sourceRows;
                     $usedSourceFallback = true;
+                    break;
                 }
             }
         }
