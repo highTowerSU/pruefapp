@@ -245,6 +245,7 @@ $actionPresentation = static function (string $action): array {
     </tbody></table></div>
 </div>
 <?php endif; ?>
+<?php if (!empty($cronImportant)): ?><section class="mb-3" aria-label="Wichtige Meldungen der ausgewählten Cron-Läufe"><h3 class="h6 mb-2"><i class="fa-solid fa-triangle-exclamation me-1 text-warning" aria-hidden="true"></i>Warnungen und Fehler</h3><div class="vstack gap-2"><?php foreach ($cronImportant as $line): $importantLevel = strtolower((string) ($line['level'] ?? 'warning')); $importantClass = in_array($importantLevel, ['error', 'critical'], true) ? 'danger' : 'warning'; ?><div class="alert alert-<?= $importantClass ?> mb-0 py-2 d-flex gap-2 align-items-start"><i class="fa-solid fa-<?= $importantClass === 'danger' ? 'circle-xmark' : 'triangle-exclamation' ?> mt-1" aria-hidden="true"></i><div><span class="badge text-bg-<?= $importantClass === 'danger' ? 'danger' : 'warning text-dark' ?> me-1"><?= htmlspecialchars(strtoupper($importantLevel)) ?></span><span class="small text-body-secondary me-1"><?= htmlspecialchars($formatCronDate($line['run_at'] ?? '')) ?></span><?= htmlspecialchars((string) ($line['message'] ?? '')) ?></div></div><?php endforeach; ?></div></section><?php endif; ?>
 <?php if (empty($cronLog)): ?>
     <div class="alert alert-warning">Noch kein Prüfapp-Cron-Lauf protokolliert.</div>
 <?php else: ?>

@@ -596,6 +596,9 @@ class AdminController
         // compatible with SQLite and the other RedBean drivers.
         $cronRunSelect = $hasCronRunId ? ', run_id' : ", '' AS run_id";
         $cronLog = R::getAll("SELECT run_at, level, message {$cronRunSelect} FROM cron_log{$cronWhere} ORDER BY id DESC LIMIT {$cronPerPage} OFFSET {$cronOffset}", $cronArguments);
+        $cronImportant = $cronRunFilters !== []
+            ? R::getAll("SELECT run_at, level, message {$cronRunSelect} FROM cron_log{$cronWhere}" . (str_contains($cronWhere, 'WHERE') ? " AND level IN ('warning', 'error', 'critical')" : '') . ' ORDER BY id DESC LIMIT 50', $cronArguments)
+            : [];
         $cronRuns = $hasCronRunId
             ? R::getAll("SELECT run_id, MIN(run_at) AS started_at, MAX(run_at) AS finished_at, COUNT(*) AS entries, SUM(CASE WHEN level IN ('error','critical') THEN 1 ELSE 0 END) AS errors, SUM(CASE WHEN level = 'warning' THEN 1 ELSE 0 END) AS warnings FROM cron_log WHERE run_id != '' GROUP BY run_id ORDER BY MAX(id) DESC LIMIT 20")
             : [];
@@ -618,6 +621,7 @@ class AdminController
             'importRuns' => $importRuns,
             'revisions' => $revisions,
             'cronLog' => $cronLog,
+            'cronImportant' => $cronImportant,
             'cronRuns' => $cronRuns,
             'cronRunFilter' => $cronRunFilter,
             'cronRunFilters' => $cronRunFilters,
