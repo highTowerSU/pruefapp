@@ -470,6 +470,20 @@ final class ElectricalInspectionImportService
         }
         if ($deviceResult === null) {
             $deviceResult = $this->findOrCreateDevice($record);
+            // The source's storage slot and result status are useful data, but
+            // neither identifies a separate inspection.  Older Phoenix CSVs
+            // occasionally change one of them between exports.  The former
+            // dedupe key consequently created a second completed row with the
+            // same device, inspection number and date on a re-import.  A
+            // completed inspection number is immutable, so this narrower
+            // fallback is safe: real re-tests receive their own number.
+            if ($inspection === null && $external !== '' && $date !== '') {
+                $inspection = R::findOne(
+                    'inspection',
+                    ' device_id = ? AND source_type = ? AND external_number = ? AND test_date = ? ORDER BY id ASC ',
+                    [(int) $deviceResult['device']->id, $sourceType, $external, $date]
+                );
+            }
             // A measurement export can arrive shortly after the inspector opened
             // the same annual inspection manually. It supplements that unfinished
             // row; it must never create a misleading "-2" inspection.

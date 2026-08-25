@@ -48,6 +48,7 @@ $checks = [
     [str_contains($schema, 'billingregietransfer') && str_contains($billing, 'transferRegie') && str_contains($routes, '/regie-uebertragen') && str_contains($detail, 'Regiezeit auf andere Rechnung umbuchen'), 'Eine nachvollziehbare Regie-Umbuchung zwischen Rechnungen fehlt.'],
     [str_contains($billing, 'billed_device_target') && str_contains($billingIndex, '$inspectionCount . \'/\' . $target') && str_contains($billing, 'duplicate_devices'), 'Die Rechnungsübersicht zeigt historische Prüfungen nicht gegen die Rechnungsmenge oder erklärt doppelte Geräte nicht.'],
     [str_contains($maintenance, 'inspectionDuplicateAudit') && str_contains($maintenance, 'count($peers) === 1') && str_contains($schema, 'inspectiondupreview') && str_contains($adminController, 'enqueueInspectionDuplicateAudit') && str_contains($worker, "'inspection_duplicate_audit'") && str_contains($cron, 'inspection-duplicate-audit:v2'), 'Der einmalige, nicht-destruktive Prüfungsdubletten-Audit fehlt.'],
+    [str_contains($importer, "device_id = ? AND source_type = ? AND external_number = ? AND test_date = ?") && str_contains($importer, 'completed inspection number is immutable'), 'Ein Re-Import kann gleiche abgeschlossene CSV-Prüfungen noch doppelt anlegen.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
