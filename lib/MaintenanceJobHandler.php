@@ -470,6 +470,10 @@ final class MaintenanceJobHandler
 
         $marker = trim((string) ($payload['completion_marker'] ?? ''));
         if ($marker !== '') self::writeMarker($marker, ['completed' => true, 'completed_at' => date(DATE_ATOM), 'created' => $created]);
+        $completionConfigKey = trim((string) ($payload['completion_config_key'] ?? ''));
+        if ($completionConfigKey !== '') {
+            set_app_config($completionConfigKey, (string) ($payload['completion_config_value'] ?? '1'));
+        }
         return ['created' => $created, 'processed' => $current];
     }
 

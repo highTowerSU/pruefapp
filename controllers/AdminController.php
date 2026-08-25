@@ -302,10 +302,6 @@ class AdminController
         $importDirectory = trim((string) get_app_config('benning_reimport_directory', ''));
         $reportsDirectory = trim((string) get_app_config('benning_reports_directory', ''));
         $migrationRoot = rtrim(app_data_root(), '/') . '/migrations';
-        $markers = [
-            'regie_reimport' => $migrationRoot . '/benning-import-regie-v1.done',
-            'report_regeneration' => $migrationRoot . '/benning-import-regie-reports-v1.done',
-        ];
         $present = static fn(array $job): array => [
             'id' => (string) ($job['id'] ?? ''),
             'type' => (string) ($job['type'] ?? ''),
@@ -321,13 +317,6 @@ class AdminController
             array_merge(BackgroundJobService::pending(200), BackgroundJobService::latest(80)),
             static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), $repairTypes, true)
         )));
-        $markerState = [];
-        foreach ($markers as $name => $path) {
-            $markerState[$name] = [
-                'exists' => is_file($path),
-                'content' => is_file($path) ? json_decode((string) file_get_contents($path), true) : null,
-            ];
-        }
         return [200, $headers, json_encode([
             'ok' => true,
             'import_directory' => $importDirectory,
@@ -337,7 +326,11 @@ class AdminController
             'reports_directory_exists' => $reportsDirectory !== '' && is_dir($reportsDirectory),
             'reports_directory_readable' => $reportsDirectory !== '' && is_readable($reportsDirectory),
             'migration_directory_writable' => is_dir($migrationRoot) && is_writable($migrationRoot),
-            'markers' => $markerState,
+            'repair_state' => [
+                'regie_reimport_version' => (string) get_app_config('benning_import_regie_reimport_version', ''),
+                'report_regeneration_version' => (string) get_app_config('benning_import_regie_reports_version', ''),
+                'storage' => 'Datenbank-Konfiguration; unabhängig von Dateirechten des Migrationsordners.',
+            ],
             'jobs' => $jobs,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }

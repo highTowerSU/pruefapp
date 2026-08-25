@@ -167,28 +167,35 @@ try {
     // v4 repairs ODS Regiezeit values that previous CSV/ODS imports dropped.
     // The configured GUI path remains the only source; no hidden path is
     // introduced by the cron job.
-    $benningImportMarker = $migrationRoot . '/benning-import-regie-v1.done';
-    if ($benningDirectory !== '' && is_dir($benningDirectory) && !is_file($benningImportMarker)) {
+    $benningImportVersion = '1';
+    $benningImportCompleted = (string) get_app_config('benning_import_regie_reimport_version', '') === $benningImportVersion;
+    if ($benningDirectory !== '' && is_dir($benningDirectory) && !$benningImportCompleted) {
         $reportsDirectory = trim((string) (get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_BENNING_REPORTS_DIR')));
         BackgroundJobService::enqueue('directory_import', [
             'type' => 'directory_import',
             'directory' => $benningDirectory,
             'reports_directory' => $reportsDirectory,
-            'completion_marker' => $benningImportMarker,
+            'completion_config_key' => 'benning_import_regie_reimport_version',
+            'completion_config_value' => $benningImportVersion,
         ], ['dedupe_key' => 'maintenance:benning-import-regie:v1', 'cancellable' => false]);
     }
-    $allReportsMarker = $migrationRoot . '/benning-import-regie-reports-v1.done';
-    if (is_file($benningImportMarker) && !is_file($allReportsMarker)) {
+    $allReportsVersion = '1';
+    $allReportsCompleted = (string) get_app_config('benning_import_regie_reports_version', '') === $allReportsVersion;
+    if ($benningImportCompleted && !$allReportsCompleted) {
         $eligibleReports = "result_status IN ('passed','failed') AND COALESCE(classification, '') <> 'legacy' AND " . inspection_report_signature_sql('inspection');
         $reportTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligibleReports}");
         if ($reportTotal > 0) {
-            BackgroundJobService::enqueue('all_report_regeneration', ['type' => 'all_report_regeneration', 'completion_marker' => $allReportsMarker], [
+            BackgroundJobService::enqueue('all_report_regeneration', [
+                'type' => 'all_report_regeneration',
+                'completion_config_key' => 'benning_import_regie_reports_version',
+                'completion_config_value' => $allReportsVersion,
+            ], [
                 'total' => $reportTotal,
                 'dedupe_key' => 'maintenance:all-reports-after-benning-regie:v1',
                 'cancellable' => false,
             ]);
         } else {
-            file_put_contents($allReportsMarker, json_encode(['completed' => true, 'created' => 0, 'completed_at' => date(DATE_ATOM)]), LOCK_EX);
+            set_app_config('benning_import_regie_reports_version', $allReportsVersion);
         }
     }
     // Report jobs must only see canonical data. This gate also prevents the

@@ -300,6 +300,10 @@ try {
             if (!is_dir(dirname($completionMarker))) mkdir(dirname($completionMarker), 0770, true);
             file_put_contents($completionMarker, json_encode(['completed_at' => date(DATE_ATOM), 'stats' => $stats], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
         }
+        $completionConfigKey = trim((string) ($payload['completion_config_key'] ?? ''));
+        if ($completionConfigKey !== '') {
+            set_app_config($completionConfigKey, (string) ($payload['completion_config_value'] ?? '1'));
+        }
         set_app_config('inspection_data_migration_version', '');
         if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
     } else {
