@@ -465,7 +465,9 @@ final class InspectionController
             'sort' => trim((string) ($input['sort'] ?? 'newest')),
             'per_page' => (int) ($input['per_page'] ?? 50),
         ];
-        $where = [];
+        // Archived source duplicates remain visible to superadmins through
+        // the diagnostic/audit trail, never through normal operational lists.
+        $where = ["COALESCE(i.archived_at, '') = ''"];
         $args = [];
         if (!current_user_has_role('admin')) {
             $allowed = current_user_customer_ids();
@@ -801,7 +803,7 @@ final class InspectionController
     {
         if (!current_user()) return [403, [], ''];
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
-        if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
+        if (!$inspection->id || (trim((string) ($inspection->archived_at ?? '')) !== '' && !current_user_is_superadmin())) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
         if (current_user_is_customer() && !InspectionEvaluationService::isCompleted((string) $inspection->result_status)) return [404, [], 'Prüfung nicht gefunden'];

@@ -36,6 +36,7 @@ final class MaintenanceJobHandler
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
+            'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
             'vocabulary_review_scan' => self::vocabularyReviewScan($checkpoint, $current, $total, $tick),
             'vocabulary_normalization' => self::vocabularyNormalization($checkpoint, $current, $total, $tick),
@@ -302,6 +303,94 @@ final class MaintenanceJobHandler
     private static function inspectionNumberBase(string $number): string
     {
         return preg_match('/^(.+-\\d{2})-[2-9][0-9]*$/', $number, $match) ? (string) $match[1] : '';
+    }
+
+    /**
+     * Archives only unequivocal re-import copies: same device, source type,
+     * source file, inspection number and test date.  Nothing is deleted.  If
+     * a historical/SevDesk import had linked the duplicate to an invoice, the
+     * invoice-item history is retained but its active allocation is released.
+     * This makes a later reconciliation show the real discrepancy instead of
+     * silently counting an import error as a billable device.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function archiveExactImportDuplicates(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        if ($total <= 0) {
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection later
+                WHERE later.id > (SELECT MIN(earlier.id) FROM inspection earlier
+                    WHERE earlier.device_id=later.device_id
+                      AND earlier.source_type=later.source_type
+                      AND COALESCE(earlier.source_file,'')=COALESCE(later.source_file,'')
+                      AND earlier.external_number=later.external_number
+                      AND earlier.test_date=later.test_date)
+                  AND later.source_type IN ('csv','json')
+                  AND TRIM(COALESCE(later.source_file,''))<>''
+                  AND TRIM(COALESCE(later.external_number,''))<>''
+                  AND TRIM(COALESCE(later.test_date,''))<>''
+                  AND COALESCE(later.archived_at,'')='' ");
+        }
+        while ($row = R::getRow("SELECT later.id AS duplicate_id, MIN(earlier.id) AS canonical_id, later.external_number, later.test_date
+            FROM inspection later
+            JOIN inspection earlier ON earlier.device_id=later.device_id
+              AND earlier.source_type=later.source_type
+              AND COALESCE(earlier.source_file,'')=COALESCE(later.source_file,'')
+              AND earlier.external_number=later.external_number
+              AND earlier.test_date=later.test_date
+              AND earlier.id<later.id
+            WHERE later.id>? AND later.source_type IN ('csv','json')
+              AND TRIM(COALESCE(later.source_file,''))<>''
+              AND TRIM(COALESCE(later.external_number,''))<>''
+              AND TRIM(COALESCE(later.test_date,''))<>''
+              AND COALESCE(later.archived_at,'')=''
+            GROUP BY later.id, later.external_number, later.test_date
+            ORDER BY later.id LIMIT 1", [$lastId])) {
+            $duplicateId = (int) $row['duplicate_id'];
+            $canonicalId = (int) $row['canonical_id'];
+            $lastId = $duplicateId;
+            R::begin();
+            try {
+                $duplicate = R::load('inspection', $duplicateId);
+                if (!(int) $duplicate->id || trim((string) $duplicate->archived_at) !== '') { R::commit(); continue; }
+                $now = date(DATE_ATOM);
+                $reason = 'Eindeutige Re-Importdublettenprüfung: gleiche Quelle, Prüfnummer und gleiches Prüfdatum; Originalprüfung #' . $canonicalId . '.';
+                $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$duplicateId]);
+                foreach ($activeItems as $item) {
+                    $item->active = 0;
+                    $item->deactivated_at = $now;
+                    $item->deactivation_reason = 'Importdublettenarchivierung; Originalprüfung #' . $canonicalId . ' bleibt maßgeblich.';
+                    R::store($item);
+                    $released++;
+                }
+                $duplicate->archived_at = $now;
+                $duplicate->archived_reason = $reason;
+                $duplicate->duplicate_of_inspection_id = $canonicalId;
+                $duplicate->billable = 0;
+                $duplicate->billing_eligibility = 'not_billable';
+                $duplicate->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $duplicate->billing_not_billable_comment = $reason;
+                $duplicate->billing_status = 'historisch_nicht_eindeutig';
+                $duplicate->billing_active_invoice_item_id = null;
+                $duplicate->updated_at = $now;
+                R::store($duplicate);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND finding_type='same_inspection_number' AND status='open'", [$now, $reason, $duplicateId, $duplicateId]);
+                R::commit();
+                audit_log('import_pruefung_archiviert', ['_category' => 'import', 'inspection_id' => $duplicateId, 'canonical_inspection_id' => $canonicalId, 'released_invoice_items' => count($activeItems), 'reason' => $reason]);
+                $archived++;
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
+            $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Eindeutige Re-Importdublettenprüfung archiviert und aus aktiven Rechnungszuordnungen gelöst.');
+        }
+        set_app_config('inspection_duplicate_archive_version', '1');
+        return compact('archived', 'released');
     }
 
     /**

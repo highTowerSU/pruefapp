@@ -715,6 +715,7 @@ final class BillingController
             WHERE snapshot_room.number=i.room_snapshot AND snapshot_site.customer_id=?
         ))";
         $scope = "{$customerScope} AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
+               AND COALESCE(i.archived_at, '')=''
                AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)";
         $scopeParams = [(int) $invoice->customer_id, (int) $invoice->customer_id, $from, $until];
         $invalidNumbers = (int) R::getCell(
@@ -750,6 +751,7 @@ final class BillingController
                      FROM inspection i JOIN device d ON d.id=i.device_id
                      WHERE LOWER(COALESCE(i.source_file, '')) LIKE ?
                        AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
+                       AND COALESCE(i.archived_at, '')=''
                        AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)
                      ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
                     [$sourcePrefix . '_%', $from, $until, max($needed + 1, 100)]
@@ -827,7 +829,7 @@ final class BillingController
             if ($invoice->sevdesk_url !== '') R::store($invoice);
         }
         $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
-        $candidates = R::getAll("SELECT i.id, i.external_number, i.test_date, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.test_date >= '2025-01-01' AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1) ORDER BY i.test_date DESC, i.id DESC LIMIT 500");
+        $candidates = R::getAll("SELECT i.id, i.external_number, i.test_date, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.test_date >= '2025-01-01' AND COALESCE(i.archived_at, '')='' AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1) ORDER BY i.test_date DESC, i.id DESC LIMIT 500");
         $reconciliation = self::reconciliation($id);
         $transferRows = R::getAll('SELECT t.*, si.invoice_number AS source_invoice_number, sp.position_number AS source_position_number, sp.name AS source_position_name, ti.invoice_number AS target_invoice_number, tp.position_number AS target_position_number, tp.name AS target_position_name FROM billingregietransfer t JOIN billinginvoice si ON si.id=t.source_invoice_id JOIN billinginvoiceposition sp ON sp.id=t.source_position_id JOIN billinginvoice ti ON ti.id=t.target_invoice_id JOIN billinginvoiceposition tp ON tp.id=t.target_position_id WHERE t.active=1 AND (t.source_invoice_id=? OR t.target_invoice_id=?) ORDER BY t.created_at DESC, t.id DESC', [$id, $id]);
         $transferTargets = R::getAll("SELECT p.id AS position_id, p.invoice_id, p.position_number, p.name, p.details, p.regie_minutes, i.invoice_number FROM billinginvoiceposition p JOIN billinginvoice i ON i.id=p.invoice_id WHERE i.id<>? AND i.tenant_id=? AND i.customer_id=? AND i.status NOT IN ('cancelled', 'storniert') AND (p.kind='regie' OR (p.kind='unclassified' AND p.suggested_kind='regie')) ORDER BY i.invoice_date DESC, i.id DESC, CAST(p.position_number AS INTEGER), p.id", [$id, (int) $invoice->tenant_id, (int) $invoice->customer_id]);

@@ -76,8 +76,8 @@ class DeviceController
             'name' => 'LOWER(d.name), d.id',
             'external_number' => "CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id",
             'manufacturer' => 'LOWER(COALESCE(d.manufacturer, \'\')), LOWER(d.name), d.id',
-            'inspection_newest' => '(SELECT MAX(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id) DESC, d.name',
-            'inspection_oldest' => 'COALESCE((SELECT MIN(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id), \'9999-12-31\'), d.name',
+            'inspection_newest' => "(SELECT MAX(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id AND COALESCE(i2.archived_at, '')='') DESC, d.name",
+            'inspection_oldest' => "COALESCE((SELECT MIN(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id AND COALESCE(i2.archived_at, '')=''), '9999-12-31'), d.name",
         ][$sort] ?? 'LOWER(d.name), d.id';
         $where = [];
         $paramsQuery = [];
@@ -93,7 +93,7 @@ class DeviceController
         if ($roomId > 0) { $where[] = 'r.id = ?'; $paramsQuery[] = $roomId; }
         if ($deviceId > 0) { $where[] = 'd.id = ?'; $paramsQuery[] = $deviceId; }
         if ($query !== '') { $where[] = '(LOWER(d.name) LIKE ? OR LOWER(d.external_number) LIKE ? OR LOWER(d.inventory_number) LIKE ? OR LOWER(d.description) LIKE ? OR LOWER(d.comment) LIKE ?)'; $like = '%' . strtolower($query) . '%'; array_push($paramsQuery, $like, $like, $like, $like, $like); }
-        $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . ' FROM inspection i2 WHERE i2.device_id = d.id ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)';
+        $latestStatus = '(SELECT ' . InspectionEvaluationService::sqlStatusExpression('i2') . " FROM inspection i2 WHERE i2.device_id = d.id AND COALESCE(i2.archived_at, '')='' ORDER BY i2.test_date DESC, i2.id DESC LIMIT 1)";
         if (in_array($inspectionStatus, ['failed', 'passed', 'in_progress', 'data_missing', 'legacy'], true)) {
             $where[] = $latestStatus . ' = ?';
             $paramsQuery[] = $inspectionStatus;
@@ -128,7 +128,7 @@ class DeviceController
         if ($from !== '') { $dateWhere[] = 'i.test_date >= ?'; $paramsQuery[] = $from; }
         if ($to !== '') { $dateWhere[] = 'i.test_date <= ?'; $paramsQuery[] = $to; }
         $structureJoin = ' LEFT JOIN room r ON r.id = d.room_id LEFT JOIN floor f ON f.id = r.floor_id LEFT JOIN building b ON b.id = f.building_id LEFT JOIN site s ON s.id = b.site_id LEFT JOIN customer c ON c.id = s.customer_id ';
-        $join = $structureJoin . ($dateWhere !== [] ? ' JOIN inspection i ON i.device_id = d.id ' : '');
+        $join = $structureJoin . ($dateWhere !== [] ? " JOIN inspection i ON i.device_id = d.id AND COALESCE(i.archived_at, '')='' " : '');
         if ($dateWhere !== []) $where[] = '(' . implode(' AND ', $dateWhere) . ')';
         $whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
         $total = (int) R::getCell('SELECT COUNT(DISTINCT d.id) FROM device d' . $join . $whereSql, $paramsQuery);
@@ -141,7 +141,7 @@ class DeviceController
         $devices = $deviceBeans;
         $inspections = [];
         foreach ($devices as $device) {
-            $inspections[(int) $device->id] = array_values(R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device->id]));
+            $inspections[(int) $device->id] = array_values(R::findAll('inspection', " device_id = ? AND COALESCE(archived_at, '')='' ORDER BY test_date DESC, id DESC ", [(int) $device->id]));
             if (current_user_is_customer()) {
                 $inspections[(int) $device->id] = array_values(array_filter(
                     $inspections[(int) $device->id],
@@ -404,8 +404,8 @@ class DeviceController
             $_SESSION['fehlermeldung'] = 'Gerät nicht gefunden.';
             return [303, ['Location' => url_for('geraete')], ''];
         }
-        $latest = R::findOne('inspection', "device_id = ? AND result_status IN ('passed', 'failed', 'bestanden', 'nicht bestanden') ORDER BY test_date DESC, id DESC", [$id]);
-        $latest ??= R::findOne('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [$id]);
+        $latest = R::findOne('inspection', "device_id = ? AND COALESCE(archived_at, '')='' AND result_status IN ('passed', 'failed', 'bestanden', 'nicht bestanden') ORDER BY test_date DESC, id DESC", [$id]);
+        $latest ??= R::findOne('inspection', " device_id = ? AND COALESCE(archived_at, '')='' ORDER BY test_date DESC, id DESC ", [$id]);
         if ($latest === null) {
             $_SESSION['fehlermeldung'] = 'Für dieses Gerät gibt es noch keine Prüfung, aus der Stammdaten übernommen werden können.';
             return [303, ['Location' => $location], ''];

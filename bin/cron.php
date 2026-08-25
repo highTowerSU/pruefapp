@@ -154,6 +154,35 @@ try {
             set_app_config('inspection_duplicate_audit_version', '2');
         }
     }
+    // Once the read-only audit has completed, unequivocal copies from the
+    // very same import record are archived.  The inspection and invoice-item
+    // history remain intact; only the active operational/billing allocation
+    // is released.  Ambiguous suffixes and short-interval repeats stay for
+    // manual review.
+    $duplicateArchiveVersion = trim((string) get_app_config('inspection_duplicate_archive_version', ''));
+    if ($duplicateArchiveVersion !== '1' && $duplicateAuditVersion === '2') {
+        $duplicateArchiveTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection later
+            WHERE later.id > (SELECT MIN(earlier.id) FROM inspection earlier
+                WHERE earlier.device_id=later.device_id
+                  AND earlier.source_type=later.source_type
+                  AND COALESCE(earlier.source_file,'')=COALESCE(later.source_file,'')
+                  AND earlier.external_number=later.external_number
+                  AND earlier.test_date=later.test_date)
+              AND later.source_type IN ('csv','json')
+              AND TRIM(COALESCE(later.source_file,''))<>''
+              AND TRIM(COALESCE(later.external_number,''))<>''
+              AND TRIM(COALESCE(later.test_date,''))<>''
+              AND COALESCE(later.archived_at,'')='' ");
+        if ($duplicateArchiveTotal > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_duplicate_archive',
+                ['type' => 'inspection_duplicate_archive'],
+                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_duplicate_archive_version', '1');
+        }
+    }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
     if (get_app_config('device_vocabulary_normalization_version', '') !== '1') {
         $total = (int) R::getCell('SELECT COUNT(*) FROM device');

@@ -49,6 +49,7 @@ $checks = [
     [str_contains($billing, 'billed_device_target') && str_contains($billingIndex, '$inspectionCount . \'/\' . $target') && str_contains($billing, 'duplicate_devices'), 'Die Rechnungsübersicht zeigt historische Prüfungen nicht gegen die Rechnungsmenge oder erklärt doppelte Geräte nicht.'],
     [str_contains($maintenance, 'inspectionDuplicateAudit') && str_contains($maintenance, 'count($peers) === 1') && str_contains($schema, 'inspectiondupreview') && str_contains($adminController, 'enqueueInspectionDuplicateAudit') && str_contains($worker, "'inspection_duplicate_audit'") && str_contains($cron, 'inspection-duplicate-audit:v2'), 'Der einmalige, nicht-destruktive Prüfungsdubletten-Audit fehlt.'],
     [str_contains($importer, "device_id = ? AND source_type = ? AND external_number = ? AND test_date = ?") && str_contains($importer, 'completed inspection number is immutable'), 'Ein Re-Import kann gleiche abgeschlossene CSV-Prüfungen noch doppelt anlegen.'],
+    [str_contains($maintenance, 'archiveExactImportDuplicates') && str_contains($maintenance, 'historisch_nicht_eindeutig') && str_contains($schema, 'duplicate_of_inspection_id') && str_contains($worker, "'inspection_duplicate_archive'") && str_contains($cron, 'inspection-duplicate-archive:v1'), 'Eindeutige Re-Importdubletten werden nicht revisionssicher archiviert und aus aktiven Rechnungszuordnungen freigegeben.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

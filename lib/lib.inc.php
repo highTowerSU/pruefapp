@@ -485,6 +485,12 @@ function ensure_structure_schema(): void
             'device_attributes_snapshot_json' => "TEXT NOT NULL DEFAULT '{}'",
             'failed_action' => "TEXT NOT NULL DEFAULT ''",
             'customer_hint' => "TEXT NOT NULL DEFAULT ''",
+            // A source re-import can occasionally contain the same completed
+            // inspection twice.  Keep the evidence for audit purposes, but
+            // hide the redundant copy from operational views and billing.
+            'archived_at' => 'TEXT NULL',
+            'archived_reason' => "TEXT NOT NULL DEFAULT ''",
+            'duplicate_of_inspection_id' => 'INTEGER NULL',
         ],
         'oauthuser_customer' => ['include_descendants' => 'INTEGER NOT NULL DEFAULT 1'],
         'customer' => [
@@ -514,6 +520,7 @@ function ensure_structure_schema(): void
     R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_classification ON inspection (classification, test_date)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billinginvoiceitem_inspection ON billinginvoiceitem (inspection_id, active)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_public_id ON inspection (public_id)');
+    R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_archived ON inspection (archived_at, duplicate_of_inspection_id)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billinginvoiceposition_invoice ON billinginvoiceposition (invoice_id, kind)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billingregietransfer_source ON billingregietransfer (source_invoice_id, active)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_billingregietransfer_target ON billingregietransfer (target_invoice_id, active)');

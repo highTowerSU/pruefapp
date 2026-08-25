@@ -43,7 +43,7 @@ final class ReportController
             foreach ($devices as $device) {
                 $deviceData = $device;
                 $deviceData['inspections'] = [];
-                foreach (R::findAll('inspection', ' device_id = ? ORDER BY test_date DESC, id DESC ', [(int) $device['id']]) as $inspection) {
+                foreach (R::findAll('inspection', " device_id = ? AND COALESCE(archived_at, '')='' ORDER BY test_date DESC, id DESC ", [(int) $device['id']]) as $inspection) {
                     $inspectionData = $inspection->export();
                     foreach (['measurements_json' => 'measurements', 'checklist_json' => 'checklist', 'raw_json' => 'raw'] as $source => $target) {
                         $decoded = json_decode((string) ($inspectionData[$source] ?? ''), true);
@@ -299,7 +299,7 @@ final class ReportController
             LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id
             LEFT JOIN billinginvoiceitem bi ON bi.inspection_id=i.id AND bi.active=1
             LEFT JOIN billinginvoice inv ON inv.id=bi.invoice_id
-            WHERE i.device_id IN ($marks) AND COALESCE(i.inspection_type_code, 'electrical')='electrical'
+            WHERE i.device_id IN ($marks) AND COALESCE(i.archived_at, '')='' AND COALESCE(i.inspection_type_code, 'electrical')='electrical'
             ORDER BY i.test_date, i.id";
         $header = ['pruefung_id','geraetenummer','pruefnummer','pruefdatum','pruefbeginn','pruefende','pruefdauer_minuten','techniker','bezeichnung','hersteller','typ_modell','gebaeude','etage','raum','pruefergebnis','regiezeit_minuten','regiegrund','abrechnungsmenge_geraete','geraetekombination_id','kombination_abrechnungsrelevant','abrechnungsstatus','rechnungsnummer','rechnungsdatum','rechnungsposition','abrechnungsdatum','abrechnungs_batch_id','storno_rechnungsnummer','bemerkung'];
         $rows = [$header];
@@ -332,7 +332,7 @@ final class ReportController
     private static function dailyRows(array $deviceIds, string $date, string $examiner, int $customerId, string $toDate = ''): array
     {
         if ($deviceIds === []) return [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
-        $marks = implode(',', array_fill(0, count($deviceIds), '?')); $args = $deviceIds; $where = ["i.device_id IN ($marks)"]; if ($date !== '') { if ($toDate !== '') { $where[] = 'i.test_date >= ? AND i.test_date <= ?'; $args[] = $date; $args[] = $toDate; } else { $where[] = 'i.test_date = ?'; $args[] = $date; } } if ($examiner !== '') { $where[] = 'LOWER(i.examiner) LIKE ?'; $args[] = '%' . strtolower($examiner) . '%'; } if ($customerId > 0) { $where[] = 'c.id = ?'; $args[] = $customerId; }
+        $marks = implode(',', array_fill(0, count($deviceIds), '?')); $args = $deviceIds; $where = ["i.device_id IN ($marks)", "COALESCE(i.archived_at, '')='' "]; if ($date !== '') { if ($toDate !== '') { $where[] = 'i.test_date >= ? AND i.test_date <= ?'; $args[] = $date; $args[] = $toDate; } else { $where[] = 'i.test_date = ?'; $args[] = $date; } } if ($examiner !== '') { $where[] = 'LOWER(i.examiner) LIKE ?'; $args[] = '%' . strtolower($examiner) . '%'; } if ($customerId > 0) { $where[] = 'c.id = ?'; $args[] = $customerId; }
         $rows = [['Prüfnummer', 'Datum', 'Prüfer', 'Kunde', 'Gerät', 'Raum', 'Ergebnis', 'Regiezeit (Min.)', 'Regiebegründung']];
         foreach (R::getAll("SELECT i.external_number, i.test_date, i.examiner, i.result_status, i.status, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE " . implode(' AND ', $where) . ' ORDER BY c.name, i.examiner, i.test_date, i.id', $args) as $row) $rows[] = [(string) $row['external_number'], (string) $row['test_date'], display_examiner_name((string) $row['examiner']), (string) $row['customer_name'], (string) $row['device_number'] . ' · ' . (string) $row['device_name'], trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: '—', InspectionEvaluationService::presentation((string) $row['result_status'], (string) $row['status'])['label'], (int) $row['regie_minutes'], (string) $row['regie_reason']];
         return $rows;
