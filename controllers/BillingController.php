@@ -301,6 +301,45 @@ final class BillingController
         return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
     }
 
+    /** Confirms a reviewed set of historical inspection assignments in one transaction. */
+    public static function assignHistoricalBatch(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $invoiceId = (int) ($params['id'] ?? 0);
+        $inspectionIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['inspection_ids'] ?? [])), static fn(int $id): bool => $id > 0)));
+        $devicePositionId = (int) ($_POST['device_position_id'] ?? 0);
+        $regiePositionId = (int) ($_POST['regie_position_id'] ?? 0);
+        $invoice = R::load('billinginvoice', $invoiceId);
+        if (!$invoice->id || $inspectionIds === [] || $devicePositionId <= 0 || ($_POST['confirm'] ?? '') !== '1') {
+            return [422, [], 'Bitte mindestens eine geprüfte Zuordnung auswählen und ausdrücklich bestätigen.'];
+        }
+        $positions = [$devicePositionId]; if ($regiePositionId > 0) $positions[] = $regiePositionId;
+        if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceposition WHERE invoice_id=? AND id IN (' . implode(',', array_fill(0, count($positions), '?')) . ')', array_merge([$invoiceId], $positions)) !== count($positions)) return [422, [], 'Die gewählte Rechnungsposition gehört nicht zu dieser Rechnung.'];
+        $devicePosition = R::load('billinginvoiceposition', $devicePositionId);
+        if ((string) $devicePosition->kind !== 'device') return [422, [], 'Bitte zuerst eine Geräteposition als „Geräte“ klassifizieren.'];
+        $inspections = R::findAll('inspection', ' id IN (' . implode(',', array_fill(0, count($inspectionIds), '?')) . ') ', $inspectionIds);
+        if (count($inspections) !== count($inspectionIds)) return [404, [], 'Mindestens eine Prüfung wurde nicht gefunden.'];
+        foreach ($inspectionIds as $inspectionId) if ((int) R::getCell('SELECT COUNT(*) FROM billinginvoiceitem WHERE inspection_id=? AND active=1', [$inspectionId]) > 0) return [409, [], 'Mindestens eine ausgewählte Prüfung besitzt bereits eine aktive Rechnungszuordnung.'];
+        R::begin();
+        try {
+            foreach ($inspectionIds as $inspectionId) {
+                $inspection = $inspections[$inspectionId];
+                $item = R::dispense('billinginvoiceitem');
+                $item->invoice_id = $invoiceId; $item->inspection_id = $inspectionId; $item->device_id = (int) $inspection->device_id;
+                $item->quantity = max(0, (int) ($inspection->billing_device_quantity ?: 1));
+                $item->regie_minutes = max(0, (int) $inspection->regie_minutes); $item->regie_reason = (string) $inspection->regie_reason;
+                $item->combination_id = (string) $inspection->billing_combination_id; $item->combination_relevant = (int) $inspection->billing_combination_relevant; $item->combination_reason = (string) $inspection->billing_combination_reason;
+                $item->description = 'Historisch gesammelt bestätigt'; $item->active = 1; $item->assigned_at = date(DATE_ATOM); $item->source = 'historical_batch_confirmed'; $item->created_at = date(DATE_ATOM); $itemId = (int) R::store($item);
+                foreach ($positions as $positionId) { $link = R::dispense('billinginvoiceitemposition'); $link->invoice_item_id = $itemId; $link->invoice_position_id = $positionId; $link->allocation_kind = $positionId === $regiePositionId ? 'regie' : 'device'; $link->created_at = date(DATE_ATOM); R::store($link); }
+                $inspection->billing_active_invoice_item_id = $itemId; $inspection->billing_status = 'export_pending'; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+            }
+            R::commit();
+        } catch (Throwable $exception) { R::rollback(); throw $exception; }
+        audit_log('abrechnung_historisch_gesammelt_zugeordnet', ['invoice_id' => $invoiceId, 'inspection_ids' => $inspectionIds, 'positions' => $positions]);
+        self::refreshInvoiceBillingStates($invoiceId);
+        return [303, ['Location' => url_for('admin/abrechnung/rechnung/' . $invoiceId)], ''];
+    }
+
     /** @param array<string,mixed> $remote */
     private static function storeSyncedInvoice(SevDeskClient $client, array $remote): void
     {
@@ -317,6 +356,11 @@ final class BillingController
         // this, the read-only import succeeds but the invoice disappears from
         // the tenant-scoped overview immediately afterwards.
         $invoice->tenant_id = (int) (get_branding()['company_id'] ?? 0);
+        $remoteCustomerId = trim((string) (($remote['contact']['id'] ?? null) ?: ($remote['contact'] ?? '') ?: ($remote['customer']['id'] ?? null)));
+        if ($remoteCustomerId !== '') {
+            $customer = R::findOne('customer', ' sevdesk_customer_id=? ', [$remoteCustomerId]);
+            if ($customer) $invoice->customer_id = (int) $customer->id;
+        }
         $invoice->invoice_number = $number; $invoice->invoice_date = substr((string) ($remote['invoiceDate'] ?? ''), 0, 10);
         $invoice->sevdesk_status = $remoteStatus; $invoice->status = $cancelled ? 'cancelled' : (in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft');
         if ($cancelled) $invoice->cancelled_at = date(DATE_ATOM);
@@ -401,6 +445,26 @@ final class BillingController
         return compact('positions', 'items', 'deviceTarget', 'deviceActual', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
     }
 
+    /** @param array<string,mixed> $reconciliation @return array{candidates:list<array<string,mixed>>,reason:string} */
+    private static function historicalSuggestion(object $invoice, array $reconciliation): array
+    {
+        $needed = max(0, (int) round((float) ($reconciliation['deviceTarget'] ?? 0) - (float) ($reconciliation['deviceActual'] ?? 0)));
+        if ($needed === 0) return ['candidates' => [], 'reason' => 'Die Geräteanzahl dieser Rechnung ist bereits zugeordnet.'];
+        if ((int) ($invoice->customer_id ?? 0) <= 0) return ['candidates' => [], 'reason' => 'Der SevDesk-Kunde ist im Kundenstamm noch nicht verknüpft; deshalb wird kein unsicherer Sammelvorschlag erzeugt.'];
+        $until = trim((string) ($invoice->performance_date_until ?? $invoice->invoice_date ?? ''));
+        if ($until === '') return ['candidates' => [], 'reason' => 'Für die Rechnung fehlt ein Datum für den sicheren Vorschlagszeitraum.'];
+        try { $from = (new DateTimeImmutable($until))->modify('-45 days')->format('Y-m-d'); } catch (Throwable) { return ['candidates' => [], 'reason' => 'Das Rechnungsdatum ist nicht auswertbar.']; }
+        $rows = R::getAll(
+            "SELECT i.id, i.external_number, i.test_date, i.result_status, i.regie_minutes, d.external_number AS device_number, d.name AS device_name
+             FROM inspection i JOIN device d ON d.id=i.device_id JOIN room r ON r.id=d.room_id JOIN floor f ON f.id=r.floor_id JOIN building b ON b.id=f.building_id JOIN site s ON s.id=b.site_id
+             WHERE s.customer_id=? AND i.test_date>=? AND i.test_date<=? AND i.test_date>='2025-01-01'
+               AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1)
+             ORDER BY i.test_date ASC, i.id ASC LIMIT ?",
+            [(int) $invoice->customer_id, $from, $until, max($needed * 3, 100)]
+        );
+        return ['candidates' => array_slice($rows, 0, $needed), 'reason' => count($rows) < $needed ? 'Im Zeitraum wurden nicht genügend offene Prüfungen gefunden.' : 'Vorschlag: offene Prüfungen des Rechnungskunden im Zeitraum ' . $from . ' bis ' . $until . '.'];
+    }
+
     public static function eligibility(array $params, bool $isHx): array
     {
         if (!current_user_can_manage_billing()) return forbidden_response();
@@ -457,7 +521,8 @@ final class BillingController
         }
         $items = R::getAll('SELECT bi.*, i.external_number AS inspection_number, i.test_date, i.billing_status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id JOIN device d ON d.id=bi.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE bi.invoice_id = ? ORDER BY d.external_number, i.test_date, i.id', [$id]);
         $candidates = R::getAll("SELECT i.id, i.external_number, i.test_date, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.test_date >= '2025-01-01' AND NOT EXISTS (SELECT 1 FROM billinginvoiceitem bi WHERE bi.inspection_id=i.id AND bi.active=1) ORDER BY i.test_date DESC, i.id DESC LIMIT 500");
-        $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items, 'reconciliation' => self::reconciliation($id), 'candidates' => $candidates]);
+        $reconciliation = self::reconciliation($id);
+        $content = render_template('billing_invoice.php', ['invoice' => $invoice, 'items' => $items, 'reconciliation' => $reconciliation, 'candidates' => $candidates, 'suggestion' => self::historicalSuggestion($invoice, $reconciliation)]);
         return $isHx
             ? [200, ['Content-Type' => 'text/html; charset=utf-8'], $content]
             : [200, [], render_template('layout.php', ['title' => 'Rechnung #' . $id, 'content' => $content])];

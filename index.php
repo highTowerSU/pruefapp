@@ -164,6 +164,7 @@ $routes = [
     ['GET', '/admin/abrechnung/rechnung/{id}', fn($params, $isHx) => BillingController::invoice($params, $isHx)],
     ['POST', '/admin/abrechnung/sevdesk-synchronisieren', fn($params, $isHx) => BillingController::syncSevDeskInvoices($params, $isHx)],
     ['POST', '/admin/abrechnung/rechnung/{id}/historisch-zuordnen', fn($params, $isHx) => BillingController::assignHistorical($params, $isHx)],
+    ['POST', '/admin/abrechnung/rechnung/{id}/historisch-zuordnen-sammeln', fn($params, $isHx) => BillingController::assignHistoricalBatch($params, $isHx)],
     ['POST', '/admin/abrechnung/rechnung/{id}/position-klassifizieren', fn($params, $isHx) => BillingController::classifyPosition($params, $isHx)],
     ['POST', '/admin/abrechnung/rechnung/{id}/sevdesk-entwurf-loeschen', fn($params, $isHx) => BillingController::deleteDraftInvoice($params, $isHx)],
     ['POST', '/admin/abrechnung/export', fn($params, $isHx) => BillingController::export($params, $isHx)],
