@@ -83,7 +83,7 @@ class AdminController
         $params = $inspectionIds !== [] ? $inspectionIds : ($deviceIds !== [] ? $deviceIds : [$like, $like]);
         $rows = R::getAll(
             'SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.room_snapshot, i.result_status, i.status, i.classification, i.source_type, i.source_file, i.archived_at, i.archived_reason, i.duplicate_of_inspection_id, '
-            . 'i.result_reason_code, i.result_reason_text, d.external_number AS device_number, d.name AS device_name, r.number AS room_number '
+            . 'i.result_reason_code, i.result_reason_text, d.external_number AS device_number, d.name AS device_name, d.room_snapshot AS device_room_snapshot, r.number AS room_number '
             . 'FROM inspection i LEFT JOIN device d ON d.id = i.device_id LEFT JOIN room r ON r.id=d.room_id '
             . 'WHERE ' . $where . ' '
             . 'ORDER BY i.test_date DESC, i.id DESC LIMIT 100',
