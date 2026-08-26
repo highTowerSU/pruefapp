@@ -128,6 +128,10 @@ final class ElectricalInspectionImportService
                 $slot = trim((string) ($record['storage_slot'] ?? ''));
                 $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
                 if (is_array($odsRow)) $record = array_merge($record, $odsRow);
+                // In Phoenix result.csv exports `number` identifies the
+                // device.  CSV has no independent inspection resource ID.
+                $deviceNumber = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
+                if ($deviceNumber !== '') $record['device_number'] = $deviceNumber;
                 $result[] = ['source_kind' => 'csv_ods', 'source_path' => $path, 'row_no' => $rowNo, 'record' => $record];
             }
             fclose($stream);
@@ -549,7 +553,7 @@ final class ElectricalInspectionImportService
             'cable_length_m' => $cableLength,
             'test_date' => $this->normalizeDate($date),
             'result_status' => $this->status($this->value($values, ['Prüfergebnis', 'OK', 'audit_ok', 'result'])),
-            'inspection_type' => $this->value($values, ['Bezeichnung', 'Prüfart', 'inspection_type']),
+            'inspection_type' => $this->value($values, ['Bezeichnung', 'Prüfart', 'inspection_type', 'type']),
             'device_type' => $this->value($values, ['Bezeichnung', 'Typ', 'device_type']),
             'manufacturer' => $this->value($values, ['Hersteller', 'manufacturer']),
             'device_model' => $this->value($values, ['Modell', 'device_model']),

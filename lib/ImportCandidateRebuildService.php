@@ -106,7 +106,7 @@ final class ImportCandidateRebuildService
     /** @param array<string,mixed> $record */
     private function store(int $runId, string $kind, string $path, int $rowNo, array $record, int $inspectionId = 0): void
     {
-        $identity = $this->identity($record);
+        $identity = $this->identity($record, $kind);
         $candidate = R::dispense('importcandidate');
         $candidate->run_id = $runId; $candidate->group_key = $identity['group_key']; $candidate->source_kind = $kind;
         $candidate->source_path = $path; $candidate->source_row_no = $rowNo; $candidate->source_inspection_id = $inspectionId ?: null;
@@ -184,7 +184,7 @@ final class ImportCandidateRebuildService
     }
 
     /** @return array<string,string|bool> */
-    private function identity(array $record): array
+    private function identity(array $record, string $sourceKind = ''): array
     {
         $inspection = $this->clean((string) ($record['inspection_number'] ?? $record['number'] ?? ''));
         $device = $this->clean((string) ($record['device_number'] ?? $record['external_number'] ?? $record['inventory_number'] ?? ''));
@@ -192,8 +192,12 @@ final class ImportCandidateRebuildService
         $date = trim((string) ($record['test_date'] ?? $record['date'] ?? ''));
         $type = $this->clean((string) ($record['inspection_type'] ?? $record['type'] ?? ''));
         $slot = $this->clean((string) ($record['storage_slot'] ?? ''));
-        $complete = $inspection !== '' && $device !== '' && $date !== '' && $type !== '';
-        return ['inspection_number' => $inspection, 'device_number' => $device, 'legacy_device_number' => $legacy, 'test_date' => $date, 'inspection_type' => $type, 'storage_slot' => $slot, 'complete' => $complete, 'group_key' => $complete ? hash('sha256', implode('|', [$inspection, $device, $date, $type])) : 'missing-' . hash('sha256', json_encode($record) ?: '')];
+        // CSV/ODS carries the device, date and test type but commonly no
+        // separate inspection resource number. Those three facts still form
+        // a safe historic identity and let duplicate result.csv copies merge.
+        $complete = $device !== '' && $date !== '' && $type !== '' && ($inspection !== '' || $sourceKind === 'csv_ods');
+        $groupIdentity = $device !== '' ? [$device, $date, $type] : [$inspection, $slot, $date, $type];
+        return ['inspection_number' => $inspection, 'device_number' => $device, 'legacy_device_number' => $legacy, 'test_date' => $date, 'inspection_type' => $type, 'storage_slot' => $slot, 'complete' => $complete, 'group_key' => $complete ? hash('sha256', implode('|', $groupIdentity)) : 'missing-' . hash('sha256', json_encode($record) ?: '')];
     }
 
     private function clean(string $value): string { return mb_strtoupper(trim(preg_replace('/\s+/', '', $value) ?: '')); }
