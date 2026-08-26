@@ -293,23 +293,13 @@ try {
             set_app_config('inspection_confirmed_historical_device_repair_version', '1');
         }
     }
-    // Refresh the structured Phoenix source before deriving historical device
-    // identities. PDFs remain presentation evidence; JSON is the data source.
-    if (trim((string) get_app_config('phoenix_source_reconciliation_version', '')) !== '1') {
-        $phoenixCredentials = PhoenixSyncService::serverCredentials();
-        if ($phoenixCredentials['token'] !== '' && $phoenixCredentials['customer_id'] !== '') {
-            BackgroundJobService::enqueue(
-                'phoenix_sync',
-                ['type' => 'phoenix_sync', 'completion_config_key' => 'phoenix_source_reconciliation_version'],
-                ['dedupe_key' => 'maintenance:phoenix-source-reconciliation:v1', 'cancellable' => false]
-            );
-        }
-    }
     // CSV measurement exports identify only a temporary Speicherplatz; the
-    // same-named ODS has the durable device number. Reconcile only exact
-    // CSV/ODS/inspection-number matches and leave every ambiguity untouched.
-    if (trim((string) get_app_config('phoenix_source_reconciliation_version', '')) === '1'
-        && trim((string) get_app_config('csv_ods_source_reconciliation_version', '')) !== '1') {
+    // same-named ODS has the durable device number. This local, exact source
+    // reconciliation must never wait for an external Phoenix request: the
+    // latter may be unavailable for minutes and previously caused a new
+    // failing job (and notification) in every cron cycle. Phoenix remains an
+    // explicit sync action and supplementary source, not a queue gate.
+    if (trim((string) get_app_config('csv_ods_source_reconciliation_version', '')) !== '1') {
         BackgroundJobService::enqueue(
             'csv_ods_source_reconciliation',
             ['type' => 'csv_ods_source_reconciliation'],

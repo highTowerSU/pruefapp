@@ -313,7 +313,9 @@ final class PhoenixSyncService
     private function request(string $url, string $token): array
     {
         $ch = curl_init($url);
-        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 60, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Accept: application/json', 'X-User-Timezone: Europe/Berlin']]);
+        // A live Phoenix refresh is supplementary evidence.  Do not let a
+        // stalled upstream hold a cron worker for a full minute per request.
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 20, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Accept: application/json', 'X-User-Timezone: Europe/Berlin']]);
         $body = curl_exec($ch); $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $error = curl_error($ch); curl_close($ch);
         if ($body === false || $status >= 400) throw new RuntimeException('Phoenix API Fehler ' . $status . ($error !== '' ? ': ' . $error : ''));
         $decoded = json_decode((string) $body, true);
