@@ -40,6 +40,7 @@ final class MaintenanceJobHandler
             'inspection_duplicate_review_cleanup' => self::cleanupArchivedDuplicateReviews($checkpoint, $current, $total, $tick),
             'inspection_confirmed_draft_archive' => self::archiveConfirmedManualDraft($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_legacy_csv_archive' => self::archiveConfirmedLegacyCsvDuplicates($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_same_source_archive' => self::archiveConfirmedSameSourceDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -477,6 +478,80 @@ final class MaintenanceJobHandler
             $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $csv->external_number, 'Bestätigte unvollständige Legacy-CSV-Dublette archiviert; Phoenix-Original bleibt maßgeblich.');
         }
         set_app_config('inspection_confirmed_legacy_csv_archive_2023_version', '1');
+        return compact('archived', 'released');
+    }
+
+    /**
+     * Archives only explicitly confirmed duplicate import records from the
+     * same source file.  The caller supplies the canonical and duplicate IDs;
+     * this handler never derives pairs merely from a short test interval.
+     *
+     * @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function archiveConfirmedSameSourceDuplicates(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $pairs = array_values(array_filter((array) ($payload['pairs'] ?? []), static fn(mixed $pair): bool => is_array($pair)));
+        if ($pairs === []) throw new InvalidArgumentException('Keine bestätigten gleichquelligen Dubletten übergeben.');
+        $index = max(0, (int) ($checkpoint['pair_index'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        $total = max($total, count($pairs));
+        for (; $index < count($pairs); $index++) {
+            $pair = $pairs[$index];
+            $canonicalId = max(0, (int) ($pair['canonical_inspection_id'] ?? 0));
+            $duplicateId = max(0, (int) ($pair['duplicate_inspection_id'] ?? 0));
+            $canonical = R::load('inspection', $canonicalId);
+            $duplicate = R::load('inspection', $duplicateId);
+            if (!(int) $canonical->id || !(int) $duplicate->id) throw new RuntimeException('Bestätigtes gleichquelliges Dublettenpaar wurde nicht gefunden.');
+            if (trim((string) $duplicate->archived_at) !== '') {
+                $current++;
+                $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $duplicate->external_number, 'Gleichquellige Dublette war bereits archiviert.');
+                continue;
+            }
+            $sameSource = (int) $canonical->device_id === (int) $duplicate->device_id
+                && trim((string) $canonical->source_type) !== ''
+                && (string) $canonical->source_type === (string) $duplicate->source_type
+                && trim((string) $canonical->source_file) !== ''
+                && (string) $canonical->source_file === (string) $duplicate->source_file
+                && (string) $canonical->test_date === (string) $duplicate->test_date
+                && (string) $canonical->room_snapshot === (string) $duplicate->room_snapshot
+                && (string) $canonical->result_status === (string) $duplicate->result_status;
+            if (!$sameSource) throw new RuntimeException('Bestätigtes Dublettenpaar erfüllt die abgesicherten Gleichquellenkriterien nicht.');
+            R::begin();
+            try {
+                $now = date(DATE_ATOM);
+                $reason = 'Bestätigte gleichquellige Importdublette; Prüfung #' . $canonicalId . ' (' . (string) $canonical->external_number . ') aus derselben Quelldatei bleibt maßgeblich.';
+                $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$duplicateId]);
+                foreach ($activeItems as $item) {
+                    $item->active = 0;
+                    $item->deactivated_at = $now;
+                    $item->deactivation_reason = $reason;
+                    R::store($item);
+                    $released++;
+                }
+                $duplicate->archived_at = $now;
+                $duplicate->archived_reason = $reason;
+                $duplicate->duplicate_of_inspection_id = $canonicalId;
+                $duplicate->billable = 0;
+                $duplicate->billing_eligibility = 'not_billable';
+                $duplicate->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $duplicate->billing_not_billable_comment = $reason;
+                $duplicate->billing_status = 'historisch_nicht_eindeutig';
+                $duplicate->billing_active_invoice_item_id = null;
+                $duplicate->updated_at = $now;
+                R::store($duplicate);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $duplicateId, $duplicateId]);
+                R::commit();
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            audit_log('bestaetigte_gleichquellige_importdublette_archiviert', ['_category' => 'import', 'inspection_id' => $duplicateId, 'canonical_inspection_id' => $canonicalId, 'reason' => $reason]);
+            $archived++;
+            $current++;
+            $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $duplicate->external_number, 'Bestätigte gleichquellige Importdublette archiviert; erster Import bleibt maßgeblich.');
+        }
+        set_app_config('inspection_confirmed_same_source_archive_version', '1');
         return compact('archived', 'released');
     }
 

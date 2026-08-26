@@ -212,6 +212,28 @@ try {
             set_app_config('inspection_confirmed_legacy_csv_archive_2023_version', '1');
         }
     }
+    // Explicit user confirmation: these records have the same device, source
+    // file, test date, room and result. Keep the older import record only.
+    $confirmedSameSourceArchiveVersion = trim((string) get_app_config('inspection_confirmed_same_source_archive_version', ''));
+    if ($confirmedSameSourceArchiveVersion !== '1') {
+        $confirmedSameSourcePairs = [
+            ['canonical_inspection_id' => 9799, 'duplicate_inspection_id' => 9801],
+            ['canonical_inspection_id' => 9003, 'duplicate_inspection_id' => 9036],
+            ['canonical_inspection_id' => 8860, 'duplicate_inspection_id' => 8861],
+            ['canonical_inspection_id' => 8538, 'duplicate_inspection_id' => 8542],
+            ['canonical_inspection_id' => 7876, 'duplicate_inspection_id' => 7877],
+        ];
+        $openConfirmedSameSourceRows = (int) R::getCell('SELECT COUNT(*) FROM inspection WHERE id IN (' . implode(',', array_fill(0, count($confirmedSameSourcePairs), '?')) . ") AND COALESCE(archived_at,'')=''", array_column($confirmedSameSourcePairs, 'duplicate_inspection_id'));
+        if ($openConfirmedSameSourceRows > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_same_source_archive',
+                ['type' => 'inspection_confirmed_same_source_archive', 'pairs' => $confirmedSameSourcePairs],
+                ['total' => count($confirmedSameSourcePairs), 'dedupe_key' => 'maintenance:inspection-confirmed-same-source-archive:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_same_source_archive_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.
