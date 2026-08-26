@@ -107,7 +107,7 @@
     toggle.checked = enabled;
     if (!enabled || !window.htmx) return;
     current.setAttribute('hx-get', window.location.href);
-    current.setAttribute('hx-trigger', 'every 30s');
+    current.setAttribute('hx-trigger', 'every 10s');
     current.setAttribute('hx-target', '#inspection-import-panel');
     current.setAttribute('hx-select', '#inspection-import-panel');
     current.setAttribute('hx-swap', 'outerHTML');

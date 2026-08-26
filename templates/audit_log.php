@@ -270,7 +270,7 @@ $actionPresentation = static function (string $action): array {
       if (!toggle.checked) return;
       if (panel.tagName === 'DETAILS') panel.open = true; save();
       if (!window.htmx) return;
-      panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 30s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); panel.setAttribute('hx-swap', 'outerHTML'); window.htmx.process(panel);
+      panel.setAttribute('hx-get', window.location.href); panel.setAttribute('hx-trigger', 'every 10s'); panel.setAttribute('hx-target', '#' + panelId); panel.setAttribute('hx-select', '#' + panelId); panel.setAttribute('hx-swap', 'outerHTML'); window.htmx.process(panel);
     };
     toggle.addEventListener('change', enable); panel.addEventListener('toggle', save); restore(); enable();
   };

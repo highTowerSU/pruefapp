@@ -587,6 +587,37 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             };
             enableUtilityDropdownHover();
 
+            // Periodic HTMX refreshes should never look like a frozen page.
+            // This is intentionally central so every auto-refreshing panel
+            // gets the same brief, unobtrusive feedback.
+            let automaticRefreshes = 0;
+            let automaticRefreshHideTimer = 0;
+            const isAutomaticRefresh = detail => /\bevery\b/i.test(String(detail?.elt?.getAttribute?.('hx-trigger') || ''));
+            const refreshIndicator = () => {
+                let indicator = document.getElementById('htmx-auto-refresh-indicator');
+                if (indicator) return indicator;
+                indicator = document.createElement('div');
+                indicator.id = 'htmx-auto-refresh-indicator';
+                indicator.className = 'position-fixed bottom-0 end-0 m-3 px-3 py-2 rounded shadow bg-body border small d-none';
+                indicator.setAttribute('role', 'status');
+                indicator.setAttribute('aria-live', 'polite');
+                indicator.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Aktualisiere …';
+                document.body.appendChild(indicator);
+                return indicator;
+            };
+            document.body.addEventListener('htmx:beforeRequest', event => {
+                if (!isAutomaticRefresh(event.detail)) return;
+                automaticRefreshes++;
+                window.clearTimeout(automaticRefreshHideTimer);
+                refreshIndicator().classList.remove('d-none');
+            });
+            document.body.addEventListener('htmx:afterRequest', event => {
+                if (!isAutomaticRefresh(event.detail)) return;
+                automaticRefreshes = Math.max(0, automaticRefreshes - 1);
+                if (automaticRefreshes > 0) return;
+                automaticRefreshHideTimer = window.setTimeout(() => refreshIndicator().classList.add('d-none'), 450);
+            });
+
             document.body.addEventListener('htmx:beforeSwap', (event) => {
                 const detail = event.detail;
 
