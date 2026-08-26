@@ -87,6 +87,8 @@ require_once __DIR__ . '/InspectionCompanionInboxService.php';
 require_once __DIR__ . '/ServerQrCodeService.php';
 require_once __DIR__ . '/VocabularyOAuthService.php';
 require_once __DIR__ . '/ElectricalInspectionImportService.php';
+require_once __DIR__ . '/ImportSourceAuditService.php';
+require_once __DIR__ . '/ImportedInspectionResetService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
 require_once __DIR__ . '/BackgroundJobService.php';
 require_once __DIR__ . '/MaintenanceJobHandler.php';

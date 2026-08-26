@@ -107,6 +107,11 @@ final class ElectricalInspectionImportService
                         $this->auditSkipped($defaults, $real, 'Datensatz enthält keine Prüfnummer.', ['line_offset' => $byteOffset]);
                         continue;
                     }
+                    if (($reason = $this->ignoredInspectionTypeReason($record)) !== '') {
+                        $stats['skipped']++;
+                        $this->auditSkipped($defaults, $real, $reason, ['line_offset' => $byteOffset, 'inspection_number' => (string) $record['number']]);
+                        continue;
+                    }
                     $one = $this->importRecord(array_merge($defaults, $record), 'json', $real, $root);
                     $this->mergeStats($stats, $one);
                 } catch (Throwable $exception) {
@@ -144,7 +149,10 @@ final class ElectricalInspectionImportService
         $correlationId = 'measurement-import-' . bin2hex(random_bytes(8));
         $updated = 0; $skipped = 0; $needsCableLength = 0; $updatedInspections = [];
         $inspectionsBySlot = [];
-        foreach (R::findAll('inspection', ' test_date = ? ORDER BY id DESC ', [$date]) as $candidate) {
+        // A lone Benning CSV supplements a Prüfweb entry. It must never
+        // attach its measurements to an imported history row merely because
+        // that row has the same date and export-local storage slot.
+        foreach (R::findAll('inspection', " test_date = ? AND source_type = 'manual' ORDER BY id DESC ", [$date]) as $candidate) {
             $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
             if ($candidateSlot === '') continue;
             $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
@@ -228,6 +236,11 @@ final class ElectricalInspectionImportService
                     if (trim($line) === '') continue;
                     $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
                     if (!is_array($decoded) || trim((string) ($decoded['number'] ?? '')) === '') { $result['skipped']++; $this->auditSkipped($defaults, $path, 'Datensatz enthält keine Prüfnummer.'); continue; }
+                    if (($reason = $this->ignoredInspectionTypeReason($decoded)) !== '') {
+                        $result['skipped']++;
+                        $this->auditSkipped($defaults, $path, $reason, ['inspection_number' => (string) $decoded['number']]);
+                        continue;
+                    }
                     $one = $this->importRecord(array_merge($defaults, $decoded), 'json', $path, $root);
                     foreach ($one as $key => $value) {
                         if (in_array($key, ['new_devices', 'updated_devices', 'not_imported'], true) && is_array($value)) $result[$key] = array_merge($result[$key] ?? [], $value);
@@ -258,6 +271,11 @@ final class ElectricalInspectionImportService
             if (!is_array($record) || trim((string) ($record['number'] ?? '')) === '') {
                 $result['skipped']++;
                 $this->auditSkipped($defaults, $path, 'Datensatz enthält keine Prüfnummer.');
+                continue;
+            }
+            if (($reason = $this->ignoredInspectionTypeReason($record)) !== '') {
+                $result['skipped']++;
+                $this->auditSkipped($defaults, $path, $reason, ['inspection_number' => (string) $record['number']]);
                 continue;
             }
             $one = $this->importRecord(array_merge($defaults, $record), 'json', $path, $root);
@@ -845,6 +863,15 @@ final class ElectricalInspectionImportService
     {
         if (is_array($value)) foreach (['brezel_name', 'name', 'email'] as $key) if (isset($value[$key]) && is_scalar($value[$key])) return (string) $value[$key];
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /** Reject Phoenix records that are not electrical equipment inspections. */
+    private function ignoredInspectionTypeReason(array $record): string
+    {
+        $type = mb_strtolower($this->scalarImportValue($record['inspection_type'] ?? $record['type'] ?? ''), 'UTF-8');
+        if (str_contains($type, 'unterweisungsnachweis')) return 'Nicht-elektrischer Unterweisungsnachweis wird nicht importiert.';
+        if (str_contains($type, 'übergabe messgerät') || str_contains($type, 'uebergabe messgeraet')) return 'Messgeräte-Übergabe wird nicht als Geräteprüfung importiert.';
+        return '';
     }
 
     private function protectionClassFromRecord(array $record): string

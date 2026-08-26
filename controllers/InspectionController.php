@@ -557,6 +557,7 @@ final class InspectionController
 
         $message = null;
         $stats = null;
+        $rebuildPreview = null;
         $examinerMigrationStats = null;
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
@@ -636,6 +637,20 @@ final class InspectionController
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Import-Job konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
+            if (($_POST['action'] ?? '') === 'import_rebuild_preview' || ($_POST['action'] ?? '') === 'import_rebuild_start') {
+                if (!current_user_is_superadmin()) return forbidden_response();
+                try {
+                    $directory = trim((string) ($_POST['rebuild_directory'] ?? ''));
+                    if ($directory === '') throw new InvalidArgumentException('Bitte das kuratierte Quellenverzeichnis angeben.');
+                    $rebuildPreview = ['audit' => (new ImportSourceAuditService())->inspect($directory), 'reset' => ImportedInspectionResetService::preview(), 'directory' => realpath($directory) ?: $directory];
+                    if (($_POST['action'] ?? '') === 'import_rebuild_start') {
+                        if (($rebuildPreview['audit']['csv_ods']['unpaired_csv'] ?? []) !== []) throw new InvalidArgumentException('Das Quellenverzeichnis enthält CSV-Dateien ohne passende ODS. Diese müssen vorher getrennt werden.');
+                        if (trim((string) ($_POST['rebuild_confirmation'] ?? '')) !== 'IMPORT NEU AUFBAUEN') throw new InvalidArgumentException('Bitte die Bestätigung exakt eingeben.');
+                        $job = BackgroundJobService::enqueue('import_rebuild_reset', ['type' => 'import_rebuild_reset', 'directory' => $rebuildPreview['directory'], 'owner_user_id' => (int) (current_user()->id ?? 0)], ['total' => 2, 'cancellable' => false]);
+                        return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
+                    }
+                } catch (Throwable $exception) { $message = 'Quellen-Neuaufbau konnte nicht vorbereitet werden: ' . $exception->getMessage(); }
+            }
             if (($_POST['action'] ?? '') === 'phoenix_sync') {
                 try {
                     $credentials = PhoenixSyncService::serverCredentials();
@@ -687,6 +702,7 @@ final class InspectionController
                 'cron' => $cron,
                 'examinerUsers' => $examinerUsers,
                 'pendingMeasurementsByDate' => $pendingMeasurementsByDate,
+                'rebuildPreview' => $rebuildPreview,
             ]),
         ])];
     }

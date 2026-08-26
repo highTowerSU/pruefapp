@@ -16,6 +16,7 @@ final class BackgroundJobService
         'pdf_regenerate' => 'Neue Prüfberichte',
         'examiner_migration' => 'Prüferzuordnung',
         'directory_import' => 'Datenimport',
+        'import_rebuild_reset' => 'Importbestand sichern und zurücksetzen',
         'phoenix_sync' => 'Phoenix-Import',
         'phoenix_report_sync' => 'Phoenix-Originalberichte synchronisieren',
         'csv_ods_source_reconciliation' => 'CSV/ODS-Quellen zusammenführen',
@@ -268,7 +269,7 @@ final class BackgroundJobService
     private static function priority(string $type): int
     {
         return match ($type) {
-            'directory_import', 'phoenix_sync', 'phoenix_report_sync', 'csv_ods_source_reconciliation' => 40,
+            'directory_import', 'import_rebuild_reset', 'phoenix_sync', 'phoenix_report_sync', 'csv_ods_source_reconciliation' => 40,
             'legacy_classification_migration' => 50,
             'import_result_reconciliation' => 45,
             'csv_source_fact_reconciliation' => 46,
@@ -309,7 +310,7 @@ final class BackgroundJobService
     {
         return in_array($type, ['pdf_zip', 'pdf_bundle', 'inspection_pdf_zip'], true)
             ? url_for('geraete/zip/' . $publicId . '/download')
-            : (in_array($type, ['directory_import', 'phoenix_sync', 'phoenix_report_sync', 'pending_measurement_import'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
+            : (in_array($type, ['directory_import', 'import_rebuild_reset', 'phoenix_sync', 'phoenix_report_sync', 'pending_measurement_import'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
     }
 
     /** @param array<string,mixed> $job @param array<string,mixed> $details */

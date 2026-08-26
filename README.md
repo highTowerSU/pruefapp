@@ -192,18 +192,24 @@ Geräteübersichten direkt unter Name beziehungsweise Kennung angezeigt.
 
 ### Elektro-Prüfungen importieren
 
-Historische JSON-Exporte sowie die aktuellen Benning-Dateien können über
-`php bin/import_electro.php /pfad/zu/Elektro-Testdaten` oder als Administrator
-unter `/admin/pruefungen/import` eingelesen werden. Bei CSV/ODS-Paaren werden
-Messwerte aus der CSV und Geräteinformationen aus der ODS über
+Historische JSON-/JSONL-Exporte sowie aktuelle Benning-Dateien werden als
+Administrator unter `/admin/pruefungen/import` eingelesen. Bei CSV/ODS-Paaren
+werden Messwerte aus der CSV und Geräteinformationen aus der ODS über
 `Speicher Nr`/`Speicherplatz` verbunden. Die neue Gerätenummer (`Nr. neu`),
 alte Nummer und Speicherplatz bleiben am Gerät erhalten; jede Prüfung wird
 separat mit Datum, Messwerten, Rohdaten und optionalem PDF-Bericht gespeichert.
-Für den alten Bestand kann einmalig eine transportable JSONL-Datei erzeugt werden:
-`php bin/build_legacy_import.php /pfad/zu/2023-2024 altbestand-import.jsonl`.
-Auf dem Server wird diese Datei mit demselben Importbefehl eingelesen. Ein
-separater PDF-Quellordner kann als zweites Argument angegeben werden, zum
-Beispiel `php bin/import_electro.php /tmp/altbestand-import.jsonl /var/www/berichte`.
+
+Der Superadmin-Bereich „Importbestand aus kuratierten Quellen neu aufbauen"
+prüft einen Quellordner zunächst nur lesend. Er akzeptiert JSON/JSONL sowie
+vollständige CSV/ODS-Paare und blockiert einzelne CSV-Dateien ohne zugehörige
+ODS. Nach der expliziten Bestätigung wird vor dem Zurücksetzen ein prüfbares
+SQLite-Backup angelegt, importierte Prüfungen einschließlich der bisherigen
+Abrechnungs- und Exportzuordnungen entfernt und der reguläre Verzeichnisimport
+als Hintergrundauftrag gestartet. Nicht importierte, direkt in Prüfweb
+angelegte Prüfungen bleiben erhalten. Einzelne Mess-CSV-Dateien werden nur an
+eine passende, manuell angelegte Prüfung mit identischem Prüfdatum und
+Speicherplatz angebunden. Nicht fachliche Phoenix-Typen (Unterweisungsnachweis
+und Messgeräteübergabe) werden beim Import übersprungen.
 
 ### Kanonisches Prüfungsmodell
 

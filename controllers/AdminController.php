@@ -44,6 +44,14 @@ class AdminController
         if ($summary === 'phoenix') {
             return [200, $headers, json_encode(['ok' => true, 'phoenix' => PhoenixSyncService::serverConfigurationStatus()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         }
+        if ($summary === 'phoenix-latest') {
+            try {
+                $limit = min(100, max(1, (int) ($_GET['limit'] ?? 25)));
+                return [200, $headers, json_encode(['ok' => true, 'summary' => 'phoenix-latest', 'audits' => (new PhoenixSyncService())->latestCreatedAudits($limit)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+            } catch (Throwable $exception) {
+                return [502, $headers, json_encode(['ok' => false, 'summary' => 'phoenix-latest', 'error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+            }
+        }
         if ($summary === 'ai') {
             return self::aiProviderApiDebug($headers);
         }

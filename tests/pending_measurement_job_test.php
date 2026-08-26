@@ -25,6 +25,8 @@ foreach ([
     [$template, 'Benachrichtigungen'],
     [$importService, 'if ($hasBenning && $odsPath === null)'],
     [$importService, 'importPendingMeasurements($path, trim((string) ($defaults[\'test_date\'] ?? \'\')))'],
+    [$importService, "test_date = ? AND source_type = 'manual'"],
+    [$template, 'ausschließlich in Prüfweb angelegte Prüfungen'],
 ] as [$source, $needle]) {
     if (!str_contains($source, $needle)) throw new RuntimeException('Messdatenimport läuft nicht vollständig über Hintergrundjob, Cron und Benachrichtigung: ' . $needle);
 }

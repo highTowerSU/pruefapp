@@ -60,6 +60,44 @@ final class PhoenixSyncService
         return count($items);
     }
 
+    /**
+     * Read-only evidence for the cut-over from Phoenix to native Prüfweb work.
+     * No local inspection, device or source snapshot is changed.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function latestCreatedAudits(int $limit = 25): array
+    {
+        $credentials = self::serverCredentials();
+        if ($credentials['token'] === '' || $credentials['customer_id'] === '') {
+            throw new RuntimeException('Phoenix-Zugang ist nicht vollständig konfiguriert.');
+        }
+        $query = http_build_query([
+            'module' => 'audits',
+            'pre_filters' => json_encode([['column' => 'customer.id', 'operator' => '=', 'value' => (int) $credentials['customer_id']]]),
+            'results' => min(100, max(1, $limit)), 'page' => 1, 'filters' => '[[]]', 'sortField' => 'created_at', 'sortOrder' => 'desc',
+            'columns' => json_encode(['id', 'number', 'date', 'created_at', 'updated_at', 'created_by', 'type']),
+        ]);
+        $response = $this->request($credentials['base_url'] . '/table?' . $query, $credentials['token']);
+        $items = $response['resources']['data'] ?? [];
+        if (!is_array($items)) throw new RuntimeException('Phoenix-Antwort enthält keine Prüfungen.');
+        $rows = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) continue;
+            $createdBy = $item['created_by'] ?? '';
+            $rows[] = [
+                'id' => (int) ($item['id'] ?? $item['audit_id'] ?? $item['resource_id'] ?? 0),
+                'number' => trim((string) ($item['number'] ?? '')),
+                'test_date' => trim((string) ($item['date'] ?? '')),
+                'created_at' => trim((string) ($item['created_at'] ?? '')),
+                'updated_at' => trim((string) ($item['updated_at'] ?? '')),
+                'created_by' => $this->scalar($createdBy, 'brezel_name'),
+                'type' => $this->scalar($item['type'] ?? '', 'brezel_name'),
+            ];
+        }
+        return $rows;
+    }
+
     /** Downloads and stores the authoritative original PDF for one inspection. */
     public function downloadOriginalReportForInspection(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): string
     {

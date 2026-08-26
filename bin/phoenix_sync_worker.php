@@ -78,6 +78,21 @@ try {
         $stats = MaintenanceJobHandler::run($job, $tick);
         BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) $payload['type']) . ' abgeschlossen.');
         exit(0);
+    } elseif (($payload['type'] ?? '') === 'import_rebuild_reset') {
+        $source = realpath((string) ($payload['directory'] ?? '')) ?: '';
+        if ($source === '' || !is_dir($source)) throw new RuntimeException('Das kuratierte Quellenverzeichnis wurde nicht gefunden.');
+        $audit = (new ImportSourceAuditService())->inspect($source);
+        if (($audit['csv_ods']['unpaired_csv'] ?? []) !== []) throw new RuntimeException('Das Quellenverzeichnis enthält unverbundene CSV-Dateien.');
+        $progress(1, 2, '', 'Datenbank wird gesichert und Importbestand zurückgesetzt.');
+        $backup = ImportedInspectionResetService::backup();
+        $reset = ImportedInspectionResetService::execute($backup);
+        $import = BackgroundJobService::enqueue('directory_import', [
+            'type' => 'directory_import', 'directory' => $source, 'owner_user_id' => $ownerUserId,
+            'rebuild_backup' => $backup,
+        ], ['cancellable' => false]);
+        $progress(2, 2, '', 'Importbestand zurückgesetzt; der fortsetzbare Quellenimport wurde eingereiht.');
+        BackgroundJobService::complete($jobId, ['stats' => ['backup' => $backup, 'reset' => $reset, 'source_audit' => $audit], 'next_job' => (string) ($import['id'] ?? '')], 'Backup erstellt und Importbestand zurückgesetzt. Der Quellenimport läuft als nächste Hintergrundaufgabe.');
+        exit(0);
     } elseif (($payload['type'] ?? '') === 'inspection_pdf_zip') {
         if (!class_exists('ZipArchive')) throw new RuntimeException('ZIP-Export ist auf diesem Server nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(
