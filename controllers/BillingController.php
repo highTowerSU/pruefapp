@@ -1101,6 +1101,7 @@ final class BillingController
             . "COALESCE((SELECT SUM(position.quantity) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='device' OR (position.kind='unclassified' AND position.suggested_kind='device'))), 0) AS billed_device_target, "
             . "COALESCE((SELECT SUM(position.regie_minutes) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='regie' OR (position.kind='unclassified' AND position.suggested_kind='regie'))), 0) AS billed_regie_target, "
             . 'COALESCE((SELECT COUNT(*) FROM (SELECT duplicate_item.device_id FROM billinginvoiceitem duplicate_item WHERE duplicate_item.invoice_id=inv.id AND duplicate_item.active=1 GROUP BY duplicate_item.device_id HAVING COUNT(*)>1)), 0) AS repeated_device_count '
+            . 'COALESCE((SELECT SUM(repetition.inspection_count) FROM (SELECT COUNT(*) AS inspection_count FROM billinginvoiceitem repeated_item WHERE repeated_item.invoice_id=inv.id AND repeated_item.active=1 GROUP BY repeated_item.device_id HAVING COUNT(*)>1) repetition), 0) AS repeated_device_inspection_count '
             . 'FROM billinginvoice inv LEFT JOIN customer c ON c.id = inv.customer_id LEFT JOIN billinginvoiceitem bi ON bi.invoice_id = inv.id '
             . 'WHERE inv.tenant_id = ? GROUP BY inv.id ORDER BY inv.created_at DESC, inv.id DESC LIMIT 20',
             [$tenantId]
@@ -1110,6 +1111,8 @@ final class BillingController
             $deviceActual = (float) ($row['billed_device_actual'] ?? 0);
             $regieTarget = (int) ($row['billed_regie_target'] ?? 0);
             $regieActual = (int) ($row['billed_regie_actual'] ?? 0);
+            $repeatedRows = (int) ($row['repeated_device_inspection_count'] ?? 0);
+            $row['device_assignment_warning'] = $repeatedRows > 1;
             $hasInspectionPositions = $deviceTarget > 0 || $regieTarget > 0;
             $row['reconciliation_result'] = (string) $row['status'] === 'cancelled'
                 ? 'storniert'
