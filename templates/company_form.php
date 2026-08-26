@@ -192,21 +192,9 @@
       </div>
     </div>
 
-    <div class="row g-3 mb-4">
-      <div class="col-md-6">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" role="switch" id="is_default" name="is_default" <?= !empty($company['is_default']) ? 'checked' : '' ?>>
-          <label class="form-check-label" for="is_default">Als Standardmandant verwenden</label>
-          <div class="form-text">Branding für interne Seiten ohne eigene Mandantenzuordnung.</div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" role="switch" id="is_login_brand" name="is_login_brand" <?= !empty($company['is_login_brand']) ? 'checked' : '' ?>>
-          <label class="form-check-label" for="is_login_brand">Für die Login-Maske verwenden</label>
-          <div class="form-text">Logo, Farben und Rechtstexte dieses Mandanten erscheinen beim Login.</div>
-        </div>
-      </div>
+    <div class="alert alert-info mb-4">
+      <i class="fa-solid fa-globe me-1" aria-hidden="true"></i>
+      Login-Maske und Branding werden über den aufgerufenen öffentlichen Host ausgewählt. CENEOS bleibt der feste Fallback-Mandant.
     </div>
 
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">

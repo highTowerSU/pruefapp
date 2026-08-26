@@ -64,6 +64,12 @@ function get_branding(): array
         $brandBean = (new TenantRepository())->findBySlug($brandKey);
     }
 
+    // CENEOS is the defined fallback tenant for unbranded/internal requests.
+    // A legacy is_default flag may still exist in the database, but must not
+    // make an unrelated tenant the public default.
+    if ($brandBean === null) {
+        $brandBean = (new TenantRepository())->findBySlug('ceneos');
+    }
     if ($brandBean === null) {
         $brandBean = (new TenantRepository())->default();
     }

@@ -2,6 +2,7 @@
 /** @var array<int, array<string, mixed>> $companies */
 /** @var array{total:int, withLogo:int} $stats */
 /** @var array<string, mixed>|null $defaultCompany */
+/** @var array<string,string> $publicUrls */
 ?>
 
 <div class="row g-4 mb-4 align-items-stretch">
@@ -50,7 +51,7 @@
   <div class="col-12 col-xl-4">
     <div class="card shadow-sm border-0 h-100">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-secondary fw-semibold mb-3">Aktueller Standardmandant</h2>
+        <h2 class="h6 text-uppercase text-secondary fw-semibold mb-3">Fallback-Mandant</h2>
         <?php if ($defaultCompany !== null): ?>
           <div class="d-flex flex-column gap-3">
             <div class="d-flex align-items-center gap-3">
@@ -59,6 +60,7 @@
               </div>
               <div>
                 <div class="fw-semibold"><?= htmlspecialchars($defaultCompany['name']) ?></div>
+                <div class="small text-body-secondary">Für interne oder nicht zugeordnete Hosts</div>
               </div>
             </div>
             <?php if (!empty($defaultCompany['header_logo_url'])): ?>
@@ -77,8 +79,7 @@
           </div>
         <?php else: ?>
           <p class="text-body-secondary mb-0">
-            Es ist aktuell kein Standardmandant definiert. Wähle einen bestehenden Mandanten aus oder lege einen neuen an,
-            um Branding-Elemente automatisch zu übernehmen.
+            CENEOS ist als Fallback vorgesehen, aber noch nicht als Mandant hinterlegt.
           </p>
         <?php endif; ?>
       </div>
@@ -91,7 +92,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
       <div>
         <h2 class="h5 mb-1">Übersicht aller Mandanten</h2>
-        <p class="text-body-secondary mb-0">Passe Namen, Logos und Farben an und setze einen Standardmandanten.</p>
+        <p class="text-body-secondary mb-0">Öffentliche Hosts wählen das jeweilige Branding automatisch. CENEOS ist der Fallback.</p>
       </div>
       <a class="btn btn-outline-primary" href="<?= htmlspecialchars(url_for('mandanten/neu'), ENT_QUOTES) ?>">
         <i class="fa-solid fa-plus me-2" aria-hidden="true"></i>Neuer Mandant
@@ -104,6 +105,7 @@
         <tr>
           <th scope="col">Name &amp; Kunde</th>
           <th scope="col" class="text-nowrap">Kurznamen</th>
+          <th scope="col" class="text-nowrap">Öffentliche Adresse</th>
           <th scope="col" class="text-nowrap">Header-Logo</th>
           <th scope="col" class="text-nowrap">Status</th>
           <th scope="col" class="text-end text-nowrap">Aktionen</th>
@@ -112,7 +114,7 @@
       <tbody>
         <?php if ($companies === []): ?>
           <tr>
-            <td colspan="5" class="text-center py-5 text-body-secondary">
+            <td colspan="6" class="text-center py-5 text-body-secondary">
               <i class="fa-regular fa-building mb-3 d-block fs-2" aria-hidden="true"></i>
               Es sind noch keine Mandanten hinterlegt. Lege über den &bdquo;Neuer Mandant&ldquo;-Button dein erstes Branding an.
             </td>
@@ -123,11 +125,8 @@
               <td>
                 <div class="fw-semibold d-flex align-items-center gap-2">
                   <?= htmlspecialchars($company['name']) ?>
-                  <?php if (!empty($company['is_default'])): ?>
-                    <span class="badge text-bg-primary">Standard</span>
-                  <?php endif; ?>
-                  <?php if (!empty($company['is_login_brand'])): ?>
-                    <span class="badge text-bg-info">Login</span>
+                  <?php if (($company['slug'] ?? '') === 'ceneos'): ?>
+                    <span class="badge text-bg-primary">Fallback</span>
                   <?php endif; ?>
                 </div>
               </td>
@@ -135,6 +134,17 @@
                 <span class="badge bg-body-secondary text-body-emphasis fw-semibold">
                   <?= htmlspecialchars($company['slug']) ?>
                 </span>
+              </td>
+              <td>
+                <?php $publicUrl = (string) ($publicUrls[$company['slug']] ?? ''); ?>
+                <?php if ($publicUrl !== ''): ?>
+                  <a href="<?= htmlspecialchars($publicUrl, ENT_QUOTES) ?>" class="link-offset-2 small" target="_blank" rel="noopener">
+                    <?= htmlspecialchars(preg_replace('#^https?://#', '', $publicUrl) ?: $publicUrl) ?>
+                    <i class="fa-solid fa-arrow-up-right-from-square ms-1" aria-hidden="true"></i>
+                  </a>
+                <?php else: ?>
+                  <span class="text-body-secondary small">Kein öffentlicher Host</span>
+                <?php endif; ?>
               </td>
               <td>
                 <?php if (!empty($company['header_logo_path'])): ?>
@@ -147,12 +157,12 @@
                 <?php endif; ?>
               </td>
               <td>
-                <?php if (!empty($company['is_default'])): ?>
-                  <span class="badge rounded-pill text-bg-primary">Aktiv</span>
-                <?php elseif (!empty($company['is_login_brand'])): ?>
-                  <span class="badge rounded-pill text-bg-info">Login</span>
+                <?php if (($company['slug'] ?? '') === 'ceneos'): ?>
+                  <span class="badge rounded-pill text-bg-primary">Fallback</span>
+                <?php elseif (!empty($publicUrls[$company['slug']])): ?>
+                  <span class="badge rounded-pill text-bg-success">Host aktiv</span>
                 <?php else: ?>
-                  <span class="badge rounded-pill text-bg-secondary">Optional</span>
+                  <span class="badge rounded-pill text-bg-secondary">Ohne Host</span>
                 <?php endif; ?>
               </td>
               <td class="text-end">
@@ -163,16 +173,9 @@
                     Bearbeiten
                   </a>
                   <form class="d-inline" method="post"
-                        action="<?= htmlspecialchars(url_for('mandanten/' . $company['id'] . '/standard'), ENT_QUOTES) ?>">
-                    <button type="submit" class="btn btn-outline-primary btn-sm"<?= !empty($company['is_default']) ? ' disabled' : '' ?>>
-                      <i class="fa-solid fa-star me-1" aria-hidden="true"></i>
-                      Als Standard
-                    </button>
-                  </form>
-                  <form class="d-inline" method="post"
                         action="<?= htmlspecialchars(url_for('mandanten/' . $company['id'] . '/loeschen'), ENT_QUOTES) ?>"
                         onsubmit="return confirm('Soll dieser Mandant wirklich gelöscht werden?');">
-                    <button type="submit" class="btn btn-outline-danger btn-sm"<?= !empty($company['is_default']) || !empty($company['is_login_brand']) ? ' disabled' : '' ?>>
+                    <button type="submit" class="btn btn-outline-danger btn-sm"<?= ($company['slug'] ?? '') === 'ceneos' ? ' disabled' : '' ?>>
                       <i class="fa-solid fa-trash-can me-1" aria-hidden="true"></i>
                       Löschen
                     </button>

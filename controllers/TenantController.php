@@ -30,7 +30,7 @@ class TenantController
 
         $defaultCompany = null;
         foreach ($companies as $company) {
-            if (!empty($company['is_default'])) {
+            if (($company['slug'] ?? '') === 'ceneos') {
                 $defaultCompany = $company;
                 break;
             }
@@ -40,6 +40,7 @@ class TenantController
             'companies' => $companies,
             'stats' => $stats,
             'defaultCompany' => $defaultCompany,
+            'publicUrls' => public_base_urls(),
         ]);
 
         $body = render_template('layout.php', [
@@ -90,6 +91,11 @@ class TenantController
         if (!current_user_is_superadmin()) return forbidden_response();
         $company = (new TenantRepository())->find((int) ($params['id'] ?? 0));
         if ($company === null || !$company->id) return [404, [], 'Mandant nicht gefunden.'];
+        if ((string) ($company->slug ?? '') !== 'ceneos') {
+            $_SESSION['fehlermeldung'] = 'CENEOS ist als Fallback-Mandant festgelegt. Die öffentliche Mandantenauswahl erfolgt über den jeweiligen Hostnamen.';
+            return [303, ['Location' => url_for('mandanten')], ''];
+        }
+
         try {
             $client = new SevDeskClient((string) ($company->sevdesk_api_url ?? ''), (string) ($company->sevdesk_api_token ?? ''));
             if (!$client->configured()) throw new RuntimeException('Bitte zuerst SevDesk-API-URL und API-Token speichern.');
@@ -372,8 +378,10 @@ class TenantController
         $data['legal_impressum_url'] = trim((string) ($input['legal_impressum_url'] ?? ''));
         $data['legal_privacy_label'] = trim((string) ($input['legal_privacy_label'] ?? ''));
         $data['legal_privacy_url'] = trim((string) ($input['legal_privacy_url'] ?? ''));
-        $data['is_default'] = isset($input['is_default']);
-        $data['is_login_brand'] = isset($input['is_login_brand']);
+        // Both selections are legacy flags. Public and login branding are now
+        // derived from the hostname, with CENEOS as the fixed fallback.
+        $data['is_default'] = $data['slug'] === 'ceneos';
+        $data['is_login_brand'] = false;
 
         return $data;
     }
