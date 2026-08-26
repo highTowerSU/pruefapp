@@ -54,6 +54,7 @@ $checks = [
     [str_contains($maintenance, 'consolidateManualCsvDuplicates') && str_contains($maintenance, 'csvSourceFacts') && str_contains($cron, 'inspection-manual-csv-consolidation:v2'), 'Manuelle Entwürfe werden nicht anhand des ursprünglichen CSV-Datums revisionssicher zusammengeführt.'],
     [str_contains($maintenance, 'csvSourceFactReconciliation') && str_contains($maintenance, 'Original-Benning-CSV bestätigt') && str_contains($cron, 'csv-source-fact-reconciliation:v1'), 'Explizite CSV-Quellwerte werden vor der Dublettenarchivierung nicht wiederhergestellt.'],
     [str_contains($maintenance, 'archiveDuplicateCsvSourceRows') && str_contains($maintenance, 'bytegleiche CSV-Quellzeile') && str_contains($worker, "'inspection_csv_source_duplicate_archive'") && str_contains($cron, 'inspection-csv-source-duplicate-archive:v1'), 'Bytegleiche CSV-Quellzeilen mit fehlerhaftem Jahres-Suffix werden nicht revisionssicher archiviert.'],
+    [str_contains($maintenance, 'archiveJsonCsvMirrors') && str_contains($maintenance, 'Phoenix-JSON-Spiegelung') && str_contains($worker, "'inspection_json_csv_mirror_archive'") && str_contains($cron, 'inspection-json-csv-mirror-archive:v1'), 'Vollständig gleiche JSON/CSV-Spiegelungen werden nicht separat revisionssicher archiviert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

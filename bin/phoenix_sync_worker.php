@@ -66,7 +66,7 @@ try {
         if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
         if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
     };
-    $maintenanceTypes = ['missing_reports', 'report_migration', 'all_report_regeneration', 'phoenix_pdf_restore', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation', 'csv_source_fact_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_archive', 'inspection_csv_source_duplicate_archive', 'inspection_manual_csv_consolidation', 'vocabulary_suggestion', 'vocabulary_review_scan', 'vocabulary_normalization'];
+    $maintenanceTypes = ['missing_reports', 'report_migration', 'all_report_regeneration', 'phoenix_pdf_restore', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation', 'csv_source_fact_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_csv_source_duplicate_archive', 'inspection_manual_csv_consolidation', 'vocabulary_suggestion', 'vocabulary_review_scan', 'vocabulary_normalization'];
     if (in_array((string) ($payload['type'] ?? ''), $maintenanceTypes, true)) {
         $tick = static function (array $checkpoint, int $step, int $total, string $number, string $message) use ($jobId, $workerId, $deadline, $debug, $debugLog): void {
             JobQueue::checkpoint($jobId, $checkpoint + ['current_device' => $number, 'next_index' => $step], $step, $total, $message, $workerId, 180);

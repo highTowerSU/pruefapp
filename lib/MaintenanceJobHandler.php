@@ -38,6 +38,7 @@ final class MaintenanceJobHandler
             'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
+            'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
             'inspection_manual_csv_consolidation' => self::consolidateManualCsvDuplicates($checkpoint, $current, $total, $tick),
             'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
@@ -591,6 +592,85 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, max($total, $current), (string) $canonicalId, 'Bytegleiche CSV-Quellzeilen wurden revisionssicher archiviert.');
         }
         set_app_config('inspection_csv_source_duplicate_archive_version', '1');
+        return compact('archived', 'released');
+    }
+
+    /**
+     * Archives a JSON row only where a completed CSV row proves that it is the
+     * very same imported inspection.  This deliberately does not use the
+     * broad duplicate-audit query: a same-day repeat or a close follow-up must
+     * never be hidden just because it shares a device.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function archiveJsonCsvMirrors(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        if ($total <= 0) {
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='json' AND COALESCE(archived_at,'')='' ");
+        }
+        while ($row = R::getRow("SELECT id, device_id, external_number, test_date, result_status
+            FROM inspection
+            WHERE id>? AND source_type='json' AND COALESCE(archived_at,'')=''
+              AND TRIM(COALESCE(external_number,''))<>'' AND TRIM(COALESCE(test_date,''))<>''
+            ORDER BY id LIMIT 1", [$lastId])) {
+            $duplicateId = (int) $row['id'];
+            $lastId = $duplicateId;
+            $canonical = R::findOne('inspection', " device_id=? AND source_type='csv'
+                AND external_number=? AND test_date=? AND COALESCE(result_status,'')=?
+                AND COALESCE(archived_at,'')='' ", [
+                (int) $row['device_id'],
+                (string) $row['external_number'],
+                (string) $row['test_date'],
+                (string) $row['result_status'],
+            ]);
+            if (!$canonical) {
+                $current++;
+                $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
+                $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Keine vollständig gleiche CSV-Spiegelprüfung.');
+                continue;
+            }
+            $canonicalId = (int) $canonical->id;
+            R::begin();
+            try {
+                $duplicate = R::load('inspection', $duplicateId);
+                if (!(int) $duplicate->id || trim((string) $duplicate->archived_at) !== '') { R::commit(); continue; }
+                $now = date(DATE_ATOM);
+                $reason = 'Eindeutige Re-Importdublettenprüfung: Phoenix-JSON-Spiegelung einer gleichlautenden Benning-CSV (gleiches Gerät, Prüfnummer, Prüfdatum und Ergebnis); Originalprüfung #' . $canonicalId . ' bleibt maßgeblich.';
+                $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$duplicateId]);
+                foreach ($activeItems as $item) {
+                    $item->active = 0;
+                    $item->deactivated_at = $now;
+                    $item->deactivation_reason = 'JSON/CSV-Spiegelung archiviert; Originalprüfung #' . $canonicalId . ' bleibt maßgeblich.';
+                    R::store($item);
+                    $released++;
+                }
+                $duplicate->archived_at = $now;
+                $duplicate->archived_reason = $reason;
+                $duplicate->duplicate_of_inspection_id = $canonicalId;
+                $duplicate->billable = 0;
+                $duplicate->billing_eligibility = 'not_billable';
+                $duplicate->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $duplicate->billing_not_billable_comment = $reason;
+                $duplicate->billing_status = 'historisch_nicht_eindeutig';
+                $duplicate->billing_active_invoice_item_id = null;
+                $duplicate->updated_at = $now;
+                R::store($duplicate);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND finding_type='same_inspection_number' AND status='open'", [$now, $reason, $duplicateId, $duplicateId]);
+                R::commit();
+                audit_log('json_csv_spiegelung_archiviert', ['_category' => 'import', 'inspection_id' => $duplicateId, 'canonical_inspection_id' => $canonicalId, 'reason' => $reason]);
+                $archived++;
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
+            $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Eindeutige JSON/CSV-Spiegelprüfung archiviert und aus aktiven Rechnungszuordnungen gelöst.');
+        }
+        set_app_config('inspection_json_csv_mirror_archive_version', '1');
         return compact('archived', 'released');
     }
 

@@ -227,6 +227,23 @@ try {
             set_app_config('inspection_csv_source_duplicate_archive_version', '1');
         }
     }
+    // The original broad import-deduplication pass predates CSV fact repair.
+    // Run this separate row-wise pass afterwards so an exactly matching
+    // Phoenix JSON mirror cannot survive merely because its former import
+    // date/result had been repaired in the meantime.
+    $jsonCsvMirrorArchiveVersion = trim((string) get_app_config('inspection_json_csv_mirror_archive_version', ''));
+    if ($jsonCsvMirrorArchiveVersion !== '1' && $csvFactReconciliationVersion === '1') {
+        $jsonCsvMirrorTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='json' AND COALESCE(archived_at,'')='' ");
+        if ($jsonCsvMirrorTotal > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_json_csv_mirror_archive',
+                ['type' => 'inspection_json_csv_mirror_archive'],
+                ['total' => $jsonCsvMirrorTotal, 'dedupe_key' => 'maintenance:inspection-json-csv-mirror-archive:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_json_csv_mirror_archive_version', '1');
+        }
+    }
     // A manual inspection left in progress can be an abandoned entry when a
     // completed CSV import with the same base number follows shortly after.
     // The CSV record is kept as the factual result and retains its CSV date.
