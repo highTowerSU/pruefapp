@@ -405,7 +405,7 @@ class AdminController
             'created_at' => (string) ($job['created_at'] ?? ''),
             'finished_at' => (string) ($job['finished_at'] ?? ''),
         ];
-        $repairTypes = ['directory_import', 'all_report_regeneration'];
+        $repairTypes = ['directory_import', 'all_report_regeneration', 'import_candidate_rebuild'];
         $jobs = array_values(array_map($present, array_filter(
             array_merge(BackgroundJobService::pending(200), BackgroundJobService::latest(80)),
             static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), $repairTypes, true)
@@ -425,6 +425,7 @@ class AdminController
                 'storage' => 'Datenbank-Konfiguration; unabhängig von Dateirechten des Migrationsordners.',
             ],
             'jobs' => $jobs,
+            'recent_cron_events' => R::getAll('SELECT run_at, level, message FROM cron_log ORDER BY id DESC LIMIT 30'),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
