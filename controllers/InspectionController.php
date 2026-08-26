@@ -707,7 +707,12 @@ final class InspectionController
         $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
         $importLogs = self::importLogs();
         if ($candidateRunId <= 0) $candidateRunId = (int) R::getCell("SELECT id FROM importrebuildrun ORDER BY id DESC LIMIT 1");
-        if ($candidateRunId > 0 && current_user_is_superadmin()) $candidateGroups = (new ImportCandidateRebuildService())->groups($candidateRunId);
+        $candidateRebuildRunning = false;
+        foreach ($jobs as $backgroundJob) {
+            if ((string) ($backgroundJob['type'] ?? '') !== 'import_candidate_rebuild') continue;
+            if (in_array((string) ($backgroundJob['state'] ?? ''), ['queued', 'running', 'cancel_requested'], true)) { $candidateRebuildRunning = true; break; }
+        }
+        if ($candidateRunId > 0 && current_user_is_superadmin() && !$candidateRebuildRunning) $candidateGroups = (new ImportCandidateRebuildService())->groups($candidateRunId, 'unresolved', 100);
 
         return [200, [], render_template('layout.php', [
             'title' => 'Prüfungen importieren',
@@ -722,6 +727,7 @@ final class InspectionController
                 'rebuildPreview' => $rebuildPreview,
                 'candidateRunId' => $candidateRunId,
                 'candidateGroups' => $candidateGroups,
+                'candidateRebuildRunning' => $candidateRebuildRunning,
                 'activeJob' => $activeJob,
             ]),
         ])];

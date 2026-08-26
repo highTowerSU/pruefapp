@@ -56,11 +56,14 @@ final class ImportCandidateRebuildService
     }
 
     /** @return list<array<string,mixed>> */
-    public function groups(int $runId, string $state = ''): array
+    public function groups(int $runId, string $state = '', int $limit = 0): array
     {
         $where = 'run_id=?'; $params = [$runId];
-        if ($state !== '') { $where .= ' AND state=?'; $params[] = $state; }
-        $rows = R::getAll("SELECT group_key, state, COUNT(*) AS source_count FROM importcandidate WHERE {$where} GROUP BY group_key, state ORDER BY CASE state WHEN 'review' THEN 0 WHEN 'number_missing' THEN 1 ELSE 2 END, group_key", $params);
+        if ($state === 'unresolved') $where .= " AND state IN ('review', 'number_missing')";
+        elseif ($state !== '') { $where .= ' AND state=?'; $params[] = $state; }
+        $sql = "SELECT group_key, state, COUNT(*) AS source_count FROM importcandidate WHERE {$where} GROUP BY group_key, state ORDER BY CASE state WHEN 'review' THEN 0 WHEN 'number_missing' THEN 1 ELSE 2 END, group_key";
+        if ($limit > 0) $sql .= ' LIMIT ' . max(1, min(200, $limit));
+        $rows = R::getAll($sql, $params);
         foreach ($rows as &$row) {
             $row['candidates'] = R::getAll('SELECT * FROM importcandidate WHERE run_id=? AND group_key=? ORDER BY source_kind, source_path, source_row_no', [$runId, (string) $row['group_key']]);
             $row['conflicts'] = $this->conflicts($row['candidates']);
