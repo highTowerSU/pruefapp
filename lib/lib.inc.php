@@ -1364,8 +1364,18 @@ function keycloak_user_admin_url(?string $userId): ?string
 
 function render_oidc_error_response(?\Throwable $throwable = null): void
 {
+    // A short reference lets support find the matching server-side error
+    // without exposing OIDC responses, tokens, or provider internals.
+    try {
+        $incidentId = strtoupper(bin2hex(random_bytes(4)));
+    } catch (\Throwable) {
+        $incidentId = strtoupper(substr(sha1(uniqid('oidc', true)), 0, 8));
+    }
+
     if ($throwable !== null) {
-        error_log('OIDC authentication failed: ' . $throwable->getMessage());
+        error_log(sprintf('OIDC authentication failed [%s]: %s', $incidentId, $throwable->getMessage()));
+    } else {
+        error_log(sprintf('OIDC authentication failed [%s]: no exception details available', $incidentId));
     }
 
     $supportContact = config_value('APP_SUPPORT_CONTACT') ?? config_value('APP_SUPPORT_EMAIL');
@@ -1373,6 +1383,7 @@ function render_oidc_error_response(?\Throwable $throwable = null): void
     $content = render_template('auth_error.php', [
         'retryUrl' => url_for(),
         'supportContact' => $supportContact,
+        'incidentId' => $incidentId,
     ]);
 
     $body = render_template('layout.php', [

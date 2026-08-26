@@ -1,6 +1,7 @@
 <?php
 $retryUrl = $retryUrl ?? url_for();
 $supportContact = trim((string) ($supportContact ?? ''));
+$incidentId = trim((string) ($incidentId ?? ''));
 ?>
 <section class="row justify-content-center">
   <div class="col-lg-8 col-xl-6">
@@ -19,6 +20,11 @@ $supportContact = trim((string) ($supportContact ?? ''));
         <?php else: ?>
           <p class="mb-4">
             Sollte das Problem weiterhin bestehen, kontaktiere bitte den Support.
+          </p>
+        <?php endif; ?>
+        <?php if ($incidentId !== ''): ?>
+          <p class="small text-body-secondary mb-4">
+            Vorgangs-ID: <code><?= htmlspecialchars($incidentId, ENT_QUOTES) ?></code>
           </p>
         <?php endif; ?>
         <div class="d-flex flex-wrap gap-2">
