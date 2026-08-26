@@ -170,8 +170,11 @@ try {
     // Explicit user confirmation: only this empty draft is eligible.  Future
     // confirmations must enqueue their own payload; similar numbers alone do
     // not authorize archival.
+    // v2 deliberately replays the finite, explicitly confirmed list.  The
+    // earlier v1 marker could be written before the queue worker processed
+    // the records, leaving the confirmation recorded but the rows visible.
     $confirmedDuplicateArchiveVersion = trim((string) get_app_config('inspection_confirmed_duplicate_archive_aug26_version', ''));
-    if ($confirmedDuplicateArchiveVersion !== '1') {
+    if ($confirmedDuplicateArchiveVersion !== '2') {
         $confirmedDuplicatePairs = [
             ['inspection_id' => 9419, 'canonical_inspection_id' => 9418, 'reason' => 'Bestätigte überflüssige manuelle Entwurfsprüfung; die importierte Prüfung #9418 bleibt maßgeblich.'],
             ['inspection_id' => 9273, 'canonical_inspection_id' => 8033, 'reason' => 'Bestätigte CSV-Spiegelung; der vollständige Phoenix-Originaldatensatz #8033 mit dokumentiertem Mangel bleibt maßgeblich.'],
@@ -183,10 +186,14 @@ try {
             BackgroundJobService::enqueue(
                 'inspection_confirmed_archive',
                 ['type' => 'inspection_confirmed_archive', 'pairs' => $confirmedDuplicatePairs],
-                ['total' => count($confirmedDuplicatePairs), 'dedupe_key' => 'maintenance:inspection-confirmed-duplicate-archive:aug26:v1', 'cancellable' => false]
+                ['total' => count($confirmedDuplicatePairs), 'dedupe_key' => 'maintenance:inspection-confirmed-duplicate-archive:aug26:v2', 'cancellable' => false]
             );
+            // This is a finite, user-confirmed repair.  Do not enqueue a
+            // fresh job on every cron tick if an explicit safety check fails;
+            // its result remains visible in the job/audit log instead.
+            set_app_config('inspection_confirmed_duplicate_archive_aug26_version', '2');
         } else {
-            set_app_config('inspection_confirmed_duplicate_archive_aug26_version', '1');
+            set_app_config('inspection_confirmed_duplicate_archive_aug26_version', '2');
         }
     }
     $confirmedDraftArchiveVersion = trim((string) get_app_config('inspection_confirmed_draft_archive_100011436_version', ''));
