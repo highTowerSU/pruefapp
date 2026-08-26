@@ -5,16 +5,16 @@
 # PDF-Links und OIDC-Callbacks stets dieselbe, vertrauenswürdige URL tragen.
 
 <VirtualHost *:80>
-    ServerName prüf.koenigsblau.de
-    ServerAlias prüf.bsw-consult.gmbh prüf.saniers.net
-    Redirect permanent / https://prüf.koenigsblau.de/
+    ServerName pruef.koenigsblau.de
+    ServerAlias pruef.bsw-consult.gmbh pruef.ceneos.net
+    Redirect permanent / https://pruef.koenigsblau.de/
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName prüf.bsw-consult.gmbh
-    ServerAlias prüf.saniers.net
+    ServerName pruef.bsw-consult.gmbh
+    ServerAlias pruef.ceneos.net
     RewriteEngine On
-    RewriteRule ^ https://prüf.koenigsblau.de%{REQUEST_URI} [R=301,L]
+    RewriteRule ^ https://pruef.koenigsblau.de%{REQUEST_URI} [R=301,L]
 
     # Das Zertifikat muss beide Aliasnamen als SAN enthalten.
     # SSLEngine on
@@ -23,7 +23,7 @@
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName prüf.koenigsblau.de
+    ServerName pruef.koenigsblau.de
 
     DocumentRoot /var/www/html/pruefapp
     DirectoryIndex index.php
@@ -34,7 +34,7 @@
 
     # Wichtig für PDF-/Cron-Links. APP_BASE_PATH=/ setzt die App an die
     # Domain-Wurzel; bei einem Unterpfad hier z. B. /pruefapp eintragen.
-    SetEnv APP_PUBLIC_BASE_URL https://prüf.koenigsblau.de
+    SetEnv APP_PUBLIC_BASE_URL https://pruef.koenigsblau.de
     SetEnv APP_BASE_PATH /
 
     # SSLEngine on
