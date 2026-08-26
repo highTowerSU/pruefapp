@@ -87,6 +87,7 @@ final class ElectricalInspectionImportService
             if (!$file instanceof SplFileInfo || !$file->isFile()) continue;
             $extension = strtolower($file->getExtension());
             $path = $file->getPathname();
+            if (in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
             if (in_array($extension, ['json', 'jsonl'], true)) {
                 $lines = $extension === 'jsonl' ? file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] : [];
                 $records = [];
@@ -128,7 +129,12 @@ final class ElectricalInspectionImportService
     /** Imports an already reviewed candidate as a consolidated inspection. */
     public function importCandidateRecord(array $record, string $sourcePath): array
     {
-        return $this->importRecord($record, 'reconciled', $sourcePath, dirname($sourcePath));
+        $root = dirname($sourcePath);
+        // PDFs are not independent inspection candidates. They are indexed
+        // recursively beside the JSON/CSV source and attached by number when
+        // a reviewed candidate becomes a real inspection.
+        $this->indexReports($root, true);
+        return $this->importRecord($record, 'reconciled', $sourcePath, $root);
     }
 
     /**
