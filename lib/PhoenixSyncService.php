@@ -8,6 +8,8 @@ final class PhoenixSyncService
 {
     /** @var array<string,array<string,int>> */
     private static array $auditIndexCache = [];
+    /** @var array<int,array<string,mixed>> */
+    private static array $auditDetailCache = [];
     /** @return array{token:string,customer_id:string,base_url:string} */
     public static function serverCredentials(): array
     {
@@ -84,6 +86,55 @@ final class PhoenixSyncService
         $path = $directory . '/' . (int) $inspection->id . '-' . $auditId . '.pdf';
         if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('Phoenix-Originalbericht konnte nicht gespeichert werden.');
         return $path;
+    }
+
+    /**
+     * Stores Phoenix as supplementary source evidence and fills only genuinely
+     * missing imported values. Existing/manual facts are never overwritten;
+     * conflicts remain visible in the job result and in the source snapshot.
+     * @return array{matched:bool,updated:int,conflicts:int}
+     */
+    public function reconcileImportedInspection(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
+    {
+        $credentials = self::serverCredentials();
+        if ($credentials['token'] === '' || $credentials['customer_id'] === '') return ['matched' => false, 'updated' => 0, 'conflicts' => 0];
+        if (!in_array((string) ($inspection->source_type ?? ''), ['csv', 'json'], true)) return ['matched' => false, 'updated' => 0, 'conflicts' => 0];
+        $wanted = [];
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $number) {
+            $number = trim($number);
+            if ($number !== '') $wanted[$number] = true;
+        }
+        $auditId = 0;
+        foreach (array_keys($wanted) as $number) {
+            $auditId = (int) ($this->serverAuditIndex($credentials)[$number] ?? 0);
+            if ($auditId > 0) break;
+        }
+        if ($auditId <= 0) return ['matched' => false, 'updated' => 0, 'conflicts' => 0];
+        $detail = self::$auditDetailCache[$auditId] ??= $this->request($credentials['base_url'] . '/modules/audits/resources/' . $auditId, $credentials['token']);
+        $record = $this->record($detail, []);
+        $snapshot = json_decode((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id = ?', [(int) $inspection->id]), true);
+        if (!is_array($snapshot)) $snapshot = [];
+        $snapshot['_phoenix_evidence'] = ['audit_id' => $auditId, 'fetched_at' => date(DATE_ATOM), 'record' => $record];
+        R::exec('UPDATE inspection_source_snapshot SET source_row_json = ? WHERE inspection_id = ?', [json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}', (int) $inspection->id]);
+
+        $updated = 0;
+        $conflicts = 0;
+        $fill = static function (string $field, string $value) use ($inspection, &$updated, &$conflicts): void {
+            $value = trim($value);
+            if ($value === '') return;
+            $existing = trim((string) ($inspection->$field ?? ''));
+            if ($existing === '') { $inspection->$field = $value; $updated++; return; }
+            if (strtolower($existing) !== strtolower($value)) $conflicts++;
+        };
+        $fill('room_snapshot', (string) ($record['room'] ?? ''));
+        $fill('device_type', (string) ($record['device_type'] ?? ''));
+        $fill('manufacturer', (string) ($record['manufacturer'] ?? ''));
+        $fill('device_model', (string) ($record['device_model'] ?? ''));
+        $regie = (int) round((float) str_replace(',', '.', (string) ($record['total_cost_plus'] ?? '0')));
+        if ((int) ($inspection->regie_minutes ?? 0) <= 0 && $regie > 0) { $inspection->regie_minutes = $regie; $updated++; }
+        elseif ($regie > 0 && (int) ($inspection->regie_minutes ?? 0) !== $regie) $conflicts++;
+        if ($updated > 0) { $inspection->updated_at = date(DATE_ATOM); R::store($inspection); }
+        return ['matched' => true, 'updated' => $updated, 'conflicts' => $conflicts];
     }
 
     /** @param array{token:string,customer_id:string,base_url:string} $credentials @return array<string,int> */

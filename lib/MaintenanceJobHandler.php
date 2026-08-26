@@ -1626,19 +1626,26 @@ final class MaintenanceJobHandler
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $available = max(0, (int) ($checkpoint['available'] ?? 0));
         $missing = max(0, (int) ($checkpoint['missing'] ?? 0));
+        $enriched = max(0, (int) ($checkpoint['enriched'] ?? 0));
+        $conflicts = max(0, (int) ($checkpoint['conflicts'] ?? 0));
         if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type IN ('csv','json') AND result_status IN ('passed','failed')");
         while ($row = R::getRow("SELECT id, device_id FROM inspection WHERE id > ? AND source_type IN ('csv','json') AND result_status IN ('passed','failed') ORDER BY id LIMIT 1", [$lastId])) {
             $lastId = (int) $row['id'];
             $inspection = R::load('inspection', $lastId);
             $device = R::load('device', (int) ($row['device_id'] ?? 0));
             $path = InspectionDataService::activateImportedOriginalReport($inspection, $device);
+            $reconciliation = (new PhoenixSyncService())->reconcileImportedInspection($inspection, $device);
+            $enriched += (int) $reconciliation['updated'];
+            $conflicts += (int) $reconciliation['conflicts'];
             if ($path !== '') { $available++; $message = 'Phoenix-Originalbericht ist verfügbar.'; }
             else { $missing++; $message = 'Kein Phoenix-Originalbericht gefunden.'; }
+            if ((int) $reconciliation['updated'] > 0) $message .= ' Fehlende Importwerte wurden ergänzt.';
+            if ((int) $reconciliation['conflicts'] > 0) $message .= ' Abweichende Quellwerte wurden nur dokumentiert.';
             $current++;
-            $checkpoint = ['last_id' => $lastId, 'available' => $available, 'missing' => $missing];
+            $checkpoint = ['last_id' => $lastId, 'available' => $available, 'missing' => $missing, 'enriched' => $enriched, 'conflicts' => $conflicts];
             $tick($checkpoint, $current, $total, (string) ($inspection->external_number ?? $lastId), $message);
         }
-        return ['available' => $available, 'missing' => $missing, 'processed' => $current];
+        return ['available' => $available, 'missing' => $missing, 'enriched' => $enriched, 'conflicts' => $conflicts, 'processed' => $current];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
