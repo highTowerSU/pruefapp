@@ -141,17 +141,17 @@ try {
         }
     }
     $duplicateAuditVersion = trim((string) get_app_config('inspection_duplicate_audit_version', ''));
-    if ($duplicateAuditVersion !== '2') {
+    if ($duplicateAuditVersion !== '3') {
         $duplicateAuditTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> ''");
         if ($duplicateAuditTotal > 0) {
             BackgroundJobService::supersedePendingType('inspection_duplicate_audit', 'Eine präzisere Dublettenprüfung ersetzt diesen Lauf.');
             BackgroundJobService::enqueue(
                 'inspection_duplicate_audit',
                 ['type' => 'inspection_duplicate_audit'],
-                ['total' => $duplicateAuditTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-audit:v2', 'cancellable' => false]
+                ['total' => $duplicateAuditTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-audit:v3', 'cancellable' => false]
             );
         } else {
-            set_app_config('inspection_duplicate_audit_version', '2');
+            set_app_config('inspection_duplicate_audit_version', '3');
         }
     }
     // Restore only facts explicitly present in the immutable CSV source rows
@@ -177,7 +177,7 @@ try {
     // history remain intact; only the active operational/billing allocation
     // is released.  Ambiguous short-interval repeats stay for manual review.
     $duplicateArchiveVersion = trim((string) get_app_config('inspection_duplicate_archive_version', ''));
-    if ($duplicateArchiveVersion !== '5' && $duplicateAuditVersion === '2' && $csvFactReconciliationVersion === '1') {
+    if ($duplicateArchiveVersion !== '5' && $duplicateAuditVersion === '3' && $csvFactReconciliationVersion === '1') {
         $duplicateArchiveTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection later
             WHERE (
                 (later.source_type='json' AND EXISTS (SELECT 1 FROM inspection canonical

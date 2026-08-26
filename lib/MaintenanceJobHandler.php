@@ -229,21 +229,21 @@ final class MaintenanceJobHandler
      * A repeated inspection can be legitimate (for example a repair retest),
      * so this job deliberately creates review findings rather than deleting,
      * merging or unbilling historical records. Exact duplicate numbers and
-     * import suffixes are marked critical; any other repeat within 180 days
+     * import suffixes are marked critical; any other repeat within 14 days
      * remains a manual review item.
      *
      * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
      */
     private static function inspectionDuplicateAudit(array $checkpoint, int $current, int $total, callable $tick): array
     {
-        if (empty($checkpoint['audit_v2_reset'])) {
+        if (empty($checkpoint['audit_v3_reset'])) {
             // V1 paired every record of a device history with every other
             // nearby record. Historic importer merges can make that a very
             // large and misleading matrix. These are generated findings, not
             // user decisions, so clear only open V1 findings before the
-            // narrower V2 scan. Resolved findings are retained.
+            // narrower V3 scan. Resolved findings are retained.
             R::exec("DELETE FROM inspectiondupreview WHERE status='open'");
-            $checkpoint['audit_v2_reset'] = true;
+            $checkpoint['audit_v3_reset'] = true;
         }
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $found = max(0, (int) ($checkpoint['found'] ?? 0));
@@ -258,6 +258,7 @@ final class MaintenanceJobHandler
                  ORDER BY test_date, id",
                 [(string) $row['test_date'], (int) $row['device_id'], $lastId, (string) $row['test_date']]
             );
+            $shortPeers = array_values(array_filter($peers, static fn(array $peer): bool => (int) ($peer['days_apart'] ?? 0) <= 14));
             foreach ($peers as $peerIndex => $peer) {
                 $peerNumber = trim((string) $peer['external_number']);
                 $findingType = '';
@@ -268,7 +269,7 @@ final class MaintenanceJobHandler
                 } elseif (self::inspectionNumberBase($number) !== '' && self::inspectionNumberBase($number) === $peerNumber) {
                     $findingType = 'import_suffix';
                     $severity = 'danger';
-                } elseif (count($peers) === 1 && $peerIndex === 0) {
+                } elseif ((int) ($peer['days_apart'] ?? 0) <= 14 && count($shortPeers) === 1) {
                     $findingType = 'short_interval';
                 } else {
                     // Several records in a short period usually indicate a
@@ -297,10 +298,10 @@ final class MaintenanceJobHandler
                 $found++;
             }
             $current++;
-            $checkpoint = ['audit_v2_reset' => true, 'last_id' => $lastId, 'found' => $found];
+            $checkpoint = ['audit_v3_reset' => true, 'last_id' => $lastId, 'found' => $found];
             $tick($checkpoint, $current, $total, $number ?: (string) $lastId, $peers === [] ? 'Keine nahe Wiederholungsprüfung gefunden.' : 'Mögliche Wiederholungen wurden zur manuellen Prüfung vorgemerkt.');
         }
-        set_app_config('inspection_duplicate_audit_version', '2');
+        set_app_config('inspection_duplicate_audit_version', '3');
         return ['processed' => $current, 'found' => $found];
     }
 
