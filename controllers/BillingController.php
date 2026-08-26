@@ -30,9 +30,20 @@ final class BillingController
         $ids = array_values(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0));
         try {
             $rows = self::rows($ids, $filters);
+            $allocations = [];
+            foreach ($rows as $row) {
+                $invoiceNumber = trim((string) ($row['invoice_number'] ?? ''));
+                $key = $invoiceNumber !== '' ? $invoiceNumber : 'ohne_rechnung';
+                if (!isset($allocations[$key])) $allocations[$key] = ['invoice_number' => $invoiceNumber, 'billing_status' => (string) ($row['billing_status'] ?? ''), 'count' => 0, 'device_quantity' => 0, 'regie_minutes' => 0];
+                $allocations[$key]['count']++;
+                $allocations[$key]['device_quantity'] += max(0, (int) ($row['billed_quantity'] ?? $row['billing_device_quantity'] ?? 1));
+                $allocations[$key]['regie_minutes'] += max(0, (int) ($row['billed_regie_minutes'] ?? 0));
+            }
+            usort($allocations, static fn(array $a, array $b): int => $b['count'] <=> $a['count'] ?: strcmp($a['invoice_number'], $b['invoice_number']));
             return [
                 'ok' => true,
                 'count' => count($rows),
+                'allocation_summary' => $allocations,
                 'rows' => array_slice(array_map(static fn(array $row): array => [
                     'id' => (int) $row['id'], 'inspection' => (string) $row['external_number'],
                     'date' => (string) $row['test_date'], 'customer' => (string) $row['customer_name'],
