@@ -43,6 +43,7 @@ final class MaintenanceJobHandler
             'inspection_confirmed_same_source_archive' => self::archiveConfirmedSameSourceDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_historical_device_repair' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_historical_device_split' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_csv_manual_merge' => self::mergeConfirmedCsvIntoManualInspections($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -654,6 +655,75 @@ final class MaintenanceJobHandler
         if (preg_match('/^inspection_[a-z0-9_]+_version$/', $configKey) !== 1) $configKey = 'inspection_confirmed_historical_device_repair_version';
         set_app_config($configKey, '1');
         return compact('reassigned', 'created');
+    }
+
+    /**
+     * Merges explicitly confirmed data-missing CSV rows into their manual
+     * inspection. The manual record and therefore its date remain canonical.
+     *
+     * @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function mergeConfirmedCsvIntoManualInspections(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $pairs = array_values(array_filter((array) ($payload['pairs'] ?? []), static fn(mixed $pair): bool => is_array($pair)));
+        if ($pairs === []) throw new InvalidArgumentException('Keine bestätigten CSV/Manuell-Zusammenführungen übergeben.');
+        $index = max(0, (int) ($checkpoint['pair_index'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $total = max($total, count($pairs));
+        for (; $index < count($pairs); $index++) {
+            $pair = $pairs[$index];
+            $csvId = max(0, (int) ($pair['csv_inspection_id'] ?? 0));
+            $manualId = max(0, (int) ($pair['manual_inspection_id'] ?? 0));
+            $manualDate = trim((string) ($pair['manual_test_date'] ?? ''));
+            $csv = R::load('inspection', $csvId);
+            $manual = R::load('inspection', $manualId);
+            if (!(int) $csv->id || !(int) $manual->id || $manualDate === '') throw new RuntimeException('Bestätigtes CSV/Manuell-Paar wurde nicht eindeutig gefunden.');
+            if (trim((string) $csv->archived_at) !== '') {
+                $current++;
+                $tick(['pair_index' => $index + 1, 'archived' => $archived], $current, $total, (string) $csv->external_number, 'CSV-Zeile war bereits mit der manuellen Prüfung zusammengeführt.');
+                continue;
+            }
+            $csvSource = json_decode((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [$csvId]), true);
+            if ((int) $csv->device_id !== (int) $manual->device_id
+                || (string) $csv->source_type !== 'csv' || (string) $csv->status !== 'data_missing'
+                || (string) $manual->source_type !== 'manual' || (string) $manual->status !== 'in_progress'
+                || (string) $manual->test_date !== $manualDate || (is_array($csvSource) && $csvSource !== [])) {
+                throw new RuntimeException('Bestätigtes CSV/Manuell-Paar erfüllt die abgesicherten Zusammenführungskriterien nicht.');
+            }
+            R::begin();
+            try {
+                $now = date(DATE_ATOM);
+                $reason = 'Bestätigt mit manueller Prüfung #' . $manualId . ' (' . (string) $manual->external_number . ') zusammengeführt; deren Prüftag ' . $manualDate . ' bleibt maßgeblich. Die CSV-Quellzeile enthielt keine auswertbaren Prüfungsdaten.';
+                foreach (R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$csvId]) as $item) {
+                    $item->active = 0;
+                    $item->deactivated_at = $now;
+                    $item->deactivation_reason = $reason;
+                    R::store($item);
+                }
+                $csv->archived_at = $now;
+                $csv->archived_reason = $reason;
+                $csv->duplicate_of_inspection_id = $manualId;
+                $csv->billable = 0;
+                $csv->billing_eligibility = 'not_billable';
+                $csv->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $csv->billing_not_billable_comment = $reason;
+                $csv->billing_status = 'historisch_nicht_eindeutig';
+                $csv->billing_active_invoice_item_id = null;
+                $csv->updated_at = $now;
+                R::store($csv);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $csvId, $csvId]);
+                R::commit();
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            audit_log('bestaetigte_csv_manuell_zusammenfuehrung', ['_category' => 'inspection', 'csv_inspection_id' => $csvId, 'manual_inspection_id' => $manualId, 'manual_test_date' => $manualDate]);
+            $archived++;
+            $current++;
+            $tick(['pair_index' => $index + 1, 'archived' => $archived], $current, $total, (string) $manual->external_number, 'Datenleere CSV-Zeile mit manueller Prüfung zusammengeführt; manueller Prüftag bleibt erhalten.');
+        }
+        set_app_config('inspection_confirmed_csv_manual_merge_version', '1');
+        return compact('archived');
     }
 
     private static function inspectionNumberBase(string $number): string
