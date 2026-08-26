@@ -1373,6 +1373,7 @@ function render_oidc_error_response(?\Throwable $throwable = null): void
     }
 
     if ($throwable !== null) {
+        ApplicationFailureService::record($incidentId, $throwable);
         error_log(sprintf('OIDC authentication failed [%s]: %s', $incidentId, $throwable->getMessage()));
     } else {
         error_log(sprintf('OIDC authentication failed [%s]: no exception details available', $incidentId));
