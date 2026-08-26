@@ -62,6 +62,7 @@ $checks = [
     [str_contains($maintenance, 'repairConfirmedHistoricalDeviceAssignments') && str_contains($maintenance, 'export-lokale Speicher-Nr.') && str_contains($worker, "'inspection_confirmed_historical_device_repair'") && str_contains($cron, 'inspection-confirmed-historical-device-repair:v1'), 'Bestätigte historische Fehlzuordnungen werden nicht auf separate historische Geräte zurückgeführt.'],
     [str_contains($maintenance, "'inspection_confirmed_historical_device_split'") && str_contains($cron, 'inspection-confirmed-historical-device-split:v1') && str_contains($cron, 'HIST-100012560-S005'), 'Bestätigte Quellzeilen ohne dauerhafte Gerätenummer werden nicht getrennt historisch geführt.'],
     [str_contains($maintenance, 'mergeConfirmedCsvIntoManualInspections') && str_contains($maintenance, 'manueller Prüftag bleibt erhalten') && str_contains($worker, "'inspection_confirmed_csv_manual_merge'") && str_contains($cron, 'inspection-confirmed-csv-manual-merge:loetkolben:v1'), 'Bestätigte datenleere CSV-Zeilen werden nicht mit der manuellen Prüfung am maßgeblichen Datum zusammengeführt.'],
+    [str_contains($maintenance, 'restoreConfirmedCanonicalInspectionNumbers') && str_contains($maintenance, 'Kollisionsanhang entfernt') && str_contains($worker, "'inspection_confirmed_number_restore'") && str_contains($cron, 'inspection-confirmed-number-restore:loetkolben:v1'), 'Die maßgeblichen manuellen Prüfungen behalten nach einer Zusammenführung fälschlich den Kollisionsanhang.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

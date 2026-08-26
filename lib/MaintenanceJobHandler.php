@@ -44,6 +44,7 @@ final class MaintenanceJobHandler
             'inspection_confirmed_historical_device_repair' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_historical_device_split' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_csv_manual_merge' => self::mergeConfirmedCsvIntoManualInspections($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_number_restore' => self::restoreConfirmedCanonicalInspectionNumbers($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -724,6 +725,41 @@ final class MaintenanceJobHandler
         }
         set_app_config('inspection_confirmed_csv_manual_merge_version', '1');
         return compact('archived');
+    }
+
+    /** @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
+    private static function restoreConfirmedCanonicalInspectionNumbers(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $pairs = array_values(array_filter((array) ($payload['pairs'] ?? []), static fn(mixed $pair): bool => is_array($pair)));
+        if ($pairs === []) throw new InvalidArgumentException('Keine bestätigten Prüfnummernkorrekturen übergeben.');
+        $index = max(0, (int) ($checkpoint['pair_index'] ?? 0));
+        $restored = max(0, (int) ($checkpoint['restored'] ?? 0));
+        $total = max($total, count($pairs));
+        for (; $index < count($pairs); $index++) {
+            $pair = $pairs[$index];
+            $manualId = max(0, (int) ($pair['manual_inspection_id'] ?? 0));
+            $csvId = max(0, (int) ($pair['archived_csv_inspection_id'] ?? 0));
+            $expectedCurrent = trim((string) ($pair['current_number'] ?? ''));
+            $canonicalNumber = trim((string) ($pair['canonical_number'] ?? ''));
+            $manual = R::load('inspection', $manualId);
+            $csv = R::load('inspection', $csvId);
+            if (!(int) $manual->id || !(int) $csv->id || $expectedCurrent === '' || $canonicalNumber === '') throw new RuntimeException('Bestätigte Prüfnummernkorrektur ist unvollständig.');
+            if ((string) $manual->source_type !== 'manual' || trim((string) $manual->archived_at) !== '' || (string) $manual->external_number !== $expectedCurrent
+                || trim((string) $csv->archived_at) === '' || (int) $csv->duplicate_of_inspection_id !== $manualId || (string) $csv->external_number !== $canonicalNumber) {
+                throw new RuntimeException('Bestätigte Prüfnummernkorrektur erfüllt die abgesicherten Zusammenführungskriterien nicht.');
+            }
+            $oldNumber = (string) $manual->external_number;
+            $now = date(DATE_ATOM);
+            $manual->external_number = $canonicalNumber;
+            $manual->updated_at = $now;
+            R::store($manual);
+            audit_log('bestaetigte_pruefnummer_wiederhergestellt', ['_category' => 'inspection', 'inspection_id' => $manualId, 'old_number' => $oldNumber, 'canonical_number' => $canonicalNumber, 'archived_csv_inspection_id' => $csvId]);
+            $restored++;
+            $current++;
+            $tick(['pair_index' => $index + 1, 'restored' => $restored], $current, $total, $canonicalNumber, 'Kollisionsanhang entfernt; die maßgebliche manuelle Prüfung trägt wieder die ursprüngliche Prüfnummer.');
+        }
+        set_app_config('inspection_confirmed_number_restore_version', '1');
+        return compact('restored');
     }
 
     private static function inspectionNumberBase(string $number): string

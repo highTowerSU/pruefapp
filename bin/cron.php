@@ -309,6 +309,25 @@ try {
             set_app_config('inspection_confirmed_csv_manual_merge_version', '1');
         }
     }
+    // Explicit user confirmation: the active manual Lötkolben records are
+    // canonical after merging, so remove their import-collision suffix.
+    $confirmedNumberRestoreVersion = trim((string) get_app_config('inspection_confirmed_number_restore_version', ''));
+    if ($confirmedNumberRestoreVersion !== '1') {
+        $confirmedNumberRestorePairs = [
+            ['manual_inspection_id' => 9435, 'archived_csv_inspection_id' => 9432, 'current_number' => '100012587-26-2-26', 'canonical_number' => '100012587-26'],
+            ['manual_inspection_id' => 9434, 'archived_csv_inspection_id' => 9433, 'current_number' => '100012586-26-2-26', 'canonical_number' => '100012586-26'],
+        ];
+        $openNumberRestoreRows = (int) R::getCell('SELECT COUNT(*) FROM inspection WHERE id IN (' . implode(',', array_fill(0, count($confirmedNumberRestorePairs), '?')) . ") AND COALESCE(archived_at,'')=''", array_column($confirmedNumberRestorePairs, 'manual_inspection_id'));
+        if ($openNumberRestoreRows > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_number_restore',
+                ['type' => 'inspection_confirmed_number_restore', 'pairs' => $confirmedNumberRestorePairs],
+                ['total' => count($confirmedNumberRestorePairs), 'dedupe_key' => 'maintenance:inspection-confirmed-number-restore:loetkolben:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_number_restore_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.
