@@ -584,8 +584,10 @@ final class InspectionController
         $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
         $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) !== '' ? trim((string) $user->name) : trim((string) ($user->email ?? '')), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
+        $activeJob = null;
         if ($phoenixJob !== '') {
             $job = self::readPhoenixJob($phoenixJob);
+            $activeJob = $job;
             $jobLabel = BackgroundJobService::label((string) ($job['type'] ?? 'phoenix_sync'));
             if (($job['state'] ?? '') === 'done') { $stats = $job['stats'] ?? null; $message = $jobLabel . ' abgeschlossen.'; }
             elseif (($job['state'] ?? '') === 'error') $message = $jobLabel . ' fehlgeschlagen: ' . (string) ($job['error'] ?? 'Unbekannter Fehler');
@@ -720,6 +722,7 @@ final class InspectionController
                 'rebuildPreview' => $rebuildPreview,
                 'candidateRunId' => $candidateRunId,
                 'candidateGroups' => $candidateGroups,
+                'activeJob' => $activeJob,
             ]),
         ])];
     }
