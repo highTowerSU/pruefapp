@@ -1,29 +1,17 @@
-# Öffentliche Adresse der Prüfapp. Zertifikatspfade und die vorhandene
-# HTTPS-Konfiguration bitte an den Server anpassen.
-#
-# Die Aliasse leiten bewusst auf die kanonische Adresse um, damit QR-Codes,
-# PDF-Links und OIDC-Callbacks stets dieselbe, vertrauenswürdige URL tragen.
+# Alle Hosts liefern dieselbe Anwendung aus. Der Host bleibt erhalten, damit
+# Mandant, Branding und öffentliche Links nicht auf eine fremde Marke zeigen.
+# Das Zertifikat enthält alle drei Namen als SAN.
 
 <VirtualHost *:80>
     ServerName pruef.koenigsblau.de
     ServerAlias pruef.bsw-consult.gmbh pruef.ceneos.net
-    Redirect permanent / https://pruef.koenigsblau.de/
-</VirtualHost>
-
-<VirtualHost *:443>
-    ServerName pruef.bsw-consult.gmbh
-    ServerAlias pruef.ceneos.net
     RewriteEngine On
-    RewriteRule ^ https://pruef.koenigsblau.de%{REQUEST_URI} [R=301,L]
-
-    # Das Zertifikat muss beide Aliasnamen als SAN enthalten.
-    # SSLEngine on
-    # SSLCertificateFile /etc/letsencrypt/live/pruef.koenigsblau.de/fullchain.pem
-    # SSLCertificateKeyFile /etc/letsencrypt/live/pruef.koenigsblau.de/privkey.pem
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
 </VirtualHost>
 
 <VirtualHost *:443>
     ServerName pruef.koenigsblau.de
+    ServerAlias pruef.bsw-consult.gmbh pruef.ceneos.net
 
     DocumentRoot /var/www/html/pruefapp
     DirectoryIndex index.php
@@ -32,12 +20,20 @@
         Require all granted
     </Directory>
 
-    # Wichtig für PDF-/Cron-Links. APP_BASE_PATH=/ setzt die App an die
-    # Domain-Wurzel; bei einem Unterpfad hier z. B. /pruefapp eintragen.
-    SetEnv APP_PUBLIC_BASE_URL https://pruef.koenigsblau.de
+    # Die App läuft auf der Domain-Wurzel.
     SetEnv APP_BASE_PATH /
 
-    # SSLEngine on
-    # SSLCertificateFile /etc/letsencrypt/live/pruef.koenigsblau.de/fullchain.pem
-    # SSLCertificateKeyFile /etc/letsencrypt/live/pruef.koenigsblau.de/privkey.pem
+    # Zertifikate aus acme.sh --install-cert.
+    SSLEngine on
+    SSLCertificateFile    /etc/ssl/private/pruef.koenigsblau.de-fullchain.pem
+    SSLCertificateKeyFile /etc/ssl/private/pruef.koenigsblau.de-key.pem
 </VirtualHost>
+
+# In der externen Prüfapp-Konfiguration (config/pruefapp.php) ergänzen:
+# 'APP_BASE_PATH' => '/',
+# 'APP_PUBLIC_BASE_URLS' => [
+#     'koenigsblau' => 'https://pruef.koenigsblau.de',
+#     'bsw'         => 'https://pruef.bsw-consult.gmbh',
+#     'ceneos'      => 'https://pruef.ceneos.net',
+# ],
+# Damit verwenden auch Cron/PDFs je Mandant die passende Marken-Domain.

@@ -871,17 +871,47 @@ function url_for(string $path = ''): string
     return $normalized === '' ? ($base === '' ? '/' : $base) : $base . $normalized;
 }
 
-function absolute_url_for(string $path = ''): string
+/** @return array<string,string> */
+function public_base_urls(): array
+{
+    $configured = Config::get('APP_PUBLIC_BASE_URLS');
+    if (!is_array($configured)) {
+        $environment = trim((string) (getenv('APP_PUBLIC_BASE_URLS') ?: ''));
+        $configured = $environment !== '' ? json_decode($environment, true) : [];
+    }
+    if (!is_array($configured)) return [];
+    $result = [];
+    foreach ($configured as $tenant => $url) {
+        $tenant = strtolower(trim((string) $tenant));
+        $url = rtrim(trim((string) $url), '/');
+        if ($tenant !== '' && preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $url) === 1) $result[$tenant] = $url;
+    }
+    return $result;
+}
+
+function public_base_url_for_tenant(?int $tenantId = null): string
+{
+    if ($tenantId !== null && $tenantId > 0 && function_exists('get_company_branding')) {
+        $branding = get_company_branding($tenantId);
+        $key = strtolower(trim((string) ($branding['key'] ?? '')));
+        $mapped = public_base_urls()[$key] ?? '';
+        if ($mapped !== '') return $mapped;
+    }
+    $configuredValue = config_value('APP_PUBLIC_BASE_URL');
+    if ($configuredValue === null || trim($configuredValue) === '') $configuredValue = getenv('APP_PUBLIC_BASE_URL') ?: null;
+    if ($configuredValue === null || trim((string) $configuredValue) === '') $configuredValue = get_app_config('public_base_url', '');
+    $configured = rtrim(trim((string) ($configuredValue ?? '')), '/');
+    return preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $configured) === 1 ? $configured : '';
+}
+
+function absolute_url_for(string $path = '', ?int $tenantId = null): string
 {
     // Berichtsläufe laufen häufig per CLI/Cron. Dort existiert kein HTTP-Host
     // und die bisherige Rückfalladresse erzeugte Links auf localhost. Eine
     // explizite öffentliche URL ist daher für alle dauerhaften Dokumente
     // maßgeblich.
-    $configuredValue = config_value('APP_PUBLIC_BASE_URL');
-    if ($configuredValue === null || trim($configuredValue) === '') $configuredValue = getenv('APP_PUBLIC_BASE_URL') ?: null;
-    if ($configuredValue === null || trim((string) $configuredValue) === '') $configuredValue = get_app_config('public_base_url', '');
-    $configured = trim((string) ($configuredValue ?? ''));
-    if ($configured !== '' && preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $configured) === 1) {
+    $configured = public_base_url_for_tenant($tenantId);
+    if ($configured !== '') {
         return rtrim($configured, '/') . url_for($path);
     }
 

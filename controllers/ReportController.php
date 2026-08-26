@@ -119,6 +119,7 @@ final class ReportController
         $tenantBranding = function_exists('get_report_branding')
             ? get_report_branding((int) ($customer->tenant_id ?? 0))
             : (function_exists('get_branding') ? get_branding() : []);
+        $tenantId = (int) ($customer->tenant_id ?? 0);
         $rows = [['Prüfung', 'Wert']];
         $scalar = static function ($value): string {
             if (is_scalar($value)) return (string) $value;
@@ -138,8 +139,8 @@ final class ReportController
             if ($profileSignature !== '') $rows[] = ['__profile_signature', $profileSignature];
         }
         if (function_exists('absolute_url_for')) {
-            $rows[] = ['__inspection_url', absolute_url_for('pruefungen/' . (int) $inspection->id)];
-            $rows[] = ['__device_url', absolute_url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)];
+            $rows[] = ['__inspection_url', absolute_url_for('pruefungen/' . (int) $inspection->id, $tenantId)];
+            $rows[] = ['__device_url', absolute_url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id, $tenantId)];
         }
         $rows[] = ['Prüfungsabschluss', (string) ($raw['end_time'] ?? $inspection->updated_at ?? $inspection->test_date ?? '')];
         if ($checklist !== []) {
