@@ -168,6 +168,50 @@ final class InspectionDataService
         return '';
     }
 
+    /**
+     * Finds the original Phoenix source report for an imported inspection.
+     * This is deliberately also used while opening a report, so an original
+     * PDF wins immediately even before the asynchronous restore run reaches
+     * that particular inspection.
+     */
+    public static function locateImportedOriginalReport(\RedBeanPHP\OODBBean $inspection, ?\RedBeanPHP\OODBBean $device = null): string
+    {
+        if (!(int) ($inspection->id ?? 0) || !in_array((string) ($inspection->source_type ?? ''), ['csv', 'json'], true)) return '';
+        $device ??= R::load('device', (int) ($inspection->device_id ?? 0));
+        $numbers = [];
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $value) {
+            if (preg_match('/^(\d+)/', trim($value), $match)) $numbers[$match[1]] = true;
+        }
+        if ($numbers === []) return '';
+
+        $configured = trim((string) (get_app_config('phoenix_reports_directory', '') ?: get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_PHOENIX_REPORTS_DIR')));
+        foreach (array_unique(array_filter([$configured, '/var/www/berichte'])) as $root) {
+            $realRoot = realpath($root);
+            if ($realRoot === false || !is_dir($realRoot)) continue;
+            foreach (array_keys($numbers) as $number) {
+                foreach (glob($realRoot . '/' . $number . '*.pdf') ?: [] as $candidate) {
+                    if (is_file($candidate)) return $candidate;
+                }
+            }
+        }
+        return '';
+    }
+
+    /** Activates a located source PDF and returns its absolute path. */
+    public static function activateImportedOriginalReport(\RedBeanPHP\OODBBean $inspection, ?\RedBeanPHP\OODBBean $device = null): string
+    {
+        $path = self::originalReportPath((int) ($inspection->id ?? 0));
+        if ($path === '') $path = self::locateImportedOriginalReport($inspection, $device);
+        if ($path === '') return '';
+        self::registerReportAsset((int) $inspection->id, 'import_original', $path, true);
+        if ((string) ($inspection->report_path ?? '') !== $path) {
+            $inspection->report_path = $path;
+            $inspection->updated_at = date(DATE_ATOM);
+            R::store($inspection);
+        }
+        return $path;
+    }
+
     /** @param mixed $value */
     private static function numericValue($value): ?float
     {

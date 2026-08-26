@@ -730,6 +730,13 @@ final class ElectricalInspectionImportService
         return $best;
     }
 
+    /** Resolves an imported room without changing an inspection record. */
+    public function resolveImportedRoom(array $record): ?\RedBeanPHP\OODBBean
+    {
+        $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
+        return $room === '' ? null : $this->ensureImportedRoom($record, $room);
+    }
+
     private function ensureImportedRoom(array $record, string $room): ?\RedBeanPHP\OODBBean
     {
         if ($room === '') return null;

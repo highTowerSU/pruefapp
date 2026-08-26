@@ -759,12 +759,16 @@ final class InspectionController
         if (!$inspection->id || !$reportDevice || !$reportDevice->id || !current_user_can_access_customer(device_customer_id($reportDevice))) return [404, [], 'Bericht nicht gefunden'];
         $status = InspectionEvaluationService::normalizeStatus((string) $inspection->result_status, (string) $inspection->status);
         $classification = trim((string) ($inspection->classification ?? ''));
+        // Source reports are authoritative. Resolve one synchronously here so
+        // users never have to wait for a background migration before opening
+        // an available Phoenix report.
+        $originalPath = InspectionDataService::activateImportedOriginalReport($inspection, $reportDevice);
         $relative = trim((string) ($inspection->report_path ?? ''));
         if (!InspectionEvaluationService::reportPathAllowed($status, $classification, $relative, current_user_is_superadmin())) {
             return [404, [], 'Der neue Prüfbericht wurde noch nicht erzeugt.'];
         }
         $root = app_data_root();
-        $path = $relative !== '' ? realpath($root . '/' . ltrim($relative, '/')) : false;
+        $path = $originalPath !== '' ? $originalPath : ($relative !== '' ? realpath($root . '/' . ltrim($relative, '/')) : false);
         $rootReal = realpath($root);
         // Importierte Altberichte liegen bewusst außerhalb der Webanwendung.
         // Das Verzeichnis ist ein ausdrücklich erlaubter, nicht beschreibbarer

@@ -33,6 +33,7 @@ final class MaintenanceJobHandler
             'phoenix_pdf_restore' => self::restorePhoenixPdfs($checkpoint, $current, $total, $tick),
             'measurement_migration' => self::measurementMigration($checkpoint, $current, $total, $tick),
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
+            'imported_room_assignment' => self::assignImportedRooms($checkpoint, $current, $total, $tick),
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
@@ -1533,6 +1534,43 @@ final class MaintenanceJobHandler
             set_app_config($completionConfigKey, (string) ($payload['completion_config_value'] ?? '1'));
         }
         return ['created' => $created, 'processed' => $current];
+    }
+
+    /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
+    private static function assignImportedRooms(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_device_id'] ?? 0));
+        $assigned = max(0, (int) ($checkpoint['assigned'] ?? 0));
+        $unresolved = max(0, (int) ($checkpoint['unresolved'] ?? 0));
+        $service = new ElectricalInspectionImportService();
+        $where = "COALESCE(d.room_id, 0) = 0 AND TRIM(COALESCE(d.room_snapshot, '')) <> ''
+            AND EXISTS (SELECT 1 FROM inspection i WHERE i.device_id = d.id AND LOWER(COALESCE(i.source_file, '')) LIKE '%ak-elektro%')";
+        if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM device d WHERE {$where}");
+
+        while ($row = R::getRow("SELECT d.id, d.external_number, d.room_snapshot,
+                (SELECT i.raw_json FROM inspection i WHERE i.device_id = d.id AND LOWER(COALESCE(i.source_file, '')) LIKE '%ak-elektro%' ORDER BY i.test_date DESC, i.id DESC LIMIT 1) AS raw_json,
+                (SELECT i.source_file FROM inspection i WHERE i.device_id = d.id AND LOWER(COALESCE(i.source_file, '')) LIKE '%ak-elektro%' ORDER BY i.test_date DESC, i.id DESC LIMIT 1) AS source_file
+            FROM device d WHERE d.id > ? AND {$where} ORDER BY d.id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            $raw = json_decode((string) ($row['raw_json'] ?? ''), true);
+            if (!is_array($raw)) $raw = [];
+            $raw['room_snapshot'] = trim((string) ($raw['room_snapshot'] ?? $raw['room'] ?? $row['room_snapshot'] ?? ''));
+            $raw['_legacy_source'] = (string) ($row['source_file'] ?? '');
+            $room = $service->resolveImportedRoom($raw);
+            if ($room && $room->id) {
+                R::exec('UPDATE device SET room_id = ?, updated_at = ? WHERE id = ?', [(int) $room->id, date(DATE_ATOM), $lastId]);
+                $assigned++;
+                $message = 'AK-Raumschnappschuss wurde als struktureller Raum zugeordnet.';
+            } else {
+                $unresolved++;
+                $message = 'AK-Raumschnappschuss konnte nicht eindeutig einer Struktur zugeordnet werden.';
+            }
+            $current++;
+            $checkpoint = ['last_device_id' => $lastId, 'assigned' => $assigned, 'unresolved' => $unresolved];
+            $tick($checkpoint, $current, $total, (string) ($row['external_number'] ?? $lastId), $message);
+        }
+
+        return ['assigned' => $assigned, 'unresolved' => $unresolved, 'processed' => $current];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */

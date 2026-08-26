@@ -248,6 +248,7 @@ function initialize_database(): void
             ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'customer', 'site', 'building', 'floor', 'area', 'room', 'device', 'inspection', 'inspectionanswer', 'inspectionmeasurement', 'inspectiondiagnostic', 'inspectionsourcesnapshot', 'inspectionreportasset', 'customerinfo']
         );
         schedule_original_report_restore();
+        schedule_imported_room_assignment();
         $initialized = true;
         return;
     }
@@ -328,6 +329,7 @@ function initialize_database(): void
     );
 
     schedule_original_report_restore();
+    schedule_imported_room_assignment();
 
     $initialized = true;
 }
@@ -351,6 +353,26 @@ function schedule_original_report_restore(): void
         );
     }
     set_app_config('original_report_restore_version', $version);
+}
+
+/** Queues the one-time structural repair for AK imports without a location column. */
+function schedule_imported_room_assignment(): void
+{
+    static $scheduled = false;
+    if ($scheduled) return;
+    $scheduled = true;
+
+    $version = 'v1';
+    if ((string) get_app_config('imported_room_assignment_version', '') === $version) return;
+    $total = (int) R::getCell("SELECT COUNT(*) FROM device d WHERE COALESCE(d.room_id, 0) = 0 AND TRIM(COALESCE(d.room_snapshot, '')) <> '' AND EXISTS (SELECT 1 FROM inspection i WHERE i.device_id = d.id AND LOWER(COALESCE(i.source_file, '')) LIKE '%ak-elektro%')");
+    if ($total > 0) {
+        BackgroundJobService::enqueue(
+            'imported_room_assignment',
+            ['type' => 'imported_room_assignment'],
+            ['total' => $total, 'dedupe_key' => 'maintenance:imported-room-assignment:' . $version, 'cancellable' => false]
+        );
+    }
+    set_app_config('imported_room_assignment_version', $version);
 }
 
 function app_database_path(): string
