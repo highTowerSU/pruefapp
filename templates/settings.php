@@ -14,6 +14,8 @@
 /** @var bool $vocabularyAiTokenConfigured */
 /** @var bool $vocabularyAiOAuthConnected */
 /** @var bool $vocabularyAiOAuthSecretConfigured */
+/** @var bool $phoenixTokenConfigured */
+/** @var array{configured:bool,token_configured:bool,customer_configured:bool,base_url:string} $phoenixStatus */
 ?>
 
 <form id="settings-general-panel" data-action-nav="Einstellungen speichern" data-action-icon="fa-gear" method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="card shadow-sm mb-4">
@@ -76,6 +78,21 @@
 
 <?php $providerForSettings = AiProviderService::selectedVocabularyProvider(); ?>
 <?= render_template('settings_ai_provider.php', ['providers' => AiProviderService::all(), 'provider' => $providerForSettings ?? (object) ['id'=>0,'name'=>'','base_url'=>'','header_name'=>'Authorization','auth_mode'=>'token','api_token'=>'','pricing_url'=>'','oauth_authorization_url'=>'','oauth_token_url'=>'','oauth_client_id'=>'','oauth_client_secret'=>'','oauth_scopes'=>'','oauth_access_token'=>''], 'models' => $providerForSettings ? AiProviderService::models($providerForSettings) : [], 'pricingUrl' => $providerForSettings ? AiProviderService::pricingUrl($providerForSettings) : '', 'enabled' => get_app_config('vocabulary_ai_enabled', '0') === '1', 'selectedProviderId' => (int) get_app_config('vocabulary_ai_provider_id', '0'), 'selectedModel' => (string) get_app_config('vocabulary_ai_model', ''), 'message' => '', 'error' => '']) ?>
+
+<details class="card shadow-sm mt-4" id="settings-phoenix-panel" data-action-nav="Phoenix-Berichte" data-action-icon="fa-file-pdf">
+  <summary class="card-header fw-semibold"><i class="fa-solid fa-cloud-arrow-down me-1" aria-hidden="true"></i>Phoenix-Originalberichte</summary>
+  <div class="card-body">
+    <p class="text-body-secondary small">Fehlt ein lokales Original-PDF, lädt die Prüfapp es beim Öffnen des Berichts über diesen Zugang nach. Der Token wird maskiert gespeichert und nie erneut angezeigt.</p>
+    <p>Status: <?php if (!empty($phoenixStatus['configured'])): ?><span class="badge text-bg-success"><i class="fa-solid fa-circle-check me-1" aria-hidden="true"></i>bereit</span><?php else: ?><span class="badge text-bg-warning text-dark"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>unvollständig</span><?php endif; ?></p>
+    <form method="post" action="<?= htmlspecialchars(url_for('admin/konfiguration'), ENT_QUOTES) ?>" class="row g-3">
+      <input type="hidden" name="action" value="save_phoenix">
+      <div class="col-md-3"><label class="form-label" for="phoenix_customer_id">Phoenix-Kunden-ID</label><input class="form-control" id="phoenix_customer_id" name="phoenix_customer_id" inputmode="numeric" required value="<?= htmlspecialchars($values['phoenix_customer_id'] ?? '', ENT_QUOTES) ?>" placeholder="z. B. 176399"></div>
+      <div class="col-md-5"><label class="form-label" for="phoenix_api_url">API-URL</label><input class="form-control" id="phoenix_api_url" type="url" name="phoenix_api_url" required value="<?= htmlspecialchars($values['phoenix_api_url'] ?? '', ENT_QUOTES) ?>"></div>
+      <div class="col-md-4"><label class="form-label" for="phoenix_api_token">API-Token<?= !empty($phoenixTokenConfigured) ? ' (gesetzt)' : '' ?></label><input class="form-control" id="phoenix_api_token" type="password" name="phoenix_api_token" autocomplete="new-password" placeholder="<?= !empty($phoenixTokenConfigured) ? 'Unverändert lassen' : 'Bearer-Token' ?>"></div>
+      <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2"><label class="form-check mb-0"><input class="form-check-input" type="checkbox" name="clear_phoenix_api_token" value="1"><span class="form-check-label">Gespeicherten Token entfernen</span></label><button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Phoenix-Zugang speichern</button></div>
+    </form>
+  </div>
+</details>
 
     <?php if (false): ?>
     <h3 class="h6"><i class="fa-solid fa-spell-check me-1" aria-hidden="true"></i>Automatische Stammdatenprüfung</h3>

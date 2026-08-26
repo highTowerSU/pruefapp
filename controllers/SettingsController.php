@@ -73,6 +73,8 @@ class SettingsController
             'keycloak_admin_console_base_url' => $storedKeycloakAdminUrl,
             'benning_reimport_directory' => trim((string) (get_app_config('benning_reimport_directory', '') ?? '')),
             'benning_reports_directory' => trim((string) (get_app_config('benning_reports_directory', '') ?? '')),
+            'phoenix_customer_id' => trim((string) (get_app_config('phoenix_customer_id', '') ?? '')),
+            'phoenix_api_url' => trim((string) (get_app_config('phoenix_api_url', '') ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix',
             'auto_update_enabled' => get_app_config('auto_update_enabled', '1') === '1' ? '1' : '0',
             'cron_log_max_rows' => (string) max(500, (int) (get_app_config('cron_log_max_rows', '5000') ?? '5000')),
             'cron_log_max_bytes' => (string) max(262144, (int) (get_app_config('cron_log_max_bytes', (string) (5 * 1024 * 1024)) ?? (5 * 1024 * 1024))),
@@ -108,6 +110,24 @@ class SettingsController
         $skipGeneralSave = false;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (($_POST['action'] ?? '') === 'save_phoenix') {
+                $customerId = trim((string) ($_POST['phoenix_customer_id'] ?? ''));
+                $baseUrl = rtrim(trim((string) ($_POST['phoenix_api_url'] ?? '')), '/');
+                $token = trim((string) ($_POST['phoenix_api_token'] ?? ''));
+                try {
+                    if (!preg_match('/^\d+$/', $customerId) || (int) $customerId < 1) throw new RuntimeException('Bitte eine gültige numerische Phoenix-Kunden-ID angeben.');
+                    if (filter_var($baseUrl, FILTER_VALIDATE_URL) === false) throw new RuntimeException('Bitte eine gültige Phoenix-API-URL angeben.');
+                    if ($token === '' && trim((string) get_app_config('phoenix_api_token', '')) === '' && !isset($_POST['clear_phoenix_api_token'])) throw new RuntimeException('Bitte einen Phoenix-API-Token hinterlegen.');
+                    set_app_config('phoenix_customer_id', $customerId);
+                    set_app_config('phoenix_api_url', $baseUrl);
+                    if ($token !== '') set_app_config('phoenix_api_token', $token);
+                    if (isset($_POST['clear_phoenix_api_token'])) set_app_config('phoenix_api_token', null);
+                    $_SESSION['meldung'] = 'Phoenix-Zugang wurde gespeichert. Fehlende Originalberichte werden beim Öffnen automatisch nachgeladen.';
+                } catch (Throwable $exception) {
+                    $_SESSION['fehlermeldung'] = 'Phoenix-Zugang wurde nicht gespeichert: ' . $exception->getMessage();
+                }
+                return [303, ['Location' => url_for('admin/konfiguration#settings-phoenix-panel')], ''];
+            }
             if (($_POST['action'] ?? '') === 'generate_api_debug_secret') {
                 $secret = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
                 set_app_config('api_debug_secret', $secret);
@@ -322,6 +342,8 @@ class SettingsController
             'vocabularyAiTokenConfigured' => trim((string) get_app_config('vocabulary_ai_token', '')) !== '',
             'vocabularyAiOAuthConnected' => trim((string) get_app_config('vocabulary_ai_oauth_access_token', '')) !== '',
             'vocabularyAiOAuthSecretConfigured' => trim((string) get_app_config('vocabulary_ai_oauth_client_secret', '')) !== '',
+            'phoenixTokenConfigured' => trim((string) get_app_config('phoenix_api_token', '')) !== '',
+            'phoenixStatus' => PhoenixSyncService::serverConfigurationStatus(),
         ]);
 
         if ($isHx) {
