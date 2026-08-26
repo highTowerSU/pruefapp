@@ -2,7 +2,6 @@
 /** @var array<int, array<string, mixed>> $companies */
 /** @var array{total:int, withLogo:int} $stats */
 /** @var array<string, mixed>|null $defaultCompany */
-/** @var array<string,string> $publicUrls */
 ?>
 
 <div class="row g-4 mb-4 align-items-stretch">
@@ -136,7 +135,7 @@
                 </span>
               </td>
               <td>
-                <?php $publicUrl = (string) ($publicUrls[$company['slug']] ?? ''); ?>
+                <?php $publicUrl = (string) ($company['public_url'] ?? ''); ?>
                 <?php if ($publicUrl !== ''): ?>
                   <a href="<?= htmlspecialchars($publicUrl, ENT_QUOTES) ?>" class="link-offset-2 small" target="_blank" rel="noopener">
                     <?= htmlspecialchars(preg_replace('#^https?://#', '', $publicUrl) ?: $publicUrl) ?>
@@ -159,7 +158,7 @@
               <td>
                 <?php if (($company['slug'] ?? '') === 'ceneos'): ?>
                   <span class="badge rounded-pill text-bg-primary">Fallback</span>
-                <?php elseif (!empty($publicUrls[$company['slug']])): ?>
+                <?php elseif (!empty($company['public_url'])): ?>
                   <span class="badge rounded-pill text-bg-success">Host aktiv</span>
                 <?php else: ?>
                   <span class="badge rounded-pill text-bg-secondary">Ohne Host</span>

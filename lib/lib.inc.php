@@ -786,6 +786,13 @@ function normalize_request_path(?string $path): string
         }
     }
 
+    // A tenant without a dedicated host can live below a distinct prefix on a
+    // shared installation. Routes remain tenant-neutral after stripping it.
+    $tenantPrefix = function_exists('tenant_url_prefix_for_request') ? tenant_url_prefix_for_request() : '';
+    if ($tenantPrefix !== '' && ($path === $tenantPrefix || str_starts_with($path, $tenantPrefix . '/'))) {
+        $path = substr($path, strlen($tenantPrefix)) ?: '/';
+    }
+
     if (strpos($path, '/index.php') === 0) {
         $suffix = substr($path, strlen('/index.php'));
         if ($suffix === '' || $suffix === false) {
@@ -863,6 +870,8 @@ function url_for(string $path = ''): string
     // base path of "/" must never turn the login target into "//login.php":
     // browsers interpret that as a scheme-relative URL with host "login.php".
     $base = trim(base_path(), '/');
+    $tenantPrefix = function_exists('tenant_url_prefix_for_request') ? trim(tenant_url_prefix_for_request(), '/') : '';
+    if ($tenantPrefix !== '') $base = trim($base . '/' . $tenantPrefix, '/');
     $target = ltrim($path, '/');
     $combined = trim($base . '/' . $target, '/');
 
@@ -891,6 +900,16 @@ function public_base_url_for_tenant(?int $tenantId = null): string
 {
     if ($tenantId !== null && $tenantId > 0 && function_exists('get_company_branding')) {
         $branding = get_company_branding($tenantId);
+        $publicHost = strtolower(trim((string) ($branding['public_host'] ?? '')));
+        if (preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $publicHost) === 1) {
+            return 'https://' . $publicHost;
+        }
+        $tenantPrefix = trim((string) ($branding['url_prefix'] ?? ''), '/');
+        $configuredValue = config_value('APP_PUBLIC_BASE_URL') ?: getenv('APP_PUBLIC_BASE_URL') ?: get_app_config('public_base_url', '');
+        $configured = rtrim(trim((string) $configuredValue), '/');
+        if ($tenantPrefix !== '' && preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $configured) === 1) {
+            return $configured . '/' . $tenantPrefix;
+        }
         $key = strtolower(trim((string) ($branding['key'] ?? '')));
         $mapped = public_base_urls()[$key] ?? '';
         if ($mapped !== '') return $mapped;

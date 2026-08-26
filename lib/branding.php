@@ -3,11 +3,25 @@
 use RedBeanPHP\R as R;
 use Ceneos\PhpBase\Tenant\TenantRepository;
 
-/** Returns the brand/tenant selected by the public hostname, if any. */
-function branding_key_for_request_host(): string
+function branding_request_host(): string
 {
-    $host = strtolower(trim(explode(':', (string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? ''), 2)[0]));
+    return strtolower(trim(explode(':', (string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? ''), 2)[0]));
+}
+
+/** Returns the tenant configured for a hostname, without URL-prefix lookup. */
+function branding_key_for_configured_host(string $host): string
+{
+    $host = strtolower(trim($host));
     if ($host === '') return '';
+
+    try {
+        $tenant = (new TenantRepository())->findByPublicHost($host);
+        if ($tenant !== null) return strtolower(trim((string) ($tenant->slug ?? '')));
+    } catch (\Throwable $error) {
+        // The static configuration below remains a safe startup fallback if a
+        // tenant database migration has not run yet.
+        error_log('Mandanten-Hostzuordnung konnte nicht gelesen werden: ' . $error->getMessage());
+    }
 
     $hostBrands = \Ceneos\PhpBase\Config\Config::get('APP_BRAND_HOSTS');
     if (!is_array($hostBrands)) {
@@ -26,6 +40,52 @@ function branding_key_for_request_host(): string
         'pruef.koenigsbl.au' => 'koenigsblau',
         default => '',
     };
+}
+
+/** @return string Empty for dedicated hosts and requests without a tenant prefix. */
+function tenant_url_prefix_for_request(): string
+{
+    static $prefix = null;
+    if ($prefix !== null) return $prefix;
+    $prefix = '';
+    if (PHP_SAPI === 'cli' || branding_key_for_configured_host(branding_request_host()) !== '') return $prefix;
+
+    $path = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/');
+    $base = base_path();
+    if ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
+        $path = substr($path, strlen($base)) ?: '/';
+    }
+    try {
+        $tenants = (new TenantRepository())->all();
+        usort($tenants, static fn($left, $right): int => strlen((string) ($right->url_prefix ?? '')) <=> strlen((string) ($left->url_prefix ?? '')));
+        foreach ($tenants as $tenant) {
+            $candidate = rtrim('/' . trim((string) ($tenant->url_prefix ?? ''), '/'), '/');
+            if ($candidate !== '/' && ($path === $candidate || str_starts_with($path, $candidate . '/'))) {
+                return $prefix = $candidate;
+            }
+        }
+    } catch (\Throwable $error) {
+        error_log('Mandanten-URL-Präfix konnte nicht gelesen werden: ' . $error->getMessage());
+    }
+    return $prefix;
+}
+
+/** Returns the brand/tenant selected by the public hostname or URL prefix. */
+function branding_key_for_request_host(): string
+{
+    $hostKey = branding_key_for_configured_host(branding_request_host());
+    if ($hostKey !== '') return $hostKey;
+
+    $prefix = tenant_url_prefix_for_request();
+    if ($prefix !== '') {
+        try {
+            $tenant = (new TenantRepository())->findByUrlPrefix($prefix);
+            if ($tenant !== null) return strtolower(trim((string) ($tenant->slug ?? '')));
+        } catch (\Throwable $error) {
+            error_log('Mandanten-Präfixzuordnung konnte nicht gelesen werden: ' . $error->getMessage());
+        }
+    }
+    return '';
 }
 
 function get_branding(): array
@@ -201,6 +261,8 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
     return [
         'company_id' => (int) $company->id,
         'key' => strtolower((string)($company->slug ?? '')) ?: 'company_' . (int)$company->id,
+        'public_host' => strtolower(trim((string) ($company->public_host ?? ''))),
+        'url_prefix' => rtrim('/' . trim((string) ($company->url_prefix ?? ''), '/'), '/'),
         'company_name' => $companyName,
         'app_title' => (string)($company->app_title ?? 'Prüf-Doku'),
         'nav_brand' => (string)($company->nav_brand ?? 'Prüf-Doku'),

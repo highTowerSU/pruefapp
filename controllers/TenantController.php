@@ -40,7 +40,6 @@ class TenantController
             'companies' => $companies,
             'stats' => $stats,
             'defaultCompany' => $defaultCompany,
-            'publicUrls' => public_base_urls(),
         ]);
 
         $body = render_template('layout.php', [
@@ -222,6 +221,8 @@ class TenantController
 
                     $company->name = $data['name'];
                     $company->slug = $data['slug'];
+                    $company->public_host = $data['public_host'];
+                    $company->url_prefix = $data['url_prefix'];
                     $company->app_title = $data['app_title'];
                     $company->nav_brand = $data['nav_brand'];
                     $company->home_headline = $data['home_headline'];
@@ -297,6 +298,9 @@ class TenantController
         if ($isPost && is_array($data)) {
             $companyData['name'] = $data['name'];
             $companyData['slug'] = $data['slug'];
+            $companyData['public_host'] = $data['public_host'];
+            $companyData['url_prefix'] = $data['url_prefix'];
+            $companyData['public_url'] = $data['public_host'] !== '' ? 'https://' . $data['public_host'] : $data['url_prefix'];
             $companyData['app_title'] = $data['app_title'];
             $companyData['nav_brand'] = $data['nav_brand'];
             $companyData['home_headline'] = $data['home_headline'];
@@ -349,6 +353,8 @@ class TenantController
         $data = [];
         $data['name'] = trim((string) ($input['name'] ?? ''));
         $data['slug'] = strtolower(trim((string) ($input['slug'] ?? '')));
+        $data['public_host'] = self::sanitizePublicHost((string) ($input['public_host'] ?? ''));
+        $data['url_prefix'] = self::sanitizeUrlPrefix((string) ($input['url_prefix'] ?? ''));
         $data['app_title'] = trim((string) ($input['app_title'] ?? '')) ?: 'Prüfauftragsverwaltung';
         $data['nav_brand'] = trim((string) ($input['nav_brand'] ?? '')) ?: 'Prüfauftragsverwaltung';
         $data['home_headline'] = trim((string) ($input['home_headline'] ?? ''));
@@ -403,6 +409,23 @@ class TenantController
             $existing = (new TenantRepository())->findBySlug($data['slug'], (int) $company->id);
             if ($existing !== null) {
                 $errors[] = 'Es existiert bereits ein Mandant mit diesem Kurznamen.';
+            }
+        }
+
+        if ($data['public_host'] !== '') {
+            if (!preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $data['public_host'])) {
+                $errors[] = 'Der öffentliche Hostname ist ungültig.';
+            } else {
+                $existingHost = (new TenantRepository())->findByPublicHost($data['public_host'], (int) $company->id);
+                if ($existingHost !== null) $errors[] = 'Dieser öffentliche Hostname ist bereits einem anderen Mandanten zugeordnet.';
+            }
+        }
+        if ($data['url_prefix'] !== '') {
+            if (!preg_match('#^/(?:[a-z0-9][a-z0-9-]*)(?:/[a-z0-9][a-z0-9-]*)*$#', $data['url_prefix'])) {
+                $errors[] = 'Der URL-Präfix ist ungültig.';
+            } else {
+                $existingPrefix = (new TenantRepository())->findByUrlPrefix($data['url_prefix'], (int) $company->id);
+                if ($existingPrefix !== null) $errors[] = 'Dieser URL-Präfix ist bereits einem anderen Mandanten zugeordnet.';
             }
         }
 
@@ -461,6 +484,11 @@ class TenantController
             'id' => (int) $company->id,
             'name' => (string) ($company->name ?? ''),
             'slug' => (string) ($company->slug ?? ''),
+            'public_host' => (string) ($company->public_host ?? ''),
+            'url_prefix' => (string) ($company->url_prefix ?? ''),
+            'public_url' => (string) ($company->public_host ?? '') !== ''
+                ? 'https://' . (string) $company->public_host
+                : ((string) ($company->url_prefix ?? '') !== '' ? (string) $company->url_prefix : (string) (public_base_urls()[strtolower((string) ($company->slug ?? ''))] ?? '')),
             'app_title' => (string) ($company->app_title ?? ''),
             'nav_brand' => (string) ($company->nav_brand ?? ''),
             'home_headline' => (string) ($company->home_headline ?? ''),
@@ -506,6 +534,20 @@ class TenantController
         }
 
         return preg_match('#^[A-Za-z0-9_./\-]+$#', $value) === 1;
+    }
+
+    private static function sanitizePublicHost(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('#^https?://#', '', $value) ?? $value;
+        return rtrim(explode('/', $value, 2)[0], '.');
+    }
+
+    private static function sanitizeUrlPrefix(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') return '';
+        return rtrim('/' . trim($value, '/'), '/');
     }
 
     private static function resolveAssetPath(string $path): string

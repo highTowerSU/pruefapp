@@ -29,7 +29,24 @@
         <div class="mb-3">
           <label class="form-label" for="slug">Kurznamen (Slug) *</label>
           <input type="text" class="form-control" id="slug" name="slug" required value="<?= htmlspecialchars($company['slug']) ?>">
-          <div class="form-text">Kleinbuchstaben, Zahlen und Bindestriche. Wird u.a. für die Auswahl über die externe Konfigurationsdatei verwendet.</div>
+          <div class="form-text">Kleinbuchstaben, Zahlen und Bindestriche.</div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="mb-3">
+          <label class="form-label" for="url_prefix"><i class="fa-solid fa-link me-1 text-body-secondary" aria-hidden="true"></i>Eigener URL-Präfix</label>
+          <input type="text" class="form-control" id="url_prefix" name="url_prefix" placeholder="z. B. /ceneos" value="<?= htmlspecialchars((string) ($company['url_prefix'] ?? '')) ?>">
+          <div class="form-text">Wird verwendet, wenn kein eigener Host konfiguriert ist, z. B. <code>/pruefapp/ceneos</code>. Ein eigener Host hat Vorrang.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="mb-3">
+          <label class="form-label" for="public_host"><i class="fa-solid fa-globe me-1 text-body-secondary" aria-hidden="true"></i>Öffentlicher Prüfapp-Hostname</label>
+          <input type="text" class="form-control" id="public_host" name="public_host" inputmode="url" autocomplete="url" placeholder="z. B. pruef.ceneos.net" value="<?= htmlspecialchars((string) ($company['public_host'] ?? '')) ?>">
+          <div class="form-text">Ohne <code>https://</code>. Dieser Host wählt Login-Maske, Branding und Bericht-Links dieses Mandanten. DNS, Zertifikat und HAProxy müssen separat eingerichtet sein.</div>
         </div>
       </div>
     </div>
