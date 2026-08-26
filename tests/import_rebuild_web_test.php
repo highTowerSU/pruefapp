@@ -16,6 +16,8 @@ foreach ([
     [$template, 'Feldweise zusammenführen'],
     [$worker, "'import_candidate_rebuild'"],
     [$worker, 'ImportCandidateRebuildService'],
+    [$worker, '$writeLongRunningStatus'],
+    [$worker, '900'],
     [$jobs, "'import_candidate_rebuild' => 'Importkandidaten vorbereiten'"],
 ] as [$source, $needle]) {
     if (!str_contains($source, $needle)) throw new RuntimeException('GUI-Quellen-Neuaufbau ist unvollständig: ' . $needle);

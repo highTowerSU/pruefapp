@@ -58,6 +58,24 @@ $writeStatus = static function (array $extra) use ($jobId, $workerId, $job): voi
         180
     );
 };
+$writeLongRunningStatus = static function (array $extra) use ($jobId, $workerId, $job): void {
+    // Candidate preparation is one atomic destructive workflow: backup,
+    // reset, staging and classification must not be resumed halfway through
+    // with a fresh reset.  Keep its lease alive for the full allowed run.
+    $latest = JobQueue::get($jobId) ?? $job;
+    $checkpoint = (array) ($latest['checkpoint'] ?? []);
+    if (isset($extra['current_device'])) $checkpoint['current_device'] = (string) $extra['current_device'];
+    $checkpoint['next_index'] = max(0, (int) ($extra['step'] ?? $latest['current'] ?? 0));
+    JobQueue::checkpoint(
+        $jobId,
+        $checkpoint,
+        max(0, (int) ($extra['step'] ?? $latest['current'] ?? 0)),
+        max(0, (int) ($extra['total'] ?? $latest['total'] ?? 0)),
+        (string) ($extra['message'] ?? $latest['message'] ?? ''),
+        $workerId,
+        900
+    );
+};
 try {
     $progress = static function (int $step, int $total, string $number, string $message) use ($writeStatus, $jobId, $deadline, $debug, $debugLog): void {
         $writeStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
@@ -81,7 +99,16 @@ try {
     } elseif (($payload['type'] ?? '') === 'import_candidate_rebuild') {
         $source = realpath((string) ($payload['directory'] ?? '')) ?: '';
         if ($source === '' || !is_dir($source)) throw new RuntimeException('Das kuratierte Quellenverzeichnis wurde nicht gefunden.');
-        $result = (new ImportCandidateRebuildService())->prepare($source, $ownerUserId, $progress);
+        // This workflow cannot safely resume at a generic cron time slice:
+        // a repeated invocation would otherwise take a new backup and reset
+        // the database again before any candidates are written.
+        $candidateProgress = static function (int $step, int $total, string $number, string $message) use ($writeLongRunningStatus, $jobId, $debug, $debugLog): void {
+            $writeLongRunningStatus(['step' => $step, 'total' => $total, 'current_device' => $number, 'message' => $message]);
+            $debugLog('Aufgabenfortschritt: ' . $step . ' von ' . $total . ($number !== '' ? ' · ' . $number : '') . ' · ' . $message, ['job_id' => $jobId, 'current' => $step, 'total' => $total, 'record' => $number]);
+            if ($debug) fwrite(STDERR, '[worker debug] ' . $step . '/' . $total . ' ' . ($number !== '' ? $number . ' · ' : '') . $message . PHP_EOL);
+            if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
+        };
+        $result = (new ImportCandidateRebuildService())->prepare($source, $ownerUserId, $candidateProgress);
         BackgroundJobService::complete($jobId, ['stats' => $result, 'run_id' => (int) ($result['run_id'] ?? 0)], 'Importbestand geleert; Kandidaten sind zur Sichtung vorbereitet.');
         exit(0);
     } elseif (($payload['type'] ?? '') === 'import_rebuild_reset') {
