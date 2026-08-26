@@ -1072,16 +1072,35 @@ final class BillingController
     private static function recentInvoices(): array
     {
         $tenantId = (int) (get_branding()['company_id'] ?? 0);
-        return R::getAll(
+        $rows = R::getAll(
             'SELECT inv.id, inv.invoice_number, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_date, inv.status, inv.created_at, c.name AS customer_name, '
             . 'SUM(CASE WHEN bi.active = 1 THEN 1 ELSE 0 END) AS inspection_count, '
             . 'COUNT(DISTINCT CASE WHEN bi.active = 1 THEN bi.device_id END) AS device_count, '
+            . 'COALESCE(SUM(CASE WHEN bi.active = 1 THEN bi.quantity ELSE 0 END), 0) AS billed_device_actual, '
+            . 'COALESCE(SUM(CASE WHEN bi.active = 1 THEN bi.regie_minutes ELSE 0 END), 0) AS billed_regie_actual, '
             . "COALESCE((SELECT SUM(position.quantity) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='device' OR (position.kind='unclassified' AND position.suggested_kind='device'))), 0) AS billed_device_target, "
+            . "COALESCE((SELECT SUM(position.regie_minutes) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='regie' OR (position.kind='unclassified' AND position.suggested_kind='regie'))), 0) AS billed_regie_target, "
             . 'COALESCE((SELECT COUNT(*) FROM (SELECT duplicate_item.device_id FROM billinginvoiceitem duplicate_item WHERE duplicate_item.invoice_id=inv.id AND duplicate_item.active=1 GROUP BY duplicate_item.device_id HAVING COUNT(*)>1)), 0) AS repeated_device_count '
             . 'FROM billinginvoice inv LEFT JOIN customer c ON c.id = inv.customer_id LEFT JOIN billinginvoiceitem bi ON bi.invoice_id = inv.id '
             . 'WHERE inv.tenant_id = ? GROUP BY inv.id ORDER BY inv.created_at DESC, inv.id DESC LIMIT 20',
             [$tenantId]
         );
+        foreach ($rows as &$row) {
+            $deviceTarget = (float) ($row['billed_device_target'] ?? 0);
+            $deviceActual = (float) ($row['billed_device_actual'] ?? 0);
+            $regieTarget = (int) ($row['billed_regie_target'] ?? 0);
+            $regieActual = (int) ($row['billed_regie_actual'] ?? 0);
+            $hasInspectionPositions = $deviceTarget > 0 || $regieTarget > 0;
+            $row['reconciliation_result'] = (string) $row['status'] === 'cancelled'
+                ? 'storniert'
+                : (!$hasInspectionPositions
+                    ? 'nicht prüfbezogen'
+                    : ((abs($deviceTarget - $deviceActual) > 0.0001 || $regieTarget !== $regieActual)
+                        ? 'abweichend'
+                        : 'passend'));
+        }
+        unset($row);
+        return $rows;
     }
 
     /** @return array<string,string> */
