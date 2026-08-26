@@ -6,6 +6,76 @@ use RedBeanPHP\R;
 
 final class PhoenixSyncService
 {
+    /** @return array{token:string,customer_id:string,base_url:string} */
+    public static function serverCredentials(): array
+    {
+        $read = static function (array $keys): string {
+            foreach ($keys as $key) {
+                $value = trim((string) (get_app_config(strtolower($key), '') ?: config_value($key) ?: getenv($key)));
+                if ($value !== '') return $value;
+            }
+            return '';
+        };
+        return [
+            'token' => $read(['PHOENIX_API_TOKEN', 'PRUEFAPP_PHOENIX_API_TOKEN', 'PHOENIX_TOKEN']),
+            'customer_id' => $read(['PHOENIX_CUSTOMER_ID', 'PRUEFAPP_PHOENIX_CUSTOMER_ID']),
+            'base_url' => rtrim($read(['PHOENIX_API_URL', 'PRUEFAPP_PHOENIX_API_URL']) ?: 'https://api.phoenix-arbeitswelt.de/phoenix', '/'),
+        ];
+    }
+
+    /** @return array{configured:bool,token_configured:bool,customer_configured:bool,base_url:string} */
+    public static function serverConfigurationStatus(): array
+    {
+        $credentials = self::serverCredentials();
+        return [
+            'configured' => $credentials['token'] !== '' && $credentials['customer_id'] !== '',
+            'token_configured' => $credentials['token'] !== '',
+            'customer_configured' => $credentials['customer_id'] !== '',
+            'base_url' => $credentials['base_url'],
+        ];
+    }
+
+    /** Downloads and stores the authoritative original PDF for one inspection. */
+    public function downloadOriginalReportForInspection(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): string
+    {
+        $credentials = self::serverCredentials();
+        if ($credentials['token'] === '' || $credentials['customer_id'] === '') return '';
+        $wanted = [];
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $number) {
+            $number = trim($number);
+            if ($number !== '') $wanted[$number] = true;
+        }
+        if ($wanted === []) return '';
+
+        $query = http_build_query([
+            'module' => 'audits',
+            'pre_filters' => json_encode([['column' => 'customer.id', 'operator' => '=', 'value' => (int) $credentials['customer_id']]]),
+            'results' => 2000, 'page' => 1, 'filters' => '[[]]', 'sortField' => 'date', 'sortOrder' => 'desc',
+            'columns' => json_encode(['id', 'number', 'inventory_number', 'date']),
+        ]);
+        $list = $this->request($credentials['base_url'] . '/table?' . $query, $credentials['token']);
+        $items = $list['resources']['data'] ?? [];
+        if (!is_array($items)) return '';
+        $auditId = 0;
+        foreach ($items as $item) {
+            if (!is_array($item)) continue;
+            $number = trim((string) ($item['number'] ?? ''));
+            $inventory = trim((string) ($item['inventory_number'] ?? ''));
+            if (!isset($wanted[$number]) && !isset($wanted[$inventory])) continue;
+            $auditId = (int) ($item['id'] ?? $item['audit_id'] ?? $item['resource_id'] ?? 0);
+            if ($auditId > 0) break;
+        }
+        if ($auditId <= 0) return '';
+
+        $pdf = $this->downloadReportBytes($credentials['base_url'] . '/webhook/good-parrot-49/audits/' . $auditId, $credentials['token']);
+        if ($pdf === '') return '';
+        $directory = app_data_root() . '/reports/phoenix-original';
+        if (!is_dir($directory) && !mkdir($directory, 0770, true) && !is_dir($directory)) throw new RuntimeException('Phoenix-Berichtsverzeichnis konnte nicht angelegt werden.');
+        $path = $directory . '/' . (int) $inspection->id . '-' . $auditId . '.pdf';
+        if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('Phoenix-Originalbericht konnte nicht gespeichert werden.');
+        return $path;
+    }
+
     public function sync(
         string $customerId,
         string $token,
@@ -140,10 +210,16 @@ final class PhoenixSyncService
 
     private function downloadReport(string $url, string $number, string $token, string $directory): void
     {
+        $body = $this->downloadReportBytes($url, $token);
+        if ($body !== '') file_put_contents($directory . '/' . preg_replace('/[^A-Za-z0-9_.-]+/', '_', $number) . '.pdf', $body);
+    }
+
+    private function downloadReportBytes(string $url, string $token): string
+    {
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 60, CURLOPT_POST => true, CURLOPT_POSTFIELDS => '{}', CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Content-Type: application/json', 'Accept: application/pdf, application/octet-stream', 'Origin: https://phoenix-arbeitswelt.de', 'X-Brezel-Frontend: https://phoenix-arbeitswelt.de']]);
         $body = curl_exec($ch); $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE); $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE); curl_close($ch);
-        if ($status < 400 && is_string($body) && (str_contains(strtolower($type), 'pdf') || str_starts_with(ltrim($body), '%PDF'))) file_put_contents($directory . '/' . preg_replace('/[^A-Za-z0-9_.-]+/', '_', $number) . '.pdf', $body);
+        return $status < 400 && is_string($body) && (str_contains(strtolower($type), 'pdf') || str_starts_with(ltrim($body), '%PDF')) ? $body : '';
     }
 
     private function removeDirectory(string $directory): void

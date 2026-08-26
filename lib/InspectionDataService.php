@@ -202,6 +202,10 @@ final class InspectionDataService
     {
         $path = self::originalReportPath((int) ($inspection->id ?? 0));
         if ($path === '') $path = self::locateImportedOriginalReport($inspection, $device);
+        if ($path === '' && class_exists(PhoenixSyncService::class)) {
+            $device ??= R::load('device', (int) ($inspection->device_id ?? 0));
+            if ((int) ($device->id ?? 0) > 0) $path = (new PhoenixSyncService())->downloadOriginalReportForInspection($inspection, $device);
+        }
         if ($path === '') return '';
         self::registerReportAsset((int) $inspection->id, 'import_original', $path, true);
         if ((string) ($inspection->report_path ?? '') !== $path) {

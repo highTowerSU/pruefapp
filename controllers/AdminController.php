@@ -41,6 +41,9 @@ class AdminController
         if ($summary === 'import-config') {
             return self::importConfigApiDebug($headers);
         }
+        if ($summary === 'phoenix') {
+            return [200, $headers, json_encode(['ok' => true, 'phoenix' => PhoenixSyncService::serverConfigurationStatus()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
+        }
         if ($summary === 'ai') {
             return self::aiProviderApiDebug($headers);
         }
