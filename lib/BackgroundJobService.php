@@ -17,6 +17,7 @@ final class BackgroundJobService
         'examiner_migration' => 'Prüferzuordnung',
         'directory_import' => 'Datenimport',
         'import_rebuild_reset' => 'Importbestand sichern und zurücksetzen',
+        'import_candidate_rebuild' => 'Importkandidaten vorbereiten',
         'phoenix_sync' => 'Phoenix-Import',
         'phoenix_report_sync' => 'Phoenix-Originalberichte synchronisieren',
         'csv_ods_source_reconciliation' => 'CSV/ODS-Quellen zusammenführen',

@@ -199,17 +199,17 @@ werden Messwerte aus der CSV und Geräteinformationen aus der ODS über
 alte Nummer und Speicherplatz bleiben am Gerät erhalten; jede Prüfung wird
 separat mit Datum, Messwerten, Rohdaten und optionalem PDF-Bericht gespeichert.
 
-Der Superadmin-Bereich „Importbestand aus kuratierten Quellen neu aufbauen"
-prüft einen Quellordner zunächst nur lesend. Er akzeptiert JSON/JSONL sowie
-vollständige CSV/ODS-Paare und blockiert einzelne CSV-Dateien ohne zugehörige
-ODS. Nach der expliziten Bestätigung wird vor dem Zurücksetzen ein prüfbares
-SQLite-Backup angelegt, importierte Prüfungen einschließlich der bisherigen
-Abrechnungs- und Exportzuordnungen entfernt und der reguläre Verzeichnisimport
-als Hintergrundauftrag gestartet. Nicht importierte, direkt in Prüfweb
-angelegte Prüfungen bleiben erhalten. Einzelne Mess-CSV-Dateien werden nur an
-eine passende, manuell angelegte Prüfung mit identischem Prüfdatum und
-Speicherplatz angebunden. Nicht fachliche Phoenix-Typen (Unterweisungsnachweis
-und Messgeräteübergabe) werden beim Import übersprungen.
+Der Superadmin-Bereich „Importbestand als Kandidaten neu aufbauen" erstellt
+zuerst ein prüfbares SQLite-Backup und behält ausschließlich direkt in Prüfweb
+angelegte Prüfungen. Historische Import- und Rechnungsdaten werden geleert;
+JSON/JSONL, CSV/ODS und die geschützten Prüfweb-Prüfungen werden anschließend
+als nachvollziehbare Kandidaten erfasst. Nur Gruppen mit Prüfungs- und
+Gerätenummer, gleichem Datum, kompatibler Prüfart und konfliktfreien Werten
+werden automatisch importiert. Fehlende Nummern und widersprüchliche Werte
+erscheinen in einer feldweisen Superadmin-Sichtung. Einzelne Mess-CSV-Dateien
+werden weiterhin nur an eine passende, manuell angelegte Prüfung mit identischem
+Prüfdatum und Speicherplatz angebunden. Nicht fachliche Phoenix-Typen
+(Unterweisungsnachweis und Messgeräteübergabe) werden übersprungen.
 
 ### Kanonisches Prüfungsmodell
 

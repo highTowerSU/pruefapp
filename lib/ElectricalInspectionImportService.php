@@ -74,6 +74,64 @@ final class ElectricalInspectionImportService
     }
 
     /**
+     * Reads source rows without writing inspections.  CSV values are enriched
+     * with their paired ODS device row exactly like the regular importer.
+     * @return list<array{source_kind:string,source_path:string,row_no:int,record:array<string,mixed>}>
+     */
+    public function candidateRecords(string $directory): array
+    {
+        $root = realpath($directory) ?: '';
+        if ($root === '' || !is_dir($root)) throw new InvalidArgumentException('Quellverzeichnis wurde nicht gefunden.');
+        $result = [];
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!$file instanceof SplFileInfo || !$file->isFile()) continue;
+            $extension = strtolower($file->getExtension());
+            $path = $file->getPathname();
+            if (in_array($extension, ['json', 'jsonl'], true)) {
+                $lines = $extension === 'jsonl' ? file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] : [];
+                $records = [];
+                if ($extension === 'jsonl') foreach ($lines as $line) { $decoded = json_decode($line, true); if (is_array($decoded)) $records[] = $decoded; }
+                else {
+                    $decoded = json_decode((string) file_get_contents($path), true);
+                    $records = is_array($decoded) && isset($decoded['number']) ? [$decoded] : (is_array($decoded['resources']['data'] ?? null) ? $decoded['resources']['data'] : (is_array($decoded) && array_is_list($decoded) ? $decoded : []));
+                }
+                foreach ($records as $rowNo => $record) {
+                    if (!is_array($record) || $this->ignoredInspectionTypeReason($record) !== '') continue;
+                    $result[] = ['source_kind' => 'json', 'source_path' => $path, 'row_no' => $rowNo + 1, 'record' => $record];
+                }
+                continue;
+            }
+            if ($extension !== 'csv') continue;
+            $contents = str_replace("\0", '', (string) file_get_contents($path));
+            if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
+            $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
+            $stream = fopen('php://memory', 'r+'); fwrite($stream, $contents); rewind($stream);
+            $header = fgetcsv($stream, 0, $delimiter);
+            if (!is_array($header)) { fclose($stream); continue; }
+            $header = $this->uniqueHeaders($header);
+            $ods = $this->readOds($this->matchingOdsPath($path));
+            $rowNo = 1;
+            while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
+                $rowNo++;
+                if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
+                $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
+                $slot = trim((string) ($record['storage_slot'] ?? ''));
+                $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
+                if (is_array($odsRow)) $record = array_merge($record, $odsRow);
+                $result[] = ['source_kind' => 'csv_ods', 'source_path' => $path, 'row_no' => $rowNo, 'record' => $record];
+            }
+            fclose($stream);
+        }
+        return $result;
+    }
+
+    /** Imports an already reviewed candidate as a consolidated inspection. */
+    public function importCandidateRecord(array $record, string $sourcePath): array
+    {
+        return $this->importRecord($record, 'reconciled', $sourcePath, dirname($sourcePath));
+    }
+
+    /**
      * Imports a bounded JSONL slice and returns a byte cursor for exact resume.
      *
      * @return array{next_offset:int,eof:bool,processed:int,stats:array<string,mixed>}

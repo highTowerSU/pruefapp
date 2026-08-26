@@ -78,6 +78,12 @@ try {
         $stats = MaintenanceJobHandler::run($job, $tick);
         BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) $payload['type']) . ' abgeschlossen.');
         exit(0);
+    } elseif (($payload['type'] ?? '') === 'import_candidate_rebuild') {
+        $source = realpath((string) ($payload['directory'] ?? '')) ?: '';
+        if ($source === '' || !is_dir($source)) throw new RuntimeException('Das kuratierte Quellenverzeichnis wurde nicht gefunden.');
+        $result = (new ImportCandidateRebuildService())->prepare($source, $ownerUserId, $progress);
+        BackgroundJobService::complete($jobId, ['stats' => $result, 'run_id' => (int) ($result['run_id'] ?? 0)], 'Importbestand geleert; Kandidaten sind zur Sichtung vorbereitet.');
+        exit(0);
     } elseif (($payload['type'] ?? '') === 'import_rebuild_reset') {
         $source = realpath((string) ($payload['directory'] ?? '')) ?: '';
         if ($source === '' || !is_dir($source)) throw new RuntimeException('Das kuratierte Quellenverzeichnis wurde nicht gefunden.');
