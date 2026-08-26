@@ -60,6 +60,7 @@ $checks = [
     [str_contains($maintenance, 'archiveConfirmedLegacyCsvDuplicates') && str_contains($maintenance, 'unvollständige Legacy-CSV-Dublette') && str_contains($worker, "'inspection_confirmed_legacy_csv_archive'") && str_contains($cron, 'inspection-confirmed-legacy-csv-archive:2023:v1'), 'Bestätigte unvollständige 2023er CSV-Dubletten werden nicht revisionssicher gegen Phoenix-Originale archiviert.'],
     [str_contains($maintenance, 'archiveConfirmedSameSourceDuplicates') && str_contains($maintenance, 'gleichquellige Importdublette') && str_contains($worker, "'inspection_confirmed_same_source_archive'") && str_contains($cron, 'inspection-confirmed-same-source-archive:v1'), 'Bestätigte gleichquellige Importdubletten werden nicht revisionssicher zusammengeführt.'],
     [str_contains($maintenance, 'repairConfirmedHistoricalDeviceAssignments') && str_contains($maintenance, 'export-lokale Speicher-Nr.') && str_contains($worker, "'inspection_confirmed_historical_device_repair'") && str_contains($cron, 'inspection-confirmed-historical-device-repair:v1'), 'Bestätigte historische Fehlzuordnungen werden nicht auf separate historische Geräte zurückgeführt.'],
+    [str_contains($maintenance, "'inspection_confirmed_historical_device_split'") && str_contains($cron, 'inspection-confirmed-historical-device-split:v1') && str_contains($cron, 'HIST-100012560-S005'), 'Bestätigte Quellzeilen ohne dauerhafte Gerätenummer werden nicht getrennt historisch geführt.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

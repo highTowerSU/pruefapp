@@ -42,6 +42,7 @@ final class MaintenanceJobHandler
             'inspection_confirmed_legacy_csv_archive' => self::archiveConfirmedLegacyCsvDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_same_source_archive' => self::archiveConfirmedSameSourceDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_historical_device_repair' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_historical_device_split' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -638,7 +639,7 @@ final class MaintenanceJobHandler
                     R::store($inspection);
                     $reassigned++;
                 }
-                $reason = 'Bestätigte Importbereinigung: export-lokale Speicher-Nr. darf nicht mehrere Prüfungen verschiedener Läufe demselben Gerät zuordnen; historische Gerätenummer ' . $sourceNumber . ' wurde wiederhergestellt.';
+                $reason = 'Bestätigte Importbereinigung: export-lokale Speicher-Nr. darf nicht mehrere Prüfungen verschiedener Läufe demselben Gerät zuordnen; historische Gerätekennung ' . $sourceNumber . ' wurde zugeordnet.';
                 R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $inspectionId, $inspectionId]);
                 R::commit();
             } catch (Throwable $exception) {
@@ -649,7 +650,9 @@ final class MaintenanceJobHandler
             $current++;
             $tick(['repair_index' => $index + 1, 'reassigned' => $reassigned, 'created' => $created], $current, $total, $expectedInspectionNumber, $wasCreated ? 'Historisches Gerät angelegt und Prüfung korrekt zugeordnet.' : 'Prüfung einem vorhandenen historischen Gerät korrekt zugeordnet.');
         }
-        set_app_config('inspection_confirmed_historical_device_repair_version', '1');
+        $configKey = trim((string) ($payload['completion_config_key'] ?? 'inspection_confirmed_historical_device_repair_version'));
+        if (preg_match('/^inspection_[a-z0-9_]+_version$/', $configKey) !== 1) $configKey = 'inspection_confirmed_historical_device_repair_version';
+        set_app_config($configKey, '1');
         return compact('reassigned', 'created');
     }
 

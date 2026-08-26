@@ -267,6 +267,29 @@ try {
             set_app_config('inspection_confirmed_historical_device_repair_version', '1');
         }
     }
+    // Explicit user confirmation: the two Heizgerät and two Bildschirm rows
+    // below have distinct source slots and must not share a device. There is
+    // no durable source number, so each receives an audit-labelled historical
+    // identifier instead of overwriting a current device.
+    $historicalDeviceSplitVersion = trim((string) get_app_config('inspection_confirmed_historical_device_split_version', ''));
+    if ($historicalDeviceSplitVersion !== '1') {
+        $historicalDeviceSplits = [
+            ['inspection_id' => 8936, 'inspection_number' => '--26', 'source_device_number' => 'HIST-HEIZ-054-20260402', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_04_02.csv', 'test_date' => '2026-04-02'],
+            ['inspection_id' => 10047, 'inspection_number' => '--26-2', 'source_device_number' => 'HIST-HEIZ-079-20260806', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_08_03.csv', 'test_date' => '2026-08-06'],
+            ['inspection_id' => 9916, 'inspection_number' => '100012560-26', 'source_device_number' => 'HIST-100012560-S004', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_08_03.csv', 'test_date' => '2026-08-03'],
+            ['inspection_id' => 9973, 'inspection_number' => '100012560-26-3', 'source_device_number' => 'HIST-100012560-S005', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_08_03.csv', 'test_date' => '2026-08-03'],
+        ];
+        $openHistoricalDeviceSplits = (int) R::getCell('SELECT COUNT(*) FROM inspection WHERE id IN (' . implode(',', array_fill(0, count($historicalDeviceSplits), '?')) . ") AND COALESCE(archived_at,'')=''", array_column($historicalDeviceSplits, 'inspection_id'));
+        if ($openHistoricalDeviceSplits > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_historical_device_split',
+                ['type' => 'inspection_confirmed_historical_device_split', 'repairs' => $historicalDeviceSplits, 'completion_config_key' => 'inspection_confirmed_historical_device_split_version'],
+                ['total' => count($historicalDeviceSplits), 'dedupe_key' => 'maintenance:inspection-confirmed-historical-device-split:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_historical_device_split_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.
