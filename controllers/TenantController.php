@@ -91,10 +91,6 @@ class TenantController
         if (!current_user_is_superadmin()) return forbidden_response();
         $company = (new TenantRepository())->find((int) ($params['id'] ?? 0));
         if ($company === null || !$company->id) return [404, [], 'Mandant nicht gefunden.'];
-        if ((string) ($company->slug ?? '') !== 'ceneos') {
-            $_SESSION['fehlermeldung'] = 'CENEOS ist als Fallback-Mandant festgelegt. Die öffentliche Mandantenauswahl erfolgt über den jeweiligen Hostnamen.';
-            return [303, ['Location' => url_for('mandanten')], ''];
-        }
 
         try {
             $client = new SevDeskClient((string) ($company->sevdesk_api_url ?? ''), (string) ($company->sevdesk_api_token ?? ''));
@@ -123,6 +119,11 @@ class TenantController
 
         if ($company === null || !$company->id) {
             return [404, [], '<h1>404 – Mandant nicht gefunden</h1>'];
+        }
+
+        if ((string) ($company->slug ?? '') !== 'ceneos') {
+            $_SESSION['fehlermeldung'] = 'CENEOS ist als Fallback-Mandant festgelegt. Die öffentliche Mandantenauswahl erfolgt über den jeweiligen Hostnamen.';
+            return [303, ['Location' => url_for('mandanten')], ''];
         }
 
         try {
