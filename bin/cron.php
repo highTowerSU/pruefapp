@@ -154,6 +154,19 @@ try {
             set_app_config('inspection_duplicate_audit_version', '2');
         }
     }
+    $duplicateReviewCleanupVersion = trim((string) get_app_config('inspection_duplicate_review_cleanup_version', ''));
+    if ($duplicateReviewCleanupVersion !== '1') {
+        $duplicateReviewCleanupTotal = (int) R::getCell("SELECT COUNT(*) FROM inspectiondupreview review JOIN inspection earlier ON earlier.id=review.inspection_id JOIN inspection later ON later.id=review.peer_inspection_id WHERE review.status='open' AND (COALESCE(earlier.archived_at,'')<>'' OR COALESCE(later.archived_at,'')<>'')");
+        if ($duplicateReviewCleanupTotal > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_duplicate_review_cleanup',
+                ['type' => 'inspection_duplicate_review_cleanup'],
+                ['total' => $duplicateReviewCleanupTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-review-cleanup:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_duplicate_review_cleanup_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.

@@ -37,6 +37,7 @@ final class MaintenanceJobHandler
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
+            'inspection_duplicate_review_cleanup' => self::cleanupArchivedDuplicateReviews($checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -302,6 +303,47 @@ final class MaintenanceJobHandler
         }
         set_app_config('inspection_duplicate_audit_version', '2');
         return ['processed' => $current, 'found' => $found];
+    }
+
+    /**
+     * A review is navigation data, not an independent business record.  Once
+     * either referenced inspection has already been revision-safely archived,
+     * an open review must not keep appearing as work for a user.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function cleanupArchivedDuplicateReviews(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $resolved = max(0, (int) ($checkpoint['resolved'] ?? 0));
+        if ($total <= 0) {
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspectiondupreview review
+                JOIN inspection earlier ON earlier.id=review.inspection_id
+                JOIN inspection later ON later.id=review.peer_inspection_id
+                WHERE review.status='open' AND (COALESCE(earlier.archived_at,'')<>'' OR COALESCE(later.archived_at,'')<>'')");
+        }
+        while ($row = R::getRow("SELECT review.id, review.finding_type
+            FROM inspectiondupreview review
+            JOIN inspection earlier ON earlier.id=review.inspection_id
+            JOIN inspection later ON later.id=review.peer_inspection_id
+            WHERE review.id>? AND review.status='open'
+              AND (COALESCE(earlier.archived_at,'')<>'' OR COALESCE(later.archived_at,'')<>'')
+            ORDER BY review.id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            $review = R::load('inspectiondupreview', $lastId);
+            if ((int) $review->id && (string) $review->status === 'open') {
+                $review->status = 'resolved';
+                $review->resolved_at = date(DATE_ATOM);
+                $review->resolution = 'Automatisch geschlossen: Mindestens eine referenzierte Prüfung ist bereits revisionssicher archiviert.';
+                R::store($review);
+                $resolved++;
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'resolved' => $resolved];
+            $tick($checkpoint, $current, max($total, $current), (string) $lastId, 'Veralteten Dublettenhinweis zu bereits archivierter Prüfung geschlossen.');
+        }
+        set_app_config('inspection_duplicate_review_cleanup_version', '1');
+        return compact('resolved');
     }
 
     private static function inspectionNumberBase(string $number): string
