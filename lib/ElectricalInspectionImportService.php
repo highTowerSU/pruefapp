@@ -103,6 +103,11 @@ final class ElectricalInspectionImportService
                 continue;
             }
             if ($extension !== 'csv') continue;
+            // A stand-alone measurement export belongs only to a manually
+            // created Prüfweb inspection.  It is not historic master data,
+            // hence it must not create an import candidate on its own.
+            $odsPath = $this->matchingOdsPath($path);
+            if ($odsPath === null) continue;
             $contents = str_replace("\0", '', (string) file_get_contents($path));
             if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
             $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
@@ -110,7 +115,7 @@ final class ElectricalInspectionImportService
             $header = fgetcsv($stream, 0, $delimiter);
             if (!is_array($header)) { fclose($stream); continue; }
             $header = $this->uniqueHeaders($header);
-            $ods = $this->readOds($this->matchingOdsPath($path));
+            $ods = $this->readOds($odsPath);
             $rowNo = 1;
             while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
                 $rowNo++;

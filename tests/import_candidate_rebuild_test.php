@@ -23,8 +23,10 @@ try {
         ['number' => 'P-1', 'external_number' => 'G-1', 'date' => '2025-07-01', 'type' => 'SK1', 'audit_ok' => true],
         ['number' => '', 'external_number' => '', 'date' => '2025-07-01', 'type' => 'SK1'],
     ]));
+    file_put_contents($root . '/sources/standalone-measurements.csv', "Speicher Nr;RPE Wert\n1;0,12\n");
     $result = (new ImportCandidateRebuildService())->prepare($root . '/sources', 1, static function (): void {});
     if (($result['automatic'] ?? 0) !== 1 || ($result['number_missing'] ?? 0) !== 1) throw new RuntimeException('Klare und nummernlose Kandidaten wurden nicht getrennt behandelt.');
     if ((int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual'") !== 1 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='json'") !== 0 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='reconciled'") !== 1) throw new RuntimeException('Der Neuaufbau bewahrt manuelle Prüfungen nicht oder importiert Kandidaten falsch.');
+    if ((int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE source_path LIKE '%standalone-measurements.csv'") !== 0) throw new RuntimeException('Einzelne Mess-CSV darf keinen historischen Kandidaten erzeugen.');
     echo "PASS: Kandidaten-Neuaufbau leert Altimporte, bewahrt Prüfweb und importiert nur klare Gruppen\n";
 } finally { R::close(); }
