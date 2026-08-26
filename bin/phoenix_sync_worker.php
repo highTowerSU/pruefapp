@@ -316,6 +316,10 @@ try {
         $apiUrl = trim((string) ($payload['api_url'] ?? '')) ?: $credentials['base_url'];
         if ($customerId === '' || $token === '') throw new RuntimeException('Phoenix-Zugang ist nicht vollständig konfiguriert.');
         $stats = (new PhoenixSyncService())->sync($customerId, $token, $apiUrl, $progress, (int) ($statusInitial['step'] ?? 0), $id);
+        $completionConfigKey = trim((string) ($payload['completion_config_key'] ?? ''));
+        if ($completionConfigKey !== '') {
+            set_app_config($completionConfigKey, (string) ($payload['completion_config_value'] ?? '1'));
+        }
         set_app_config('inspection_data_migration_version', '');
     }
     BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) ($payload['type'] ?? 'background')) . ' abgeschlossen.');
