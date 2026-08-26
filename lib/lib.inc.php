@@ -859,16 +859,14 @@ function redirect_url_for_target(?string $target): string
 
 function url_for(string $path = ''): string
 {
-    $base = base_path();
+    // Keep relative locations unambiguously path-relative.  In particular a
+    // base path of "/" must never turn the login target into "//login.php":
+    // browsers interpret that as a scheme-relative URL with host "login.php".
+    $base = trim(base_path(), '/');
+    $target = ltrim($path, '/');
+    $combined = trim($base . '/' . $target, '/');
 
-    $normalized = ltrim($path, '/');
-    $normalized = $normalized === '' ? '' : '/' . $normalized;
-
-    if ($base === '') {
-        return $normalized === '' ? '/' : $normalized;
-    }
-
-    return $normalized === '' ? ($base === '' ? '/' : $base) : $base . $normalized;
+    return $combined === '' ? '/' : '/' . $combined;
 }
 
 /** @return array<string,string> */
