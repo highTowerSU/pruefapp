@@ -736,6 +736,14 @@ final class ElectricalInspectionImportService
         $locationKey = strtolower($location);
         $level = trim((string) ($record['level'] ?? ''));
         $source = strtolower((string) ($record['_legacy_source'] ?? ''));
+        // The Phoenix/Benning AK CSVs often contain room codes such as K016
+        // but no explicit location column.  Their source file is sufficient
+        // to resolve the known Antoniuskolleg structure instead of leaving
+        // the value as an unlinked room snapshot.
+        if ($location === '' && str_contains($source, 'ak-elektro')) {
+            $location = 'Antoniuskolleg';
+            $locationKey = 'antoniuskolleg';
+        }
         $known = ['antoniuskolleg' => ['AK', 'NKS', 'Antoniuskolleg'], 'ak' => ['AK', 'NKS', 'Antoniuskolleg'], 'berufskolleg' => ['AK', 'BB', 'Berufskolleg'], 'quickputz gmbh & co.kg' => ['QP', 'QP', 'Quickputz GmbH & Co.KG']];
         if (isset($known[$locationKey])) [$knownCustomer, $knownSiteCode, $knownSiteName] = $known[$locationKey];
         elseif (str_contains($locationKey, 'quickputz')) [$knownCustomer, $knownSiteCode, $knownSiteName] = ['QP', 'QP', 'Quickputz GmbH & Co.KG'];
