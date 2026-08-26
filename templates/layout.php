@@ -591,7 +591,6 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             // This is intentionally central so every auto-refreshing panel
             // gets the same brief, unobtrusive feedback.
             let automaticRefreshes = 0;
-            let automaticRefreshHideTimer = 0;
             const isAutomaticRefresh = detail => /\bevery\b/i.test(String(detail?.elt?.getAttribute?.('hx-trigger') || ''));
             const refreshIndicator = () => {
                 let indicator = document.getElementById('htmx-auto-refresh-indicator');
@@ -608,14 +607,13 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             document.body.addEventListener('htmx:beforeRequest', event => {
                 if (!isAutomaticRefresh(event.detail)) return;
                 automaticRefreshes++;
-                window.clearTimeout(automaticRefreshHideTimer);
                 refreshIndicator().classList.remove('d-none');
             });
             document.body.addEventListener('htmx:afterRequest', event => {
                 if (!isAutomaticRefresh(event.detail)) return;
                 automaticRefreshes = Math.max(0, automaticRefreshes - 1);
                 if (automaticRefreshes > 0) return;
-                automaticRefreshHideTimer = window.setTimeout(() => refreshIndicator().classList.add('d-none'), 450);
+                refreshIndicator().classList.add('d-none');
             });
 
             document.body.addEventListener('htmx:beforeSwap', (event) => {
