@@ -188,6 +188,30 @@ try {
             set_app_config('inspection_confirmed_draft_archive_100011436_version', '1');
         }
     }
+    // Explicit user confirmation: retain the complete Phoenix originals for
+    // these seven 2023 pairs and archive only their incomplete test2.csv rows.
+    $confirmedLegacyCsvArchiveVersion = trim((string) get_app_config('inspection_confirmed_legacy_csv_archive_2023_version', ''));
+    if ($confirmedLegacyCsvArchiveVersion !== '1') {
+        $confirmedLegacyPairs = [
+            ['csv_inspection_id' => 9621, 'phoenix_inspection_id' => 6943],
+            ['csv_inspection_id' => 9619, 'phoenix_inspection_id' => 6946],
+            ['csv_inspection_id' => 9616, 'phoenix_inspection_id' => 6947],
+            ['csv_inspection_id' => 9614, 'phoenix_inspection_id' => 6938],
+            ['csv_inspection_id' => 9612, 'phoenix_inspection_id' => 6935],
+            ['csv_inspection_id' => 9608, 'phoenix_inspection_id' => 6921],
+            ['csv_inspection_id' => 9607, 'phoenix_inspection_id' => 6920],
+        ];
+        $openConfirmedLegacyRows = (int) R::getCell('SELECT COUNT(*) FROM inspection WHERE id IN (' . implode(',', array_fill(0, count($confirmedLegacyPairs), '?')) . ") AND COALESCE(archived_at,'')=''", array_column($confirmedLegacyPairs, 'csv_inspection_id'));
+        if ($openConfirmedLegacyRows > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_legacy_csv_archive',
+                ['type' => 'inspection_confirmed_legacy_csv_archive', 'pairs' => $confirmedLegacyPairs],
+                ['total' => count($confirmedLegacyPairs), 'dedupe_key' => 'maintenance:inspection-confirmed-legacy-csv-archive:2023:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_legacy_csv_archive_2023_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.

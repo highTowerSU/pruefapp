@@ -57,6 +57,7 @@ $checks = [
     [str_contains($maintenance, 'archiveJsonCsvMirrors') && str_contains($maintenance, 'Phoenix-JSON-Spiegelung') && str_contains($worker, "'inspection_json_csv_mirror_archive'") && str_contains($cron, 'inspection-json-csv-mirror-archive:v1'), 'Vollständig gleiche JSON/CSV-Spiegelungen werden nicht separat revisionssicher archiviert.'],
     [str_contains($maintenance, 'cleanupArchivedDuplicateReviews') && str_contains($maintenance, 'bereits revisionssicher archiviert') && str_contains($worker, "'inspection_duplicate_review_cleanup'") && str_contains($cron, 'inspection-duplicate-review-cleanup:v1'), 'Veraltete Dublettenhinweise bereits archivierter Prüfungen werden nicht automatisch geschlossen.'],
     [str_contains($maintenance, 'archiveConfirmedManualDraft') && str_contains($maintenance, 'Der bestätigte Entwurf enthält Quellprüfdaten') && str_contains($worker, "'inspection_confirmed_draft_archive'") && str_contains($cron, 'inspection-confirmed-draft-archive:100011436:v1'), 'Ein explizit bestätigter leerer Prüfentwurf wird nicht revisionssicher und eng begrenzt archiviert.'],
+    [str_contains($maintenance, 'archiveConfirmedLegacyCsvDuplicates') && str_contains($maintenance, 'unvollständige Legacy-CSV-Dublette') && str_contains($worker, "'inspection_confirmed_legacy_csv_archive'") && str_contains($cron, 'inspection-confirmed-legacy-csv-archive:2023:v1'), 'Bestätigte unvollständige 2023er CSV-Dubletten werden nicht revisionssicher gegen Phoenix-Originale archiviert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

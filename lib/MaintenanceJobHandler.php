@@ -39,6 +39,7 @@ final class MaintenanceJobHandler
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_review_cleanup' => self::cleanupArchivedDuplicateReviews($checkpoint, $current, $total, $tick),
             'inspection_confirmed_draft_archive' => self::archiveConfirmedManualDraft($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_legacy_csv_archive' => self::archiveConfirmedLegacyCsvDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -404,6 +405,79 @@ final class MaintenanceJobHandler
         audit_log('bestaetigter_pruefentwurf_archiviert', ['_category' => 'inspection', 'inspection_id' => (int) $draft->id, 'canonical_inspection_id' => (int) $canonical->id, 'reason' => $reason]);
         $tick(['archived' => 1], max(1, $current + 1), max(1, $total), $draftNumber, 'Bestätigten leeren manuellen Entwurf revisionssicher archiviert.');
         return ['archived' => 1, 'inspection_id' => (int) $draft->id, 'canonical_inspection_id' => (int) $canonical->id];
+    }
+
+    /**
+     * Archives only the explicitly confirmed October 2023 CSV records.  Each
+     * pair is validated against its complete Phoenix November record before
+     * it is hidden; no generic legacy inference is performed here.
+     *
+     * @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function archiveConfirmedLegacyCsvDuplicates(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $pairs = array_values(array_filter((array) ($payload['pairs'] ?? []), static fn(mixed $pair): bool => is_array($pair)));
+        if ($pairs === []) throw new InvalidArgumentException('Keine bestätigten Legacy-Dubletten übergeben.');
+        $index = max(0, (int) ($checkpoint['pair_index'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        $total = max($total, count($pairs));
+        for (; $index < count($pairs); $index++) {
+            $pair = $pairs[$index];
+            $csvId = max(0, (int) ($pair['csv_inspection_id'] ?? 0));
+            $phoenixId = max(0, (int) ($pair['phoenix_inspection_id'] ?? 0));
+            $csv = R::load('inspection', $csvId);
+            $phoenix = R::load('inspection', $phoenixId);
+            if (!(int) $csv->id || !(int) $phoenix->id) throw new RuntimeException('Bestätigtes 2023er Legacy-Paar wurde nicht gefunden.');
+            if (trim((string) $csv->archived_at) !== '') {
+                $current++;
+                $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $csv->external_number, 'Legacy-CSV-Zeile war bereits archiviert.');
+                continue;
+            }
+            if ((int) $csv->device_id !== (int) $phoenix->device_id
+                || (string) $csv->source_type !== 'csv' || (string) $phoenix->source_type !== 'json'
+                || (string) $csv->classification !== 'legacy' || (string) $phoenix->classification !== 'legacy'
+                || (string) $csv->test_date !== '2023-10-07' || (string) $phoenix->test_date !== '2023-11-23'
+                || !str_ends_with((string) $csv->source_file, 'test2.csv')
+                || !str_ends_with((string) $phoenix->source_file, 'altbestand-import.jsonl')) {
+                throw new RuntimeException('Bestätigtes 2023er Legacy-Paar erfüllt die abgesicherten Quellkriterien nicht.');
+            }
+            R::begin();
+            try {
+                $now = date(DATE_ATOM);
+                $reason = 'Bestätigte unvollständige Legacy-CSV-Dublette vom 07.10.2023; vollständige Phoenix-Originalprüfung #' . $phoenixId . ' vom 23.11.2023 bleibt maßgeblich.';
+                $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$csvId]);
+                foreach ($activeItems as $item) {
+                    $item->active = 0;
+                    $item->deactivated_at = $now;
+                    $item->deactivation_reason = 'Bestätigte unvollständige Legacy-CSV-Dublette; Phoenix-Originalprüfung #' . $phoenixId . ' bleibt maßgeblich.';
+                    R::store($item);
+                    $released++;
+                }
+                $csv->archived_at = $now;
+                $csv->archived_reason = $reason;
+                $csv->duplicate_of_inspection_id = $phoenixId;
+                $csv->billable = 0;
+                $csv->billing_eligibility = 'not_billable';
+                $csv->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $csv->billing_not_billable_comment = $reason;
+                $csv->billing_status = 'historisch_nicht_eindeutig';
+                $csv->billing_active_invoice_item_id = null;
+                $csv->updated_at = $now;
+                R::store($csv);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $csvId, $csvId]);
+                R::commit();
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            audit_log('bestaetigte_legacy_csv_dublette_archiviert', ['_category' => 'import', 'inspection_id' => $csvId, 'canonical_inspection_id' => $phoenixId, 'reason' => $reason]);
+            $archived++;
+            $current++;
+            $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $csv->external_number, 'Bestätigte unvollständige Legacy-CSV-Dublette archiviert; Phoenix-Original bleibt maßgeblich.');
+        }
+        set_app_config('inspection_confirmed_legacy_csv_archive_2023_version', '1');
+        return compact('archived', 'released');
     }
 
     private static function inspectionNumberBase(string $number): string
