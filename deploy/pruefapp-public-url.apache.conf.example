@@ -36,4 +36,9 @@
 #     'bsw'         => 'https://pruef.bsw-consult.gmbh',
 #     'ceneos'      => 'https://pruef.ceneos.net',
 # ],
+# 'APP_BRAND_HOSTS' => [
+#     'pruef.koenigsblau.de' => 'koenigsblau',
+#     'pruef.bsw-consult.gmbh' => 'bsw',
+#     'pruef.ceneos.net' => 'ceneos',
+# ],
 # Damit verwenden auch Cron/PDFs je Mandant die passende Marken-Domain.

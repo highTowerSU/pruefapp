@@ -12,6 +12,18 @@ function get_branding(): array
     }
 
     $brandKey = config_value('APP_BRAND') ?? '';
+    // A shared deployment can serve several branded hosts. The hostname wins
+    // for browser requests, while CLI/Cron continues to use APP_BRAND and
+    // report generation explicitly selects the inspection tenant.
+    $host = strtolower(trim(explode(':', (string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? ''), 2)[0]));
+    $hostBrands = \Ceneos\PhpBase\Config\Config::get('APP_BRAND_HOSTS');
+    if (!is_array($hostBrands)) {
+        $rawHostBrands = trim((string) (getenv('APP_BRAND_HOSTS') ?: ''));
+        $hostBrands = $rawHostBrands !== '' ? json_decode($rawHostBrands, true) : [];
+    }
+    if ($host !== '' && is_array($hostBrands) && !empty($hostBrands[$host])) {
+        $brandKey = (string) $hostBrands[$host];
+    }
     $brandKey = strtolower(trim($brandKey));
 
     $brandAliases = [
