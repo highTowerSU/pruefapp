@@ -3,14 +3,14 @@
 # Das Zertifikat enthält alle drei Namen als SAN.
 
 <VirtualHost *:80>
-    ServerName pruef.koenigsblau.de
+    ServerName pruef.koenigsbl.au
     ServerAlias pruef.bsw-consult.gmbh pruef.ceneos.net
     RewriteEngine On
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
 </VirtualHost>
 
 <VirtualHost *:443>
-    ServerName pruef.koenigsblau.de
+    ServerName pruef.koenigsbl.au
     ServerAlias pruef.bsw-consult.gmbh pruef.ceneos.net
 
     DocumentRoot /var/www/html/pruefapp
@@ -25,19 +25,19 @@
 
     # Zertifikate aus acme.sh --install-cert.
     SSLEngine on
-    SSLCertificateFile    /etc/ssl/private/pruef.koenigsblau.de-fullchain.pem
-    SSLCertificateKeyFile /etc/ssl/private/pruef.koenigsblau.de-key.pem
+    SSLCertificateFile    /etc/ssl/private/pruef.koenigsbl.au-fullchain.pem
+    SSLCertificateKeyFile /etc/ssl/private/pruef.koenigsbl.au-key.pem
 </VirtualHost>
 
 # In der externen Prüfapp-Konfiguration (config/pruefapp.php) ergänzen:
 # 'APP_BASE_PATH' => '/',
 # 'APP_PUBLIC_BASE_URLS' => [
-#     'koenigsblau' => 'https://pruef.koenigsblau.de',
+#     'koenigsblau' => 'https://pruef.koenigsbl.au',
 #     'bsw'         => 'https://pruef.bsw-consult.gmbh',
 #     'ceneos'      => 'https://pruef.ceneos.net',
 # ],
 # 'APP_BRAND_HOSTS' => [
-#     'pruef.koenigsblau.de' => 'koenigsblau',
+#     'pruef.koenigsbl.au' => 'koenigsblau',
 #     'pruef.bsw-consult.gmbh' => 'bsw',
 #     'pruef.ceneos.net' => 'ceneos',
 # ],
