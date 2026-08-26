@@ -66,7 +66,7 @@ try {
         if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
         if ($deadline > 0 && microtime(true) >= $deadline) throw new RuntimeException('__CRON_TIME_LIMIT__');
     };
-    $maintenanceTypes = ['missing_reports', 'report_migration', 'all_report_regeneration', 'phoenix_pdf_restore', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation', 'csv_source_fact_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_csv_source_duplicate_archive', 'inspection_manual_csv_consolidation', 'vocabulary_suggestion', 'vocabulary_review_scan', 'vocabulary_normalization'];
+    $maintenanceTypes = ['missing_reports', 'report_migration', 'all_report_regeneration', 'phoenix_pdf_restore', 'phoenix_report_sync', 'measurement_migration', 'inspection_data_migration', 'legacy_classification_migration', 'import_result_reconciliation', 'csv_source_fact_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_csv_source_duplicate_archive', 'inspection_manual_csv_consolidation', 'vocabulary_suggestion', 'vocabulary_review_scan', 'vocabulary_normalization'];
     if (in_array((string) ($payload['type'] ?? ''), $maintenanceTypes, true)) {
         $tick = static function (array $checkpoint, int $step, int $total, string $number, string $message) use ($jobId, $workerId, $deadline, $debug, $debugLog): void {
             JobQueue::checkpoint($jobId, $checkpoint + ['current_device' => $number, 'next_index' => $step], $step, $total, $message, $workerId, 180);
@@ -310,7 +310,12 @@ try {
         set_app_config('inspection_data_migration_version', '');
         if (JobQueue::cancellationRequested($jobId)) throw new RuntimeException('__JOB_CANCELLED__');
     } else {
-        $stats = (new PhoenixSyncService())->sync((string) ($payload['customer_id'] ?? ''), (string) ($payload['token'] ?? ''), (string) ($payload['api_url'] ?? ''), $progress, (int) ($statusInitial['step'] ?? 0), $id);
+        $credentials = PhoenixSyncService::serverCredentials();
+        $customerId = trim((string) ($payload['customer_id'] ?? '')) ?: $credentials['customer_id'];
+        $token = trim((string) ($payload['token'] ?? '')) ?: $credentials['token'];
+        $apiUrl = trim((string) ($payload['api_url'] ?? '')) ?: $credentials['base_url'];
+        if ($customerId === '' || $token === '') throw new RuntimeException('Phoenix-Zugang ist nicht vollständig konfiguriert.');
+        $stats = (new PhoenixSyncService())->sync($customerId, $token, $apiUrl, $progress, (int) ($statusInitial['step'] ?? 0), $id);
         set_app_config('inspection_data_migration_version', '');
     }
     BackgroundJobService::complete($jobId, ['stats' => $stats], BackgroundJobService::label((string) ($payload['type'] ?? 'background')) . ' abgeschlossen.');

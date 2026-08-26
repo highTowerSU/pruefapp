@@ -110,14 +110,20 @@ class SettingsController
         $skipGeneralSave = false;
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if (($_POST['action'] ?? '') === 'save_phoenix') {
+            if (in_array(($_POST['action'] ?? ''), ['save_phoenix', 'test_phoenix'], true)) {
                 $customerId = trim((string) ($_POST['phoenix_customer_id'] ?? ''));
                 $baseUrl = rtrim(trim((string) ($_POST['phoenix_api_url'] ?? '')), '/');
                 $token = trim((string) ($_POST['phoenix_api_token'] ?? ''));
                 try {
                     if (!preg_match('/^\d+$/', $customerId) || (int) $customerId < 1) throw new RuntimeException('Bitte eine gültige numerische Phoenix-Kunden-ID angeben.');
                     if (filter_var($baseUrl, FILTER_VALIDATE_URL) === false) throw new RuntimeException('Bitte eine gültige Phoenix-API-URL angeben.');
-                    if ($token === '' && trim((string) get_app_config('phoenix_api_token', '')) === '' && !isset($_POST['clear_phoenix_api_token'])) throw new RuntimeException('Bitte einen Phoenix-API-Token hinterlegen.');
+                    $effectiveToken = $token !== '' ? $token : trim((string) get_app_config('phoenix_api_token', ''));
+                    if ($effectiveToken === '' && !isset($_POST['clear_phoenix_api_token'])) throw new RuntimeException('Bitte einen Phoenix-API-Token hinterlegen.');
+                    if (($_POST['action'] ?? '') === 'test_phoenix') {
+                        $found = (new PhoenixSyncService())->testConnection($customerId, $effectiveToken, $baseUrl);
+                        $_SESSION['meldung'] = 'Phoenix-Verbindung erfolgreich getestet' . ($found > 0 ? '; mindestens eine Prüfung ist für den Kunden erreichbar.' : '; Zugang ist erreichbar, es wurden aber keine Prüfungen zurückgegeben.') . ' Die Angaben wurden noch nicht gespeichert.';
+                        return [303, ['Location' => url_for('admin/konfiguration#settings-phoenix-panel')], ''];
+                    }
                     set_app_config('phoenix_customer_id', $customerId);
                     set_app_config('phoenix_api_url', $baseUrl);
                     if ($token !== '') set_app_config('phoenix_api_token', $token);

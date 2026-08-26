@@ -17,6 +17,7 @@ final class BackgroundJobService
         'examiner_migration' => 'Prüferzuordnung',
         'directory_import' => 'Datenimport',
         'phoenix_sync' => 'Phoenix-Import',
+        'phoenix_report_sync' => 'Phoenix-Originalberichte synchronisieren',
         'missing_reports' => 'Fehlende Prüfberichte',
         'phoenix_pdf_restore' => 'Original-PDFs wiederherstellen',
         'report_migration' => 'PDF-Aufbereitung',
@@ -122,10 +123,10 @@ final class BackgroundJobService
         if ($job === null) return;
         JobQueue::finish($jobId, 'done', $result, $message !== '' ? $message : self::label($job['type']) . ' abgeschlossen.');
         $owner = (int) $job['owner_user_id'];
-        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'imported_room_assignment', 'legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_manual_csv_consolidation'], true) ? self::adminUserIds() : []);
+        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'phoenix_report_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'imported_room_assignment', 'legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_manual_csv_consolidation'], true) ? self::adminUserIds() : []);
         if ($recipients !== []) {
             NotificationRepository::publish($recipients, self::label($job['type']) . ' abgeschlossen', $message ?: 'Die Aufgabe wurde erfolgreich abgeschlossen.', [
-                'category' => str_contains($job['type'], 'import') || $job['type'] === 'phoenix_sync' ? 'import' : 'background_job',
+                'category' => str_contains($job['type'], 'import') || in_array($job['type'], ['phoenix_sync', 'phoenix_report_sync'], true) ? 'import' : 'background_job',
                 'severity' => 'success',
                 'action_url' => self::resultActionUrl($job['type'], $job['public_id']),
                 'job_id' => $jobId,
@@ -265,7 +266,7 @@ final class BackgroundJobService
     private static function priority(string $type): int
     {
         return match ($type) {
-            'directory_import', 'phoenix_sync' => 40,
+            'directory_import', 'phoenix_sync', 'phoenix_report_sync' => 40,
             'legacy_classification_migration' => 50,
             'import_result_reconciliation' => 45,
             'csv_source_fact_reconciliation' => 46,
@@ -305,14 +306,14 @@ final class BackgroundJobService
     {
         return in_array($type, ['pdf_zip', 'pdf_bundle', 'inspection_pdf_zip'], true)
             ? url_for('geraete/zip/' . $publicId . '/download')
-            : (in_array($type, ['directory_import', 'phoenix_sync', 'pending_measurement_import'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
+            : (in_array($type, ['directory_import', 'phoenix_sync', 'phoenix_report_sync', 'pending_measurement_import'], true) ? url_for('admin/pruefungen/import') : url_for('downloads'));
     }
 
     /** @param array<string,mixed> $job @param array<string,mixed> $details */
     private static function auditTransition(array $job, string $action, array $details): void
     {
         (new AuditLogger())->log($action, [
-            '_category' => str_contains((string) $job['type'], 'import') || $job['type'] === 'phoenix_sync' ? 'import' : 'background_job',
+            '_category' => str_contains((string) $job['type'], 'import') || in_array((string) $job['type'], ['phoenix_sync', 'phoenix_report_sync'], true) ? 'import' : 'background_job',
             '_correlation_id' => 'job-' . $job['public_id'],
             '_entity_type' => 'background_job',
             '_entity_id' => $job['public_id'],

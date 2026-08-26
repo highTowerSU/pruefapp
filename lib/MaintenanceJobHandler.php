@@ -31,6 +31,7 @@ final class MaintenanceJobHandler
             'report_migration' => self::reportMigration($checkpoint, $current, $total, $tick),
             'all_report_regeneration' => self::allReportRegeneration($payload, $checkpoint, $current, $total, $tick),
             'phoenix_pdf_restore' => self::restorePhoenixPdfs($checkpoint, $current, $total, $tick),
+            'phoenix_report_sync' => self::syncPhoenixReports($checkpoint, $current, $total, $tick),
             'measurement_migration' => self::measurementMigration($checkpoint, $current, $total, $tick),
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
             'imported_room_assignment' => self::assignImportedRooms($checkpoint, $current, $total, $tick),
@@ -1617,6 +1618,27 @@ final class MaintenanceJobHandler
 
         self::writeMarker($marker, ['completed_at' => date(DATE_ATOM), 'restored' => $restored, 'unresolved' => $unresolved, 'searched_roots' => $roots]);
         return ['restored' => $restored, 'unresolved' => $unresolved, 'processed' => $current, 'searched_roots' => $roots];
+    }
+
+    /** Fetches missing authoritative PDFs through the configured Phoenix connection. */
+    private static function syncPhoenixReports(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $available = max(0, (int) ($checkpoint['available'] ?? 0));
+        $missing = max(0, (int) ($checkpoint['missing'] ?? 0));
+        if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type IN ('csv','json') AND result_status IN ('passed','failed')");
+        while ($row = R::getRow("SELECT id, device_id FROM inspection WHERE id > ? AND source_type IN ('csv','json') AND result_status IN ('passed','failed') ORDER BY id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            $inspection = R::load('inspection', $lastId);
+            $device = R::load('device', (int) ($row['device_id'] ?? 0));
+            $path = InspectionDataService::activateImportedOriginalReport($inspection, $device);
+            if ($path !== '') { $available++; $message = 'Phoenix-Originalbericht ist verfügbar.'; }
+            else { $missing++; $message = 'Kein Phoenix-Originalbericht gefunden.'; }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'available' => $available, 'missing' => $missing];
+            $tick($checkpoint, $current, $total, (string) ($inspection->external_number ?? $lastId), $message);
+        }
+        return ['available' => $available, 'missing' => $missing, 'processed' => $current];
     }
 
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */

@@ -631,10 +631,21 @@ final class InspectionController
             }
             if (($_POST['action'] ?? '') === 'phoenix_sync') {
                 try {
-                    $job = BackgroundJobService::enqueue('phoenix_sync', ['type' => 'phoenix_sync', 'customer_id' => trim((string) ($_POST['phoenix_customer_id'] ?? '')), 'token' => trim((string) ($_POST['phoenix_token'] ?? '')), 'api_url' => trim((string) ($_POST['phoenix_api_url'] ?? '')) ?: 'https://api.phoenix-arbeitswelt.de/phoenix', 'owner_user_id' => (int) (current_user()->id ?? 0)]);
+                    $credentials = PhoenixSyncService::serverCredentials();
+                    if ($credentials['token'] === '' || $credentials['customer_id'] === '') throw new RuntimeException('Phoenix-Zugang ist noch nicht vollständig konfiguriert.');
+                    $job = BackgroundJobService::enqueue('phoenix_sync', ['type' => 'phoenix_sync', 'owner_user_id' => (int) (current_user()->id ?? 0)]);
                     $id = (string) $job['id'];
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 } catch (Throwable $exception) { $message = 'Phoenix-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
+            }
+            if (($_POST['action'] ?? '') === 'phoenix_report_sync') {
+                try {
+                    $credentials = PhoenixSyncService::serverCredentials();
+                    if ($credentials['token'] === '' || $credentials['customer_id'] === '') throw new RuntimeException('Phoenix-Zugang ist noch nicht vollständig konfiguriert.');
+                    $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type IN ('csv', 'json') AND result_status IN ('passed', 'failed')");
+                    $job = BackgroundJobService::enqueue('phoenix_report_sync', ['type' => 'phoenix_report_sync', 'owner_user_id' => (int) (current_user()->id ?? 0)], ['total' => $total]);
+                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
+                } catch (Throwable $exception) { $message = 'Phoenix-Berichts-Sync konnte nicht gestartet werden: ' . $exception->getMessage(); }
             }
             if (isset($_FILES['csv']) && is_array($_FILES['csv'])) {
                 try {

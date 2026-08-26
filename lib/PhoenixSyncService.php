@@ -6,6 +6,8 @@ use RedBeanPHP\R;
 
 final class PhoenixSyncService
 {
+    /** @var array<string,array<string,int>> */
+    private static array $auditIndexCache = [];
     /** @return array{token:string,customer_id:string,base_url:string} */
     public static function serverCredentials(): array
     {
@@ -35,6 +37,27 @@ final class PhoenixSyncService
         ];
     }
 
+    /** Verifies credentials without persisting or disclosing the token. */
+    public function testConnection(string $customerId, string $token, string $baseUrl): int
+    {
+        $customerId = trim($customerId);
+        $token = trim($token);
+        $baseUrl = rtrim(trim($baseUrl), '/');
+        if (!preg_match('/^\d+$/', $customerId) || (int) $customerId < 1) throw new InvalidArgumentException('Bitte eine gültige numerische Phoenix-Kunden-ID angeben.');
+        if ($token === '') throw new InvalidArgumentException('Bitte einen Phoenix-API-Token hinterlegen.');
+        if (filter_var($baseUrl, FILTER_VALIDATE_URL) === false) throw new InvalidArgumentException('Bitte eine gültige Phoenix-API-URL angeben.');
+        $query = http_build_query([
+            'module' => 'audits',
+            'pre_filters' => json_encode([['column' => 'customer.id', 'operator' => '=', 'value' => (int) $customerId]]),
+            'results' => 1, 'page' => 1, 'filters' => '[[]]', 'sortField' => 'date', 'sortOrder' => 'desc',
+            'columns' => json_encode(['number', 'date']),
+        ]);
+        $response = $this->request($baseUrl . '/table?' . $query, $token);
+        $items = $response['resources']['data'] ?? null;
+        if (!is_array($items)) throw new RuntimeException('Phoenix-Antwort enthält keine Prüfungen.');
+        return count($items);
+    }
+
     /** Downloads and stores the authoritative original PDF for one inspection. */
     public function downloadOriginalReportForInspection(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): string
     {
@@ -47,23 +70,10 @@ final class PhoenixSyncService
         }
         if ($wanted === []) return '';
 
-        $query = http_build_query([
-            'module' => 'audits',
-            'pre_filters' => json_encode([['column' => 'customer.id', 'operator' => '=', 'value' => (int) $credentials['customer_id']]]),
-            'results' => 2000, 'page' => 1, 'filters' => '[[]]', 'sortField' => 'date', 'sortOrder' => 'desc',
-            'columns' => json_encode(['id', 'number', 'inventory_number', 'date']),
-        ]);
-        $list = $this->request($credentials['base_url'] . '/table?' . $query, $credentials['token']);
-        $items = $list['resources']['data'] ?? [];
-        if (!is_array($items)) return '';
+        $index = $this->serverAuditIndex($credentials);
         $auditId = 0;
-        foreach ($items as $item) {
-            if (!is_array($item)) continue;
-            $number = trim((string) ($item['number'] ?? ''));
-            $inventory = trim((string) ($item['inventory_number'] ?? ''));
-            if (!isset($wanted[$number]) && !isset($wanted[$inventory])) continue;
-            $auditId = (int) ($item['id'] ?? $item['audit_id'] ?? $item['resource_id'] ?? 0);
-            if ($auditId > 0) break;
+        foreach (array_keys($wanted) as $number) {
+            if (isset($index[$number])) { $auditId = $index[$number]; break; }
         }
         if ($auditId <= 0) return '';
 
@@ -74,6 +84,46 @@ final class PhoenixSyncService
         $path = $directory . '/' . (int) $inspection->id . '-' . $auditId . '.pdf';
         if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('Phoenix-Originalbericht konnte nicht gespeichert werden.');
         return $path;
+    }
+
+    /** @param array{token:string,customer_id:string,base_url:string} $credentials @return array<string,int> */
+    private function serverAuditIndex(array $credentials): array
+    {
+        $cacheKey = hash('sha256', $credentials['base_url'] . '|' . $credentials['customer_id'] . '|' . $credentials['token']);
+        if (isset(self::$auditIndexCache[$cacheKey])) return self::$auditIndexCache[$cacheKey];
+        $cacheDir = app_data_root() . '/cache';
+        $cachePath = $cacheDir . '/phoenix-audit-index-' . hash('sha256', $credentials['base_url'] . '|' . $credentials['customer_id']) . '.json';
+        if (is_file($cachePath) && (filemtime($cachePath) ?: 0) >= time() - 21600) {
+            $cached = json_decode((string) file_get_contents($cachePath), true);
+            if (is_array($cached)) return self::$auditIndexCache[$cacheKey] = array_map('intval', $cached);
+        }
+        $index = [];
+        for ($page = 1; $page <= 20; $page++) {
+            $query = http_build_query([
+                'module' => 'audits',
+                'pre_filters' => json_encode([['column' => 'customer.id', 'operator' => '=', 'value' => (int) $credentials['customer_id']]]),
+                'results' => 2000, 'page' => $page, 'filters' => '[[]]', 'sortField' => 'date', 'sortOrder' => 'desc',
+                'columns' => json_encode(['id', 'number', 'inventory_number', 'date']),
+            ]);
+            $list = $this->request($credentials['base_url'] . '/table?' . $query, $credentials['token']);
+            $items = $list['resources']['data'] ?? [];
+            if (!is_array($items)) break;
+            foreach ($items as $item) {
+                if (!is_array($item)) continue;
+                $id = (int) ($item['id'] ?? $item['audit_id'] ?? $item['resource_id'] ?? 0);
+                if ($id <= 0) continue;
+                foreach (['number', 'inventory_number'] as $field) {
+                    $value = trim((string) ($item[$field] ?? ''));
+                    if ($value !== '') $index[$value] = $id;
+                }
+            }
+            if (count($items) < 2000) break;
+        }
+        if ($index !== []) {
+            if (!is_dir($cacheDir)) @mkdir($cacheDir, 0770, true);
+            @file_put_contents($cachePath, json_encode($index, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        }
+        return self::$auditIndexCache[$cacheKey] = $index;
     }
 
     public function sync(
