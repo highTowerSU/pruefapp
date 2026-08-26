@@ -591,7 +591,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             // This is intentionally central so every auto-refreshing panel
             // gets the same brief, unobtrusive feedback.
             let automaticRefreshes = 0;
-            let automaticRefreshFailsafe = 0;
+            const automaticRefreshSources = new WeakSet();
             const isAutomaticRefresh = detail => /\bevery\b/i.test(String(detail?.elt?.getAttribute?.('hx-trigger') || ''));
             const refreshIndicator = () => {
                 let indicator = document.getElementById('htmx-auto-refresh-indicator');
@@ -607,17 +607,16 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             };
             document.body.addEventListener('htmx:beforeRequest', event => {
                 if (!isAutomaticRefresh(event.detail)) return;
+                if (event.detail?.elt) automaticRefreshSources.add(event.detail.elt);
                 automaticRefreshes++;
-                const indicator = refreshIndicator();
-                indicator.classList.remove('d-none');
-                window.clearTimeout(automaticRefreshFailsafe);
-                automaticRefreshFailsafe = window.setTimeout(() => indicator.classList.add('d-none'), 1000);
+                refreshIndicator().classList.remove('d-none');
             });
             document.body.addEventListener('htmx:afterRequest', event => {
-                if (!isAutomaticRefresh(event.detail)) return;
+                const source = event.detail?.elt;
+                if (!source || !automaticRefreshSources.has(source)) return;
+                automaticRefreshSources.delete(source);
                 automaticRefreshes = Math.max(0, automaticRefreshes - 1);
                 if (automaticRefreshes > 0) return;
-                window.clearTimeout(automaticRefreshFailsafe);
                 refreshIndicator().classList.add('d-none');
             });
 
