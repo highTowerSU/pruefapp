@@ -177,7 +177,7 @@ try {
     // history remain intact; only the active operational/billing allocation
     // is released.  Ambiguous short-interval repeats stay for manual review.
     $duplicateArchiveVersion = trim((string) get_app_config('inspection_duplicate_archive_version', ''));
-    if ($duplicateArchiveVersion !== '4' && $duplicateAuditVersion === '2' && $csvFactReconciliationVersion === '1') {
+    if ($duplicateArchiveVersion !== '5' && $duplicateAuditVersion === '2' && $csvFactReconciliationVersion === '1') {
         $duplicateArchiveTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection later
             WHERE (
                 (later.source_type='json' AND EXISTS (SELECT 1 FROM inspection canonical
@@ -206,16 +206,16 @@ try {
             BackgroundJobService::enqueue(
                 'inspection_duplicate_archive',
                 ['type' => 'inspection_duplicate_archive'],
-                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v4', 'cancellable' => false]
+                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v5', 'cancellable' => false]
             );
         } else {
-            set_app_config('inspection_duplicate_archive_version', '4');
+            set_app_config('inspection_duplicate_archive_version', '5');
         }
     }
     // A separate, even narrower pass handles the old year-suffix defect:
     // only byte-identical CSV rows from the same source file/device qualify.
     $csvSourceDuplicateArchiveVersion = trim((string) get_app_config('inspection_csv_source_duplicate_archive_version', ''));
-    if ($csvSourceDuplicateArchiveVersion !== '1' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '4') {
+    if ($csvSourceDuplicateArchiveVersion !== '1' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '5') {
         $csvSourceDuplicateTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection i JOIN inspection_source_snapshot s ON s.inspection_id=i.id WHERE i.source_type='csv' AND COALESCE(i.archived_at,'')='' AND TRIM(COALESCE(i.source_file,''))<>'' AND TRIM(COALESCE(s.source_row_json,''))<>''");
         if ($csvSourceDuplicateTotal > 0) {
             BackgroundJobService::enqueue(

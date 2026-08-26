@@ -503,7 +503,7 @@ final class MaintenanceJobHandler
             $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
             $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Eindeutige Re-Importdublettenprüfung archiviert und aus aktiven Rechnungszuordnungen gelöst.');
         }
-        set_app_config('inspection_duplicate_archive_version', '4');
+        set_app_config('inspection_duplicate_archive_version', '5');
         return compact('archived', 'released');
     }
 
