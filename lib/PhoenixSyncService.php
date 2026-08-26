@@ -66,8 +66,16 @@ final class PhoenixSyncService
         $credentials = self::serverCredentials();
         if ($credentials['token'] === '' || $credentials['customer_id'] === '') return '';
         $wanted = [];
-        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $number) {
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? '')] as $number) {
             $number = trim($number);
+            if ($number !== '') $wanted[$number] = true;
+        }
+        // A device may have several inspections.  Its current number is not
+        // proof that an arbitrary imported inspection is the same Phoenix
+        // audit, especially after a historical import repair.  Only use it
+        // when the import lacks *any* inspection identifier.
+        if ($wanted === []) {
+            $number = trim((string) ($device->external_number ?? ''));
             if ($number !== '') $wanted[$number] = true;
         }
         if ($wanted === []) return '';
@@ -100,8 +108,12 @@ final class PhoenixSyncService
         if ($credentials['token'] === '' || $credentials['customer_id'] === '') return ['matched' => false, 'updated' => 0, 'conflicts' => 0];
         if (!in_array((string) ($inspection->source_type ?? ''), ['csv', 'json'], true)) return ['matched' => false, 'updated' => 0, 'conflicts' => 0];
         $wanted = [];
-        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $number) {
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? '')] as $number) {
             $number = trim($number);
+            if ($number !== '') $wanted[$number] = true;
+        }
+        if ($wanted === []) {
+            $number = trim((string) ($device->external_number ?? ''));
             if ($number !== '') $wanted[$number] = true;
         }
         $auditId = 0;
@@ -162,8 +174,12 @@ final class PhoenixSyncService
         if ($credentials['token'] === '' || $credentials['customer_id'] === '') return ['matched' => false, 'audit_id' => 0, 'record' => []];
         if (!in_array((string) ($inspection->source_type ?? ''), ['csv', 'json'], true)) return ['matched' => false, 'audit_id' => 0, 'record' => []];
         $wanted = [];
-        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $number) {
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? '')] as $number) {
             $number = trim($number);
+            if ($number !== '') $wanted[$number] = true;
+        }
+        if ($wanted === []) {
+            $number = trim((string) ($device->external_number ?? ''));
             if ($number !== '') $wanted[$number] = true;
         }
         $auditId = 0;
