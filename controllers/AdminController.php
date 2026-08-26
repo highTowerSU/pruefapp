@@ -25,6 +25,7 @@ class AdminController
         }
 
         $query = trim((string) ($_GET['q'] ?? ''));
+        $inspectionIds = array_values(array_filter(array_map('intval', explode(',', (string) ($_GET['inspection_ids'] ?? '')))));
         $directory = trim((string) ($_GET['directory'] ?? ''));
         $summary = trim((string) ($_GET['summary'] ?? ''));
         if ($directory !== '') {
@@ -67,17 +68,22 @@ class AdminController
             $failure = ApplicationFailureService::find($failureId);
             return [200, $headers, json_encode(['ok' => $failure !== null, 'failure' => $failure], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
         }
-        if ($query === '' || mb_strlen($query) > 120) {
-            return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer) oder directory (freigegebener Importpfad) fehlt.'], JSON_UNESCAPED_UNICODE)];
+        if (($query === '' && $inspectionIds === []) || mb_strlen($query) > 120) {
+            return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Geräte- oder Prüfnummer), inspection_ids oder directory (freigegebener Importpfad) fehlt.'], JSON_UNESCAPED_UNICODE)];
         }
         $like = '%' . mb_strtolower($query) . '%';
+        $idPlaceholders = implode(',', array_fill(0, count($inspectionIds), '?'));
+        $where = $inspectionIds !== []
+            ? 'i.id IN (' . $idPlaceholders . ')'
+            : "LOWER(COALESCE(i.external_number, '')) LIKE ? OR LOWER(COALESCE(d.external_number, '')) LIKE ?";
+        $params = $inspectionIds !== [] ? $inspectionIds : [$like, $like];
         $rows = R::getAll(
             'SELECT i.id, i.device_id, i.external_number, i.test_date, i.next_due_date, i.room_snapshot, i.result_status, i.status, i.classification, i.source_type, i.source_file, i.archived_at, i.archived_reason, i.duplicate_of_inspection_id, '
             . 'i.result_reason_code, i.result_reason_text, d.external_number AS device_number, d.name AS device_name, r.number AS room_number '
             . 'FROM inspection i LEFT JOIN device d ON d.id = i.device_id LEFT JOIN room r ON r.id=d.room_id '
-            . 'WHERE LOWER(COALESCE(i.external_number, \'\')) LIKE ? OR LOWER(COALESCE(d.external_number, \'\')) LIKE ? '
+            . 'WHERE ' . $where . ' '
             . 'ORDER BY i.test_date DESC, i.id DESC LIMIT 100',
-            [$like, $like]
+            $params
         );
         foreach ($rows as &$row) {
             $row['computed_status'] = (string) R::getCell(
