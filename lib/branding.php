@@ -83,10 +83,14 @@ function get_company_branding(int $companyId): ?array
     return $company !== null ? map_company_branding($company) : null;
 }
 
-function get_report_branding(): array
+function get_report_branding(?int $companyId = null): array
 {
     ensure_branding_seeded(default_branding_definitions());
     ensure_company_branding_schema();
+    if ($companyId !== null && $companyId > 0) {
+        $company = (new TenantRepository())->find($companyId);
+        if ($company !== null) return map_company_branding($company);
+    }
     $company = (new TenantRepository())->findBySlug('ceneos');
     return $company !== null ? map_company_branding($company) : map_static_branding('ceneos', default_branding_definitions()['ceneos']);
 }

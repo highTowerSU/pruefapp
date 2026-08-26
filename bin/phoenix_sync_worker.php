@@ -134,10 +134,11 @@ try {
                 && $device->id
                 && (string) ($inspection->classification ?? '') !== 'legacy'
                 && InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification)
-                && examiner_has_report_signature((string) $inspection->examiner);
+                && examiner_has_report_signature((string) $inspection->examiner)
+                && InspectionDataService::originalReportPath((int) $inspection->id) === '';
             if ($eligible) {
                 $relative = 'reports/current/' . $inspectionId . '.pdf'; $path = app_data_root() . '/' . $relative; if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
-                file_put_contents($path, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null), LOCK_EX); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
+                file_put_contents($path, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, ReportController::inspectionPdfBranding($device)), LOCK_EX); $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
                 InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $path, true);
             }
             $step++; $progress($step, $total, (string) ($device->external_number ?? ''), $eligible ? 'Prüfbericht wurde neu erzeugt.' : 'Prüfung ohne Freigabe oder Prüfer-Unterschrift wurde übersprungen.');
@@ -180,7 +181,9 @@ try {
                 $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
                 $source = app_data_root() . '/' . $relative;
                 if (!is_dir(dirname($source))) mkdir(dirname($source), 0770, true);
-                file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null), LOCK_EX);
+                if (InspectionDataService::originalReportPath((int) $inspection->id) === '') {
+                    file_put_contents($source, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . $inspection->external_number, ReportController::inspectionPdfBranding($device)), LOCK_EX);
+                }
                 $inspection->report_path = $relative;
                 $inspection->updated_at = date(DATE_ATOM);
                 R::store($inspection);

@@ -522,14 +522,16 @@ try {
     // Report jobs must only see canonical data. This gate also prevents the
     // older JSON/measurement maintenance paths from racing the new migration.
     if ($inspectionDataMigrationVersion === '1') {
-        $legacyRestoreMarker = $migrationRoot . '/inspection-reports-legacy-restore-v5.json';
+        // v6 promotes every available Phoenix JSON source PDF, not only
+        // records classified as legacy, to the authoritative active report.
+        $legacyRestoreMarker = $migrationRoot . '/inspection-reports-original-restore-v6.json';
         if (!is_file($legacyRestoreMarker)) {
-            $legacyTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'legacy' AND result_status IN ('passed','failed')");
+            $legacyTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type = 'json' AND result_status IN ('passed','failed')");
             if ($legacyTotal > 0) {
                 BackgroundJobService::enqueue(
                     'phoenix_pdf_restore',
                     ['type' => 'phoenix_pdf_restore'],
-                    ['total' => $legacyTotal, 'dedupe_key' => 'maintenance:legacy-originals:v5', 'cancellable' => false]
+                    ['total' => $legacyTotal, 'dedupe_key' => 'maintenance:source-originals:v6', 'cancellable' => false]
                 );
             }
         }

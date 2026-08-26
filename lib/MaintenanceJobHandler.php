@@ -1538,14 +1538,16 @@ final class MaintenanceJobHandler
     /** @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed> */
     private static function restorePhoenixPdfs(array $checkpoint, int $current, int $total, callable $tick): array
     {
-        $marker = app_data_root() . '/migration/inspection-reports-legacy-restore-v5.json';
+        $marker = app_data_root() . '/migration/inspection-reports-original-restore-v6.json';
         $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
         $restored = max(0, (int) ($checkpoint['restored'] ?? 0));
         $unresolved = max(0, (int) ($checkpoint['unresolved'] ?? 0));
         // Legacy is a classification, not a negative result. The shared
         // status projection intentionally emits `legacy` for it, therefore
         // restoration must use the canonical stored outcome directly.
-        $eligible = "classification = 'legacy' AND result_status IN ('passed','failed')";
+        // Original PDFs are authoritative wherever a Phoenix/JSON import
+        // supplied one. They are not limited to the old legacy year range.
+        $eligible = "source_type = 'json' AND result_status IN ('passed','failed')";
         if ($total <= 0) {
             $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
         }
@@ -1564,10 +1566,10 @@ final class MaintenanceJobHandler
                 );
                 R::exec('UPDATE inspection SET report_path = ?, updated_at = ? WHERE id = ?', [$source, date(DATE_ATOM), $lastId]);
                 $restored++;
-                $message = 'Legacy-Originalbericht wurde als aktiver Bericht verknüpft.';
+                $message = 'Originalbericht aus dem Quellsystem wurde als aktiver Bericht verknüpft.';
             } else {
                 $unresolved++;
-                $message = 'Kein Phoenix-Originalbericht gefunden; vorhandene Datei bleibt unverändert.';
+                $message = 'Kein Originalbericht aus dem Quellsystem gefunden; vorhandene Datei bleibt unverändert.';
             }
             $current++;
             $checkpoint = ['last_id' => $lastId, 'restored' => $restored, 'unresolved' => $unresolved, 'searched_roots' => $roots];
@@ -1610,15 +1612,17 @@ final class MaintenanceJobHandler
         $inspection = R::load('inspection', $inspectionId);
         $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
         if (!$inspection->id || !$device || !$device->id) throw new RuntimeException('Prüfung oder Gerät wurde nicht gefunden.');
-        // Phoenix exports have an authoritative source PDF.  Do not replace
-        // it with a reconstructed current report; Benning imports do not have
-        // such a source file and continue through the normal generator below.
-        $existingReport = trim((string) ($inspection->report_path ?? ''));
-        $sourcePdf = $existingReport !== '' && !str_starts_with(ltrim($existingReport, '/'), 'reports/current/')
-            ? (str_starts_with($existingReport, '/') ? $existingReport : app_data_root() . '/' . $existingReport)
-            : '';
-        if ((string) ($inspection->source_type ?? '') === 'json' && $sourcePdf !== '' && is_file($sourcePdf)) {
+        // An imported source PDF is the authoritative record. Never replace
+        // it with a reconstructed report, regardless of import age or its
+        // classification. Benning rows normally have no source PDF.
+        $sourcePdf = InspectionDataService::originalReportPath($inspectionId);
+        if ($sourcePdf !== '') {
             InspectionDataService::registerReportAsset($inspectionId, 'legacy_original', $sourcePdf, true);
+            if ((string) ($inspection->report_path ?? '') !== $sourcePdf) {
+                $inspection->report_path = $sourcePdf;
+                $inspection->updated_at = date(DATE_ATOM);
+                R::store($inspection);
+            }
             return;
         }
         if ((string) ($inspection->classification ?? '') === 'legacy') throw new RuntimeException('Legacy-Berichte werden nicht neu erzeugt.');
@@ -1628,7 +1632,7 @@ final class MaintenanceJobHandler
         $path = app_data_root() . '/' . $relative;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
         if ($overwrite || !is_file($path)) {
-            $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null);
+            $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, ReportController::inspectionPdfBranding($device));
             if (file_put_contents($path, $pdf, LOCK_EX) === false) throw new RuntimeException('PDF konnte nicht gespeichert werden.');
         }
         $inspection->report_path = $relative;

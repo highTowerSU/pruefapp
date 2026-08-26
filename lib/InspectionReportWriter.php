@@ -507,6 +507,7 @@ final class InspectionReportWriter
                 ['Wärmegerät', (string) ($values['Wärmegerät'] ?? '')],
             ],
             [
+                ['Mandant', (string) ($values['Mandant'] ?? '')],
                 ['Auftraggeber', (string) ($values['Auftraggeber'] ?? '')],
                 ['Liegenschaft', (string) ($values['Liegenschaft'] ?? '')],
                 ['Gebäude', (string) ($values['Gebäude'] ?? '')],

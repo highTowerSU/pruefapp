@@ -10,6 +10,7 @@ $scalar = static function ($value): string {
 $status = InspectionEvaluationService::presentation((string) ($inspection->result_status ?? ''), (string) ($inspection->status ?? ''));
 $classification = trim((string) ($inspection->classification ?? ''));
 $isLegacy = $classification === 'legacy';
+$hasOriginalReport = InspectionDataService::originalReportPath((int) ($inspection->id ?? 0)) !== '';
 $canEdit = current_user_has_role('admin', 'editor');
 $reportAllowed = InspectionEvaluationService::reportPathAllowed(
     $status['status'],
@@ -48,7 +49,7 @@ $reportAllowed = InspectionEvaluationService::reportPathAllowed(
     </div>
 
     <div class="d-flex flex-wrap gap-2 mt-4">
-      <?php if ($reportAllowed): ?><a class="btn btn-primary" href="<?= htmlspecialchars(url_for('pruefungen/' . (int) $inspection->id . '/bericht'), ENT_QUOTES) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i><?= $isLegacy ? 'Original-Prüfbericht' : 'Prüfbericht' ?> öffnen</a><?php endif; ?>
+      <?php if ($reportAllowed): ?><a class="btn btn-primary" href="<?= htmlspecialchars(url_for('pruefungen/' . (int) $inspection->id . '/bericht'), ENT_QUOTES) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i><?= ($isLegacy || $hasOriginalReport) ? 'Original-Prüfbericht' : 'Prüfbericht' ?> öffnen</a><?php endif; ?>
       <?php if (!$reportAllowed): ?><span class="text-body-secondary align-self-center"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i>Ein regulärer Bericht wird erst bei eindeutig bestandenem oder nicht bestandenem Ergebnis bereitgestellt.</span><?php endif; ?>
       <?php if (current_user_is_superadmin() && !$isLegacy && InspectionEvaluationService::isCompleted($status['status'])): ?><form method="post" action="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $inspection->id . '/bericht/neu-erzeugen'), ENT_QUOTES) ?>"><button class="btn btn-warning" type="submit"><i class="fa-solid fa-rotate me-1" aria-hidden="true"></i>Bericht neu erzeugen</button></form><?php endif; ?>
     </div>

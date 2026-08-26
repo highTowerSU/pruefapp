@@ -739,6 +739,7 @@ function base_path(): string
     // /var/www/html/pruefapp/bin/downloads. Prefer the shared configuration
     // and otherwise derive the deployed application mount from its directory.
     $configured = class_exists(Config::class) ? Config::string('APP_BASE_PATH') : null;
+    if ($configured === null || $configured === '') $configured = getenv('APP_BASE_PATH') ?: null;
     if ($configured !== null && $configured !== '') {
         $basePath = '/' . trim(str_replace('\\', '/', $configured), '/');
         return $basePath === '/' ? '' : $basePath;
@@ -872,8 +873,23 @@ function url_for(string $path = ''): string
 
 function absolute_url_for(string $path = ''): string
 {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    // Berichtsläufe laufen häufig per CLI/Cron. Dort existiert kein HTTP-Host
+    // und die bisherige Rückfalladresse erzeugte Links auf localhost. Eine
+    // explizite öffentliche URL ist daher für alle dauerhaften Dokumente
+    // maßgeblich.
+    $configuredValue = config_value('APP_PUBLIC_BASE_URL');
+    if ($configuredValue === null || trim($configuredValue) === '') $configuredValue = getenv('APP_PUBLIC_BASE_URL') ?: null;
+    if ($configuredValue === null || trim((string) $configuredValue) === '') $configuredValue = get_app_config('public_base_url', '');
+    $configured = trim((string) ($configuredValue ?? ''));
+    if ($configured !== '' && preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $configured) === 1) {
+        return rtrim($configured, '/') . url_for($path);
+    }
+
+    $forwardedProto = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
+    $scheme = $forwardedProto === 'https' || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = trim((string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost'));
+    // X-Forwarded-Host may contain a comma-separated proxy chain.
+    $host = trim(explode(',', $host, 2)[0]);
 
     return sprintf('%s://%s%s', $scheme, $host, url_for($path));
 }

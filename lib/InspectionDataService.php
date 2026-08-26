@@ -149,6 +149,25 @@ final class InspectionDataService
         );
     }
 
+    /** Returns an existing authoritative source report, if the import supplied one. */
+    public static function originalReportPath(int $inspectionId): string
+    {
+        if ($inspectionId < 1) return '';
+        $paths = R::getCol(
+            "SELECT path FROM inspection_report_asset WHERE inspection_id = ? AND asset_type IN ('legacy_original', 'import_original') ORDER BY active DESC, id DESC",
+            [$inspectionId]
+        );
+        $snapshot = R::getCell('SELECT original_report_path FROM inspection_source_snapshot WHERE inspection_id = ?', [$inspectionId]);
+        if (is_string($snapshot) && trim($snapshot) !== '') $paths[] = $snapshot;
+        foreach ($paths as $path) {
+            $path = trim((string) $path);
+            if ($path === '') continue;
+            $absolute = str_starts_with($path, '/') ? $path : app_data_root() . '/' . ltrim($path, '/');
+            if (is_file($absolute)) return $absolute;
+        }
+        return '';
+    }
+
     /** @param mixed $value */
     private static function numericValue($value): ?float
     {

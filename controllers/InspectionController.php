@@ -197,7 +197,7 @@ final class InspectionController
                     $relativeReport = 'reports/current/' . (int) $inspection->id . '.pdf';
                     $reportPath = app_data_root() . '/' . $relativeReport;
                     if (!is_dir(dirname($reportPath))) mkdir(dirname($reportPath), 0770, true);
-                    if (file_put_contents($reportPath, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number), LOCK_EX) === false) {
+                    if (file_put_contents($reportPath, ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, ReportController::inspectionPdfBranding($device)), LOCK_EX) === false) {
                         throw new RuntimeException('Der Prüfbericht konnte nicht gespeichert werden.');
                     }
                     $inspection->report_path = $relativeReport;
@@ -315,7 +315,7 @@ final class InspectionController
                         $relativeReport = 'reports/current/' . (int) $inspection->id . '.pdf';
                         $reportPath = app_data_root() . '/' . $relativeReport;
                         if (!is_dir(dirname($reportPath))) mkdir(dirname($reportPath), 0770, true);
-                        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null);
+                        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, ReportController::inspectionPdfBranding($device));
                         if (file_put_contents($reportPath, $pdf, LOCK_EX) === false) throw new RuntimeException('Der Prüfbericht konnte nicht gespeichert werden.');
                         $inspection->report_path = $relativeReport;
                         R::store($inspection);
@@ -787,12 +787,13 @@ final class InspectionController
         $device = $inspection->id ? R::load('device', (int) $inspection->device_id) : null;
         if (!$inspection->id || !$device || !$device->id) return [404, [], 'Prüfung nicht gefunden.'];
         if ((string) ($inspection->classification ?? '') === 'legacy') return [409, [], 'Legacy-Berichte werden nicht neu erzeugt.'];
+        if (InspectionDataService::originalReportPath((int) $inspection->id) !== '') return [409, [], 'Der Originalbericht aus dem Quellsystem ist aktiv und wird nicht überschrieben.'];
         if (!InspectionEvaluationService::reportAllowed((string) $inspection->result_status, (string) $inspection->classification)) return [409, [], 'Nur bestandene oder nicht bestandene Prüfungen erhalten einen Bericht.'];
         if (!examiner_has_report_signature((string) $inspection->examiner)) return [409, [], 'Der eingetragene Prüfer hat keine hinterlegte Unterschrift. Der Bericht wird erst nach dem Speichern der Unterschrift erzeugt.'];
         $relative = 'reports/current/' . (int) $inspection->id . '.pdf';
         $path = app_data_root() . '/' . $relative;
         if (!is_dir(dirname($path))) mkdir(dirname($path), 0770, true);
-        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, function_exists('get_report_branding') ? get_report_branding() : null);
+        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, ReportController::inspectionPdfBranding($device));
         if (file_put_contents($path, $pdf, LOCK_EX) === false) return [500, [], 'PDF konnte nicht gespeichert werden.'];
         $inspection->report_path = $relative; $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
         InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $path, true);
