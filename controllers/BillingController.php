@@ -33,8 +33,9 @@ final class BillingController
             $allocations = [];
             foreach ($rows as $row) {
                 $invoiceNumber = trim((string) ($row['invoice_number'] ?? ''));
-                $key = $invoiceNumber !== '' ? $invoiceNumber : 'ohne_rechnung';
-                if (!isset($allocations[$key])) $allocations[$key] = ['invoice_number' => $invoiceNumber, 'billing_status' => (string) ($row['billing_status'] ?? ''), 'count' => 0, 'device_quantity' => 0, 'regie_minutes' => 0];
+                $invoiceId = max(0, (int) ($row['invoice_id'] ?? 0));
+                $key = $invoiceNumber !== '' ? $invoiceNumber : ($invoiceId > 0 ? 'intern#' . $invoiceId : 'ohne_rechnung');
+                if (!isset($allocations[$key])) $allocations[$key] = ['invoice_id' => $invoiceId, 'invoice_number' => $invoiceNumber, 'billing_status' => (string) ($row['billing_status'] ?? ''), 'count' => 0, 'device_quantity' => 0, 'regie_minutes' => 0];
                 $allocations[$key]['count']++;
                 $allocations[$key]['device_quantity'] += max(0, (int) ($row['billed_quantity'] ?? $row['billing_device_quantity'] ?? 1));
                 $allocations[$key]['regie_minutes'] += max(0, (int) ($row['billed_regie_minutes'] ?? 0));
@@ -48,7 +49,7 @@ final class BillingController
                     'id' => (int) $row['id'], 'inspection' => (string) $row['external_number'],
                     'date' => (string) $row['test_date'], 'customer' => (string) $row['customer_name'],
                     'billing_eligibility' => (string) $row['billing_eligibility'], 'billing_status' => (string) $row['billing_status'],
-                    'invoice_number' => (string) $row['invoice_number'],
+                    'invoice_id' => (int) ($row['invoice_id'] ?? 0), 'invoice_number' => (string) $row['invoice_number'],
                 ], $rows), 0, 50),
             ];
         } catch (Throwable $error) {
