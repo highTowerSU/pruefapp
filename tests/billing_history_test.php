@@ -53,6 +53,7 @@ $checks = [
     [str_contains($importer, 'The overall result in a Benning CSV is the authoritative source') && str_contains($importer, 'if (!in_array($sourceResult'), 'Ein explizites Benning-CSV-Ergebnis kann noch durch eine Ersatzgrenze überschrieben werden.'],
     [str_contains($maintenance, 'consolidateManualCsvDuplicates') && str_contains($maintenance, 'csvSourceFacts') && str_contains($cron, 'inspection-manual-csv-consolidation:v2'), 'Manuelle Entwürfe werden nicht anhand des ursprünglichen CSV-Datums revisionssicher zusammengeführt.'],
     [str_contains($maintenance, 'csvSourceFactReconciliation') && str_contains($maintenance, 'Original-Benning-CSV bestätigt') && str_contains($cron, 'csv-source-fact-reconciliation:v1'), 'Explizite CSV-Quellwerte werden vor der Dublettenarchivierung nicht wiederhergestellt.'],
+    [str_contains($maintenance, 'archiveDuplicateCsvSourceRows') && str_contains($maintenance, 'bytegleiche CSV-Quellzeile') && str_contains($worker, "'inspection_csv_source_duplicate_archive'") && str_contains($cron, 'inspection-csv-source-duplicate-archive:v1'), 'Bytegleiche CSV-Quellzeilen mit fehlerhaftem Jahres-Suffix werden nicht revisionssicher archiviert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {

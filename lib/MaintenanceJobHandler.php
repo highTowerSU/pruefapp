@@ -38,6 +38,7 @@ final class MaintenanceJobHandler
             'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
+            'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
             'inspection_manual_csv_consolidation' => self::consolidateManualCsvDuplicates($checkpoint, $current, $total, $tick),
             'vocabulary_suggestion' => self::vocabularySuggestion($payload, $checkpoint, $current, $total, $tick),
             'vocabulary_review_scan' => self::vocabularyReviewScan($checkpoint, $current, $total, $tick),
@@ -503,6 +504,93 @@ final class MaintenanceJobHandler
             $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Eindeutige Re-Importdublettenprüfung archiviert und aus aktiven Rechnungszuordnungen gelöst.');
         }
         set_app_config('inspection_duplicate_archive_version', '4');
+        return compact('archived', 'released');
+    }
+
+    /**
+     * Archives only byte-identical CSV source rows from the same file on the
+     * same device.  This covers an older year-suffix derivation defect such as
+     * `...-25` and `...-26` for one 2026 CSV row.  The row whose suffix agrees
+     * with the original CSV date wins; ties keep the older primary key.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function archiveDuplicateCsvSourceRows(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        if ($total <= 0) {
+            $total = (int) R::getCell("SELECT COUNT(*) FROM inspection i JOIN inspection_source_snapshot s ON s.inspection_id=i.id WHERE i.source_type='csv' AND COALESCE(i.archived_at,'')='' AND TRIM(COALESCE(i.source_file,''))<>'' AND TRIM(COALESCE(s.source_row_json,''))<>''");
+        }
+        while ($row = R::getRow("SELECT i.id, i.device_id, i.source_file, s.source_row_json
+            FROM inspection i JOIN inspection_source_snapshot s ON s.inspection_id=i.id
+            WHERE i.id>? AND i.source_type='csv' AND COALESCE(i.archived_at,'')=''
+              AND TRIM(COALESCE(i.source_file,''))<>'' AND TRIM(COALESCE(s.source_row_json,''))<>''
+            ORDER BY i.id LIMIT 1", [$lastId])) {
+            $lastId = (int) $row['id'];
+            $peers = R::getAll("SELECT i.id, i.external_number, i.test_date
+                FROM inspection i JOIN inspection_source_snapshot s ON s.inspection_id=i.id
+                WHERE i.device_id=? AND i.source_type='csv' AND COALESCE(i.archived_at,'')=''
+                  AND i.source_file=? AND s.source_row_json=? ORDER BY i.id", [(int) $row['device_id'], (string) $row['source_file'], (string) $row['source_row_json']]);
+            if (count($peers) < 2) {
+                $current++;
+                $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
+                $tick($checkpoint, $current, max($total, $current), (string) $lastId, 'Keine identische CSV-Quellzeile für dieses Gerät.');
+                continue;
+            }
+            usort($peers, static function (array $left, array $right): int {
+                $sourceDate = trim((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [(int) $left['id']]));
+                $raw = json_decode($sourceDate, true);
+                $date = is_array($raw) ? trim((string) ($raw['Prüfdatum'] ?? $raw['pruefdatum'] ?? $raw['date'] ?? '')) : '';
+                $year = preg_match('/(?:^|[\\/.])(\d{4})$/', $date, $match) ? substr($match[1], 2, 2) : '';
+                $leftMatches = $year !== '' && str_ends_with((string) $left['external_number'], '-' . $year);
+                $rightMatches = $year !== '' && str_ends_with((string) $right['external_number'], '-' . $year);
+                if ($leftMatches !== $rightMatches) return $leftMatches ? -1 : 1;
+                return (int) $left['id'] <=> (int) $right['id'];
+            });
+            $canonicalId = (int) $peers[0]['id'];
+            foreach (array_slice($peers, 1) as $duplicateRow) {
+                $duplicateId = (int) $duplicateRow['id'];
+                R::begin();
+                try {
+                    $duplicate = R::load('inspection', $duplicateId);
+                    if (!(int) $duplicate->id || trim((string) $duplicate->archived_at) !== '') { R::commit(); continue; }
+                    $now = date(DATE_ATOM);
+                    $reason = 'Eindeutige Re-Importdublettenprüfung: bytegleiche CSV-Quellzeile aus derselben Datei und für dasselbe Gerät; Originalprüfung #' . $canonicalId . ' bleibt maßgeblich.';
+                    $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$duplicateId]);
+                    foreach ($activeItems as $item) {
+                        $item->active = 0;
+                        $item->deactivated_at = $now;
+                        $item->deactivation_reason = 'CSV-Quellzeilendublette archiviert; Originalprüfung #' . $canonicalId . ' bleibt maßgeblich.';
+                        R::store($item);
+                        $released++;
+                    }
+                    $duplicate->archived_at = $now;
+                    $duplicate->archived_reason = $reason;
+                    $duplicate->duplicate_of_inspection_id = $canonicalId;
+                    $duplicate->billable = 0;
+                    $duplicate->billing_eligibility = 'not_billable';
+                    $duplicate->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                    $duplicate->billing_not_billable_comment = $reason;
+                    $duplicate->billing_status = 'historisch_nicht_eindeutig';
+                    $duplicate->billing_active_invoice_item_id = null;
+                    $duplicate->updated_at = $now;
+                    R::store($duplicate);
+                    R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $duplicateId, $duplicateId]);
+                    R::commit();
+                    audit_log('csv_quellzeilen_dublette_archiviert', ['_category' => 'import', 'inspection_id' => $duplicateId, 'canonical_inspection_id' => $canonicalId, 'reason' => $reason]);
+                    $archived++;
+                } catch (Throwable $exception) {
+                    R::rollback();
+                    throw $exception;
+                }
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
+            $tick($checkpoint, $current, max($total, $current), (string) $canonicalId, 'Bytegleiche CSV-Quellzeilen wurden revisionssicher archiviert.');
+        }
+        set_app_config('inspection_csv_source_duplicate_archive_version', '1');
         return compact('archived', 'released');
     }
 

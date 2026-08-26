@@ -212,6 +212,21 @@ try {
             set_app_config('inspection_duplicate_archive_version', '4');
         }
     }
+    // A separate, even narrower pass handles the old year-suffix defect:
+    // only byte-identical CSV rows from the same source file/device qualify.
+    $csvSourceDuplicateArchiveVersion = trim((string) get_app_config('inspection_csv_source_duplicate_archive_version', ''));
+    if ($csvSourceDuplicateArchiveVersion !== '1' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '4') {
+        $csvSourceDuplicateTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection i JOIN inspection_source_snapshot s ON s.inspection_id=i.id WHERE i.source_type='csv' AND COALESCE(i.archived_at,'')='' AND TRIM(COALESCE(i.source_file,''))<>'' AND TRIM(COALESCE(s.source_row_json,''))<>''");
+        if ($csvSourceDuplicateTotal > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_csv_source_duplicate_archive',
+                ['type' => 'inspection_csv_source_duplicate_archive'],
+                ['total' => $csvSourceDuplicateTotal, 'dedupe_key' => 'maintenance:inspection-csv-source-duplicate-archive:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_csv_source_duplicate_archive_version', '1');
+        }
+    }
     // A manual inspection left in progress can be an abandoned entry when a
     // completed CSV import with the same base number follows shortly after.
     // The CSV record is kept as the factual result and retains its CSV date.
