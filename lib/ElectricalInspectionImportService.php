@@ -43,7 +43,7 @@ final class ElectricalInspectionImportService
             if (!$file->isFile()) continue;
             $extension = strtolower($file->getExtension());
             if (!in_array($extension, ['json', 'jsonl', 'csv'], true)) continue;
-            if (in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
+            if ($this->isAggregateExport($file->getBasename())) continue;
                 $stats['files']++;
             try {
                 $result = in_array($extension, ['json', 'jsonl'], true)
@@ -87,7 +87,7 @@ final class ElectricalInspectionImportService
             if (!$file instanceof SplFileInfo || !$file->isFile()) continue;
             $extension = strtolower($file->getExtension());
             $path = $file->getPathname();
-            if (in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
+            if ($this->isAggregateExport($file->getBasename())) continue;
             if (in_array($extension, ['json', 'jsonl'], true)) {
                 $lines = $extension === 'jsonl' ? file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] : [];
                 $records = [];
@@ -1216,6 +1216,12 @@ final class ElectricalInspectionImportService
     {
         $candidate = preg_replace('/\.csv$/i', '.ods', $csvPath);
         return is_string($candidate) && is_file($candidate) ? $candidate : null;
+    }
+
+    /** Aggregate exports duplicate the adjacent per-record JSON files. */
+    private function isAggregateExport(string $basename): bool
+    {
+        return in_array(strtolower($basename), ['pruefungen.json', 'result.json', 'result.csv.json'], true);
     }
 
     /**

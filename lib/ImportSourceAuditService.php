@@ -26,7 +26,10 @@ final class ImportSourceAuditService
                 $this->inspectCsv($path, $root, $result);
                 continue;
             }
-            if (!in_array($extension, ['json', 'jsonl'], true) || in_array(strtolower($file->getBasename()), ['pruefungen.json', 'result.csv.json'], true)) continue;
+            // Old exports contain aggregate JSON files (notably result.json)
+            // next to the actual one-record-per-file source.  They are both
+            // duplicates and can be larger than PHP's memory limit.
+            if (!in_array($extension, ['json', 'jsonl'], true) || $this->isAggregateExport($file->getBasename())) continue;
             $this->inspectJson($path, $extension, $root, $result);
         }
         foreach (['json', 'jsonl'] as $source) arsort($result[$source]['inspection_types']);
@@ -146,5 +149,10 @@ final class ImportSourceAuditService
     private function relative(string $path, string $root): string
     {
         return ltrim(substr($path, strlen(rtrim($root, '/'))), '/');
+    }
+
+    private function isAggregateExport(string $basename): bool
+    {
+        return in_array(strtolower($basename), ['pruefungen.json', 'result.json', 'result.csv.json'], true);
     }
 }
