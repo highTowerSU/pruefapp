@@ -179,9 +179,14 @@ final class InspectionDataService
         if (!(int) ($inspection->id ?? 0) || !in_array((string) ($inspection->source_type ?? ''), ['csv', 'json'], true)) return '';
         $device ??= R::load('device', (int) ($inspection->device_id ?? 0));
         $numbers = [];
-        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $value) {
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? '')] as $value) {
             if (preg_match('/^(\d+)/', trim($value), $match)) $numbers[$match[1]] = true;
         }
+        // A current device may be the product of a later repair or a historic
+        // import collision.  It cannot prove that its PDF belongs to this
+        // inspection.  Use it only if the imported inspection itself has no
+        // usable identifier at all.
+        if ($numbers === [] && preg_match('/^(\d+)/', trim((string) ($device->external_number ?? '')), $match)) $numbers[$match[1]] = true;
         if ($numbers === []) return '';
 
         $configured = trim((string) (get_app_config('phoenix_reports_directory', '') ?: get_app_config('benning_reports_directory', '') ?: getenv('PRUEFAPP_PHOENIX_REPORTS_DIR')));
