@@ -34,9 +34,9 @@
       </div>
       <div class="col-lg-6">
         <div class="mb-3">
-          <label class="form-label" for="url_prefix"><i class="fa-solid fa-link me-1 text-body-secondary" aria-hidden="true"></i>Eigener URL-Präfix</label>
-          <input type="text" class="form-control" id="url_prefix" name="url_prefix" placeholder="z. B. /ceneos" value="<?= htmlspecialchars((string) ($company['url_prefix'] ?? '')) ?>">
-          <div class="form-text">Wird verwendet, wenn kein eigener Host konfiguriert ist, z. B. <code>/pruefapp/ceneos</code>. Ein eigener Host hat Vorrang.</div>
+          <label class="form-label" for="url_prefix"><i class="fa-solid fa-link me-1 text-body-secondary" aria-hidden="true"></i>URL-Präfix</label>
+          <input type="text" class="form-control" id="url_prefix" readonly value="<?= htmlspecialchars((string) ($company['url_prefix'] ?: ((string) ($company['slug'] ?? '') !== '' ? '/' . $company['slug'] : '…'))) ?>">
+          <div class="form-text">Wird automatisch aus dem Slug gebildet und bei fehlendem eigenen Host verwendet, z. B. <code>/pruefapp/ceneos</code>. Ein eigener Host hat Vorrang.</div>
         </div>
       </div>
     </div>

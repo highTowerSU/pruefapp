@@ -60,6 +60,7 @@ function tenant_url_prefix_for_request(): string
         usort($tenants, static fn($left, $right): int => strlen((string) ($right->url_prefix ?? '')) <=> strlen((string) ($left->url_prefix ?? '')));
         foreach ($tenants as $tenant) {
             $candidate = rtrim('/' . trim((string) ($tenant->url_prefix ?? ''), '/'), '/');
+            if ($candidate === '') $candidate = '/' . trim((string) ($tenant->slug ?? ''), '/');
             if ($candidate !== '/' && ($path === $candidate || str_starts_with($path, $candidate . '/'))) {
                 return $prefix = $candidate;
             }
@@ -79,8 +80,11 @@ function branding_key_for_request_host(): string
     $prefix = tenant_url_prefix_for_request();
     if ($prefix !== '') {
         try {
-            $tenant = (new TenantRepository())->findByUrlPrefix($prefix);
-            if ($tenant !== null) return strtolower(trim((string) ($tenant->slug ?? '')));
+            foreach ((new TenantRepository())->all() as $tenant) {
+                $candidate = rtrim('/' . trim((string) ($tenant->url_prefix ?? ''), '/'), '/');
+                if ($candidate === '') $candidate = '/' . trim((string) ($tenant->slug ?? ''), '/');
+                if ($candidate === $prefix) return strtolower(trim((string) ($tenant->slug ?? '')));
+            }
         } catch (\Throwable $error) {
             error_log('Mandanten-Präfixzuordnung konnte nicht gelesen werden: ' . $error->getMessage());
         }
@@ -262,7 +266,7 @@ function map_company_branding(\RedBeanPHP\OODBBean $company): array
         'company_id' => (int) $company->id,
         'key' => strtolower((string)($company->slug ?? '')) ?: 'company_' . (int)$company->id,
         'public_host' => strtolower(trim((string) ($company->public_host ?? ''))),
-        'url_prefix' => rtrim('/' . trim((string) ($company->url_prefix ?? ''), '/'), '/'),
+        'url_prefix' => rtrim('/' . trim((string) ($company->url_prefix ?? ''), '/'), '/') ?: ((string) ($company->slug ?? '') !== '' ? '/' . (string) $company->slug : ''),
         'company_name' => $companyName,
         'app_title' => (string)($company->app_title ?? 'Prüf-Doku'),
         'nav_brand' => (string)($company->nav_brand ?? 'Prüf-Doku'),
