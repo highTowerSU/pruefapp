@@ -611,6 +611,10 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
                 automaticRefreshes = Math.max(0, automaticRefreshes - 1);
                 if (automaticRefreshes === 0) refreshIndicator().classList.add('d-none');
             };
+            window.pruefappRefreshIndicator = {
+                show: () => refreshIndicator().classList.remove('d-none'),
+                hide: () => refreshIndicator().classList.add('d-none'),
+            };
             document.body.addEventListener('htmx:beforeRequest', event => {
                 if (!isAutomaticRefresh(event.detail)) return;
                 const source = event.detail?.elt;
