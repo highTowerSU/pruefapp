@@ -148,6 +148,35 @@ final class PhoenixSyncService
         return ['matched' => true, 'updated' => $updated, 'conflicts' => $conflicts];
     }
 
+    /**
+     * Reads the authoritative Phoenix record for an imported inspection without
+     * changing the inspection, device master data or source snapshot.  This is
+     * intentionally separate from reconciliation so a historical mapping can
+     * be reviewed before it is repaired.
+     *
+     * @return array{matched:bool,audit_id:int,record:array<string,mixed>}
+     */
+    public function lookupImportedInspectionEvidence(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
+    {
+        $credentials = self::serverCredentials();
+        if ($credentials['token'] === '' || $credentials['customer_id'] === '') return ['matched' => false, 'audit_id' => 0, 'record' => []];
+        if (!in_array((string) ($inspection->source_type ?? ''), ['csv', 'json'], true)) return ['matched' => false, 'audit_id' => 0, 'record' => []];
+        $wanted = [];
+        foreach ([(string) ($inspection->external_number ?? ''), (string) ($inspection->legacy_number ?? ''), (string) ($device->external_number ?? '')] as $number) {
+            $number = trim($number);
+            if ($number !== '') $wanted[$number] = true;
+        }
+        $auditId = 0;
+        $index = $this->serverAuditIndex($credentials);
+        foreach (array_keys($wanted) as $number) {
+            $auditId = (int) ($index[$number] ?? 0);
+            if ($auditId > 0) break;
+        }
+        if ($auditId <= 0) return ['matched' => false, 'audit_id' => 0, 'record' => []];
+        $detail = self::$auditDetailCache[$auditId] ??= $this->request($credentials['base_url'] . '/modules/audits/resources/' . $auditId, $credentials['token']);
+        return ['matched' => true, 'audit_id' => $auditId, 'record' => $this->record($detail, [])];
+    }
+
     /** @param array{token:string,customer_id:string,base_url:string} $credentials @return array<string,int> */
     private function serverAuditIndex(array $credentials): array
     {

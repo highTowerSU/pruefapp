@@ -122,6 +122,11 @@ class AdminController
                 }
                 $row['source_row_summary'] = $summary;
             }
+            if (($_GET['phoenix_evidence'] ?? '') === '1') {
+                $inspection = R::load('inspection', (int) $row['id']);
+                $device = R::load('device', (int) $row['device_id']);
+                $row['phoenix_evidence'] = (new PhoenixSyncService())->lookupImportedInspectionEvidence($inspection, $device);
+            }
         }
         unset($row);
         $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
