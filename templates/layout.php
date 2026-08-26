@@ -605,19 +605,22 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
                 document.body.appendChild(indicator);
                 return indicator;
             };
-            document.body.addEventListener('htmx:beforeRequest', event => {
-                if (!isAutomaticRefresh(event.detail)) return;
-                if (event.detail?.elt) automaticRefreshSources.add(event.detail.elt);
-                automaticRefreshes++;
-                refreshIndicator().classList.remove('d-none');
-            });
-            document.body.addEventListener('htmx:afterRequest', event => {
-                const source = event.detail?.elt;
+            const finishAutomaticRefresh = source => {
                 if (!source || !automaticRefreshSources.has(source)) return;
                 automaticRefreshSources.delete(source);
                 automaticRefreshes = Math.max(0, automaticRefreshes - 1);
-                if (automaticRefreshes > 0) return;
-                refreshIndicator().classList.add('d-none');
+                if (automaticRefreshes === 0) refreshIndicator().classList.add('d-none');
+            };
+            document.body.addEventListener('htmx:beforeRequest', event => {
+                if (!isAutomaticRefresh(event.detail)) return;
+                const source = event.detail?.elt;
+                if (!source) return;
+                automaticRefreshSources.add(source);
+                // An outerHTML swap can detach the source before afterRequest
+                // bubbles to document.body. Listen on the source itself.
+                source.addEventListener('htmx:afterRequest', () => finishAutomaticRefresh(source), {once: true});
+                automaticRefreshes++;
+                refreshIndicator().classList.remove('d-none');
             });
 
             document.body.addEventListener('htmx:beforeSwap', (event) => {
