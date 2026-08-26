@@ -571,16 +571,17 @@ final class ElectricalInspectionImportService
         $inspection->checklist_json = json_encode($record['checklist'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->raw_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $report = $this->copyReport($rawExternal);
-        // Phoenix provides the original signed/source PDF.  It is the active
-        // report for that imported inspection; Benning has no such PDF and
-        // therefore remains eligible for a generated report.
-        if ($report !== null && $sourceType === 'json') $inspection->report_path = $report;
+        // A supplied source PDF is authoritative, regardless of whether the
+        // matching row originated from Phoenix JSON or from a CSV export.
+        // Benning imports simply do not provide one and therefore remain
+        // eligible for a generated report.
+        if ($report !== null) $inspection->report_path = $report;
         $inspection->updated_at = date(DATE_ATOM);
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
         R::store($inspection);
         $this->persistSourceSnapshot($inspection, $sourceType, $sourcePath, $record, $report);
-        if ($report !== null && $sourceType === 'json') {
-            InspectionDataService::registerReportAsset((int) $inspection->id, 'legacy_original', app_data_root() . '/' . $report, true);
+        if ($report !== null) {
+            InspectionDataService::registerReportAsset((int) $inspection->id, 'import_original', app_data_root() . '/' . $report, true);
         }
         $deviceInfo = ['id' => (int) $deviceResult['device']->id, 'number' => $external, 'name' => (string) $deviceResult['device']->name];
         audit_log($created ? 'import_datensatz_importiert' : 'import_datensatz_aktualisiert', [
@@ -945,7 +946,7 @@ final class ElectricalInspectionImportService
         $inspectionId = (int) $inspection->id;
         if ($inspectionId <= 0) return;
         $sourceRow = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
-        $originalPath = $report !== null && $sourceType === 'json' ? app_data_root() . '/' . $report : '';
+        $originalPath = $report !== null ? app_data_root() . '/' . $report : '';
         $existing = R::getRow('SELECT id, original_report_path, original_report_checksum FROM inspection_source_snapshot WHERE inspection_id = ?', [$inspectionId]);
         if ($existing !== []) {
             // source_row_json intentionally follows the latest import file;

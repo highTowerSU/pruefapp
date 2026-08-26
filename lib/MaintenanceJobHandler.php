@@ -1545,9 +1545,10 @@ final class MaintenanceJobHandler
         // Legacy is a classification, not a negative result. The shared
         // status projection intentionally emits `legacy` for it, therefore
         // restoration must use the canonical stored outcome directly.
-        // Original PDFs are authoritative wherever a Phoenix/JSON import
-        // supplied one. They are not limited to the old legacy year range.
-        $eligible = "source_type = 'json' AND result_status IN ('passed','failed')";
+        // Original PDFs are authoritative wherever an imported Phoenix/CSV
+        // or JSON row has a matching source document. They are not limited
+        // to the old legacy year range.
+        $eligible = "source_type IN ('json','csv') AND result_status IN ('passed','failed')";
         if ($total <= 0) {
             $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
         }

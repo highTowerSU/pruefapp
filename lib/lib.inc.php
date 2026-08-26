@@ -247,6 +247,7 @@ function initialize_database(): void
         RevisionSupport::enableFor(
             ['nutzer', 'kurs', 'teilnehmer', 'uebermittlungslink', 'oauthuser', 'customer', 'site', 'building', 'floor', 'area', 'room', 'device', 'inspection', 'inspectionanswer', 'inspectionmeasurement', 'inspectiondiagnostic', 'inspectionsourcesnapshot', 'inspectionreportasset', 'customerinfo']
         );
+        schedule_original_report_restore();
         $initialized = true;
         return;
     }
@@ -326,7 +327,30 @@ function initialize_database(): void
         ]
     );
 
+    schedule_original_report_restore();
+
     $initialized = true;
+}
+
+/** Queues the one-time migration that prefers available imported source PDFs. */
+function schedule_original_report_restore(): void
+{
+    static $scheduled = false;
+    if ($scheduled) return;
+    $scheduled = true;
+
+    $version = 'v7';
+    if ((string) get_app_config('original_report_restore_version', '') === $version) return;
+
+    $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type IN ('json','csv') AND result_status IN ('passed','failed')");
+    if ($total > 0) {
+        BackgroundJobService::enqueue(
+            'phoenix_pdf_restore',
+            ['type' => 'phoenix_pdf_restore'],
+            ['total' => $total, 'dedupe_key' => 'maintenance:original-report-restore:' . $version, 'cancellable' => false]
+        );
+    }
+    set_app_config('original_report_restore_version', $version);
 }
 
 function app_database_path(): string
