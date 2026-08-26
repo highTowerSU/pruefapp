@@ -167,6 +167,27 @@ try {
             set_app_config('inspection_duplicate_review_cleanup_version', '1');
         }
     }
+    // Explicit user confirmation: only this empty draft is eligible.  Future
+    // confirmations must enqueue their own payload; similar numbers alone do
+    // not authorize archival.
+    $confirmedDraftArchiveVersion = trim((string) get_app_config('inspection_confirmed_draft_archive_100011436_version', ''));
+    if ($confirmedDraftArchiveVersion !== '1') {
+        $confirmedDraftExists = (int) R::getCell("SELECT COUNT(*) FROM inspection draft
+            JOIN inspection canonical ON canonical.device_id=draft.device_id
+              AND canonical.external_number='100011436-26-2-26' AND canonical.test_date='2026-08-12'
+              AND canonical.source_type='manual' AND canonical.status='completed' AND COALESCE(canonical.archived_at,'')=''
+            WHERE draft.external_number='100011436-26' AND draft.test_date='2026-08-12'
+              AND draft.source_type='manual' AND draft.status='in_progress' AND COALESCE(draft.archived_at,'')='' ");
+        if ($confirmedDraftExists > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_draft_archive',
+                ['type' => 'inspection_confirmed_draft_archive', 'draft_number' => '100011436-26', 'canonical_number' => '100011436-26-2-26', 'test_date' => '2026-08-12'],
+                ['total' => 1, 'dedupe_key' => 'maintenance:inspection-confirmed-draft-archive:100011436:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_draft_archive_100011436_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.

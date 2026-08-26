@@ -38,6 +38,7 @@ final class MaintenanceJobHandler
             'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_review_cleanup' => self::cleanupArchivedDuplicateReviews($checkpoint, $current, $total, $tick),
+            'inspection_confirmed_draft_archive' => self::archiveConfirmedManualDraft($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -344,6 +345,65 @@ final class MaintenanceJobHandler
         }
         set_app_config('inspection_duplicate_review_cleanup_version', '1');
         return compact('resolved');
+    }
+
+    /**
+     * Archives one explicitly confirmed, empty manual draft.  This handler is
+     * deliberately payload-driven: it must not infer or archive another
+     * in-progress inspection merely because its number looks similar.
+     *
+     * @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function archiveConfirmedManualDraft(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $draftNumber = trim((string) ($payload['draft_number'] ?? ''));
+        $canonicalNumber = trim((string) ($payload['canonical_number'] ?? ''));
+        $testDate = trim((string) ($payload['test_date'] ?? ''));
+        if ($draftNumber === '' || $canonicalNumber === '' || $testDate === '') {
+            throw new InvalidArgumentException('Bestätigte Entwurfsarchivierung ist unvollständig.');
+        }
+        $draft = R::findOne('inspection', " external_number=? AND test_date=? AND source_type='manual'
+            AND status='in_progress' AND COALESCE(archived_at,'')='' ", [$draftNumber, $testDate]);
+        $canonical = R::findOne('inspection', " external_number=? AND test_date=? AND source_type='manual'
+            AND status='completed' AND COALESCE(archived_at,'')='' ", [$canonicalNumber, $testDate]);
+        if (!$draft || !$canonical || (int) $draft->device_id !== (int) $canonical->device_id) {
+            throw new RuntimeException('Bestätigter Entwurf oder zugehörige abgeschlossene Prüfung wurde nicht eindeutig gefunden.');
+        }
+        $sourceRow = json_decode((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [(int) $draft->id]), true);
+        if (is_array($sourceRow) && $sourceRow !== []) {
+            throw new RuntimeException('Der bestätigte Entwurf enthält Quellprüfdaten und wird deshalb nicht automatisch archiviert.');
+        }
+        R::begin();
+        try {
+            $now = date(DATE_ATOM);
+            $reason = 'Bestätigt archivierter leerer manueller Entwurf; die abgeschlossene Prüfung #' . (int) $canonical->id . ' (' . $canonicalNumber . ') bleibt maßgeblich.';
+            $activeItems = R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [(int) $draft->id]);
+            foreach ($activeItems as $item) {
+                $item->active = 0;
+                $item->deactivated_at = $now;
+                $item->deactivation_reason = 'Bestätigt archivierter leerer Entwurf; abgeschlossene Prüfung #' . (int) $canonical->id . ' bleibt maßgeblich.';
+                R::store($item);
+            }
+            $draft->archived_at = $now;
+            $draft->archived_reason = $reason;
+            $draft->duplicate_of_inspection_id = (int) $canonical->id;
+            $draft->billable = 0;
+            $draft->billing_eligibility = 'not_billable';
+            $draft->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+            $draft->billing_not_billable_comment = $reason;
+            $draft->billing_status = 'historisch_nicht_eindeutig';
+            $draft->billing_active_invoice_item_id = null;
+            $draft->updated_at = $now;
+            R::store($draft);
+            R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, (int) $draft->id, (int) $draft->id]);
+            R::commit();
+        } catch (Throwable $exception) {
+            R::rollback();
+            throw $exception;
+        }
+        audit_log('bestaetigter_pruefentwurf_archiviert', ['_category' => 'inspection', 'inspection_id' => (int) $draft->id, 'canonical_inspection_id' => (int) $canonical->id, 'reason' => $reason]);
+        $tick(['archived' => 1], max(1, $current + 1), max(1, $total), $draftNumber, 'Bestätigten leeren manuellen Entwurf revisionssicher archiviert.');
+        return ['archived' => 1, 'inspection_id' => (int) $draft->id, 'canonical_inspection_id' => (int) $canonical->id];
     }
 
     private static function inspectionNumberBase(string $number): string

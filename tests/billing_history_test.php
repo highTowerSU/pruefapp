@@ -56,6 +56,7 @@ $checks = [
     [str_contains($maintenance, 'archiveDuplicateCsvSourceRows') && str_contains($maintenance, 'bytegleiche CSV-Quellzeile') && str_contains($worker, "'inspection_csv_source_duplicate_archive'") && str_contains($cron, 'inspection-csv-source-duplicate-archive:v1'), 'Bytegleiche CSV-Quellzeilen mit fehlerhaftem Jahres-Suffix werden nicht revisionssicher archiviert.'],
     [str_contains($maintenance, 'archiveJsonCsvMirrors') && str_contains($maintenance, 'Phoenix-JSON-Spiegelung') && str_contains($worker, "'inspection_json_csv_mirror_archive'") && str_contains($cron, 'inspection-json-csv-mirror-archive:v1'), 'Vollständig gleiche JSON/CSV-Spiegelungen werden nicht separat revisionssicher archiviert.'],
     [str_contains($maintenance, 'cleanupArchivedDuplicateReviews') && str_contains($maintenance, 'bereits revisionssicher archiviert') && str_contains($worker, "'inspection_duplicate_review_cleanup'") && str_contains($cron, 'inspection-duplicate-review-cleanup:v1'), 'Veraltete Dublettenhinweise bereits archivierter Prüfungen werden nicht automatisch geschlossen.'],
+    [str_contains($maintenance, 'archiveConfirmedManualDraft') && str_contains($maintenance, 'Der bestätigte Entwurf enthält Quellprüfdaten') && str_contains($worker, "'inspection_confirmed_draft_archive'") && str_contains($cron, 'inspection-confirmed-draft-archive:100011436:v1'), 'Ein explizit bestätigter leerer Prüfentwurf wird nicht revisionssicher und eng begrenzt archiviert.'],
 ];
 
 foreach ($checks as [$ok, $message]) {
