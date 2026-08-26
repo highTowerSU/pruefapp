@@ -15,6 +15,9 @@ final class ElectricalInspectionImportService
     /** @var array<string, string> */
     private array $reportsByNumber = [];
 
+    /** @var array<string, true> */
+    private array $indexedCandidateReportRoots = [];
+
     private string $storageRoot;
 
     public function __construct(?string $storageRoot = null)
@@ -139,7 +142,10 @@ final class ElectricalInspectionImportService
         // PDFs are not independent inspection candidates. They are indexed
         // recursively beside the JSON/CSV source and attached by number when
         // a reviewed candidate becomes a real inspection.
-        $this->indexReports($root, true);
+        if (!isset($this->indexedCandidateReportRoots[$root])) {
+            $this->indexReports($root, true);
+            $this->indexedCandidateReportRoots[$root] = true;
+        }
         // Candidate records distinguish Phoenix' inspection resource ID from
         // the actual device number. The historic importer predates that
         // distinction and uses external_number as the inspection number.

@@ -45,8 +45,7 @@ final class ImportCandidateRebuildService
             $this->store($runId, 'manual', 'Prüfweb', 0, $record, (int) $manual['id']);
         }
 
-        $progress(4, 4, '', 'Eindeutige Kandidaten werden importiert, Konflikte zur Sichtung vorbereitet.');
-        $summary = $this->classifyAndImport($runId);
+        $summary = $this->classifyAndImport($runId, $progress);
         $run = R::load('importrebuildrun', $runId);
         $run->state = 'review';
         $run->summary_json = json_encode($summary + ['backup' => $backup, 'reset' => $reset], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
@@ -119,12 +118,18 @@ final class ImportCandidateRebuildService
     }
 
     /** @return array<string,mixed> */
-    private function classifyAndImport(int $runId): array
+    private function classifyAndImport(int $runId, ?callable $progress = null): array
     {
         $groups = $this->groups($runId);
+        $total = count($groups);
         $summary = ['automatic' => 0, 'review' => 0, 'number_missing' => 0, 'manual_kept' => 0];
-        foreach ($groups as $group) {
+        $importer = new ElectricalInspectionImportService();
+        foreach ($groups as $index => $group) {
             $rows = $group['candidates']; $states = array_unique(array_column($rows, 'state'));
+            $identity = trim((string) ($rows[0]['inspection_number'] ?? $rows[0]['device_number'] ?? ''));
+            if ($progress !== null && (($index % 10) === 0 || $index + 1 === $total)) {
+                $progress($index + 1, max(1, $total), $identity, 'Kandidat ' . ($index + 1) . ' von ' . $total . ' wird geprüft/importiert.');
+            }
             if (in_array('number_missing', $states, true)) { $summary['number_missing']++; continue; }
             $conflicts = $this->conflicts($rows);
             if ($conflicts !== []) { R::exec("UPDATE importcandidate SET state='review' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['review']++; continue; }
@@ -132,7 +137,7 @@ final class ImportCandidateRebuildService
             if ($hasManual) { R::exec("UPDATE importcandidate SET state='accepted' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['manual_kept']++; continue; }
             $records = array_map(fn(array $row): array => $this->decode((string) $row['raw_json']), $rows);
             $merged = $this->merge($rows, $records, []);
-            (new ElectricalInspectionImportService())->importCandidateRecord($merged, (string) $rows[0]['source_path']);
+            $importer->importCandidateRecord($merged, (string) $rows[0]['source_path']);
             R::exec("UPDATE importcandidate SET state='accepted' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]);
             $summary['automatic']++;
         }
