@@ -170,6 +170,25 @@ try {
     // Explicit user confirmation: only this empty draft is eligible.  Future
     // confirmations must enqueue their own payload; similar numbers alone do
     // not authorize archival.
+    $confirmedDuplicateArchiveVersion = trim((string) get_app_config('inspection_confirmed_duplicate_archive_aug26_version', ''));
+    if ($confirmedDuplicateArchiveVersion !== '1') {
+        $confirmedDuplicatePairs = [
+            ['inspection_id' => 9419, 'canonical_inspection_id' => 9418, 'reason' => 'Bestätigte überflüssige manuelle Entwurfsprüfung; die importierte Prüfung #9418 bleibt maßgeblich.'],
+            ['inspection_id' => 9273, 'canonical_inspection_id' => 8033, 'reason' => 'Bestätigte CSV-Spiegelung; der vollständige Phoenix-Originaldatensatz #8033 mit dokumentiertem Mangel bleibt maßgeblich.'],
+            ['inspection_id' => 8963, 'canonical_inspection_id' => 8058, 'reason' => 'Bestätigte CSV-Spiegelung; der vollständige Phoenix-Originaldatensatz #8058 mit nicht bestandenem Ergebnis bleibt maßgeblich.'],
+            ['inspection_id' => 10571, 'canonical_inspection_id' => 10568, 'reason' => 'Bestätigter doppelter manueller Entwurf am selben Gerät und Datum; Prüfung #10568 bleibt maßgeblich.'],
+        ];
+        $openConfirmedDuplicates = (int) R::getCell('SELECT COUNT(*) FROM inspection WHERE id IN (' . implode(',', array_fill(0, count($confirmedDuplicatePairs), '?')) . ") AND COALESCE(archived_at,'')=''", array_column($confirmedDuplicatePairs, 'inspection_id'));
+        if ($openConfirmedDuplicates > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_archive',
+                ['type' => 'inspection_confirmed_archive', 'pairs' => $confirmedDuplicatePairs],
+                ['total' => count($confirmedDuplicatePairs), 'dedupe_key' => 'maintenance:inspection-confirmed-duplicate-archive:aug26:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_duplicate_archive_aug26_version', '1');
+        }
+    }
     $confirmedDraftArchiveVersion = trim((string) get_app_config('inspection_confirmed_draft_archive_100011436_version', ''));
     if ($confirmedDraftArchiveVersion !== '1') {
         $confirmedDraftExists = (int) R::getCell("SELECT COUNT(*) FROM inspection draft

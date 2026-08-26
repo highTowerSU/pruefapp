@@ -41,6 +41,7 @@ final class MaintenanceJobHandler
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_review_cleanup' => self::cleanupArchivedDuplicateReviews($checkpoint, $current, $total, $tick),
             'inspection_confirmed_draft_archive' => self::archiveConfirmedManualDraft($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_archive' => self::archiveConfirmedInspections($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_legacy_csv_archive' => self::archiveConfirmedLegacyCsvDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_same_source_archive' => self::archiveConfirmedSameSourceDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_historical_device_repair' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
@@ -412,6 +413,57 @@ final class MaintenanceJobHandler
         audit_log('bestaetigter_pruefentwurf_archiviert', ['_category' => 'inspection', 'inspection_id' => (int) $draft->id, 'canonical_inspection_id' => (int) $canonical->id, 'reason' => $reason]);
         $tick(['archived' => 1], max(1, $current + 1), max(1, $total), $draftNumber, 'Bestätigten leeren manuellen Entwurf revisionssicher archiviert.');
         return ['archived' => 1, 'inspection_id' => (int) $draft->id, 'canonical_inspection_id' => (int) $canonical->id];
+    }
+
+    /** Archives only a finite, explicitly user-confirmed set of inspections. */
+    private static function archiveConfirmedInspections(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $pairs = array_values(array_filter((array) ($payload['pairs'] ?? []), static fn(mixed $pair): bool => is_array($pair)));
+        if ($pairs === []) throw new InvalidArgumentException('Keine bestätigten Archivierungen übergeben.');
+        $index = max(0, (int) ($checkpoint['pair_index'] ?? 0));
+        $archived = max(0, (int) ($checkpoint['archived'] ?? 0));
+        $released = max(0, (int) ($checkpoint['released'] ?? 0));
+        $total = max($total, count($pairs));
+        for (; $index < count($pairs); $index++) {
+            $pair = $pairs[$index];
+            $inspectionId = max(0, (int) ($pair['inspection_id'] ?? 0));
+            $canonicalId = max(0, (int) ($pair['canonical_inspection_id'] ?? 0));
+            $inspection = R::load('inspection', $inspectionId);
+            $canonical = R::load('inspection', $canonicalId);
+            if (!(int) $inspection->id || !(int) $canonical->id || (int) $inspection->device_id !== (int) $canonical->device_id) {
+                throw new RuntimeException('Bestätigte Archivierung erfüllt die Sicherheitsprüfung nicht.');
+            }
+            if (trim((string) $inspection->archived_at) !== '') {
+                $current++;
+                $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $inspection->external_number, 'Prüfung war bereits archiviert.');
+                continue;
+            }
+            $reason = trim((string) ($pair['reason'] ?? 'Bestätigte Prüfungsdublette.'));
+            $now = date(DATE_ATOM);
+            R::begin();
+            try {
+                foreach (R::findAll('billinginvoiceitem', ' inspection_id=? AND active=1 ', [$inspectionId]) as $item) {
+                    $item->active = 0; $item->deactivated_at = $now; $item->deactivation_reason = $reason; R::store($item); $released++;
+                }
+                $inspection->archived_at = $now;
+                $inspection->archived_reason = $reason;
+                $inspection->duplicate_of_inspection_id = $canonicalId;
+                $inspection->billable = 0;
+                $inspection->billing_eligibility = 'not_billable';
+                $inspection->billing_not_billable_reason = 'historisch_nicht_eindeutig';
+                $inspection->billing_not_billable_comment = $reason;
+                $inspection->billing_status = 'historisch_nicht_eindeutig';
+                $inspection->billing_active_invoice_item_id = null;
+                $inspection->updated_at = $now;
+                R::store($inspection);
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $inspectionId, $inspectionId]);
+                R::commit();
+            } catch (Throwable $exception) { R::rollback(); throw $exception; }
+            audit_log('bestaetigte_pruefungsdublette_archiviert', ['_category' => 'inspection', 'inspection_id' => $inspectionId, 'canonical_inspection_id' => $canonicalId, 'reason' => $reason]);
+            $archived++; $current++;
+            $tick(['pair_index' => $index + 1, 'archived' => $archived, 'released' => $released], $current, $total, (string) $inspection->external_number, 'Bestätigte Dublette revisionssicher archiviert.');
+        }
+        return compact('archived', 'released');
     }
 
     /**
