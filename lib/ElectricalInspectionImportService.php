@@ -98,6 +98,7 @@ final class ElectricalInspectionImportService
                 }
                 foreach ($records as $rowNo => $record) {
                     if (!is_array($record) || $this->ignoredInspectionTypeReason($record) !== '') continue;
+                    $record = $this->normalizePhoenixCandidateRecord($record);
                     $result[] = ['source_kind' => 'json', 'source_path' => $path, 'row_no' => $rowNo + 1, 'record' => $record];
                 }
                 continue;
@@ -139,7 +140,30 @@ final class ElectricalInspectionImportService
         // recursively beside the JSON/CSV source and attached by number when
         // a reviewed candidate becomes a real inspection.
         $this->indexReports($root, true);
+        // Candidate records distinguish Phoenix' inspection resource ID from
+        // the actual device number. The historic importer predates that
+        // distinction and uses external_number as the inspection number.
+        if (trim((string) ($record['inspection_number'] ?? '')) !== '') {
+            $record['external_number'] = trim((string) $record['inspection_number']);
+        }
         return $this->importRecord($record, 'reconciled', $sourcePath, $root);
+    }
+
+    /** @param array<string,mixed> $record @return array<string,mixed> */
+    private function normalizePhoenixCandidateRecord(array $record): array
+    {
+        // Phoenix inspection exports use id/resource_id for the inspection
+        // resource and number for the device label. Their type is an object.
+        if (!isset($record['module_scoped_id'], $record['resource_id']) && !is_array($record['type'] ?? null)) return $record;
+        $inspectionId = trim((string) ($record['id'] ?? $record['resource_id'] ?? ''));
+        $deviceNumber = trim((string) ($record['number'] ?? ''));
+        if ($inspectionId !== '') $record['inspection_number'] = $inspectionId;
+        if ($deviceNumber !== '') $record['device_number'] = $deviceNumber;
+        if (is_array($record['type'] ?? null)) {
+            $record['inspection_type'] = trim((string) ($record['type']['brezel_name'] ?? $record['type']['name'] ?? $record['type']['title'] ?? ''));
+        }
+        if (isset($record['date']) && !isset($record['test_date'])) $record['test_date'] = (string) $record['date'];
+        return $record;
     }
 
     /**
@@ -712,7 +736,7 @@ final class ElectricalInspectionImportService
     /** @return array{device:\RedBeanPHP\OODBBean,created:bool} */
     private function findOrCreateDevice(array $record): array
     {
-        $external = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
+        $external = trim((string) ($record['device_number'] ?? $record['external_number'] ?? $record['number'] ?? ''));
         $legacy = trim((string) ($record['legacy_number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
         // The new number is canonical. Prefer an existing new-number device;
