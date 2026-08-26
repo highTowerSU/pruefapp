@@ -118,7 +118,7 @@ final class BillingController
             $invoice = R::load('billinginvoice', $invoiceId);
             if (!$invoice->id) return ['ok' => false, 'error' => 'Rechnung nicht gefunden.'];
             $items = R::getAll(
-                'SELECT bi.id AS item_id, bi.active, i.id AS inspection_id, i.external_number, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name FROM billinginvoiceitem bi JOIN inspection i ON i.id = bi.inspection_id JOIN device d ON d.id = bi.device_id WHERE bi.invoice_id = ? ORDER BY i.id',
+                'SELECT bi.id AS item_id, bi.active, bi.quantity, i.id AS inspection_id, i.external_number, i.regie_minutes, i.regie_reason, d.external_number AS device_number, d.name AS device_name FROM billinginvoiceitem bi JOIN inspection i ON i.id = bi.inspection_id JOIN device d ON d.id = bi.device_id WHERE bi.invoice_id = ? ORDER BY i.id',
                 [$invoiceId]
             );
             $regieItems = array_values(array_filter($items, static fn(array $item): bool => (int) ($item['regie_minutes'] ?? 0) > 0));
@@ -158,6 +158,14 @@ final class BillingController
                     return ['number' => (string) $position['position_number'], 'name' => (string) $position['name'], 'quantity' => (float) $position['quantity'], 'unit' => (string) $position['unit'], 'raw_unity' => $raw['unity'] ?? null, 'regie_minutes' => (int) $position['regie_minutes']];
                 }, $reconciliation['positions']),
                 'inspection_count' => count($items),
+                'inspection_items' => array_map(static fn(array $item): array => [
+                    'inspection_id' => (int) $item['inspection_id'],
+                    'inspection_number' => (string) $item['external_number'],
+                    'device_number' => (string) $item['device_number'],
+                    'device_name' => (string) $item['device_name'],
+                    'quantity' => (int) $item['quantity'],
+                    'regie_minutes' => (int) $item['regie_minutes'],
+                ], $items),
                 'regie_inspection_count' => count($regieItems),
                 'regie_minutes_total' => array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $regieItems)),
                 'regie_items' => $regieItems,
