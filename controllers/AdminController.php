@@ -104,9 +104,23 @@ class AdminController
             $row['source_snapshot_status'] = is_array($snapshot)
                 ? InspectionEvaluationService::normalizeStatus((string) ($snapshot['result_status'] ?? ''), (string) ($snapshot['status'] ?? ''))
                 : '';
-            if (($_GET['source_row'] ?? '') === '1') {
+            $sourceRowMode = (string) ($_GET['source_row'] ?? '');
+            if ($sourceRowMode === '1') {
                 $sourceRow = json_decode((string) ($snapshotRow['source_row_json'] ?? ''), true);
                 $row['source_row'] = is_array($sourceRow) ? $sourceRow : null;
+            } elseif ($sourceRowMode === 'summary') {
+                $sourceRow = json_decode((string) ($snapshotRow['source_row_json'] ?? ''), true);
+                $sourceRow = is_array($sourceRow) ? $sourceRow : [];
+                $keys = ['number', 'external_number', 'legacy_number', 'inventory_number', 'storage_slot', 'Speicher Nr', 'date', 'test_date', 'location', 'room', 'Raum', 'free_text', 'device_type', 'type', 'manufacturer', 'device_model', 'serial_number', 'audit_ok'];
+                $summary = [];
+                foreach ($keys as $key) {
+                    if (array_key_exists($key, $sourceRow) && !is_array($sourceRow[$key]) && !is_object($sourceRow[$key])) $summary[$key] = $sourceRow[$key];
+                }
+                $evidence = is_array($sourceRow['_phoenix_evidence'] ?? null) ? $sourceRow['_phoenix_evidence'] : [];
+                foreach ($keys as $key) {
+                    if (!array_key_exists($key, $summary) && array_key_exists($key, $evidence) && !is_array($evidence[$key]) && !is_object($evidence[$key])) $summary[$key] = $evidence[$key];
+                }
+                $row['source_row_summary'] = $summary;
             }
         }
         unset($row);
