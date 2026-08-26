@@ -566,6 +566,13 @@ final class InspectionController
                 if ($current->id) {
                     $historyInspection['number'] = (string) ($current->external_number ?? $historyInspection['number'] ?? '');
                     $historyInspection['status'] = (string) ($current->result_status ?? $historyInspection['status'] ?? 'ausstehend');
+                    $historyInspection['storage_slot'] = (string) ($current->storage_slot ?? '');
+                    $device = R::load('device', (int) ($current->device_id ?? 0));
+                    $historyInspection['device_number'] = (string) ($device->external_number ?? '');
+                    $historyInspection['device_name'] = (string) ($device->name ?? '');
+                    $numberStem = preg_replace('/-\d{2}(?:-\d+)?$/', '', trim((string) $historyInspection['number']));
+                    $slotStem = ltrim(trim((string) $historyInspection['storage_slot']), '0');
+                    $historyInspection['number_is_storage_slot'] = $slotStem !== '' && ltrim((string) $numberStem, '0') === $slotStem;
                 }
             }
         }

@@ -130,6 +130,17 @@ final class PhoenixSyncService
         $fill('device_type', (string) ($record['device_type'] ?? ''));
         $fill('manufacturer', (string) ($record['manufacturer'] ?? ''));
         $fill('device_model', (string) ($record['device_model'] ?? ''));
+        $auditOk = $record['audit_ok'] ?? '';
+        $sourceStatus = is_bool($auditOk)
+            ? ($auditOk ? InspectionEvaluationService::PASSED : InspectionEvaluationService::FAILED)
+            : InspectionEvaluationService::normalizeStatus((string) $auditOk);
+        if (in_array($sourceStatus, [InspectionEvaluationService::PASSED, InspectionEvaluationService::FAILED], true)
+            && !in_array((string) ($inspection->result_status ?? ''), [InspectionEvaluationService::PASSED, InspectionEvaluationService::FAILED], true)
+        ) {
+            $inspection->result_status = $sourceStatus;
+            $inspection->status = 'completed';
+            $updated++;
+        }
         $regie = (int) round((float) str_replace(',', '.', (string) ($record['total_cost_plus'] ?? '0')));
         if ((int) ($inspection->regie_minutes ?? 0) <= 0 && $regie > 0) { $inspection->regie_minutes = $regie; $updated++; }
         elseif ($regie > 0 && (int) ($inspection->regie_minutes ?? 0) !== $regie) $conflicts++;
