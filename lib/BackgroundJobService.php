@@ -18,6 +18,7 @@ final class BackgroundJobService
         'directory_import' => 'Datenimport',
         'phoenix_sync' => 'Phoenix-Import',
         'phoenix_report_sync' => 'Phoenix-Originalberichte synchronisieren',
+        'csv_ods_source_reconciliation' => 'CSV/ODS-Quellen zusammenführen',
         'missing_reports' => 'Fehlende Prüfberichte',
         'phoenix_pdf_restore' => 'Original-PDFs wiederherstellen',
         'report_migration' => 'PDF-Aufbereitung',
@@ -124,7 +125,7 @@ final class BackgroundJobService
         if ($job === null) return;
         JobQueue::finish($jobId, 'done', $result, $message !== '' ? $message : self::label($job['type']) . ' abgeschlossen.');
         $owner = (int) $job['owner_user_id'];
-        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'phoenix_report_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'imported_room_assignment', 'legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_manual_csv_consolidation'], true) ? self::adminUserIds() : []);
+        $recipients = $owner > 0 ? [$owner] : (in_array($job['type'], ['directory_import', 'phoenix_sync', 'phoenix_report_sync', 'missing_reports', 'phoenix_pdf_restore', 'report_migration', 'all_report_regeneration', 'measurement_migration', 'inspection_data_migration', 'imported_room_assignment', 'legacy_classification_migration', 'import_result_reconciliation', 'csv_ods_source_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_manual_csv_consolidation'], true) ? self::adminUserIds() : []);
         if ($recipients !== []) {
             NotificationRepository::publish($recipients, self::label($job['type']) . ' abgeschlossen', $message ?: 'Die Aufgabe wurde erfolgreich abgeschlossen.', [
                 'category' => str_contains($job['type'], 'import') || in_array($job['type'], ['phoenix_sync', 'phoenix_report_sync'], true) ? 'import' : 'background_job',
@@ -267,7 +268,7 @@ final class BackgroundJobService
     private static function priority(string $type): int
     {
         return match ($type) {
-            'directory_import', 'phoenix_sync', 'phoenix_report_sync' => 40,
+            'directory_import', 'phoenix_sync', 'phoenix_report_sync', 'csv_ods_source_reconciliation' => 40,
             'legacy_classification_migration' => 50,
             'import_result_reconciliation' => 45,
             'csv_source_fact_reconciliation' => 46,

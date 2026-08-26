@@ -1127,6 +1127,18 @@ final class ElectricalInspectionImportService
         return is_string($candidate) && is_file($candidate) ? $candidate : null;
     }
 
+    /**
+     * Returns the durable device facts from the ODS companion of a Benning
+     * CSV.  Used by the resumable historical source repair; callers still
+     * have to validate the CSV filename, slot and inspection identity.
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    public function odsMappingsForCsv(string $csvPath): array
+    {
+        return $this->readOds($this->matchingOdsPath($csvPath));
+    }
+
     /** @return list<string> */
     private function benningHeaders(): array
     {

@@ -38,6 +38,7 @@ final class MaintenanceJobHandler
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
             'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
+            'csv_ods_source_reconciliation' => self::csvOdsSourceReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_review_cleanup' => self::cleanupArchivedDuplicateReviews($checkpoint, $current, $total, $tick),
             'inspection_confirmed_draft_archive' => self::archiveConfirmedManualDraft($payload, $checkpoint, $current, $total, $tick),
@@ -628,6 +629,8 @@ final class MaintenanceJobHandler
         $reassigned = max(0, (int) ($checkpoint['reassigned'] ?? 0));
         $created = max(0, (int) ($checkpoint['created'] ?? 0));
         $total = max($total, count($repairs));
+        $persistentCheckpoint = $checkpoint;
+        $persistentCheckpoint['repairs'] = $repairs;
         for (; $index < count($repairs); $index++) {
             $repair = $repairs[$index];
             $inspectionId = max(0, (int) ($repair['inspection_id'] ?? 0));
@@ -636,6 +639,7 @@ final class MaintenanceJobHandler
             $expectedType = trim((string) ($repair['source_type'] ?? ''));
             $expectedFile = trim((string) ($repair['source_file'] ?? ''));
             $expectedDate = trim((string) ($repair['test_date'] ?? ''));
+            $sourceDevice = is_array($repair['source_device'] ?? null) ? $repair['source_device'] : [];
             $inspection = R::load('inspection', $inspectionId);
             if (!(int) $inspection->id || $sourceNumber === '' || $expectedInspectionNumber === '' || $expectedType === '' || $expectedFile === '' || $expectedDate === '') {
                 throw new RuntimeException('Bestätigte historische Zuordnungsreparatur ist unvollständig.');
@@ -659,21 +663,22 @@ final class MaintenanceJobHandler
                     $historical = R::dispense('device');
                     $historical->external_number = $sourceNumber;
                     $historical->legacy_number = '';
-                    $historical->storage_slot = trim((string) ($snapshot['Speicher Nr'] ?? ''));
-                    $historical->room_snapshot = (string) $inspection->room_snapshot;
-                    $historical->name = 'Historisches Prüfobjekt ' . $sourceNumber;
+                    $historical->storage_slot = trim((string) ($sourceDevice['storage_slot'] ?? $snapshot['Speicher Nr'] ?? ''));
+                    $historical->room_snapshot = trim((string) ($sourceDevice['room_snapshot'] ?? $inspection->room_snapshot));
+                    $historical->name = trim((string) ($sourceDevice['device_note'] ?? '')) ?: ('Historisches Prüfobjekt ' . $sourceNumber);
                     $historical->manufacturer = '';
                     $historical->device_model = '';
                     $historical->serial_number = '';
                     $historical->inventory_number = '';
                     $historical->warming_device = 0;
                     $historical->room_id = 0;
-                    $room = trim((string) $inspection->room_snapshot);
+                    $room = trim((string) $historical->room_snapshot);
                     if ($room !== '') {
                         $roomBean = R::findOne('room', ' LOWER(number)=LOWER(?) OR LOWER(name)=LOWER(?) ', [$room, $room]);
                         if ($roomBean) $historical->room_id = (int) $roomBean->id;
                     }
-                    $historical->comment = 'Historisches Gerät, bei der Importbereinigung aus Prüfung ' . $expectedInspectionNumber . ' abgeleitet. Die vollständigen Quelldaten bleiben an der Prüfung hinterlegt.';
+                    $sourceComment = trim((string) ($sourceDevice['comment'] ?? ''));
+                    $historical->comment = ($sourceComment !== '' ? $sourceComment . ' ' : '') . 'Historisches Gerät, bei der Importbereinigung aus Prüfung ' . $expectedInspectionNumber . ' abgeleitet. Die vollständigen Quelldaten bleiben an der Prüfung hinterlegt.';
                     $historical->metadata_json = json_encode(['historical_import_repair' => [
                         'inspection_id' => $inspectionId,
                         'inspection_number' => $expectedInspectionNumber,
@@ -704,12 +709,92 @@ final class MaintenanceJobHandler
             }
             audit_log('historische_geraetezuordnung_repariert', ['_category' => 'import', 'inspection_id' => $inspectionId, 'historical_device_id' => (int) $historical->id, 'historical_device_number' => $sourceNumber, 'created' => $wasCreated]);
             $current++;
-            $tick(['repair_index' => $index + 1, 'reassigned' => $reassigned, 'created' => $created], $current, $total, $expectedInspectionNumber, $wasCreated ? 'Historisches Gerät angelegt und Prüfung korrekt zugeordnet.' : 'Prüfung einem vorhandenen historischen Gerät korrekt zugeordnet.');
+            $tick(array_merge($persistentCheckpoint, ['repair_index' => $index + 1, 'reassigned' => $reassigned, 'created' => $created]), $current, $total, $expectedInspectionNumber, $wasCreated ? 'Historisches Gerät angelegt und Prüfung korrekt zugeordnet.' : 'Prüfung einem vorhandenen historischen Gerät korrekt zugeordnet.');
         }
         $configKey = trim((string) ($payload['completion_config_key'] ?? 'inspection_confirmed_historical_device_repair_version'));
         if (preg_match('/^inspection_[a-z0-9_]+_version$/', $configKey) !== 1) $configKey = 'inspection_confirmed_historical_device_repair_version';
         set_app_config($configKey, '1');
         return compact('reassigned', 'created');
+    }
+
+    /**
+     * Repairs only imports whose CSV and same-named ODS agree on a durable
+     * number.  A storage slot is never used on its own: it is export-local.
+     * Ambiguous/missing ODS files and conflicting number bases are retained
+     * unchanged for manual review.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function csvOdsSourceReconciliation(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $repairs = array_values(array_filter((array) ($checkpoint['repairs'] ?? []), static fn(mixed $repair): bool => is_array($repair)));
+        $skipped = max(0, (int) ($checkpoint['skipped'] ?? 0));
+        if ($repairs === [] && !isset($checkpoint['scanned_at'])) {
+            [$repairs, $skipped] = self::csvOdsRepairCandidates();
+            $checkpoint['repairs'] = $repairs;
+            $checkpoint['skipped'] = $skipped;
+            $checkpoint['scanned_at'] = date(DATE_ATOM);
+            $current = 0;
+            $total = count($repairs);
+        }
+        if ($repairs === []) {
+            $tick(array_merge($checkpoint, ['skipped' => $skipped]), 0, 0, '', 'Keine eindeutig belegte CSV/ODS-Gerätezuordnung gefunden.');
+            set_app_config('csv_ods_source_reconciliation_version', '1');
+            return ['reassigned' => 0, 'created' => 0, 'skipped' => $skipped];
+        }
+        $result = self::repairConfirmedHistoricalDeviceAssignments(
+            ['repairs' => $repairs, 'completion_config_key' => 'csv_ods_source_reconciliation_version'],
+            $checkpoint,
+            $current,
+            max($total, count($repairs)),
+            $tick
+        );
+        $result['skipped'] = $skipped;
+        return $result;
+    }
+
+    /** @return array{0:list<array<string,mixed>>,1:int} */
+    private static function csvOdsRepairCandidates(): array
+    {
+        $root = trim((string) get_app_config('benning_reimport_directory', ''));
+        $realRoot = $root !== '' ? realpath($root) : false;
+        if ($realRoot === false || !is_dir($realRoot)) throw new RuntimeException('Das konfigurierte Benning-Importverzeichnis ist nicht verfügbar.');
+        $odsByName = [];
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($realRoot, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!$file instanceof SplFileInfo || !$file->isFile() || strtolower($file->getExtension()) !== 'ods') continue;
+            $name = strtolower($file->getBasename());
+            if (!isset($odsByName[$name])) $odsByName[$name] = $file->getPathname();
+            elseif ($odsByName[$name] !== $file->getPathname()) $odsByName[$name] = '';
+        }
+        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.source_type, i.source_file, i.room_snapshot, s.source_row_json
+            FROM inspection i JOIN inspection_source_snapshot s ON s.inspection_id=i.id
+            WHERE i.source_type='csv' AND COALESCE(i.archived_at,'')='' AND TRIM(COALESCE(i.source_file,''))<>''
+            ORDER BY i.id");
+        $reader = new ElectricalInspectionImportService();
+        $maps = []; $repairs = []; $skipped = 0;
+        foreach ($rows as $row) {
+            $csvName = (string) $row['source_file'];
+            $odsName = strtolower((string) preg_replace('/\.csv$/i', '.ods', $csvName));
+            $odsPath = $odsByName[$odsName] ?? '';
+            if ($odsPath === '') { $skipped++; continue; }
+            $maps[$odsPath] ??= $reader->odsMappingsForCsv($odsPath);
+            $source = json_decode((string) ($row['source_row_json'] ?? ''), true);
+            $source = is_array($source) ? $source : [];
+            $slot = trim((string) ($source['Speicher Nr'] ?? $source['Speicherplatz'] ?? $row['storage_slot'] ?? ''));
+            $ods = $slot !== '' ? ($maps[$odsPath][$slot] ?? $maps[$odsPath][ltrim($slot, '0')] ?? null) : null;
+            if (!is_array($ods)) { $skipped++; continue; }
+            $sourceNumber = trim((string) ($ods['external_number'] ?? ''));
+            $baseNumber = preg_replace('/-\d{2}(?:-\d+)?$/', '', trim((string) $row['external_number'])) ?: '';
+            if (preg_match('/^\d{5,}$/', $sourceNumber) !== 1 || $sourceNumber !== $baseNumber) { $skipped++; continue; }
+            $currentDeviceNumber = trim((string) R::getCell('SELECT external_number FROM device WHERE id=?', [(int) $row['device_id']]));
+            if ($currentDeviceNumber === $sourceNumber) continue;
+            $repairs[] = [
+                'inspection_id' => (int) $row['id'], 'inspection_number' => (string) $row['external_number'],
+                'source_device_number' => $sourceNumber, 'source_type' => 'csv', 'source_file' => $csvName,
+                'test_date' => (string) $row['test_date'], 'source_device' => $ods,
+            ];
+        }
+        return [$repairs, $skipped];
     }
 
     /**
