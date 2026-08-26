@@ -3,6 +3,31 @@
 use RedBeanPHP\R as R;
 use Ceneos\PhpBase\Tenant\TenantRepository;
 
+/** Returns the brand/tenant selected by the public hostname, if any. */
+function branding_key_for_request_host(): string
+{
+    $host = strtolower(trim(explode(':', (string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? ''), 2)[0]));
+    if ($host === '') return '';
+
+    $hostBrands = \Ceneos\PhpBase\Config\Config::get('APP_BRAND_HOSTS');
+    if (!is_array($hostBrands)) {
+        $rawHostBrands = trim((string) (getenv('APP_BRAND_HOSTS') ?: ''));
+        $hostBrands = $rawHostBrands !== '' ? json_decode($rawHostBrands, true) : [];
+    }
+    if (is_array($hostBrands) && !empty($hostBrands[$host])) {
+        return strtolower(trim((string) $hostBrands[$host]));
+    }
+
+    // Safe defaults during first rollout and for reverse proxies that do not
+    // yet pass APP_BRAND_HOSTS through to PHP.
+    return match ($host) {
+        'pruef.ceneos.net' => 'ceneos',
+        'pruef.bsw-consult.gmbh' => 'bsw',
+        'pruef.koenigsbl.au' => 'koenigsblau',
+        default => '',
+    };
+}
+
 function get_branding(): array
 {
     static $branding = null;
@@ -15,15 +40,8 @@ function get_branding(): array
     // A shared deployment can serve several branded hosts. The hostname wins
     // for browser requests, while CLI/Cron continues to use APP_BRAND and
     // report generation explicitly selects the inspection tenant.
-    $host = strtolower(trim(explode(':', (string) ($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? ''), 2)[0]));
-    $hostBrands = \Ceneos\PhpBase\Config\Config::get('APP_BRAND_HOSTS');
-    if (!is_array($hostBrands)) {
-        $rawHostBrands = trim((string) (getenv('APP_BRAND_HOSTS') ?: ''));
-        $hostBrands = $rawHostBrands !== '' ? json_decode($rawHostBrands, true) : [];
-    }
-    if ($host !== '' && is_array($hostBrands) && !empty($hostBrands[$host])) {
-        $brandKey = (string) $hostBrands[$host];
-    }
+    $hostBrand = branding_key_for_request_host();
+    if ($hostBrand !== '') $brandKey = $hostBrand;
     $brandKey = strtolower(trim($brandKey));
 
     $brandAliases = [
@@ -74,8 +92,12 @@ function get_login_branding(?string $tenantSlug = null): array
     ensure_company_branding_schema();
 
     $repository = new TenantRepository();
-    $tenantSlug = strtolower(trim((string) $tenantSlug));
+    // The host deliberately wins over query/form values. A login page at a
+    // branded address must never accidentally present another tenant.
+    $tenantSlug = branding_key_for_request_host() ?: strtolower(trim((string) $tenantSlug));
+    if ($tenantSlug === '') $tenantSlug = 'ceneos';
     $company = $tenantSlug !== '' ? $repository->findBySlug($tenantSlug) : null;
+    $company ??= $repository->findBySlug('ceneos');
     $company ??= $repository->login();
 
     return $company !== null ? map_company_branding($company) : get_branding();

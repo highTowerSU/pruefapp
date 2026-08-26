@@ -9,16 +9,11 @@ if (isset($_SESSION['auth_user_id'])) {
 
 $redirectParam = $_GET['redirect'] ?? null;
 $redirectTarget = sanitize_redirect_target(is_string($redirectParam) ? $redirectParam : null);
-$tenantParam = $_SERVER['REQUEST_METHOD'] === 'POST'
-    ? ($_POST['tenant'] ?? null)
-    : ($_GET['tenant'] ?? null);
-$tenantSlug = is_string($tenantParam) ? strtolower(trim($tenantParam)) : '';
-if ($tenantSlug !== '' && preg_match('/^[a-z0-9-]+$/', $tenantSlug) === 1) {
-    $_SESSION['login_tenant_slug'] = $tenantSlug;
-} elseif ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    unset($_SESSION['login_tenant_slug']);
-}
-$tenantSlug = (string) ($_SESSION['login_tenant_slug'] ?? '');
+// Public hostnames select the tenant. This avoids a query parameter or a
+// stale browser session making the CENEOS login page look like another brand.
+$tenantSlug = branding_key_for_request_host();
+if ($tenantSlug === '') $tenantSlug = 'ceneos';
+$_SESSION['login_tenant_slug'] = $tenantSlug;
 
 $flashMessage = $_SESSION['fehlermeldung'] ?? null;
 if ($flashMessage !== null) {
