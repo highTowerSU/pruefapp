@@ -35,6 +35,7 @@ final class MaintenanceJobHandler
             'inspection_data_migration' => self::inspectionDataMigration($checkpoint, $current, $total, $tick),
             'legacy_classification_migration' => self::legacyClassificationMigration($checkpoint, $current, $total, $tick),
             'import_result_reconciliation' => self::importResultReconciliation($checkpoint, $current, $total, $tick),
+            'csv_source_fact_reconciliation' => self::csvSourceFactReconciliation($checkpoint, $current, $total, $tick),
             'inspection_duplicate_audit' => self::inspectionDuplicateAudit($checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_manual_csv_consolidation' => self::consolidateManualCsvDuplicates($checkpoint, $current, $total, $tick),
@@ -327,6 +328,73 @@ final class MaintenanceJobHandler
     }
 
     /**
+     * Restores only values which the original Benning CSV row explicitly
+     * provides. This fixes earlier imports where a generic RPE fallback
+     * overwrote the source outcome and makes JSON/CSV mirror detection sound.
+     *
+     * @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function csvSourceFactReconciliation(array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $lastId = max(0, (int) ($checkpoint['last_id'] ?? 0));
+        $changed = max(0, (int) ($checkpoint['changed'] ?? 0));
+        $reportIds = array_values(array_unique(array_filter(array_map('intval', (array) ($checkpoint['report_inspection_ids'] ?? [])))));
+        if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='csv' AND COALESCE(archived_at,'')='' ");
+        while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id>? AND source_type='csv' AND COALESCE(archived_at,'')='' ORDER BY id LIMIT 1", [$lastId])) {
+            $inspectionId = (int) $row['id'];
+            $lastId = $inspectionId;
+            $inspection = R::load('inspection', $inspectionId);
+            $facts = self::csvSourceFacts($inspectionId);
+            $previousDate = trim((string) $inspection->test_date);
+            $previousResult = trim((string) $inspection->result_status);
+            $dateChanged = $facts['date'] !== '' && $facts['date'] !== $previousDate;
+            $resultChanged = $facts['result_status'] !== '' && $facts['result_status'] !== $previousResult;
+            if ($dateChanged || $resultChanged) {
+                if ($dateChanged) {
+                    $previousDue = trim((string) $inspection->next_due_date);
+                    try {
+                        if ($previousDate !== '' && $previousDue !== '') {
+                            $interval = (int) (new DateTimeImmutable($previousDate))->diff(new DateTimeImmutable($previousDue))->format('%r%a');
+                            if ($interval > 0) $inspection->next_due_date = (new DateTimeImmutable($facts['date']))->modify('+' . $interval . ' days')->format('Y-m-d');
+                        }
+                    } catch (Throwable) {
+                        // A malformed historic due date must not block the CSV fact repair.
+                    }
+                    $inspection->test_date = $facts['date'];
+                }
+                if ($resultChanged) {
+                    $inspection->result_status = $facts['result_status'];
+                    $inspection->status = 'completed';
+                    $inspection->result_reason_code = 'csv_source_result';
+                    $inspection->result_reason_text = $facts['result_status'] === InspectionEvaluationService::PASSED
+                        ? 'Original-Benning-CSV bestätigt ein bestandenes Prüfergebnis.'
+                        : 'Original-Benning-CSV bestätigt ein nicht bestandenes Prüfergebnis.';
+                }
+                $inspection->updated_at = date(DATE_ATOM);
+                R::store($inspection);
+                $changed++;
+                $reportIds[] = $inspectionId;
+                $message = $dateChanged && $resultChanged
+                    ? 'CSV-Originaldatum und CSV-Gesamtergebnis wurden wiederhergestellt.'
+                    : ($dateChanged ? 'CSV-Originaldatum wurde wiederhergestellt.' : 'CSV-Gesamtergebnis wurde wiederhergestellt.');
+            } else {
+                $message = 'CSV-Quellzeile bestätigt die gespeicherten Prüfdaten.';
+            }
+            $current++;
+            $checkpoint = ['last_id' => $lastId, 'changed' => $changed, 'report_inspection_ids' => array_values(array_unique(array_filter(array_map('intval', $reportIds))))];
+            $tick($checkpoint, $current, max($total, $current), (string) ($row['external_number'] ?? $inspectionId), $message);
+        }
+        $reportIds = array_values(array_unique(array_filter(array_map('intval', $reportIds))));
+        if ($reportIds !== []) {
+            BackgroundJobService::enqueue('all_report_regeneration', ['type' => 'all_report_regeneration', 'inspection_ids' => $reportIds], [
+                'total' => count($reportIds), 'dedupe_key' => 'maintenance:csv-source-fact-reports:v1', 'cancellable' => false,
+            ]);
+        }
+        set_app_config('csv_source_fact_reconciliation_version', '1');
+        return compact('changed', 'current');
+    }
+
+    /**
      * Archives only unequivocal re-import copies.  This includes an import
      * suffix (-2, -3, ...) from the very same source file as well as a Phoenix
      * JSON export mirrored by its original Benning CSV record.  In both cases
@@ -434,7 +502,7 @@ final class MaintenanceJobHandler
             $checkpoint = ['last_id' => $lastId, 'archived' => $archived, 'released' => $released];
             $tick($checkpoint, $current, max($total, $current), (string) $row['external_number'], 'Eindeutige Re-Importdublettenprüfung archiviert und aus aktiven Rechnungszuordnungen gelöst.');
         }
-        set_app_config('inspection_duplicate_archive_version', '3');
+        set_app_config('inspection_duplicate_archive_version', '4');
         return compact('archived', 'released');
     }
 

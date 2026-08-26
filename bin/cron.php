@@ -154,13 +154,30 @@ try {
             set_app_config('inspection_duplicate_audit_version', '2');
         }
     }
-    // Once the read-only audit has completed, unequivocal import copies are
+    // Restore only facts explicitly present in the immutable CSV source rows
+    // before identifying mirrors. Otherwise a former RPE fallback or a
+    // shifted import date makes an identical CSV/JSON pair look different.
+    $csvFactReconciliationVersion = trim((string) get_app_config('csv_source_fact_reconciliation_version', ''));
+    if ($csvFactReconciliationVersion !== '1') {
+        $csvFactTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='csv' AND COALESCE(archived_at,'')='' ");
+        if ($csvFactTotal > 0) {
+            BackgroundJobService::enqueue(
+                'csv_source_fact_reconciliation',
+                ['type' => 'csv_source_fact_reconciliation'],
+                ['total' => $csvFactTotal, 'dedupe_key' => 'maintenance:csv-source-fact-reconciliation:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('csv_source_fact_reconciliation_version', '1');
+        }
+    }
+    // Once the read-only audit and source-fact repair have completed,
+    // unequivocal import copies are
     // archived: a Phoenix JSON mirror of a matching Benning CSV or an import
     // suffix from the same source file.  The inspection and invoice-item
     // history remain intact; only the active operational/billing allocation
     // is released.  Ambiguous short-interval repeats stay for manual review.
     $duplicateArchiveVersion = trim((string) get_app_config('inspection_duplicate_archive_version', ''));
-    if ($duplicateArchiveVersion !== '3' && $duplicateAuditVersion === '2') {
+    if ($duplicateArchiveVersion !== '4' && $duplicateAuditVersion === '2' && $csvFactReconciliationVersion === '1') {
         $duplicateArchiveTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection later
             WHERE (
                 (later.source_type='json' AND EXISTS (SELECT 1 FROM inspection canonical
@@ -189,17 +206,17 @@ try {
             BackgroundJobService::enqueue(
                 'inspection_duplicate_archive',
                 ['type' => 'inspection_duplicate_archive'],
-                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v3', 'cancellable' => false]
+                ['total' => $duplicateArchiveTotal, 'dedupe_key' => 'maintenance:inspection-duplicate-archive:v4', 'cancellable' => false]
             );
         } else {
-            set_app_config('inspection_duplicate_archive_version', '3');
+            set_app_config('inspection_duplicate_archive_version', '4');
         }
     }
     // A manual inspection left in progress can be an abandoned entry when a
     // completed CSV import with the same base number follows shortly after.
     // The CSV record is kept as the factual result and retains its CSV date.
     $manualCsvConsolidationVersion = trim((string) get_app_config('inspection_manual_csv_consolidation_version', ''));
-    if ($manualCsvConsolidationVersion !== '2' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '3') {
+    if ($manualCsvConsolidationVersion !== '2' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '4') {
         $manualCsvTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual' AND status='in_progress' AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''");
         if ($manualCsvTotal > 0) {
             BackgroundJobService::enqueue(
