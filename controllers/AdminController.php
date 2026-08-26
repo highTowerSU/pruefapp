@@ -99,6 +99,7 @@ class AdminController
         unset($row);
         $unclassified = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE COALESCE(test_date, '') <> '' AND test_date < '2025-01-01' AND COALESCE(classification, '') <> 'legacy'");
         $importsToReconcile = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE classification = 'migrated_import' AND result_status = 'data_missing'");
+        $maintenanceTypes = ['legacy_classification_migration', 'import_result_reconciliation', 'csv_source_fact_reconciliation', 'inspection_duplicate_audit', 'inspection_duplicate_archive', 'inspection_csv_source_duplicate_archive', 'inspection_manual_csv_consolidation', 'all_report_regeneration'];
         $maintenanceJobs = array_values(array_map(static fn(array $job): array => [
             'id' => (string) ($job['id'] ?? ''),
             'type' => (string) ($job['type'] ?? ''),
@@ -106,7 +107,7 @@ class AdminController
             'step' => (int) ($job['step'] ?? 0),
             'total' => (int) ($job['total'] ?? 0),
             'message' => (string) ($job['message'] ?? ''),
-        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['legacy_classification_migration', 'import_result_reconciliation', 'inspection_duplicate_audit'], true))));
+        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), $maintenanceTypes, true))));
         return [200, $headers, json_encode([
             'ok' => true,
             'query' => $query,
@@ -131,9 +132,9 @@ class AdminController
             WHERE review.status='open'
             ORDER BY CASE review.severity WHEN 'danger' THEN 0 ELSE 1 END, review.id DESC LIMIT 200");
         $jobs = array_values(array_map(static fn(array $job): array => [
-            'id' => (string) ($job['id'] ?? ''), 'state' => (string) ($job['state'] ?? ''),
+            'id' => (string) ($job['id'] ?? ''), 'type' => (string) ($job['type'] ?? ''), 'state' => (string) ($job['state'] ?? ''),
             'step' => (int) ($job['step'] ?? 0), 'total' => (int) ($job['total'] ?? 0), 'message' => (string) ($job['message'] ?? ''),
-        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => (string) ($job['type'] ?? '') === 'inspection_duplicate_audit')));
+        ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['inspection_duplicate_audit', 'csv_source_fact_reconciliation', 'inspection_duplicate_archive', 'inspection_csv_source_duplicate_archive'], true))));
         return [200, $headers, json_encode(['summary' => 'inspection-duplicates', 'ok' => true, 'open_count' => (int) R::getCell("SELECT COUNT(*) FROM inspectiondupreview WHERE status='open'"), 'jobs' => $jobs, 'findings' => $findings], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
