@@ -41,6 +41,7 @@ final class MaintenanceJobHandler
             'inspection_confirmed_draft_archive' => self::archiveConfirmedManualDraft($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_legacy_csv_archive' => self::archiveConfirmedLegacyCsvDuplicates($payload, $checkpoint, $current, $total, $tick),
             'inspection_confirmed_same_source_archive' => self::archiveConfirmedSameSourceDuplicates($payload, $checkpoint, $current, $total, $tick),
+            'inspection_confirmed_historical_device_repair' => self::repairConfirmedHistoricalDeviceAssignments($payload, $checkpoint, $current, $total, $tick),
             'inspection_duplicate_archive' => self::archiveExactImportDuplicates($checkpoint, $current, $total, $tick),
             'inspection_json_csv_mirror_archive' => self::archiveJsonCsvMirrors($checkpoint, $current, $total, $tick),
             'inspection_csv_source_duplicate_archive' => self::archiveDuplicateCsvSourceRows($checkpoint, $current, $total, $tick),
@@ -553,6 +554,103 @@ final class MaintenanceJobHandler
         }
         set_app_config('inspection_confirmed_same_source_archive_version', '1');
         return compact('archived', 'released');
+    }
+
+    /**
+     * Separates explicitly reviewed historical imports which had been joined
+     * by an export-local Speicher Nr.  A source number is never guessed: each
+     * candidate and its immutable import facts are supplied in the payload.
+     *
+     * @param array<string,mixed> $payload @param array<string,mixed> $checkpoint @param callable $tick @return array<string,mixed>
+     */
+    private static function repairConfirmedHistoricalDeviceAssignments(array $payload, array $checkpoint, int $current, int $total, callable $tick): array
+    {
+        $repairs = array_values(array_filter((array) ($payload['repairs'] ?? []), static fn(mixed $repair): bool => is_array($repair)));
+        if ($repairs === []) throw new InvalidArgumentException('Keine bestätigten historischen Gerätezuordnungen übergeben.');
+        $index = max(0, (int) ($checkpoint['repair_index'] ?? 0));
+        $reassigned = max(0, (int) ($checkpoint['reassigned'] ?? 0));
+        $created = max(0, (int) ($checkpoint['created'] ?? 0));
+        $total = max($total, count($repairs));
+        for (; $index < count($repairs); $index++) {
+            $repair = $repairs[$index];
+            $inspectionId = max(0, (int) ($repair['inspection_id'] ?? 0));
+            $sourceNumber = trim((string) ($repair['source_device_number'] ?? ''));
+            $expectedInspectionNumber = trim((string) ($repair['inspection_number'] ?? ''));
+            $expectedType = trim((string) ($repair['source_type'] ?? ''));
+            $expectedFile = trim((string) ($repair['source_file'] ?? ''));
+            $expectedDate = trim((string) ($repair['test_date'] ?? ''));
+            $inspection = R::load('inspection', $inspectionId);
+            if (!(int) $inspection->id || $sourceNumber === '' || $expectedInspectionNumber === '' || $expectedType === '' || $expectedFile === '' || $expectedDate === '') {
+                throw new RuntimeException('Bestätigte historische Zuordnungsreparatur ist unvollständig.');
+            }
+            if ((string) $inspection->external_number !== $expectedInspectionNumber
+                || (string) $inspection->source_type !== $expectedType
+                || (string) $inspection->source_file !== $expectedFile
+                || (string) $inspection->test_date !== $expectedDate
+                || trim((string) $inspection->archived_at) !== '') {
+                throw new RuntimeException('Bestätigter historischer Importdatensatz erfüllt die abgesicherten Quellkriterien nicht.');
+            }
+            $currentDevice = R::load('device', (int) $inspection->device_id);
+            $historical = R::findOne('device', ' (external_number=? OR legacy_number=?) AND id<>? ', [$sourceNumber, $sourceNumber, (int) $currentDevice->id]);
+            $wasCreated = false;
+            R::begin();
+            try {
+                $now = date(DATE_ATOM);
+                if (!$historical) {
+                    $snapshot = json_decode((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [$inspectionId]), true);
+                    $snapshot = is_array($snapshot) ? $snapshot : [];
+                    $historical = R::dispense('device');
+                    $historical->external_number = $sourceNumber;
+                    $historical->legacy_number = '';
+                    $historical->storage_slot = trim((string) ($snapshot['Speicher Nr'] ?? ''));
+                    $historical->room_snapshot = (string) $inspection->room_snapshot;
+                    $historical->name = 'Historisches Prüfobjekt ' . $sourceNumber;
+                    $historical->manufacturer = '';
+                    $historical->device_model = '';
+                    $historical->serial_number = '';
+                    $historical->inventory_number = '';
+                    $historical->warming_device = 0;
+                    $historical->room_id = 0;
+                    $room = trim((string) $inspection->room_snapshot);
+                    if ($room !== '') {
+                        $roomBean = R::findOne('room', ' LOWER(number)=LOWER(?) OR LOWER(name)=LOWER(?) ', [$room, $room]);
+                        if ($roomBean) $historical->room_id = (int) $roomBean->id;
+                    }
+                    $historical->comment = 'Historisches Gerät, bei der Importbereinigung aus Prüfung ' . $expectedInspectionNumber . ' abgeleitet. Die vollständigen Quelldaten bleiben an der Prüfung hinterlegt.';
+                    $historical->metadata_json = json_encode(['historical_import_repair' => [
+                        'inspection_id' => $inspectionId,
+                        'inspection_number' => $expectedInspectionNumber,
+                        'source_type' => $expectedType,
+                        'source_file' => $expectedFile,
+                        'test_date' => $expectedDate,
+                        'room_snapshot' => (string) $inspection->room_snapshot,
+                        'repaired_at' => $now,
+                    ]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    $historical->created_at = $now;
+                    $historical->updated_at = $now;
+                    R::store($historical);
+                    $created++;
+                    $wasCreated = true;
+                }
+                if ((int) $inspection->device_id !== (int) $historical->id) {
+                    $inspection->device_id = (int) $historical->id;
+                    $inspection->updated_at = $now;
+                    R::store($inspection);
+                    $reassigned++;
+                }
+                $reason = 'Bestätigte Importbereinigung: export-lokale Speicher-Nr. darf nicht mehrere Prüfungen verschiedener Läufe demselben Gerät zuordnen; historische Gerätenummer ' . $sourceNumber . ' wurde wiederhergestellt.';
+                R::exec("UPDATE inspectiondupreview SET status='resolved', resolved_at=?, resolution=? WHERE (inspection_id=? OR peer_inspection_id=?) AND status='open'", [$now, $reason, $inspectionId, $inspectionId]);
+                R::commit();
+            } catch (Throwable $exception) {
+                R::rollback();
+                throw $exception;
+            }
+            audit_log('historische_geraetezuordnung_repariert', ['_category' => 'import', 'inspection_id' => $inspectionId, 'historical_device_id' => (int) $historical->id, 'historical_device_number' => $sourceNumber, 'created' => $wasCreated]);
+            $current++;
+            $tick(['repair_index' => $index + 1, 'reassigned' => $reassigned, 'created' => $created], $current, $total, $expectedInspectionNumber, $wasCreated ? 'Historisches Gerät angelegt und Prüfung korrekt zugeordnet.' : 'Prüfung einem vorhandenen historischen Gerät korrekt zugeordnet.');
+        }
+        set_app_config('inspection_confirmed_historical_device_repair_version', '1');
+        return compact('reassigned', 'created');
     }
 
     private static function inspectionNumberBase(string $number): string

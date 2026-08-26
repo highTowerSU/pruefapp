@@ -234,6 +234,39 @@ try {
             set_app_config('inspection_confirmed_same_source_archive_version', '1');
         }
     }
+    // Explicit user confirmation after source-row review: these older imports
+    // share only an export-local Speicher Nr. with the newer record. Restore
+    // their original device identity rather than archive a valid inspection.
+    $historicalDeviceRepairVersion = trim((string) get_app_config('inspection_confirmed_historical_device_repair_version', ''));
+    if ($historicalDeviceRepairVersion !== '1') {
+        $historicalDeviceRepairs = [
+            ['inspection_id' => 7984, 'inspection_number' => '100008899-26', 'source_device_number' => '100008899', 'source_type' => 'json', 'source_file' => 'phoenix-sync-56tuus1h0p1m6IFf6yc.jsonl', 'test_date' => '2026-03-28'],
+            ['inspection_id' => 9148, 'inspection_number' => '100008898-26', 'source_device_number' => '100008898', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-28'],
+            ['inspection_id' => 9147, 'inspection_number' => '100008897-26', 'source_device_number' => '100008897', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-28'],
+            ['inspection_id' => 9146, 'inspection_number' => '100008896-26', 'source_device_number' => '100008896', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-28'],
+            ['inspection_id' => 9144, 'inspection_number' => '100008894-26', 'source_device_number' => '100008894', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-28'],
+            ['inspection_id' => 8885, 'inspection_number' => '100018988-26', 'source_device_number' => '100018988', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_04_02.csv', 'test_date' => '2026-04-02'],
+            ['inspection_id' => 9285, 'inspection_number' => '100018936-26', 'source_device_number' => '100018936', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9272, 'inspection_number' => '100018923-26', 'source_device_number' => '100018923', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9271, 'inspection_number' => '100018922-26', 'source_device_number' => '100018922', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9268, 'inspection_number' => '100018919-26', 'source_device_number' => '100018919', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9265, 'inspection_number' => '100018916-26', 'source_device_number' => '100018916', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9261, 'inspection_number' => '100018912-26', 'source_device_number' => '100018912', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9237, 'inspection_number' => '100009489-26', 'source_device_number' => '100009489', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-30'],
+            ['inspection_id' => 9162, 'inspection_number' => '100009412-26', 'source_device_number' => '100009412', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-26_03_28.csv', 'test_date' => '2026-03-28'],
+            ['inspection_id' => 8769, 'inspection_number' => '100009273-25', 'source_device_number' => '100009273', 'source_type' => 'csv', 'source_file' => 'AK_Elektro-25_08_14.csv', 'test_date' => '2025-08-14'],
+        ];
+        $openHistoricalDeviceRepairs = (int) R::getCell('SELECT COUNT(*) FROM inspection WHERE id IN (' . implode(',', array_fill(0, count($historicalDeviceRepairs), '?')) . ") AND COALESCE(archived_at,'')=''", array_column($historicalDeviceRepairs, 'inspection_id'));
+        if ($openHistoricalDeviceRepairs > 0) {
+            BackgroundJobService::enqueue(
+                'inspection_confirmed_historical_device_repair',
+                ['type' => 'inspection_confirmed_historical_device_repair', 'repairs' => $historicalDeviceRepairs],
+                ['total' => count($historicalDeviceRepairs), 'dedupe_key' => 'maintenance:inspection-confirmed-historical-device-repair:v1', 'cancellable' => false]
+            );
+        } else {
+            set_app_config('inspection_confirmed_historical_device_repair_version', '1');
+        }
+    }
     // Restore only facts explicitly present in the immutable CSV source rows
     // before identifying mirrors. Otherwise a former RPE fallback or a
     // shifted import date makes an identical CSV/JSON pair look different.
