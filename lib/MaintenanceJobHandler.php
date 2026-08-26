@@ -689,24 +689,36 @@ final class MaintenanceJobHandler
         $released = max(0, (int) ($checkpoint['released'] ?? 0));
         if ($total <= 0) {
             $total = (int) R::getCell("SELECT COUNT(*) FROM inspection
-                WHERE source_type='manual' AND status='in_progress'
+                WHERE source_type='manual' AND status IN ('in_progress','data_missing')
                   AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''");
         }
         while ($manualRow = R::getRow("SELECT id, device_id, external_number, test_date
             FROM inspection
-            WHERE id>? AND source_type='manual' AND status='in_progress'
+            WHERE id>? AND source_type='manual' AND status IN ('in_progress','data_missing')
               AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''
             ORDER BY id LIMIT 1", [$lastId])) {
             $manualId = (int) $manualRow['id'];
             $lastId = $manualId;
             $manualNumber = trim((string) $manualRow['external_number']);
             $manualDate = trim((string) $manualRow['test_date']);
+            $manualSourceRow = trim((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [$manualId]));
             $canonical = null;
             $canonicalSourceDate = '';
             foreach (R::findAll('inspection', " device_id=? AND source_type='csv' AND status='completed' AND COALESCE(archived_at,'')='' ORDER BY test_date, id ", [(int) $manualRow['device_id']]) as $candidate) {
                 $candidateNumber = trim((string) $candidate->external_number);
                 $candidateFacts = self::csvSourceFacts((int) $candidate->id);
                 $candidateDate = $candidateFacts['date'] ?: trim((string) $candidate->test_date);
+                $candidateSourceRow = trim((string) R::getCell('SELECT source_row_json FROM inspection_source_snapshot WHERE inspection_id=?', [(int) $candidate->id]));
+                // This is stronger than a matching number: the manual row is
+                // only an import mirror when its immutable original CSV row
+                // is byte-identical to the completed CSV record.
+                if ($manualSourceRow !== '' && hash_equals($manualSourceRow, $candidateSourceRow)
+                    && $candidateNumber === $manualNumber && $candidateDate === $manualDate) {
+                    $canonical = $candidate;
+                    $canonicalSourceDate = $candidateDate;
+                    $canonicalSourceResult = $candidateFacts['result_status'];
+                    break;
+                }
                 if (self::inspectionNumberBase($candidateNumber) !== $manualNumber || $candidateDate === '' || $manualDate === '') continue;
                 try {
                     $days = (int) (new DateTimeImmutable($manualDate))->diff(new DateTimeImmutable($candidateDate))->format('%r%a');
@@ -799,7 +811,7 @@ final class MaintenanceJobHandler
                 'cancellable' => false,
             ]);
         }
-        set_app_config('inspection_manual_csv_consolidation_version', '2');
+        set_app_config('inspection_manual_csv_consolidation_version', '3');
         return compact('consolidated', 'released');
     }
 

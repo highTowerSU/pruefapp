@@ -248,16 +248,16 @@ try {
     // completed CSV import with the same base number follows shortly after.
     // The CSV record is kept as the factual result and retains its CSV date.
     $manualCsvConsolidationVersion = trim((string) get_app_config('inspection_manual_csv_consolidation_version', ''));
-    if ($manualCsvConsolidationVersion !== '2' && trim((string) get_app_config('inspection_duplicate_archive_version', '')) === '4') {
-        $manualCsvTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual' AND status='in_progress' AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''");
+    if ($manualCsvConsolidationVersion !== '3' && $csvFactReconciliationVersion === '1') {
+        $manualCsvTotal = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual' AND status IN ('in_progress','data_missing') AND COALESCE(archived_at,'')='' AND TRIM(COALESCE(external_number,''))<>''");
         if ($manualCsvTotal > 0) {
             BackgroundJobService::enqueue(
                 'inspection_manual_csv_consolidation',
                 ['type' => 'inspection_manual_csv_consolidation'],
-                ['total' => $manualCsvTotal, 'dedupe_key' => 'maintenance:inspection-manual-csv-consolidation:v2', 'cancellable' => false]
+                ['total' => $manualCsvTotal, 'dedupe_key' => 'maintenance:inspection-manual-csv-consolidation:v3', 'cancellable' => false]
             );
         } else {
-            set_app_config('inspection_manual_csv_consolidation_version', '2');
+            set_app_config('inspection_manual_csv_consolidation_version', '3');
         }
     }
     $inspectionDataMigrationVersion = trim((string) get_app_config('inspection_data_migration_version', ''));
