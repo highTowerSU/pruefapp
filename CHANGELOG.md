@@ -38,5 +38,6 @@
 - Fehlende CSV-/ODS-Regiezeit wird nicht mehr als `0` behandelt.
 - Widersprüche in Importkandidaten sind gelb markiert und feldweise entscheidbar.
 - Der Neuaufbau entfernt Altprüfungen ohne mindestens sechsstellige Gerätenummer.
+- Revisionen: Prüfapp `a68d53a`, Ceneos PHP Base `4750c8f`.
 
 Nutzerrelevante Änderungen erscheinen zusätzlich als persönliche „Was ist neu?“-Benachrichtigung und unter **Downloads → Was ist neu?**.

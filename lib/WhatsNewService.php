@@ -67,6 +67,8 @@ final class WhatsNewService
                 'Widersprüchliche Kandidatenfelder werden gelb hervorgehoben und müssen gezielt entschieden werden.',
                 'Beim Neuaufbau werden Altprüfungen ohne mindestens sechsstellige Gerätenummer entfernt.',
             ],
+            'pruefapp_revision' => 'a68d53a',
+            'base_revision' => '4750c8f',
         ]]);
     }
 
