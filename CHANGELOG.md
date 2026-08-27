@@ -1,11 +1,5 @@
 # Änderungsprotokoll
 
-## 28.08.2026 – Was ist neu? nach Änderungszeit sortiert
-
-- Prüfapp- und Base-Einträge werden nach ihrem tatsächlichen Änderungszeitpunkt absteigend sortiert.
-- Der Datumstag zeigt jetzt auch die Uhrzeit.
-- Revisionen: Prüfapp `176b0f5`, Ceneos PHP Base `d11c6b6`.
-
 ## 28.08.2026 – Was ist neu? in sinnvoller Reihenfolge
 
 - Aktuelle Prüfapp-Änderungen stehen vor älteren gemeinsamen Änderungen der Ceneos PHP Base.
