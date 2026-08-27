@@ -192,7 +192,27 @@ final class ImportCandidateRebuildService
                 $manual = array_values(array_filter($rows, static fn(array $row): bool => (string) $row['source_kind'] === 'manual'));
                 $external = array_values(array_filter($rows, static fn(array $row): bool => (string) $row['source_kind'] !== 'manual'));
                 $manualIdentity = $this->identity($this->decode((string) $manual[0]['raw_json']), 'manual');
-                $safeManualMatch = $external === [] || ((string) $manualIdentity['device_number'] !== '' && (string) $manualIdentity['device_number'] === (string) $identityData['device_number'] && (string) $manualIdentity['test_date'] === (string) $identityData['test_date']);
+                $externalIdentities = array_map(fn(array $row): array => $this->identity($this->decode((string) $row['raw_json']), (string) $row['source_kind']), $external);
+                $sameDeviceAndDate = $externalIdentities !== [] && (string) $manualIdentity['device_number'] !== '';
+                foreach ($externalIdentities as $externalIdentity) {
+                    $sameDeviceAndDate = $sameDeviceAndDate
+                        && (string) $externalIdentity['device_number'] !== ''
+                        && (string) $manualIdentity['device_number'] === (string) $externalIdentity['device_number']
+                        && (string) $manualIdentity['test_date'] === (string) $externalIdentity['test_date'];
+                }
+                // For a Benning row without device number, the grouping phase
+                // linked it only when its date/storage slot has exactly one
+                // manual counterpart. It is safe to enrich that inspection if
+                // its class is compatible (including Kabel as SK1 special case).
+                $sameUniqueSlotAndDate = $externalIdentities !== [] && (string) $manualIdentity['storage_slot'] !== '';
+                foreach ($externalIdentities as $externalIdentity) {
+                    $sameUniqueSlotAndDate = $sameUniqueSlotAndDate
+                        && (string) $externalIdentity['device_number'] === ''
+                        && (string) $manualIdentity['storage_slot'] === (string) $externalIdentity['storage_slot']
+                        && (string) $manualIdentity['test_date'] === (string) $externalIdentity['test_date']
+                        && $this->comparisonValue('inspection_type', (string) $manualIdentity['inspection_type']) === $this->comparisonValue('inspection_type', (string) $externalIdentity['inspection_type']);
+                }
+                $safeManualMatch = $external === [] || $sameDeviceAndDate || $sameUniqueSlotAndDate;
                 if (!$safeManualMatch) { R::exec("UPDATE importcandidate SET state='review' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['review']++; continue; }
                 if ($external !== []) $this->applyToManual((int) ($manual[0]['source_inspection_id'] ?? 0), $merged);
                 R::exec("UPDATE importcandidate SET state='accepted' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['manual_kept']++; continue;
