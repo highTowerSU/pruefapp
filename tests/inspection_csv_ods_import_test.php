@@ -48,11 +48,13 @@ try {
     $withoutRegie = R::getRow("SELECT regie_minutes, result_status FROM inspection WHERE external_number='NEU-2-25'");
     $raw = json_decode((string) ($withRegie['raw_json'] ?? ''), true);
     $measurements = json_decode((string) ($withRegie['measurements_json'] ?? ''), true);
+    $candidates = (new ElectricalInspectionImportService())->candidateRecords($root);
+    $withoutRegieCandidate = array_values(array_filter($candidates, static fn(array $candidate): bool => (string) ($candidate['record']['storage_slot'] ?? '') === '2'))[0]['record'] ?? [];
     if (($withRegie['test_date'] ?? '') !== '2025-08-15' || (int) ($withRegie['regie_minutes'] ?? -1) !== 6
         || ($raw['ods_regiezeit'] ?? '') !== '6' || ($withRegie['device_name'] ?? '') !== 'Beamer'
         || ($withRegie['legacy_number'] ?? '') !== 'ALT-1' || ($withRegie['room_snapshot'] ?? '') !== 'K016'
         || ($withRegie['result_status'] ?? '') !== 'passed' || (string) ($measurements[0]['value'] ?? '') !== '0,18'
-        || (int) ($withoutRegie['regie_minutes'] ?? -1) !== 0 || ($withoutRegie['result_status'] ?? '') !== 'failed') {
+        || (int) ($withoutRegie['regie_minutes'] ?? -1) !== 0 || array_key_exists('regie_minutes', $withoutRegieCandidate) || ($withoutRegie['result_status'] ?? '') !== 'failed') {
         throw new RuntimeException('CSV-/ODS-Felder oder Regiezeit wurden nicht vollständig und korrekt übernommen.');
     }
     echo "PASS: CSV/ODS übernimmt Geräte-, Mess-, Ergebnis-, Raum- und Regiedaten mit und ohne Regiezeit\n";

@@ -547,7 +547,7 @@ final class ElectricalInspectionImportService
         }
         $cableLength = $this->value($values, ['Kabellänge', 'Leitungslänge', 'cable_length_m', 'cable_length']);
         $regieRaw = $this->value($values, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten', 'regie_minutes']);
-        return [
+        $record = [
             'external_number' => $number,
             'storage_slot' => $slot,
             'cable_length_m' => $cableLength,
@@ -558,12 +558,18 @@ final class ElectricalInspectionImportService
             'manufacturer' => $this->value($values, ['Hersteller', 'manufacturer']),
             'device_model' => $this->value($values, ['Modell', 'device_model']),
             'room_snapshot' => $this->value($values, ['Raumnummer', 'Raum', 'room']),
-            'regie_minutes' => $this->normalizeRegieMinutes($regieRaw),
-            'regie_time_raw' => $regieRaw,
             'measurements' => $measurements,
             'checklist' => [],
             'raw' => $values,
         ];
+        // Missing means unknown, not zero. An explicit zero remains a valid
+        // import fact; otherwise it would falsely conflict with Regiezeit
+        // entered directly in Prüfweb.
+        if (trim((string) $regieRaw) !== '') {
+            $record['regie_minutes'] = $this->normalizeRegieMinutes($regieRaw);
+            $record['regie_time_raw'] = $regieRaw;
+        }
+        return $record;
     }
 
     /** @return array{imported:int,updated:int,devices:int,reports:int} */
@@ -1164,6 +1170,7 @@ final class ElectricalInspectionImportService
             $rowData = array_combine($header, array_pad($values, count($header), '')) ?: [];
             $slot = $this->value($rowData, ['Speicherplatz']);
             if ($slot !== '') {
+                $regieRaw = $this->value($rowData, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']);
                 $rowData = [
                 'storage_slot' => $slot,
                 'legacy_number' => $this->value($rowData, ['Nr. alt', 'Nr alt']),
@@ -1174,9 +1181,11 @@ final class ElectricalInspectionImportService
                 // The paired ODS holds the per-device Regiezeit.  It is a
                 // minute value in these Benning/Phoenix sheets (e.g. 6), not
                 // a device master-data field, and must survive the join.
-                'regie_time_raw' => $this->value($rowData, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']),
-                'regie_minutes' => $this->normalizeRegieMinutes($this->value($rowData, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten'])),
                 ];
+                if (trim((string) $regieRaw) !== '') {
+                    $rowData['regie_time_raw'] = $regieRaw;
+                    $rowData['regie_minutes'] = $this->normalizeRegieMinutes($regieRaw);
+                }
                 $result[$slot] = $rowData;
                 $result[ltrim($slot, '0')] = $rowData;
             }
