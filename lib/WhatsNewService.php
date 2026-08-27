@@ -10,6 +10,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return [[
+            'id' => '2026-08-27-candidate-source-data',
+            'date' => '27.08.2026',
+            'title' => 'Unvollständige Importkandidaten prüfen',
+            'items' => [
+                'Bei unvollständigen Kandidaten lassen sich jetzt alle eingelesenen Quelldaten der konkreten CSV-/ODS-Zeile anzeigen.',
+            ],
+        ], [
             'id' => '2026-08-27-manual-failure-wins',
             'date' => '27.08.2026',
             'title' => 'Manuell nicht bestandene Prüfungen',

@@ -1,5 +1,9 @@
 # Änderungsprotokoll
 
+## 27.08.2026 – Quelldaten unvollständiger Kandidaten
+
+- Die Kandidatensichtung zeigt auf Wunsch alle eingelesenen Werte der konkreten CSV-/ODS-Zeile an.
+
 ## 27.08.2026 – Manuelles Prüfergebnis hat Vorrang
 
 - Ein in Prüfweb manuell als nicht bestanden markiertes Ergebnis bleibt bei der Kandidatenzusammenführung erhalten. CSV-Messwerte ergänzen die Prüfung, überschreiben aber eine mangelhafte Sichtprüfung nicht.

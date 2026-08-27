@@ -16,6 +16,7 @@ foreach ([
     [$template, 'Feldweise zusammenführen'],
     [$template, 'Widersprüchliche Felder:'],
     [$template, 'table-warning'],
+    [$template, 'Vollständige Quelldaten der Zeile anzeigen'],
     [$template, 'Aktualisierung in'],
     [$template, 'refresh-countdown'],
     [$template, 'Aktualisiere …'],
