@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Benning-CSV ohne Kopfzeile erkennen
+
+- Unvollständige ST-725-Exporte mit einer einzelnen Vorsatzzeile werden wieder als Semikolon-CSV eingelesen.
+- Speicherplatz, Schutzklasse, Prüfdatum und Ergebnis bleiben erhalten; es entstehen keine Scheinspalten oder JSON-artigen Rohdatensätze mehr.
+- Revisionen: Prüfapp `2c26045`, Ceneos PHP Base `4750c8f`.
+
 ## 28.08.2026 – Kandidatenquellen vollständig vergleichen
 
 - Hersteller und Modell stehen direkt in der Kandidatenvergleichstabelle.

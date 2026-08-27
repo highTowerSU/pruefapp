@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge(ReleaseNotes::entries(), [[
+            'id' => '2026-08-28-benning-headerless-csv',
+            'date' => '28.08.2026',
+            'title' => 'Benning-CSV ohne Kopfzeile erkennen',
+            'items' => [
+                'Unvollständige ST-725-Exporte mit einer einzelnen Vorsatzzeile werden wieder als CSV gelesen.',
+                'Speicherplatz, Schutzklasse, Prüfdatum und Ergebnis werden daraus korrekt übernommen; es entstehen keine Scheinspalten oder JSON-artigen Rohdatensätze mehr.',
+            ],
+            'pruefapp_revision' => '2c26045',
+            'base_revision' => '4750c8f',
+        ], [
             'id' => '2026-08-28-candidate-source-comparison',
             'date' => '28.08.2026',
             'title' => 'Kandidatenquellen vollständig vergleichen',
@@ -104,7 +114,7 @@ final class WhatsNewService
             return;
         }
         $userId = (int) $user->id;
-        $releaseId = '2026-08-28-candidate-source-comparison';
+        $releaseId = '2026-08-28-benning-headerless-csv';
         $obsoleteIds = [];
         foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 500) as $notification) {
             if (($notification['category'] ?? '') === 'whats_new' && ($notification['dedupe_key'] ?? '') !== 'whats-new:' . $releaseId . ':user:' . $userId) {
