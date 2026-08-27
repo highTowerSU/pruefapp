@@ -353,28 +353,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
     <script src="<?= htmlspecialchars(url_for('public/js/companion-inbox.js') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('node_modules/tabulator-tables/dist/js/tabulator.min.js'), ENT_QUOTES) ?>"></script>
     <script src="<?= htmlspecialchars(url_for('public/js/qrcode.min.js') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>"></script>
-    <script>
-        (() => {
-            'use strict';
-            const currentVersion = <?= json_encode($assetVersion, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-            const versionUrl = <?= json_encode(url_for('app-version'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-            const showReloadNotice = () => {
-                if (document.getElementById('app-update-notice')) return;
-                const notice = document.createElement('div');
-                notice.id = 'app-update-notice'; notice.className = 'toast w-100 align-items-center text-bg-primary border-0'; notice.role = 'alert';
-                notice.innerHTML = '<div class="d-flex"><div class="toast-body">Eine neue Programmversion ist verfügbar.</div><button type="button" class="btn btn-light btn-sm my-auto me-2"><i class="fa-solid fa-arrows-rotate me-1" aria-hidden="true"></i>Neu laden</button></div>';
-                notice.querySelector('button').addEventListener('click', () => window.location.reload());
-                let container = document.getElementById('app-update-toast-container');
-                if (!container) { container = document.createElement('div'); container.id = 'app-update-toast-container'; container.className = 'toast-container position-fixed top-0 start-50 translate-middle-x pt-5 mt-3 w-100 px-3'; document.body.appendChild(container); }
-                container.appendChild(notice); new bootstrap.Toast(notice, {autohide: false}).show();
-            };
-            const checkVersion = () => fetch(versionUrl, {cache: 'no-store', credentials: 'same-origin'}).then(response => response.ok ? response.json() : null).then(data => {
-                if (!data || !data.version || data.version === currentVersion) return;
-                showReloadNotice();
-            }).catch(() => {});
-            window.addEventListener('DOMContentLoaded', () => { window.setInterval(checkVersion, 60000); });
-        })();
-    </script>
+    <?= \Ceneos\PhpBase\View\AppUpdateToast::render($assetVersion, url_for('app-version')) ?>
     <script>
         (() => {
             'use strict';
