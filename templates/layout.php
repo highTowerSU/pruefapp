@@ -358,9 +358,6 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             'use strict';
             const currentVersion = <?= json_encode($assetVersion, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
             const versionUrl = <?= json_encode(url_for('app-version'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-            let initialFormData = '';
-            const formData = () => Array.from(document.querySelectorAll('form')).map(form => new URLSearchParams(new FormData(form)).toString()).join('|');
-            const hasUnsavedInput = () => initialFormData !== '' && formData() !== initialFormData;
             const showReloadNotice = () => {
                 if (document.getElementById('app-update-notice')) return;
                 const notice = document.createElement('div');
@@ -373,10 +370,9 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             };
             const checkVersion = () => fetch(versionUrl, {cache: 'no-store', credentials: 'same-origin'}).then(response => response.ok ? response.json() : null).then(data => {
                 if (!data || !data.version || data.version === currentVersion) return;
-                if (hasUnsavedInput()) { showReloadNotice(); return; }
-                window.location.reload();
+                showReloadNotice();
             }).catch(() => {});
-            window.addEventListener('DOMContentLoaded', () => { initialFormData = formData(); window.setInterval(checkVersion, 60000); });
+            window.addEventListener('DOMContentLoaded', () => { window.setInterval(checkVersion, 60000); });
         })();
     </script>
     <script>
