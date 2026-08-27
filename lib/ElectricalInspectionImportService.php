@@ -127,7 +127,7 @@ final class ElectricalInspectionImportService
                 $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
                 $slot = trim((string) ($record['storage_slot'] ?? ''));
                 $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
-                if (is_array($odsRow)) $record = array_merge($record, $odsRow);
+                if (is_array($odsRow)) $record = $this->mergeOdsRecord($record, $odsRow);
                 // In Phoenix result.csv exports `number` identifies the
                 // device.  CSV has no independent inspection resource ID.
                 $deviceNumber = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
@@ -446,7 +446,7 @@ final class ElectricalInspectionImportService
             }
             if (is_array($odsRow)) {
                 $matchedSlots[ltrim($slot, '0')] = true;
-                $record = array_merge($record, $odsRow);
+                $record = $this->mergeOdsRecord($record, $odsRow);
                 if (is_array($record['raw'] ?? null) && trim((string) ($odsRow['regie_time_raw'] ?? '')) !== '') {
                     // Keep the original ODS value as evidence.  Older
                     // imports discarded it after joining CSV and ODS rows.
@@ -1115,6 +1115,26 @@ final class ElectricalInspectionImportService
     }
 
     /** @return array<string, array<string, mixed>> */
+    /**
+     * The ODS is an enrichment source. Empty spreadsheet cells must never
+     * erase a fact that was present in the paired CSV export.
+     *
+     * @param array<string,mixed> $record
+     * @param array<string,mixed> $odsRow
+     * @return array<string,mixed>
+     */
+    private function mergeOdsRecord(array $record, array $odsRow): array
+    {
+        foreach ($odsRow as $field => $value) {
+            if (is_array($value)) {
+                if ($value !== []) $record[$field] = $value;
+                continue;
+            }
+            if (trim((string) $value) !== '') $record[$field] = $value;
+        }
+        return $record;
+    }
+
     private function readOds(?string $path): array
     {
         if ($path === null || !class_exists('ZipArchive')) return [];
