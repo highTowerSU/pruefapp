@@ -122,6 +122,12 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
             });
 
             window.addEventListener('DOMContentLoaded', () => {
+                const navbarShell = document.querySelector('.app-navbar-shell');
+                const updateNavbarHeight = () => document.documentElement.style.setProperty('--app-navbar-height', `${Math.ceil(navbarShell?.getBoundingClientRect().height || 0)}px`);
+                updateNavbarHeight();
+                if (navbarShell && window.ResizeObserver) new ResizeObserver(updateNavbarHeight).observe(navbarShell);
+                window.addEventListener('resize', updateNavbarHeight, {passive: true});
+
                 const initialTheme = serverPreference.theme === 'auto' ? (getStoredTheme() || 'auto') : serverPreference.theme;
                 updateThemeUI(initialTheme);
 
@@ -185,6 +191,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('public/css/custom.css') . '?v=' . rawurlencode($assetVersion), ENT_QUOTES) ?>">
     <style>
         :root {
+            --app-navbar-height: 0px;
             --app-brand-bg: <?= htmlspecialchars($brandBackground, ENT_QUOTES) ?>;
             --app-brand-color: <?= htmlspecialchars($brandText, ENT_QUOTES) ?>;
             --app-primary: <?= htmlspecialchars($primaryColor, ENT_QUOTES) ?>;
@@ -239,7 +246,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         #page-action-navigation .btn { white-space: nowrap; }
         /* The Bootstrap sticky utility keeps the status in its own document
            space, so it never covers forms or tables beneath it. */
-        .job-status-notice { z-index: 1020; box-shadow: 0 .35rem 1rem rgba(0, 0, 0, .15); }
+        .job-status-notice.sticky-top { top: calc(var(--app-navbar-height) + .5rem); z-index: 1020; box-shadow: 0 .35rem 1rem rgba(0, 0, 0, .15); }
         @media (max-width: 575.98px) {
             .card-body { padding: .85rem; }
             .table { font-size: .875rem; }
