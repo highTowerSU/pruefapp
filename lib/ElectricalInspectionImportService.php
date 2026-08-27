@@ -114,7 +114,7 @@ final class ElectricalInspectionImportService
             if ($odsPath === null) continue;
             $contents = str_replace("\0", '', (string) file_get_contents($path));
             if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
-            $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
+            $delimiter = $this->detectCsvDelimiter($contents);
             $stream = fopen('php://memory', 'r+'); fwrite($stream, $contents); rewind($stream);
             $header = fgetcsv($stream, 0, $delimiter);
             if (!is_array($header)) { fclose($stream); continue; }
@@ -124,7 +124,8 @@ final class ElectricalInspectionImportService
             while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
                 $rowNo++;
                 if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) === 0) continue;
-                $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
+                $repairedRow = $this->repairDecimalColumns($header, $row);
+                $record = $this->headerlessBenningRecord($header, $repairedRow) ?? $this->csvRecord($header, $repairedRow);
                 $slot = trim((string) ($record['storage_slot'] ?? ''));
                 $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
                 if (is_array($odsRow)) $record = $this->mergeOdsRecord($record, $odsRow);
@@ -236,7 +237,7 @@ final class ElectricalInspectionImportService
     {
         $contents = str_replace("\0", '', (string) file_get_contents($csvPath));
         if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
-        $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
+        $delimiter = $this->detectCsvDelimiter($contents);
         $stream = fopen('php://memory', 'r+'); fwrite($stream, $contents); rewind($stream);
         $header = $this->uniqueHeaders(fgetcsv($stream, 0, $delimiter) ?: []);
         $rows = [];
@@ -394,7 +395,7 @@ final class ElectricalInspectionImportService
         $contents = (string) file_get_contents($path);
         $contents = str_replace("\0", '', $contents);
         if (!mb_check_encoding($contents, 'UTF-8')) $contents = mb_convert_encoding($contents, 'UTF-8', 'Windows-1252');
-        $delimiter = substr_count((string) strtok($contents, "\r\n"), ';') >= 3 ? ';' : ',';
+        $delimiter = $this->detectCsvDelimiter($contents);
         $stream = fopen('php://memory', 'r+');
         fwrite($stream, $contents);
         rewind($stream);
@@ -511,6 +512,22 @@ final class ElectricalInspectionImportService
         return $row;
     }
 
+    /**
+     * Exports from the ST 725 occasionally start with a one-cell remnants
+     * line (for example "Új") before the semicolon-separated data. Looking
+     * only at the first line then turns every later record into one cell.
+     */
+    private function detectCsvDelimiter(string $contents): string
+    {
+        $semicolon = 0;
+        $comma = 0;
+        foreach (array_slice(preg_split('/\R/u', $contents) ?: [], 0, 25) as $line) {
+            $semicolon = max($semicolon, substr_count($line, ';'));
+            $comma = max($comma, substr_count($line, ','));
+        }
+        return $semicolon > $comma ? ';' : ',';
+    }
+
     private function measurementNumber(string $value): ?float
     {
         if (preg_match('/([<>]?\s*\d+(?:[.,]\d+)?)/', trim($value), $match) !== 1) return null;
@@ -570,6 +587,38 @@ final class ElectricalInspectionImportService
             $record['regie_time_raw'] = $regieRaw;
         }
         return $record;
+    }
+
+    /**
+     * Some ST 725 exports contain only a unit/data row where the column
+     * headings should be.  Recognise their fixed opening fields rather than
+     * turning every value into a made-up measurement column.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function headerlessBenningRecord(array $header, array $row): ?array
+    {
+        $slot = trim((string) ($row[0] ?? ''));
+        $protectionClass = trim((string) ($row[1] ?? ''));
+        $date = $this->normalizeDate((string) ($row[2] ?? ''));
+        if (!preg_match('/^\d+$/', $slot) || $date === '' || preg_match('/klasse\s*(?:i|ii|iii|1|2|3)\b/iu', $protectionClass) !== 1) return null;
+        $values = [];
+        foreach ($header as $index => $name) $values[$name] = trim((string) ($row[$index] ?? ''));
+        return [
+            'external_number' => '',
+            'storage_slot' => $slot,
+            'cable_length_m' => '',
+            'test_date' => $date,
+            'result_status' => $this->status((string) ($row[3] ?? '')),
+            'inspection_type' => $protectionClass,
+            'device_type' => '',
+            'manufacturer' => '',
+            'device_model' => '',
+            'room_snapshot' => '',
+            'measurements' => [],
+            'checklist' => [],
+            'raw' => ['header' => $header, 'row' => $row, 'values' => $values],
+        ];
     }
 
     /** @return array{imported:int,updated:int,devices:int,reports:int} */

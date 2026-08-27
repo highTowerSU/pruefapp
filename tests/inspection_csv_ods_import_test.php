@@ -41,6 +41,9 @@ try {
     if ($ods->open($root . '/AK_Elektro-25_08_15.ods', ZipArchive::CREATE) !== true) throw new RuntimeException('ODS-Testdatei konnte nicht erstellt werden.');
     $ods->addFromString('content.xml', $content);
     $ods->close();
+    $headerlessCsv = $root . '/Benning-Headerlos.csv';
+    file_put_contents($headerlessCsv, "Új\n086;Klasse I;15/08/2025;bestanden;0;09;Ohm\n");
+    copy($root . '/AK_Elektro-25_08_15.ods', $root . '/Benning-Headerlos.ods');
 
     $stats = (new ElectricalInspectionImportService())->importDirectory($csv);
     if ($stats['imported'] !== 2 || $stats['skipped'] !== 0) throw new RuntimeException('CSV/ODS-Paar wurde nicht vollständig importiert.');
@@ -50,11 +53,13 @@ try {
     $measurements = json_decode((string) ($withRegie['measurements_json'] ?? ''), true);
     $candidates = (new ElectricalInspectionImportService())->candidateRecords($root);
     $withoutRegieCandidate = array_values(array_filter($candidates, static fn(array $candidate): bool => (string) ($candidate['record']['storage_slot'] ?? '') === '2'))[0]['record'] ?? [];
+    $headerlessCandidate = array_values(array_filter($candidates, static fn(array $candidate): bool => str_ends_with((string) ($candidate['source_path'] ?? ''), 'Benning-Headerlos.csv')))[0]['record'] ?? [];
     if (($withRegie['test_date'] ?? '') !== '2025-08-15' || (int) ($withRegie['regie_minutes'] ?? -1) !== 6
         || ($raw['ods_regiezeit'] ?? '') !== '6' || ($withRegie['device_name'] ?? '') !== 'Beamer'
         || ($withRegie['legacy_number'] ?? '') !== 'ALT-1' || ($withRegie['room_snapshot'] ?? '') !== 'K016'
         || ($withRegie['result_status'] ?? '') !== 'passed' || (string) ($measurements[0]['value'] ?? '') !== '0,18'
-        || (int) ($withoutRegie['regie_minutes'] ?? -1) !== 0 || array_key_exists('regie_minutes', $withoutRegieCandidate) || ($withoutRegie['result_status'] ?? '') !== 'failed') {
+        || (int) ($withoutRegie['regie_minutes'] ?? -1) !== 0 || array_key_exists('regie_minutes', $withoutRegieCandidate) || ($withoutRegie['result_status'] ?? '') !== 'failed'
+        || ($headerlessCandidate['storage_slot'] ?? '') !== '086' || ($headerlessCandidate['test_date'] ?? '') !== '2025-08-15' || ($headerlessCandidate['inspection_type'] ?? '') !== 'Klasse I' || ($headerlessCandidate['result_status'] ?? '') !== 'bestanden') {
         throw new RuntimeException('CSV-/ODS-Felder oder Regiezeit wurden nicht vollständig und korrekt übernommen.');
     }
     echo "PASS: CSV/ODS übernimmt Geräte-, Mess-, Ergebnis-, Raum- und Regiedaten mit und ohne Regiezeit\n";
