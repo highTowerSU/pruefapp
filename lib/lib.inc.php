@@ -92,6 +92,7 @@ require_once __DIR__ . '/ImportedInspectionResetService.php';
 require_once __DIR__ . '/ImportCandidateRebuildService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
 require_once __DIR__ . '/BackgroundJobService.php';
+require_once __DIR__ . '/WhatsNewService.php';
 require_once __DIR__ . '/MaintenanceJobHandler.php';
 
 initialize_database();
@@ -1301,6 +1302,7 @@ function current_user_notifications(int $limit = 8): array
 {
     $user = current_user();
     if ($user === null) return [];
+    WhatsNewService::publishForCurrentUser();
     $rows = \Ceneos\PhpBase\Notification\NotificationRepository::forUser((int) ($user->id ?? 0), max(1, $limit));
     return array_map(static function (array $row): array {
         $job = (int) ($row['job_id'] ?? 0) > 0 ? BackgroundJobService::findById((int) $row['job_id']) : null;

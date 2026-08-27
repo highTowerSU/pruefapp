@@ -111,6 +111,7 @@ final class DownloadController
             'jobs' => $jobs,
             'notifications' => $notifications,
             'canSeeAll' => current_user_is_superadmin(),
+            'whatsNewEntries' => WhatsNewService::entries(),
         ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', ['title' => 'Downloads', 'content' => $content])];

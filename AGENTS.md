@@ -13,3 +13,4 @@
 - Gemeinsame Footer-, Versions-, Branding- und Mandantenlogik nicht duplizieren, sondern aus der Base verwenden.
 - Bei wiederkehrenden Masken denselben serverseitigen Renderer/Controller verwenden; keine parallelen, abweichenden „Neu anlegen“-Formulare bauen.
 - Betriebsrelevante, durch Betreiber änderbare Konfigurationen gehören immer in die GUI; Umgebungsvariablen und externe Dateien bleiben auf Bootstrap-/Deployment-Fallbacks beschränkt.
+- Bei jeder nutzerrelevanten Änderung `CHANGELOG.md` und `WhatsNewService::entries()` ergänzen, damit sie in der GUI und als persönliche „Was ist neu?“-Benachrichtigung erscheint.
