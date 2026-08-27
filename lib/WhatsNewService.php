@@ -11,6 +11,17 @@ final class WhatsNewService
     public static function entries(): array
     {
         $entries = array_merge([[
+            'id' => '2026-08-28-whats-new-change-time',
+            'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:32:49+02:00',
+            'title' => 'Was ist neu? nach Änderungszeit sortiert',
+            'items' => [
+                'Einträge werden jetzt über Prüfapp und Base hinweg nach dem tatsächlichen Änderungszeitpunkt absteigend angezeigt.',
+                'Der Datumstag zeigt zusätzlich die Uhrzeit der Änderung.',
+            ],
+            'pruefapp_revision' => '176b0f5',
+            'base_revision' => 'd11c6b6',
+        ], [
             'id' => '2026-08-28-whats-new-order',
             'date' => '28.08.2026',
             'changed_at' => '2026-08-28T00:31:20+02:00',
