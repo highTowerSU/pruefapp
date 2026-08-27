@@ -221,7 +221,9 @@ final class ImportCandidateRebuildService
                         && (string) $externalIdentity['device_number'] === ''
                         && $this->slotKey((string) $manualIdentity['storage_slot']) === $this->slotKey((string) $externalIdentity['storage_slot'])
                         && (string) $manualIdentity['test_date'] === (string) $externalIdentity['test_date']
-                        && $this->comparisonValue('inspection_type', (string) $manualIdentity['inspection_type']) === $this->comparisonValue('inspection_type', (string) $externalIdentity['inspection_type']);
+                        && ((string) $manualIdentity['inspection_type'] === ''
+                            || (string) $externalIdentity['inspection_type'] === ''
+                            || $this->comparisonValue('inspection_type', (string) $manualIdentity['inspection_type']) === $this->comparisonValue('inspection_type', (string) $externalIdentity['inspection_type']));
                 }
                 $safeManualMatch = $external === [] || $sameDeviceAndDate || $sameUniqueSlotAndDate;
                 if (!$safeManualMatch) { R::exec("UPDATE importcandidate SET state='review' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['review']++; continue; }
@@ -280,6 +282,17 @@ final class ImportCandidateRebuildService
     {
         $merged = [];
         foreach ($records as $index => $record) foreach ($record as $key => $value) if (!isset($merged[$key]) || $merged[$key] === '' || $merged[$key] === null) $merged[$key] = $value;
+        // Sources name the same identity fields differently (for example CSV
+        // uses "type", while Prüfweb stores "inspection_type"). Preserve the
+        // first non-empty canonical value so a complete CSV can fill a blank
+        // manual field without changing an existing manual value.
+        foreach ($rows as $index => $row) {
+            $identity = $this->identity($records[$index] ?? [], (string) ($row['source_kind'] ?? ''));
+            foreach (['inspection_number', 'device_number', 'test_date', 'inspection_type', 'storage_slot'] as $field) {
+                $value = (string) ($identity[$field] ?? '');
+                if ($value !== '' && (!isset($merged[$field]) || $merged[$field] === '' || $merged[$field] === null)) $merged[$field] = $value;
+            }
+        }
         foreach ($selected as $field => $candidateId) {
             if (str_starts_with($field, '__')) continue;
             foreach ($rows as $index => $row) if ((string) ($row['id'] ?? '') === (string) $candidateId) {
