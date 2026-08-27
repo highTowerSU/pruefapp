@@ -271,6 +271,10 @@ final class ImportCandidateRebuildService
     private function comparisonValue(string $field, string $value): string
     {
         if ($field === 'inspection_type') {
+            // The ST 725 stores its separate Leitungstest as "Kabel". It is
+            // a SK-I-compatible special case (RPE/RISO), not a competing
+            // active Prüfart, so it may enrich an SK1 inspection.
+            if (str_contains(mb_strtolower($value, 'UTF-8'), 'kabel')) return 'SK1';
             if (preg_match('/(?:\bSK\s*|KLASSE\s*)(I{1,3}|[1-3])\b/iu', $value, $match) === 1) {
                 $class = strtoupper($match[1]);
                 return match ($class) { 'I', '1' => 'SK1', 'II', '2' => 'SK2', 'III', '3' => 'SK3', default => $this->clean($value) };

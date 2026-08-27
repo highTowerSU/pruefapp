@@ -22,7 +22,7 @@ try {
     $matchingManual = R::dispense('inspection'); $matchingManual->device_id = $manualDeviceId; $matchingManual->dedupe_key = 'manual-match'; $matchingManual->public_id = 'prf-manual-match'; $matchingManual->source_type = 'manual'; $matchingManual->external_number = 'WEB-1'; $matchingManual->test_date = '2025-07-01'; $matchingManual->inspection_type = 'SK1'; $matchingManual->storage_slot = '17'; R::store($matchingManual);
     $old = R::dispense('inspection'); $old->device_id = $deviceId; $old->dedupe_key = 'old'; $old->public_id = 'prf-old'; $old->source_type = 'json'; $old->external_number = 'P-O'; $old->test_date = '2024-07-01'; R::store($old);
     file_put_contents($root . '/sources/records.json', json_encode([
-        ['number' => 'P-1', 'external_number' => 'G-1', 'date' => '2025-07-01', 'type' => 'SK1', 'audit_ok' => true],
+        ['number' => 'P-1', 'external_number' => 'G-1', 'date' => '2025-07-01', 'type' => 'Kabel', 'audit_ok' => true],
         ['number' => '', 'external_number' => '', 'date' => '2025-07-01', 'type' => 'SK1'],
     ]));
     file_put_contents($root . '/sources/standalone-measurements.csv', "Speicher Nr;RPE Wert\n1;0,12\n");
