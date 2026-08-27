@@ -4,7 +4,7 @@
 
 - Es gibt nur noch eine aktuelle „Was ist neu?“-Benachrichtigung.
 - Die einzelnen Änderungen stehen direkt unter Benachrichtigungen, sind bis zur Kenntnisnahme gelb markiert und lassen sich einzeln oder gesammelt abhaken.
-- Revisionen: Prüfapp `noch offen`, Ceneos PHP Base `unverändert`.
+- Revisionen: Prüfapp `786ddbb`, Ceneos PHP Base `4750c8f`.
 
 ## 28.08.2026 – Kandidatenfälle gesammelt öffnen
 
