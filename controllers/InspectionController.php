@@ -564,20 +564,22 @@ final class InspectionController
         $jobs = self::phoenixJobs();
         $importLogs = self::importLogs();
         foreach ($importLogs as &$historyLog) {
+            $existingInspections = [];
             foreach (($historyLog['stats']['updated_inspections'] ?? []) as &$historyInspection) {
                 $current = R::load('inspection', (int) ($historyInspection['id'] ?? 0));
-                if ($current->id) {
-                    $historyInspection['number'] = (string) ($current->external_number ?? $historyInspection['number'] ?? '');
-                    $historyInspection['status'] = (string) ($current->result_status ?? $historyInspection['status'] ?? 'ausstehend');
-                    $historyInspection['storage_slot'] = (string) ($current->storage_slot ?? '');
-                    $device = R::load('device', (int) ($current->device_id ?? 0));
-                    $historyInspection['device_number'] = (string) ($device->external_number ?? '');
-                    $historyInspection['device_name'] = (string) ($device->name ?? '');
-                    $numberStem = preg_replace('/-\d{2}(?:-\d+)?$/', '', trim((string) $historyInspection['number']));
-                    $slotStem = ltrim(trim((string) $historyInspection['storage_slot']), '0');
-                    $historyInspection['number_is_storage_slot'] = $slotStem !== '' && ltrim((string) $numberStem, '0') === $slotStem;
-                }
+                if (!$current->id) continue;
+                $historyInspection['number'] = (string) ($current->external_number ?? $historyInspection['number'] ?? '');
+                $historyInspection['status'] = (string) ($current->result_status ?? $historyInspection['status'] ?? 'ausstehend');
+                $historyInspection['storage_slot'] = (string) ($current->storage_slot ?? '');
+                $device = R::load('device', (int) ($current->device_id ?? 0));
+                $historyInspection['device_number'] = (string) ($device->external_number ?? '');
+                $historyInspection['device_name'] = (string) ($device->name ?? '');
+                $numberStem = preg_replace('/-\d{2}(?:-\d+)?$/', '', trim((string) $historyInspection['number']));
+                $slotStem = ltrim(trim((string) $historyInspection['storage_slot']), '0');
+                $historyInspection['number_is_storage_slot'] = $slotStem !== '' && ltrim((string) $numberStem, '0') === $slotStem;
+                $existingInspections[] = $historyInspection;
             }
+            $historyLog['stats']['updated_inspections'] = $existingInspections;
         }
         unset($historyLog, $historyInspection);
         $cron = self::cronStatus();

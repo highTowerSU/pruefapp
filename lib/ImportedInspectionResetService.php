@@ -15,7 +15,11 @@ final class ImportedInspectionResetService
     /** @return array<string,int> */
     public static function preview(): array
     {
-        $imported = "source_type IN ('csv', 'json')";
+        // Every non-native inspection can be reconstructed from the staged
+        // sources. This includes the candidate workflow's `reconciled` rows;
+        // leaving those behind made old, storage-slot-based pseudo numbers
+        // survive a supposedly clean rebuild.
+        $imported = "source_type <> 'manual'";
         return [
             'imported_inspections' => (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$imported}"),
             'manual_inspections_kept' => (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type = 'manual'"),
@@ -68,8 +72,8 @@ final class ImportedInspectionResetService
         }
 
         $preview = self::preview();
-        $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE source_type IN ('csv', 'json')"));
-        $deviceIds = array_map('intval', R::getCol("SELECT DISTINCT device_id FROM inspection WHERE source_type IN ('csv', 'json') AND device_id > 0"));
+        $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE source_type <> 'manual'"));
+        $deviceIds = array_map('intval', R::getCol("SELECT DISTINCT device_id FROM inspection WHERE source_type <> 'manual' AND device_id > 0"));
         R::begin();
         try {
             if ($ids !== []) {
