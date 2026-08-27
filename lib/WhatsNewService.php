@@ -10,6 +10,14 @@ final class WhatsNewService
     public static function entries(): array
     {
         return [[
+            'id' => '2026-08-27-manual-failure-wins',
+            'date' => '27.08.2026',
+            'title' => 'Manuell nicht bestandene Prüfungen',
+            'items' => [
+                'Ein manuell als nicht bestanden markiertes Prüfergebnis bleibt verbindlich, auch wenn importierte Messwerte bestanden sind.',
+                'CSV-Messdaten werden trotzdem ergänzt, etwa zur Dokumentation einer mangelhaften Sichtprüfung.',
+            ],
+        ], [
             'id' => '2026-08-27-candidate-leading-zeroes',
             'date' => '27.08.2026',
             'title' => 'Kandidaten: Speicherplätze mit führenden Nullen',

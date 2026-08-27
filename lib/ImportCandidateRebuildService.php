@@ -230,11 +230,24 @@ final class ImportCandidateRebuildService
     {
         $conflicts = [];
         $hasManual = in_array('manual', array_column($rows, 'source_kind'), true);
+        $manualFailed = false;
+        foreach ($rows as $row) {
+            if ((string) ($row['source_kind'] ?? '') !== 'manual') continue;
+            $record = isset($row['raw_json']) ? $this->decode((string) $row['raw_json']) : $row;
+            if (InspectionEvaluationService::normalizeStatus((string) ($record['result_status'] ?? '')) === InspectionEvaluationService::FAILED) {
+                $manualFailed = true;
+                break;
+            }
+        }
         foreach (self::REVIEW_FIELDS as $field) {
             // Phoenix resource IDs and Prüfweb numbers identify their own
             // systems. A manual/external match is established by device and
             // date, so those two unrelated identifiers are not a conflict.
             if ($field === 'inspection_number' && $hasManual) continue;
+            // A failed direct Prüfweb inspection can be caused by the visual
+            // check. Electrical CSV values may enrich it, but must neither
+            // create a result conflict nor turn it into "passed".
+            if ($field === 'result_status' && $manualFailed) continue;
             $values = [];
             foreach ($rows as $row) {
                 $record = isset($row['raw_json']) ? $this->decode((string) $row['raw_json']) : $row;
@@ -271,6 +284,14 @@ final class ImportCandidateRebuildService
         if ($deviceNumber !== '') { $merged['device_number'] = $deviceNumber; $merged['external_number'] = $deviceNumber; }
         if ($testDate !== '') $merged['test_date'] = $testDate;
         if ($type !== '') $merged['inspection_type'] = $type;
+        foreach ($rows as $index => $row) {
+            if ((string) ($row['source_kind'] ?? '') !== 'manual') continue;
+            $manualResult = (string) ($records[$index]['result_status'] ?? '');
+            if (InspectionEvaluationService::normalizeStatus($manualResult) === InspectionEvaluationService::FAILED) {
+                $merged['result_status'] = $manualResult;
+                break;
+            }
+        }
         return $merged;
     }
 

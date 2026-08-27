@@ -1,5 +1,9 @@
 # Änderungsprotokoll
 
+## 27.08.2026 – Manuelles Prüfergebnis hat Vorrang
+
+- Ein in Prüfweb manuell als nicht bestanden markiertes Ergebnis bleibt bei der Kandidatenzusammenführung erhalten. CSV-Messwerte ergänzen die Prüfung, überschreiben aber eine mangelhafte Sichtprüfung nicht.
+
 ## 27.08.2026 – Speicherplätze beim Kandidatenabgleich
 
 - Speicherplätze mit unterschiedlichen führenden Nullen, etwa `3` und `003`, werden als identisch behandelt und automatisch zusammengeführt.
