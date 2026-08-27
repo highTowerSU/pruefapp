@@ -137,7 +137,11 @@
   const countdown = panel.querySelector('.refresh-countdown');
   const message = panel.querySelector('.job-message'); const progress = panel.querySelector('.job-progress');
   const schedule = () => { remaining = 10; if (countdown) countdown.textContent = String(remaining); clearInterval(timer); timer = setInterval(() => { remaining--; if (countdown) countdown.textContent = String(Math.max(0, remaining)); if (remaining <= 0) { clearInterval(timer); refresh(); } }, 1000); };
-  const refresh = () => { if (message) message.textContent = 'Aktualisiere …'; window.pruefappRefreshIndicator?.show(); fetch(url, {credentials: 'same-origin'}).then(response => response.json()).then(job => { if (progress) progress.textContent = job.total ? (job.step || 0) + ' / ' + job.total : '—'; if (message) message.textContent = job.message || job.error || ''; if (['done', 'error', 'cancelled'].includes(job.state)) { window.setTimeout(() => window.location.reload(), 700); return; } schedule(); }).catch(() => { if (message) message.textContent = 'Aktualisierung fehlgeschlagen – erneuter Versuch folgt.'; schedule(); }).finally(() => window.pruefappRefreshIndicator?.hide()); };
+  const refreshPanel = () => {
+    if (!window.htmx) { window.location.reload(); return; }
+    window.htmx.ajax('GET', window.location.href, {target: '#inspection-import-panel', select: '#inspection-import-panel', swap: 'outerHTML'});
+  };
+  const refresh = () => { if (message) message.textContent = 'Aktualisiere …'; window.pruefappRefreshIndicator?.show(); fetch(url, {credentials: 'same-origin'}).then(response => response.json()).then(job => { if (progress) progress.textContent = job.total ? (job.step || 0) + ' / ' + job.total : '—'; if (message) message.textContent = job.message || job.error || ''; if (['done', 'error', 'cancelled'].includes(job.state)) { window.setTimeout(refreshPanel, 700); return; } schedule(); }).catch(() => { if (message) message.textContent = 'Aktualisierung fehlgeschlagen – erneuter Versuch folgt.'; schedule(); }).finally(() => window.pruefappRefreshIndicator?.hide()); };
   schedule();
 })();
 </script>
