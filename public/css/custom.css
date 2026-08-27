@@ -371,7 +371,9 @@ details.device-card:focus-within {
   min-width: 0;
   padding-inline: clamp(.75rem, 2.5vw, 2rem) !important;
 }
-html, body { max-width: 100%; overflow-x: hidden; }
+/* clip avoids creating a scrolling ancestor; sticky status notices can then
+   follow the document scroll while the page still cannot overflow sideways. */
+html, body { max-width: 100%; overflow-x: clip; }
 .app-main-container .row > [class*="col-"] { min-width: 0; }
 .app-main-container input,
 .app-main-container select,
