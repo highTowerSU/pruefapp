@@ -3,22 +3,14 @@
 declare(strict_types=1);
 
 use Ceneos\PhpBase\Notification\ReleaseNotePublisher;
+use Ceneos\PhpBase\Update\ReleaseNotes;
 
 final class WhatsNewService
 {
     /** @return list<array{id:string,date:string,title:string,items:list<string>}> */
     public static function entries(): array
     {
-        return [[
-            'id' => '2026-08-28-whats-new-revision-badges',
-            'date' => '28.08.2026',
-            'title' => 'Revisionen direkt sichtbar',
-            'items' => [
-                'Die beteiligten Prüfapp- und Base-Revisionen stehen jetzt direkt als Tags an den Änderungen.',
-            ],
-            'pruefapp_revision' => 'e2cd2ed',
-            'base_revision' => '4750c8f',
-        ], [
+        return array_merge(ReleaseNotes::entries(), [[
             'id' => '2026-08-28-compact-notification-history',
             'date' => '28.08.2026',
             'title' => 'Kompakter Benachrichtigungsverlauf',
@@ -75,7 +67,12 @@ final class WhatsNewService
                 'Widersprüchliche Kandidatenfelder werden gelb hervorgehoben und müssen gezielt entschieden werden.',
                 'Beim Neuaufbau werden Altprüfungen ohne mindestens sechsstellige Gerätenummer entfernt.',
             ],
-        ]];
+        ]]);
+    }
+
+    public static function latestReleaseId(): string
+    {
+        return (string) (self::entries()[0]['id'] ?? '');
     }
 
     public static function publishForCurrentUser(): void
@@ -85,7 +82,7 @@ final class WhatsNewService
             return;
         }
         $userId = (int) $user->id;
-        $releaseId = '2026-08-28-whats-new-revision-badges';
+        $releaseId = self::latestReleaseId();
         $obsoleteIds = [];
         foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 500) as $notification) {
             if (($notification['category'] ?? '') === 'whats_new' && ($notification['dedupe_key'] ?? '') !== 'whats-new:' . $releaseId . ':user:' . $userId) {

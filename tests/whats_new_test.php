@@ -13,7 +13,7 @@ foreach ([$service, $whatsNewTemplate, $changelog] as $source) {
         throw new RuntimeException('Changelog oder sichtbare Was-ist-neu-Ansicht fehlt.');
     }
 }
-if (!str_contains($service, 'ReleaseNotePublisher::publishForUser') || !str_contains($downloads, "render_template('_whats_new.php'") || !str_contains($whatsNewTemplate, 'id="whats-new"') || !str_contains($whatsNewTemplate, 'Alle gelesen')) {
+if (!str_contains($service, 'ReleaseNotePublisher::publishForUser') || !str_contains($downloads, "render_template('_whats_new.php'") || !str_contains($whatsNewTemplate, 'WhatsNewChecklist::render')) {
     throw new RuntimeException('Nutzerrelevante Änderungen werden nicht als persönliche Benachrichtigung und in der GUI angezeigt.');
 }
 
