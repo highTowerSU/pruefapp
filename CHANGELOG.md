@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Was ist neu? in sinnvoller Reihenfolge
+
+- Aktuelle Prüfapp-Änderungen stehen vor älteren gemeinsamen Änderungen der Ceneos PHP Base.
+- Revisionen: Prüfapp `85a51a6`, Ceneos PHP Base `4750c8f`.
+
 ## 28.08.2026 – Benning-CSV ohne Kopfzeile erkennen
 
 - Unvollständige ST-725-Exporte mit einer einzelnen Vorsatzzeile werden wieder als Semikolon-CSV eingelesen.

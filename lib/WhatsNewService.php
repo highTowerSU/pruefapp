@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-whats-new-order',
+            'date' => '28.08.2026',
+            'title' => 'Was ist neu? in sinnvoller Reihenfolge',
+            'items' => [
+                'Aktuelle Prüfapp-Änderungen stehen jetzt vor älteren gemeinsamen Änderungen der Ceneos PHP Base.',
+            ],
+            'pruefapp_revision' => '85a51a6',
+            'base_revision' => '4750c8f',
+        ], [
             'id' => '2026-08-28-benning-headerless-csv',
             'date' => '28.08.2026',
             'title' => 'Benning-CSV ohne Kopfzeile erkennen',
