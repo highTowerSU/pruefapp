@@ -250,7 +250,7 @@ try {
     $remainingDuplicate = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number = '100012579-26-2'");
     $mergedSource = (string) R::getCell('SELECT source_type FROM inspection WHERE id = ?', [$openId]);
     $mergedType = (string) R::getCell('SELECT inspection_type FROM inspection WHERE id = ?', [$openId]);
-    if ($remainingDuplicate !== 0 || $mergedSource !== 'csv' || $mergedType !== 'Schutzklasse II') {
+    if ($remainingDuplicate !== 0 || $mergedSource !== 'csv' || $mergedType !== 'SK2') {
         throw new RuntimeException("Später Messdatenimport wurde nicht in die offene Ausgangsprüfung zusammengeführt ({$remainingDuplicate}, {$mergedSource}, {$mergedType}; " . implode(' | ', $reconciliationMessages) . ').');
     }
     if ((string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$openId]) !== InspectionEvaluationService::PASSED) {

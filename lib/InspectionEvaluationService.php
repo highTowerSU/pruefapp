@@ -151,20 +151,27 @@ final class InspectionEvaluationService
         return in_array($value, ['I', 'II', 'III'], true) ? $value : $value;
     }
 
-    /** Normalizes only actual protection-class labels; other inspection types remain unchanged. */
+    /**
+     * Maps imported electrical classes to the stable import enum SK1/SK2/SK3.
+     * The separate cable measurement is an SK1-compatible special case; its
+     * protection_class still records that it is a cable.
+     */
     public static function canonicalInspectionType(string $type, string $protectionClass = ''): string
     {
         $type = trim($type);
         $normalizedType = self::normalizeProtectionClass($type);
+        $normalizedProtection = self::normalizeProtectionClass($protectionClass);
+        if ($normalizedType === 'KABEL' || $normalizedProtection === 'KABEL') {
+            return 'SK1';
+        }
         if (in_array($normalizedType, ['I', 'II', 'III'], true)
             && preg_match('/(?:schutz)?klasse|\bsk\s*(?:[123]|i{1,3})\b|\b[123]\b/ui', $type) === 1
         ) {
-            return 'Schutzklasse ' . $normalizedType;
+            return 'SK' . match ($normalizedType) { 'I' => '1', 'II' => '2', 'III' => '3' };
         }
         if ($type === '') {
-            $normalizedProtection = self::normalizeProtectionClass($protectionClass);
             if (in_array($normalizedProtection, ['I', 'II', 'III'], true)) {
-                return 'Schutzklasse ' . $normalizedProtection;
+                return 'SK' . match ($normalizedProtection) { 'I' => '1', 'II' => '2', 'III' => '3' };
             }
         }
         return $type;

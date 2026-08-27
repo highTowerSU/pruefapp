@@ -281,7 +281,9 @@ final class ImportCandidateRebuildService
         $device = $this->clean((string) ($record['device_number'] ?? $record['external_number'] ?? $record['inventory_number'] ?? ''));
         $legacy = $this->clean((string) ($record['legacy_device_number'] ?? $record['legacy_number'] ?? ''));
         $date = trim((string) ($record['test_date'] ?? $record['date'] ?? ''));
-        $type = $this->clean((string) ($record['inspection_type'] ?? $record['type'] ?? ''));
+        $rawType = $record['inspection_type'] ?? $record['type'] ?? '';
+        if (is_array($rawType)) $rawType = $rawType['brezel_name'] ?? $rawType['name'] ?? $rawType['title'] ?? '';
+        $type = InspectionEvaluationService::canonicalInspectionType((string) $rawType, (string) ($record['protection_class'] ?? ''));
         $slot = $this->clean((string) ($record['storage_slot'] ?? ''));
         // CSV/ODS carries the device, date and test type but commonly no
         // separate inspection resource number. Those three facts still form
@@ -302,6 +304,8 @@ final class ImportCandidateRebuildService
             // The ST 725 stores its separate Leitungstest as "Kabel". It is
             // a SK-I-compatible special case (RPE/RISO), not a competing
             // active Prüfart, so it may enrich an SK1 inspection.
+            $canonical = InspectionEvaluationService::canonicalInspectionType($value);
+            if (in_array($canonical, ['SK1', 'SK2', 'SK3'], true)) return $canonical;
             if (str_contains(mb_strtolower($value, 'UTF-8'), 'kabel')) return 'SK1';
             if (preg_match('/(?:\bSK\s*|KLASSE\s*)(I{1,3}|[1-3])\b/iu', $value, $match) === 1) {
                 $class = strtoupper($match[1]);
@@ -322,6 +326,10 @@ final class ImportCandidateRebuildService
         foreach (['room_snapshot', 'regie_minutes', 'result_status', 'manufacturer', 'device_model', 'storage_slot', 'inspection_type', 'test_date', 'cable_length_m', 'checklist_json', 'measurements_json', 'raw_json'] as $field) {
             if (array_key_exists($field, $record) && trim((string) $record[$field]) !== '') $inspection->$field = $record[$field];
         }
+        $inspection->inspection_type = InspectionEvaluationService::canonicalInspectionType(
+            (string) ($inspection->inspection_type ?? ''),
+            (string) ($inspection->protection_class ?? '')
+        );
         if (isset($record['measurements']) && is_array($record['measurements'])) $inspection->measurements_json = json_encode($record['measurements'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (isset($record['checklist']) && is_array($record['checklist'])) $inspection->checklist_json = json_encode($record['checklist'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (isset($record['raw']) && is_array($record['raw'])) $inspection->raw_json = json_encode($record['raw'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

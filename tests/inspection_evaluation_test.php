@@ -27,9 +27,10 @@ if (InspectionEvaluationService::rslLimit(12.6) !== 0.5) throw new RuntimeExcept
 if (InspectionEvaluationService::requiredMeasurementKeys('Klasse II') !== ['RISO', 'IBER']) {
     throw new RuntimeException('Importierte Schutzklassenbezeichnung wurde nicht zentral normalisiert.');
 }
-if (InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SK1 für euP unter Leitung der VEFK', 'I') !== 'Schutzklasse I'
-    || InspectionEvaluationService::canonicalInspectionType('Klasse II', 'II') !== 'Schutzklasse II'
-    || InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SKIII', 'III') !== 'Schutzklasse III'
+if (InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SK1 für euP unter Leitung der VEFK', 'I') !== 'SK1'
+    || InspectionEvaluationService::canonicalInspectionType('Klasse II', 'II') !== 'SK2'
+    || InspectionEvaluationService::canonicalInspectionType('Wiederholungsprüfung SKIII', 'III') !== 'SK3'
+    || InspectionEvaluationService::canonicalInspectionType('Kabelprüfung', 'Kabel') !== 'SK1'
 ) {
     throw new RuntimeException('Prüfarten der Importquellen werden nicht einheitlich als Schutzklasse dargestellt.');
 }
