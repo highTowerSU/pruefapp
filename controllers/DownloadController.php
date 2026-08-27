@@ -65,7 +65,7 @@ final class DownloadController
         $entries = WhatsNewService::entries();
         if (count(WhatsNewChecklistService::checkedByEntry($userId, $entries)) !== count($entries)) return;
         foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 50, true) as $notification) {
-            if (($notification['dedupe_key'] ?? '') === 'whats-new:2026-08-28-whats-new-checklist:user:' . $userId) {
+            if (($notification['dedupe_key'] ?? '') === 'whats-new:2026-08-28-compact-notification-history:user:' . $userId) {
                 \Ceneos\PhpBase\Notification\NotificationRepository::markRead((int) $notification['id'], $userId);
             }
         }

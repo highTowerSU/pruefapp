@@ -6,6 +6,11 @@
 - Die einzelnen Änderungen stehen direkt unter Benachrichtigungen, sind bis zur Kenntnisnahme gelb markiert und lassen sich einzeln oder gesammelt abhaken.
 - Revisionen: Prüfapp `786ddbb`, Ceneos PHP Base `4750c8f`.
 
+## 28.08.2026 – Benachrichtigungsverlauf kompakt
+
+- Unter Downloads sind zunächst nur die zehn neuesten Benachrichtigungen sichtbar; ältere Einträge lassen sich bei Bedarf aufklappen.
+- Revisionen: Prüfapp `folgt`, Ceneos PHP Base `4750c8f`.
+
 ## 28.08.2026 – Kandidatenfälle gesammelt öffnen
 
 - Die offenen Fälle eines Kandidatenlaufs lassen sich gesammelt auf- und einklappen.

@@ -10,6 +10,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return [[
+            'id' => '2026-08-28-compact-notification-history',
+            'date' => '28.08.2026',
+            'title' => 'Kompakter Benachrichtigungsverlauf',
+            'items' => [
+                'Unter Benachrichtigungen werden zunächst die zehn neuesten Einträge angezeigt; ältere lassen sich aufklappen.',
+            ],
+        ], [
             'id' => '2026-08-28-candidate-toggle-all',
             'date' => '28.08.2026',
             'title' => 'Kandidatenfälle gesammelt öffnen',
@@ -59,7 +66,7 @@ final class WhatsNewService
             return;
         }
         $userId = (int) $user->id;
-        $releaseId = '2026-08-28-whats-new-checklist';
+        $releaseId = '2026-08-28-compact-notification-history';
         $obsoleteIds = [];
         foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 500) as $notification) {
             if (($notification['category'] ?? '') === 'whats_new' && ($notification['dedupe_key'] ?? '') !== 'whats-new:' . $releaseId . ':user:' . $userId) {
