@@ -356,6 +356,32 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
     <script>
         (() => {
             'use strict';
+            const currentVersion = <?= json_encode($assetVersion, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            const versionUrl = <?= json_encode(url_for('app-version'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+            let initialFormData = '';
+            const formData = () => Array.from(document.querySelectorAll('form')).map(form => new URLSearchParams(new FormData(form)).toString()).join('|');
+            const hasUnsavedInput = () => initialFormData !== '' && formData() !== initialFormData;
+            const showReloadNotice = () => {
+                if (document.getElementById('app-update-notice')) return;
+                const notice = document.createElement('div');
+                notice.id = 'app-update-notice'; notice.className = 'toast align-items-center text-bg-primary border-0'; notice.role = 'alert';
+                notice.innerHTML = '<div class="d-flex"><div class="toast-body">Eine neue Programmversion ist verfügbar.</div><button type="button" class="btn btn-light btn-sm my-auto me-2">Jetzt neu laden</button></div>';
+                notice.querySelector('button').addEventListener('click', () => window.location.reload());
+                let container = document.getElementById('app-update-toast-container');
+                if (!container) { container = document.createElement('div'); container.id = 'app-update-toast-container'; container.className = 'toast-container position-fixed top-0 end-0 p-3'; document.body.appendChild(container); }
+                container.appendChild(notice); new bootstrap.Toast(notice, {autohide: false}).show();
+            };
+            const checkVersion = () => fetch(versionUrl, {cache: 'no-store', credentials: 'same-origin'}).then(response => response.ok ? response.json() : null).then(data => {
+                if (!data || !data.version || data.version === currentVersion) return;
+                if (hasUnsavedInput()) { showReloadNotice(); return; }
+                window.location.reload();
+            }).catch(() => {});
+            window.addEventListener('DOMContentLoaded', () => { initialFormData = formData(); window.setInterval(checkVersion, 60000); });
+        })();
+    </script>
+    <script>
+        (() => {
+            'use strict';
 
             const resetButton = (button) => {
                 if (!button) {

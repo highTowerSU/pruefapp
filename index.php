@@ -56,6 +56,7 @@ require_once __DIR__ . '/controllers/InspectionTypeController.php';
 require_once __DIR__ . '/lib/SevDeskClient.php';
 
 $routes = [
+    ['GET', '/app-version', static fn($params, $isHx) => [200, ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store, max-age=0'], json_encode(['version' => app_asset_version()], JSON_UNESCAPED_SLASHES)]],
     ['GET', '/', fn($params, $isHx) => HomeController::index($params, $isHx)],
     ['GET', '/kurse', fn($params, $isHx) => [303, ['Location' => url_for('geraete')], '']],
     ['GET', '/kurse/tabelle', fn($params, $isHx) => CourseController::table($params, $isHx)],
