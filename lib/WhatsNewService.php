@@ -18,7 +18,7 @@ final class WhatsNewService
                 'CSV-Messdaten werden bei gleicher Gerätenummer und gleichem Datum automatisch an die passende Prüfweb-Prüfung ergänzt.',
                 'Speicherplätze werden dabei auch bei führenden Nullen gleich behandelt, etwa 045 und 45.',
             ],
-            'pruefapp_revision' => 'folgt',
+            'pruefapp_revision' => '3db8191',
             'base_revision' => '4750c8f',
         ], [
             'id' => '2026-08-28-compact-notification-history',
