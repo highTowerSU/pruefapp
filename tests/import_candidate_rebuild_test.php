@@ -18,6 +18,8 @@ require_once dirname(__DIR__) . '/lib/lib.inc.php';
 try {
     $device = R::dispense('device'); $device->room_id = 0; $device->name = 'Aktuell'; $device->external_number = 'M-1'; $device->warming_device = 0; $deviceId = (int) R::store($device);
     $manual = R::dispense('inspection'); $manual->device_id = $deviceId; $manual->dedupe_key = 'manual'; $manual->public_id = 'prf-manual'; $manual->source_type = 'manual'; $manual->external_number = 'P-M'; $manual->test_date = '2026-07-01'; $manual->inspection_type = 'SK1'; R::store($manual);
+    $manualDevice = R::dispense('device'); $manualDevice->room_id = 0; $manualDevice->name = 'Prüfweb-Gerät'; $manualDevice->external_number = 'G-1'; $manualDeviceId = (int) R::store($manualDevice);
+    $matchingManual = R::dispense('inspection'); $matchingManual->device_id = $manualDeviceId; $matchingManual->dedupe_key = 'manual-match'; $matchingManual->public_id = 'prf-manual-match'; $matchingManual->source_type = 'manual'; $matchingManual->external_number = 'WEB-1'; $matchingManual->test_date = '2025-07-01'; $matchingManual->inspection_type = 'SK1'; $matchingManual->storage_slot = '17'; R::store($matchingManual);
     $old = R::dispense('inspection'); $old->device_id = $deviceId; $old->dedupe_key = 'old'; $old->public_id = 'prf-old'; $old->source_type = 'json'; $old->external_number = 'P-O'; $old->test_date = '2024-07-01'; R::store($old);
     file_put_contents($root . '/sources/records.json', json_encode([
         ['number' => 'P-1', 'external_number' => 'G-1', 'date' => '2025-07-01', 'type' => 'SK1', 'audit_ok' => true],
@@ -29,8 +31,10 @@ try {
         'type' => ['brezel_name' => 'Wiederholungsprüfung SK1'], 'room' => 'N104', 'audit_ok' => true,
     ]));
     $result = (new ImportCandidateRebuildService())->prepare($root . '/sources', 1, static function (): void {});
-    if (($result['automatic'] ?? 0) !== 2 || ($result['number_missing'] ?? 0) !== 1) throw new RuntimeException('Klare und nummernlose Kandidaten wurden nicht getrennt behandelt.');
-    if ((int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual'") !== 1 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='json'") !== 0 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='reconciled'") !== 2) throw new RuntimeException('Der Neuaufbau bewahrt manuelle Prüfungen nicht oder importiert Kandidaten falsch.');
+    if (($result['automatic'] ?? 0) !== 1 || ($result['manual_kept'] ?? 0) !== 2 || ($result['number_missing'] ?? 0) !== 1) throw new RuntimeException('Gesammelte Kandidaten wurden nicht erst nach der quellenübergreifenden Gruppierung bewertet.');
+    if ((int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual'") !== 2 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='json'") !== 0 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='reconciled'") !== 1) throw new RuntimeException('Der Neuaufbau bewahrt manuelle Prüfungen nicht oder importiert Kandidaten falsch.');
+    $groupedSources = (int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE run_id=? AND group_key=(SELECT group_key FROM importcandidate WHERE source_kind='manual' AND source_inspection_id=? LIMIT 1)", [(int) $result['run_id'], (int) $matchingManual->id]);
+    if ($groupedSources !== 2) throw new RuntimeException('Prüfweb- und JSON-Quelle wurden nicht erst nach dem vollständigen Sammeln zusammengeführt.');
     $phoenix = R::getRow("SELECT i.external_number AS inspection_number, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.external_number LIKE '%253741%'");
     if (!str_starts_with((string) ($phoenix['inspection_number'] ?? ''), '253741-') || ($phoenix['device_number'] ?? '') !== '100018880') throw new RuntimeException('Phoenix-Prüfungs-ID und Gerätenummer wurden nicht getrennt übernommen.');
     if ((int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE source_path LIKE '%standalone-measurements.csv'") !== 0) throw new RuntimeException('Einzelne Mess-CSV darf keinen historischen Kandidaten erzeugen.');

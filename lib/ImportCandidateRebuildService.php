@@ -45,6 +45,10 @@ final class ImportCandidateRebuildService
             $this->store($runId, 'manual', 'Prüfweb', 0, $record, (int) $manual['id']);
         }
 
+        // Do not judge a row while it is being read.  All source observations
+        // exist in importcandidate first; only then can JSON, CSV/ODS and
+        // protected Prüfweb records be linked across their different IDs.
+        $this->groupCandidates($runId);
         $summary = $this->classifyAndImport($runId, $progress);
         $run = R::load('importrebuildrun', $runId);
         $run->state = 'review';
@@ -106,15 +110,63 @@ final class ImportCandidateRebuildService
     /** @param array<string,mixed> $record */
     private function store(int $runId, string $kind, string $path, int $rowNo, array $record, int $inspectionId = 0): void
     {
-        $identity = $this->identity($record, $kind);
         $candidate = R::dispense('importcandidate');
-        $candidate->run_id = $runId; $candidate->group_key = $identity['group_key']; $candidate->source_kind = $kind;
+        $identity = $this->identity($record, $kind);
+        $candidate->run_id = $runId; $candidate->group_key = ''; $candidate->source_kind = $kind;
         $candidate->source_path = $path; $candidate->source_row_no = $rowNo; $candidate->source_inspection_id = $inspectionId ?: null;
         $candidate->inspection_number = $identity['inspection_number']; $candidate->device_number = $identity['device_number']; $candidate->legacy_device_number = $identity['legacy_device_number'];
         $candidate->test_date = $identity['test_date']; $candidate->inspection_type = $identity['inspection_type']; $candidate->storage_slot = $identity['storage_slot'];
         $candidate->raw_json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
-        $candidate->state = $identity['complete'] ? 'open' : 'number_missing'; $candidate->decision_json = '{}'; $candidate->created_at = date(DATE_ATOM);
+        $candidate->state = 'staged'; $candidate->decision_json = '{}'; $candidate->created_at = date(DATE_ATOM);
         R::store($candidate);
+    }
+
+    /** Link the fully collected observations using only reproducible evidence. */
+    private function groupCandidates(int $runId): void
+    {
+        $rows = R::getAll('SELECT * FROM importcandidate WHERE run_id=? ORDER BY id', [$runId]);
+        $parents = [];
+        foreach ($rows as $index => $row) $parents[$index] = $index;
+        $find = static function (int $node) use (&$parents, &$find): int {
+            while ($parents[$node] !== $node) { $parents[$node] = $parents[$parents[$node]]; $node = $parents[$node]; }
+            return $node;
+        };
+        $join = static function (int $left, int $right) use (&$parents, $find): void {
+            $left = $find($left); $right = $find($right); if ($left !== $right) $parents[$right] = $left;
+        };
+        $byInspection = []; $byDeviceDate = []; $manualBySlotDate = [];
+        foreach ($rows as $index => $row) {
+            $identity = $this->identity($this->decode((string) $row['raw_json']), (string) $row['source_kind']);
+            $inspection = (string) $identity['inspection_number'];
+            $deviceDate = (string) $identity['device_number'] . '|' . (string) $identity['test_date'];
+            if ($inspection !== '') {
+                if (isset($byInspection[$inspection])) $join($index, $byInspection[$inspection]); else $byInspection[$inspection] = $index;
+            }
+            if ((string) $identity['device_number'] !== '' && (string) $identity['test_date'] !== '') {
+                if (isset($byDeviceDate[$deviceDate])) $join($index, $byDeviceDate[$deviceDate]); else $byDeviceDate[$deviceDate] = $index;
+            }
+            if ((string) $row['source_kind'] === 'manual' && (string) $identity['storage_slot'] !== '' && (string) $identity['test_date'] !== '') {
+                $key = (string) $identity['test_date'] . '|' . $this->slotKey((string) $identity['storage_slot']);
+                $manualBySlotDate[$key][] = $index;
+            }
+        }
+        // A storage position is export-local. It may suggest the one matching
+        // manual inspection only when that position/date pair is unique; the
+        // resulting manual group remains for user review below.
+        foreach ($rows as $index => $row) {
+            if ((string) $row['source_kind'] === 'manual') continue;
+            $identity = $this->identity($this->decode((string) $row['raw_json']), (string) $row['source_kind']);
+            if ((string) $identity['device_number'] !== '' || (string) $identity['storage_slot'] === '' || (string) $identity['test_date'] === '') continue;
+            $key = (string) $identity['test_date'] . '|' . $this->slotKey((string) $identity['storage_slot']);
+            if (count($manualBySlotDate[$key] ?? []) === 1) $join($index, $manualBySlotDate[$key][0]);
+        }
+        $members = [];
+        foreach ($rows as $index => $row) $members[$find($index)][] = (int) $row['id'];
+        foreach ($members as $ids) {
+            sort($ids, SORT_NUMERIC);
+            $key = 'candidate-' . hash('sha256', implode('|', $ids));
+            R::exec("UPDATE importcandidate SET group_key=?, state='open' WHERE run_id=? AND id IN (" . implode(',', array_fill(0, count($ids), '?')) . ')', array_merge([$key, $runId], $ids));
+        }
     }
 
     /** @return array<string,mixed> */
@@ -125,18 +177,27 @@ final class ImportCandidateRebuildService
         $summary = ['automatic' => 0, 'review' => 0, 'number_missing' => 0, 'manual_kept' => 0];
         $importer = new ElectricalInspectionImportService();
         foreach ($groups as $index => $group) {
-            $rows = $group['candidates']; $states = array_unique(array_column($rows, 'state'));
+            $rows = $group['candidates'];
             $identity = trim((string) ($rows[0]['inspection_number'] ?? $rows[0]['device_number'] ?? ''));
             if ($progress !== null && (($index % 10) === 0 || $index + 1 === $total)) {
                 $progress($index + 1, max(1, $total), $identity, 'Kandidat ' . ($index + 1) . ' von ' . $total . ' wird geprüft/importiert.');
             }
-            if (in_array('number_missing', $states, true)) { $summary['number_missing']++; continue; }
+            $records = array_map(fn(array $row): array => $this->decode((string) $row['raw_json']), $rows);
+            $merged = $this->merge($rows, $records, []);
+            $identityData = $this->identity($merged, (string) ($rows[0]['source_kind'] ?? ''));
             $conflicts = $this->conflicts($rows);
             if ($conflicts !== []) { R::exec("UPDATE importcandidate SET state='review' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['review']++; continue; }
             $hasManual = in_array('manual', array_column($rows, 'source_kind'), true);
-            if ($hasManual) { R::exec("UPDATE importcandidate SET state='accepted' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['manual_kept']++; continue; }
-            $records = array_map(fn(array $row): array => $this->decode((string) $row['raw_json']), $rows);
-            $merged = $this->merge($rows, $records, []);
+            if ($hasManual) {
+                $manual = array_values(array_filter($rows, static fn(array $row): bool => (string) $row['source_kind'] === 'manual'));
+                $external = array_values(array_filter($rows, static fn(array $row): bool => (string) $row['source_kind'] !== 'manual'));
+                $manualIdentity = $this->identity($this->decode((string) $manual[0]['raw_json']), 'manual');
+                $safeManualMatch = $external === [] || ((string) $manualIdentity['device_number'] !== '' && (string) $manualIdentity['device_number'] === (string) $identityData['device_number'] && (string) $manualIdentity['test_date'] === (string) $identityData['test_date']);
+                if (!$safeManualMatch) { R::exec("UPDATE importcandidate SET state='review' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['review']++; continue; }
+                if ($external !== []) $this->applyToManual((int) ($manual[0]['source_inspection_id'] ?? 0), $merged);
+                R::exec("UPDATE importcandidate SET state='accepted' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['manual_kept']++; continue;
+            }
+            if (!$identityData['complete']) { R::exec("UPDATE importcandidate SET state='number_missing' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]); $summary['number_missing']++; continue; }
             $importer->importCandidateRecord($merged, (string) $rows[0]['source_path']);
             R::exec("UPDATE importcandidate SET state='accepted' WHERE run_id=? AND group_key=?", [$runId, $group['group_key']]);
             $summary['automatic']++;
@@ -148,12 +209,17 @@ final class ImportCandidateRebuildService
     private function conflicts(array $rows): array
     {
         $conflicts = [];
+        $hasManual = in_array('manual', array_column($rows, 'source_kind'), true);
         foreach (self::REVIEW_FIELDS as $field) {
+            // Phoenix resource IDs and Prüfweb numbers identify their own
+            // systems. A manual/external match is established by device and
+            // date, so those two unrelated identifiers are not a conflict.
+            if ($field === 'inspection_number' && $hasManual) continue;
             $values = [];
             foreach ($rows as $row) {
                 $record = isset($row['raw_json']) ? $this->decode((string) $row['raw_json']) : $row;
-                $value = trim((string) ($this->identity($record)[$field] ?? $record[$field] ?? ''));
-                if ($value !== '') $values[mb_strtolower($value)] = $value;
+                $value = trim((string) ($this->identity($record, (string) ($row['source_kind'] ?? ''))[$field] ?? $record[$field] ?? ''));
+                if ($value !== '') $values[$this->comparisonValue($field, $value)] = $value;
             }
             if (count($values) > 1) $conflicts[$field] = array_values($values);
         }
@@ -195,12 +261,23 @@ final class ImportCandidateRebuildService
         // CSV/ODS carries the device, date and test type but commonly no
         // separate inspection resource number. Those three facts still form
         // a safe historic identity and let duplicate result.csv copies merge.
-        $complete = $device !== '' && $date !== '' && $type !== '' && ($inspection !== '' || $sourceKind === 'csv_ods');
+        $complete = $device !== '' && $date !== '' && $type !== '';
         $groupIdentity = $device !== '' ? [$device, $date, $type] : [$inspection, $slot, $date, $type];
         return ['inspection_number' => $inspection, 'device_number' => $device, 'legacy_device_number' => $legacy, 'test_date' => $date, 'inspection_type' => $type, 'storage_slot' => $slot, 'complete' => $complete, 'group_key' => $complete ? hash('sha256', implode('|', $groupIdentity)) : 'missing-' . hash('sha256', json_encode($record) ?: '')];
     }
 
     private function clean(string $value): string { return mb_strtoupper(trim(preg_replace('/\s+/', '', $value) ?: '')); }
+    private function slotKey(string $value): string { $value = $this->clean($value); return preg_match('/^\d+$/', $value) ? (string) (int) $value : $value; }
+    private function comparisonValue(string $field, string $value): string
+    {
+        if ($field === 'inspection_type') {
+            if (preg_match('/(?:\bSK\s*|KLASSE\s*)(I{1,3}|[1-3])\b/iu', $value, $match) === 1) {
+                $class = strtoupper($match[1]);
+                return match ($class) { 'I', '1' => 'SK1', 'II', '2' => 'SK2', 'III', '3' => 'SK3', default => $this->clean($value) };
+            }
+        }
+        return $this->clean($value);
+    }
     /** @return array<string,mixed> */
     private function decode(string $json): array { $decoded = json_decode($json, true); return is_array($decoded) ? $decoded : []; }
     private function recordField(string $field): string { return $field === 'inspection_number' ? 'inspection_number' : $field; }
@@ -210,9 +287,12 @@ final class ImportCandidateRebuildService
     {
         $inspection = R::load('inspection', $inspectionId);
         if (!$inspection->id || (string) $inspection->source_type !== 'manual') throw new RuntimeException('Die geschützte Prüfweb-Prüfung wurde nicht gefunden.');
-        foreach (['room_snapshot', 'regie_minutes', 'result_status', 'manufacturer', 'device_model', 'storage_slot', 'inspection_type', 'test_date', 'external_number'] as $field) {
+        foreach (['room_snapshot', 'regie_minutes', 'result_status', 'manufacturer', 'device_model', 'storage_slot', 'inspection_type', 'test_date', 'cable_length_m', 'checklist_json', 'measurements_json', 'raw_json'] as $field) {
             if (array_key_exists($field, $record) && trim((string) $record[$field]) !== '') $inspection->$field = $record[$field];
         }
+        if (isset($record['measurements']) && is_array($record['measurements'])) $inspection->measurements_json = json_encode($record['measurements'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (isset($record['checklist']) && is_array($record['checklist'])) $inspection->checklist_json = json_encode($record['checklist'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (isset($record['raw']) && is_array($record['raw'])) $inspection->raw_json = json_encode($record['raw'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $inspection->updated_at = date(DATE_ATOM); R::store($inspection);
     }
 }
