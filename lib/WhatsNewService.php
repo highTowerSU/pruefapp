@@ -10,7 +10,7 @@ final class WhatsNewService
     /** @return list<array{id:string,date:string,title:string,items:list<string>}> */
     public static function entries(): array
     {
-        return array_merge(ReleaseNotes::entries(), [[
+        return array_merge([[
             'id' => '2026-08-28-benning-headerless-csv',
             'date' => '28.08.2026',
             'title' => 'Benning-CSV ohne Kopfzeile erkennen',
@@ -99,7 +99,7 @@ final class WhatsNewService
             ],
             'pruefapp_revision' => 'a68d53a',
             'base_revision' => '4750c8f',
-        ]]);
+        ]], ReleaseNotes::entries());
     }
 
     public static function latestReleaseId(): string
@@ -114,7 +114,7 @@ final class WhatsNewService
             return;
         }
         $userId = (int) $user->id;
-        $releaseId = '2026-08-28-benning-headerless-csv';
+        $releaseId = self::latestReleaseId();
         $obsoleteIds = [];
         foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 500) as $notification) {
             if (($notification['category'] ?? '') === 'whats_new' && ($notification['dedupe_key'] ?? '') !== 'whats-new:' . $releaseId . ':user:' . $userId) {
