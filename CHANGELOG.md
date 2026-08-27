@@ -4,7 +4,7 @@
 
 - Hersteller und Modell stehen direkt in der Kandidatenvergleichstabelle.
 - Die vollständigen Rohdaten jeder beteiligten Quelle können bei jedem Kandidatenfall angezeigt werden.
-- Revisionen: Prüfapp `folgt`, Ceneos PHP Base `4750c8f`.
+- Revisionen: Prüfapp `bad55c8`, Ceneos PHP Base `4750c8f`.
 
 ## 28.08.2026 – Eindeutige Prüfweb-Zuordnung
 

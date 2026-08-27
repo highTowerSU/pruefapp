@@ -18,7 +18,7 @@ final class WhatsNewService
                 'Die Kandidatentabelle zeigt Hersteller und Modell direkt neben den übrigen Werten.',
                 'Die vollständigen Rohdaten aller beteiligten Quellen lassen sich in jedem Fall anzeigen.',
             ],
-            'pruefapp_revision' => 'folgt',
+            'pruefapp_revision' => 'bad55c8',
             'base_revision' => '4750c8f',
         ], [
             'id' => '2026-08-28-manual-candidate-safe-match',
