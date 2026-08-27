@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Kandidatenquellen vollständig vergleichen
+
+- Hersteller und Modell stehen direkt in der Kandidatenvergleichstabelle.
+- Die vollständigen Rohdaten jeder beteiligten Quelle können bei jedem Kandidatenfall angezeigt werden.
+- Revisionen: Prüfapp `folgt`, Ceneos PHP Base `4750c8f`.
+
 ## 28.08.2026 – Eindeutige Prüfweb-Zuordnung
 
 - Eindeutige manuelle Treffer werden auch dann automatisch ergänzt, wenn ihr Speicherplatz nur durch führende Nullen abweicht, etwa `045` und `45`.
