@@ -58,14 +58,15 @@ final class WhatsNewService
         if ($user === null) {
             return;
         }
-        foreach (self::entries() as $entry) {
-            ReleaseNotePublisher::publishForUser(
-                (int) $user->id,
-                $entry['id'],
-                'Was ist neu? ' . $entry['title'],
-                implode(' ', array_slice($entry['items'], 0, 2)),
-                url_for('downloads#whats-new')
-            );
+        $userId = (int) $user->id;
+        $releaseId = '2026-08-28-whats-new-checklist';
+        $obsoleteIds = [];
+        foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 500) as $notification) {
+            if (($notification['category'] ?? '') === 'whats_new' && ($notification['dedupe_key'] ?? '') !== 'whats-new:' . $releaseId . ':user:' . $userId) {
+                $obsoleteIds[] = (int) ($notification['id'] ?? 0);
+            }
         }
+        \Ceneos\PhpBase\Notification\NotificationRepository::deleteMany($obsoleteIds);
+        ReleaseNotePublisher::publishForUser($userId, $releaseId, 'Was ist neu?', 'Neue und geänderte Funktionen sind zur Kenntnisnahme markiert.', url_for('downloads#whats-new'));
     }
 }

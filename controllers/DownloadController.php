@@ -30,6 +30,47 @@ final class DownloadController
         return self::notificationDropdownFragment();
     }
 
+    public static function markWhatsNewChecked(array $params, bool $isHx): array
+    {
+        $user = current_user();
+        if ($user === null) return [403, [], ''];
+        $id = trim((string) ($params['id'] ?? ''));
+        $entries = WhatsNewService::entries();
+        if (!in_array($id, array_column($entries, 'id'), true)) return [404, [], 'Änderung nicht gefunden.'];
+        WhatsNewChecklistService::markChecked((int) $user->id, $id);
+        self::markWhatsNewNotificationReadIfComplete((int) $user->id);
+        return self::whatsNewFragment($isHx);
+    }
+
+    public static function markAllWhatsNewChecked(array $params, bool $isHx): array
+    {
+        $user = current_user();
+        if ($user === null) return [403, [], ''];
+        WhatsNewChecklistService::markAllChecked((int) $user->id, WhatsNewService::entries());
+        self::markWhatsNewNotificationReadIfComplete((int) $user->id);
+        return self::whatsNewFragment($isHx);
+    }
+
+    private static function whatsNewFragment(bool $isHx): array
+    {
+        $user = current_user();
+        $entries = WhatsNewService::entries();
+        $content = render_template('_whats_new.php', ['whatsNewEntries' => $entries, 'whatsNewChecked' => WhatsNewChecklistService::checkedByEntry((int) ($user->id ?? 0), $entries)]);
+        if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
+        return [303, ['Location' => url_for('downloads#whats-new')], ''];
+    }
+
+    private static function markWhatsNewNotificationReadIfComplete(int $userId): void
+    {
+        $entries = WhatsNewService::entries();
+        if (count(WhatsNewChecklistService::checkedByEntry($userId, $entries)) !== count($entries)) return;
+        foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 50, true) as $notification) {
+            if (($notification['dedupe_key'] ?? '') === 'whats-new:2026-08-28-whats-new-checklist:user:' . $userId) {
+                \Ceneos\PhpBase\Notification\NotificationRepository::markRead((int) $notification['id'], $userId);
+            }
+        }
+    }
+
     private static function notificationFragment(): array
     {
         if (($_SERVER['HTTP_HX_TARGET'] ?? '') !== 'downloads-notifications') {
@@ -112,6 +153,7 @@ final class DownloadController
             'notifications' => $notifications,
             'canSeeAll' => current_user_is_superadmin(),
             'whatsNewEntries' => WhatsNewService::entries(),
+            'whatsNewChecked' => WhatsNewChecklistService::checkedByEntry((int) $user->id, WhatsNewService::entries()),
         ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', ['title' => 'Downloads', 'content' => $content])];

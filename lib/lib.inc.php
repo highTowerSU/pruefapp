@@ -93,6 +93,7 @@ require_once __DIR__ . '/ImportCandidateRebuildService.php';
 require_once __DIR__ . '/PhoenixSyncService.php';
 require_once __DIR__ . '/BackgroundJobService.php';
 require_once __DIR__ . '/WhatsNewService.php';
+require_once __DIR__ . '/WhatsNewChecklistService.php';
 require_once __DIR__ . '/MaintenanceJobHandler.php';
 
 initialize_database();
@@ -403,6 +404,7 @@ function ensure_structure_schema(): void
         "CREATE TABLE IF NOT EXISTS inspection_type_requirement (id INTEGER PRIMARY KEY AUTOINCREMENT, inspection_type_code TEXT NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL, validity_days INTEGER NULL, requires_confirmation INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, UNIQUE(inspection_type_code, code))",
         "CREATE TABLE IF NOT EXISTS user_qualification (id INTEGER PRIMARY KEY AUTOINCREMENT, oauthuser_id INTEGER NOT NULL, requirement_code TEXT NOT NULL, issued_at TEXT NULL, expires_at TEXT NULL, proof_path TEXT NOT NULL DEFAULT '', proof_name TEXT NOT NULL DEFAULT '', confirmed_by INTEGER NULL, confirmed_at TEXT NULL, notes TEXT NOT NULL DEFAULT '', created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS userdisplaypreference (id INTEGER PRIMARY KEY AUTOINCREMENT, oauthuser_id INTEGER NOT NULL UNIQUE, theme TEXT NOT NULL DEFAULT 'auto', contrast TEXT NOT NULL DEFAULT 'standard', font_scale TEXT NOT NULL DEFAULT 'standard', font_weight TEXT NOT NULL DEFAULT 'standard', font_family TEXT NOT NULL DEFAULT 'system', motion TEXT NOT NULL DEFAULT 'system', updated_at TEXT NULL)",
+        "CREATE TABLE IF NOT EXISTS whatsnewreceipt (id INTEGER PRIMARY KEY AUTOINCREMENT, oauthuser_id INTEGER NOT NULL, release_id TEXT NOT NULL, checked_at TEXT NOT NULL, UNIQUE(oauthuser_id, release_id))",
         "CREATE TABLE IF NOT EXISTS device_attribute (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_type_code TEXT NOT NULL, attribute_key TEXT NOT NULL, value_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NULL, UNIQUE(device_id, inspection_type_code, attribute_key))",
         "CREATE TABLE IF NOT EXISTS device_finding (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, inspection_id INTEGER NOT NULL, inspection_type_code TEXT NOT NULL, item_key TEXT NOT NULL DEFAULT '', severity TEXT NOT NULL DEFAULT 'green', state TEXT NOT NULL DEFAULT 'open', action TEXT NOT NULL DEFAULT '', due_date TEXT NULL, blocked INTEGER NOT NULL DEFAULT 0, description TEXT NOT NULL DEFAULT '', resolution_note TEXT NOT NULL DEFAULT '', resolved_at TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL)",
         "CREATE TABLE IF NOT EXISTS inspection_catalog_item (id INTEGER PRIMARY KEY AUTOINCREMENT, version_id INTEGER NOT NULL, item_key TEXT NOT NULL, category TEXT NOT NULL DEFAULT '', question TEXT NOT NULL DEFAULT '', criterion TEXT NOT NULL DEFAULT '', input_type TEXT NOT NULL DEFAULT 'boolean', measurement_key TEXT NOT NULL DEFAULT '', required INTEGER NOT NULL DEFAULT 1, applies_to_json TEXT NOT NULL DEFAULT '{}', rule_key TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, UNIQUE(version_id, item_key))",

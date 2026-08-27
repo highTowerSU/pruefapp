@@ -3,19 +3,9 @@
   <p class="mb-0 text-body-secondary"><?= !empty($canSeeAll) ? 'Alle Hintergrundaufgaben und fertigen Exporte' : 'Deine Hintergrundaufgaben und fertigen Exporte' ?></p>
 </header>
 
-<section class="card shadow-sm mb-4" id="whats-new" data-action-nav="Was ist neu?" data-action-icon="fa-sparkles">
-  <div class="card-header fw-semibold"><i class="fa-solid fa-sparkles me-2" aria-hidden="true"></i>Was ist neu?</div>
-  <div class="card-body">
-    <?php foreach (($whatsNewEntries ?? []) as $entryIndex => $entry): ?>
-      <article class="<?= $entryIndex !== array_key_last((array) $whatsNewEntries) ? 'border-bottom mb-3 pb-3' : '' ?>">
-        <div class="d-flex justify-content-between align-items-baseline gap-2"><strong><?= htmlspecialchars((string) $entry['title']) ?></strong><span class="small text-body-secondary text-nowrap"><?= htmlspecialchars((string) $entry['date']) ?></span></div>
-        <ul class="mb-0 mt-2"><?php foreach ((array) $entry['items'] as $item): ?><li><?= htmlspecialchars((string) $item) ?></li><?php endforeach; ?></ul>
-      </article>
-    <?php endforeach; ?>
-  </div>
-</section>
-
 <?php if (!empty($notifications)): ?><?= render_template('_notifications_list.php', ['notifications' => $notifications]) ?><?php endif; ?>
+
+<?= render_template('_whats_new.php', ['whatsNewEntries' => $whatsNewEntries ?? [], 'whatsNewChecked' => $whatsNewChecked ?? []]) ?>
 
 <section class="card shadow-sm" id="download-actions-panel" data-action-nav="Downloads &amp; Aufgaben" data-action-icon="fa-download">
   <div class="card-header d-flex justify-content-between align-items-center gap-2">

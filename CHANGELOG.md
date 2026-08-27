@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Was ist neu? als persönliche Checkliste
+
+- Es gibt nur noch eine aktuelle „Was ist neu?“-Benachrichtigung.
+- Die einzelnen Änderungen stehen direkt unter Benachrichtigungen, sind bis zur Kenntnisnahme gelb markiert und lassen sich einzeln oder gesammelt abhaken.
+- Revisionen: Prüfapp `noch offen`, Ceneos PHP Base `unverändert`.
+
 ## 28.08.2026 – Kandidatenfälle gesammelt öffnen
 
 - Die offenen Fälle eines Kandidatenlaufs lassen sich gesammelt auf- und einklappen.
