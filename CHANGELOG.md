@@ -1,5 +1,9 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Kandidatenfälle gesammelt öffnen
+
+- Die offenen Fälle eines Kandidatenlaufs lassen sich gesammelt auf- und einklappen.
+
 ## 27.08.2026 – Quelldaten unvollständiger Kandidaten
 
 - Die Kandidatensichtung zeigt auf Wunsch alle eingelesenen Werte der konkreten CSV-/ODS-Zeile an.

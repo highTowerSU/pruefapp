@@ -10,6 +10,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return [[
+            'id' => '2026-08-28-candidate-toggle-all',
+            'date' => '28.08.2026',
+            'title' => 'Kandidatenfälle gesammelt öffnen',
+            'items' => [
+                'Im Kandidatenlauf lassen sich alle offenen Fälle mit einem Klick aufklappen und anschließend wieder einklappen.',
+            ],
+        ], [
             'id' => '2026-08-27-candidate-source-data',
             'date' => '27.08.2026',
             'title' => 'Unvollständige Importkandidaten prüfen',

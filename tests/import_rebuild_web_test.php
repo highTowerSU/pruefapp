@@ -17,6 +17,8 @@ foreach ([
     [$template, 'Widersprüchliche Felder:'],
     [$template, 'table-warning'],
     [$template, 'Vollständige Quelldaten der Zeile anzeigen'],
+    [$template, 'Alle aufklappen'],
+    [$template, 'candidate-toggle-all'],
     [$template, 'Aktualisierung in'],
     [$template, 'refresh-countdown'],
     [$template, 'Aktualisiere …'],
