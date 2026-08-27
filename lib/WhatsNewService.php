@@ -16,7 +16,7 @@ final class WhatsNewService
             'items' => [
                 'Die beteiligten Prüfapp- und Base-Revisionen stehen jetzt direkt als Tags an den Änderungen.',
             ],
-            'pruefapp_revision' => '5d9a95f',
+            'pruefapp_revision' => 'e2cd2ed',
             'base_revision' => '4750c8f',
         ], [
             'id' => '2026-08-28-compact-notification-history',
