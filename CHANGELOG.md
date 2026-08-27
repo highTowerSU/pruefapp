@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Revisions-Tags in „Was ist neu?“
+
+- Die Prüfapp- und Ceneos-PHP-Base-Revisionen erscheinen direkt an den jeweiligen Änderungen als Tags.
+- Revisionen: Prüfapp `folgt`, Ceneos PHP Base `4750c8f`.
+
 ## 28.08.2026 – Was ist neu? als persönliche Checkliste
 
 - Es gibt nur noch eine aktuelle „Was ist neu?“-Benachrichtigung.
