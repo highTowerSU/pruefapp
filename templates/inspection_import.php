@@ -141,7 +141,7 @@
     if (!window.htmx) { window.location.reload(); return; }
     window.htmx.ajax('GET', window.location.href, {target: '#inspection-import-panel', select: '#inspection-import-panel', swap: 'outerHTML'});
   };
-  const refresh = () => { if (message) message.textContent = 'Aktualisiere …'; window.pruefappRefreshIndicator?.show(); fetch(url, {credentials: 'same-origin'}).then(response => response.json()).then(job => { if (progress) progress.textContent = job.total ? (job.step || 0) + ' / ' + job.total : '—'; if (message) message.textContent = job.message || job.error || ''; if (['done', 'error', 'cancelled'].includes(job.state)) { window.setTimeout(refreshPanel, 700); return; } schedule(); }).catch(() => { if (message) message.textContent = 'Aktualisierung fehlgeschlagen – erneuter Versuch folgt.'; schedule(); }).finally(() => window.pruefappRefreshIndicator?.hide()); };
+  const refresh = () => { if (message) message.textContent = 'Aktualisiere …'; window.ceneosAutoRefreshToast?.show(); fetch(url, {credentials: 'same-origin'}).then(response => response.json()).then(job => { if (progress) progress.textContent = job.total ? (job.step || 0) + ' / ' + job.total : '—'; if (message) message.textContent = job.message || job.error || ''; if (['done', 'error', 'cancelled'].includes(job.state)) { window.setTimeout(refreshPanel, 700); return; } schedule(); }).catch(() => { if (message) message.textContent = 'Aktualisierung fehlgeschlagen – erneuter Versuch folgt.'; schedule(); }).finally(() => window.ceneosAutoRefreshToast?.hide()); };
   schedule();
 })();
 </script>

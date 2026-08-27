@@ -22,9 +22,7 @@ if (!str_contains($layout, 'id="page-action-navigation"')
     || !str_contains($layout, 'unique.length < 2')) {
     throw new RuntimeException('Der gemeinsame Schnellzugriff für Aktionsbereiche fehlt.');
 }
-if (!str_contains($layout, 'htmx-auto-refresh-indicator')
-    || !str_contains($layout, 'Aktualisiere …')
-    || !str_contains($layout, 'htmx:beforeRequest')) {
+if (!str_contains($layout, 'HtmxAutoRefreshToast::render()')) {
     throw new RuntimeException('Automatische HTMX-Aktualisierungen geben kein sichtbares Feedback.');
 }
 if (!str_contains($sources['Import'], "every 10s") || !str_contains($sources['Audit'], "every 10s")) {
