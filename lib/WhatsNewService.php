@@ -26,9 +26,9 @@ final class WhatsNewService
             'title' => 'Eindeutige Prüfweb-Zuordnung',
             'items' => [
                 'CSV-Messdaten werden bei gleicher Gerätenummer und gleichem Datum automatisch an die passende Prüfweb-Prüfung ergänzt.',
-                'Speicherplätze werden dabei auch bei führenden Nullen gleich behandelt, etwa 045 und 45.',
+                'Speicherplätze werden dabei auch bei führenden Nullen gleich behandelt, etwa 045 und 45; eine fehlende manuelle Prüfart wird aus der eindeutigen CSV ergänzt.',
             ],
-            'pruefapp_revision' => '3db8191',
+            'pruefapp_revision' => '3db8191 · 0a96364',
             'base_revision' => '4750c8f',
         ], [
             'id' => '2026-08-28-compact-notification-history',

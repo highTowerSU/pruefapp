@@ -9,7 +9,8 @@
 ## 28.08.2026 – Eindeutige Prüfweb-Zuordnung
 
 - Eindeutige manuelle Treffer werden auch dann automatisch ergänzt, wenn ihr Speicherplatz nur durch führende Nullen abweicht, etwa `045` und `45`.
-- Revisionen: Prüfapp `3db8191`, Ceneos PHP Base `4750c8f`.
+- Eine fehlende manuelle Prüfart wird dabei aus der eindeutigen CSV ergänzt.
+- Revisionen: Prüfapp `3db8191`, `0a96364`, Ceneos PHP Base `4750c8f`.
 
 ## 28.08.2026 – Revisions-Tags in „Was ist neu?“
 
