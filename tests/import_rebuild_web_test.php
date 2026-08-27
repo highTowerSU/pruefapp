@@ -10,10 +10,12 @@ $jobs = (string) file_get_contents(dirname(__DIR__) . '/lib/BackgroundJobService
 foreach ([
     [$controller, "'import_candidate_start'"],
     [$controller, "'import_candidate_decide'"],
+    [$controller, "'import_candidate_recheck'"],
     [$controller, "BackgroundJobService::enqueue('import_candidate_rebuild'"],
     [$template, 'Importbestand als Kandidaten neu aufbauen'],
     [$template, 'KANDIDATEN NEU AUFBAUEN'],
     [$template, 'Feldweise zusammenführen'],
+    [$template, 'Sichere Fälle erneut bewerten'],
     [$template, 'Widersprüchliche Felder:'],
     [$template, 'table-warning'],
     [$template, 'Vollständige Quelldaten der Zeile anzeigen'],

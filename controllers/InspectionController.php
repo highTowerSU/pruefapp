@@ -665,6 +665,14 @@ final class InspectionController
                     $message = 'Kandidat entschieden: ' . (int) ($result['imported'] ?? 0) . ' importiert, ' . (int) ($result['updated_manual'] ?? 0) . ' Prüfweb-Prüfung aktualisiert.';
                 } catch (Throwable $exception) { $message = 'Kandidatenentscheidung nicht möglich: ' . $exception->getMessage(); }
             }
+            if (($_POST['action'] ?? '') === 'import_candidate_recheck') {
+                if (!current_user_is_superadmin()) return forbidden_response();
+                try {
+                    $candidateRunId = max(0, (int) ($_POST['candidate_run_id'] ?? 0));
+                    $result = (new ImportCandidateRebuildService())->recheckReviewed($candidateRunId);
+                    $message = 'Sichere Kandidaten erneut bewertet: ' . (int) ($result['manual_kept'] ?? 0) . ' Prüfweb-Prüfung(en) ergänzt, ' . (int) ($result['automatic'] ?? 0) . ' Import(e) übernommen.';
+                } catch (Throwable $exception) { $message = 'Kandidaten konnten nicht erneut bewertet werden: ' . $exception->getMessage(); }
+            }
             if (in_array((string) ($_POST['action'] ?? ''), ['import_rebuild_preview', 'import_rebuild_start'], true)) {
                 $message = 'Der direkte Reset wurde ersetzt. Bitte den Bereich „Importbestand als Kandidaten neu aufbauen“ verwenden.';
             }

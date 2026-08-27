@@ -107,6 +107,17 @@ final class ImportCandidateRebuildService
         return $stats;
     }
 
+    /** Reapply only the safe automatic rules to already reviewed candidates. */
+    public function recheckReviewed(int $runId): array
+    {
+        $run = R::load('importrebuildrun', $runId);
+        if (!$run->id) throw new InvalidArgumentException('Kandidatenlauf wurde nicht gefunden.');
+        $summary = $this->classifyAndImport($runId, null, 'review');
+        $run->summary_json = json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+        R::store($run);
+        return $summary;
+    }
+
     /** @param array<string,mixed> $record */
     private function store(int $runId, string $kind, string $path, int $rowNo, array $record, int $inspectionId = 0): void
     {
@@ -170,9 +181,9 @@ final class ImportCandidateRebuildService
     }
 
     /** @return array<string,mixed> */
-    private function classifyAndImport(int $runId, ?callable $progress = null): array
+    private function classifyAndImport(int $runId, ?callable $progress = null, string $state = ''): array
     {
-        $groups = $this->groups($runId);
+        $groups = $state === '' ? $this->groups($runId) : $this->groups($runId, $state);
         $total = count($groups);
         $summary = ['automatic' => 0, 'review' => 0, 'number_missing' => 0, 'manual_kept' => 0];
         $importer = new ElectricalInspectionImportService();
@@ -208,7 +219,7 @@ final class ImportCandidateRebuildService
                 foreach ($externalIdentities as $externalIdentity) {
                     $sameUniqueSlotAndDate = $sameUniqueSlotAndDate
                         && (string) $externalIdentity['device_number'] === ''
-                        && (string) $manualIdentity['storage_slot'] === (string) $externalIdentity['storage_slot']
+                        && $this->slotKey((string) $manualIdentity['storage_slot']) === $this->slotKey((string) $externalIdentity['storage_slot'])
                         && (string) $manualIdentity['test_date'] === (string) $externalIdentity['test_date']
                         && $this->comparisonValue('inspection_type', (string) $manualIdentity['inspection_type']) === $this->comparisonValue('inspection_type', (string) $externalIdentity['inspection_type']);
                 }

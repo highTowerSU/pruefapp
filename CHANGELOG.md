@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Eindeutige Prüfweb-Zuordnung
+
+- Eindeutige manuelle Treffer werden auch dann automatisch ergänzt, wenn ihr Speicherplatz nur durch führende Nullen abweicht, etwa `045` und `45`.
+- Revisionen: Prüfapp `folgt`, Ceneos PHP Base `4750c8f`.
+
 ## 28.08.2026 – Revisions-Tags in „Was ist neu?“
 
 - Die Prüfapp- und Ceneos-PHP-Base-Revisionen erscheinen direkt an den jeweiligen Änderungen als Tags.

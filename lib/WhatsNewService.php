@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge(ReleaseNotes::entries(), [[
+            'id' => '2026-08-28-manual-candidate-safe-match',
+            'date' => '28.08.2026',
+            'title' => 'Eindeutige Prüfweb-Zuordnung',
+            'items' => [
+                'CSV-Messdaten werden bei gleicher Gerätenummer und gleichem Datum automatisch an die passende Prüfweb-Prüfung ergänzt.',
+                'Speicherplätze werden dabei auch bei führenden Nullen gleich behandelt, etwa 045 und 45.',
+            ],
+            'pruefapp_revision' => 'folgt',
+            'base_revision' => '4750c8f',
+        ], [
             'id' => '2026-08-28-compact-notification-history',
             'date' => '28.08.2026',
             'title' => 'Kompakter Benachrichtigungsverlauf',
@@ -84,7 +94,7 @@ final class WhatsNewService
             return;
         }
         $userId = (int) $user->id;
-        $releaseId = self::latestReleaseId();
+        $releaseId = '2026-08-28-manual-candidate-safe-match';
         $obsoleteIds = [];
         foreach (\Ceneos\PhpBase\Notification\NotificationRepository::forUser($userId, 500) as $notification) {
             if (($notification['category'] ?? '') === 'whats_new' && ($notification['dedupe_key'] ?? '') !== 'whats-new:' . $releaseId . ':user:' . $userId) {
