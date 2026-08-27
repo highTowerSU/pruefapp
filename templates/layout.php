@@ -237,10 +237,20 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         #page-action-navigation { min-height: 2.65rem; transition: opacity .18s ease, transform .18s ease; }
         #page-action-navigation.action-nav-empty { opacity: 0; pointer-events: none; transform: translateY(-.2rem); }
         #page-action-navigation .btn { white-space: nowrap; }
+        /* Long-running work stays visible while the user continues elsewhere
+           on the page. On phones it sticks in the document flow rather than
+           covering the narrow view. */
+        .job-status-notice { z-index: 1025; box-shadow: 0 .35rem 1rem rgba(0, 0, 0, .15); }
+        @media (min-width: 992px) {
+            .job-status-notice { position: fixed; top: 5rem; right: 1rem; width: min(28rem, calc(100vw - 2rem)); margin: 0; }
+        }
         @media (max-width: 575.98px) {
             .card-body { padding: .85rem; }
             .table { font-size: .875rem; }
             details.card > summary.card-header { padding: .7rem .85rem; }
+        }
+        @media (max-width: 991.98px) {
+            .job-status-notice { position: sticky; top: .5rem; margin-bottom: 1rem; }
         }
         [data-bs-theme="light"] .brand-panel { background: var(--app-theme-light); color: var(--bs-body-color); }
         [data-bs-theme="dark"] .brand-panel { background: var(--app-theme-dark); color: var(--bs-body-color); }
