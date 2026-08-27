@@ -19,7 +19,7 @@ final class ImportedInspectionResetService
         // sources. This includes the candidate workflow's `reconciled` rows;
         // leaving those behind made old, storage-slot-based pseudo numbers
         // survive a supposedly clean rebuild.
-        $imported = "source_type <> 'manual'";
+        $imported = self::rebuildableInspectionWhere();
         return [
             'imported_inspections' => (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$imported}"),
             'manual_inspections_kept' => (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type = 'manual'"),
@@ -72,8 +72,9 @@ final class ImportedInspectionResetService
         }
 
         $preview = self::preview();
-        $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE source_type <> 'manual'"));
-        $deviceIds = array_map('intval', R::getCol("SELECT DISTINCT device_id FROM inspection WHERE source_type <> 'manual' AND device_id > 0"));
+        $rebuildable = self::rebuildableInspectionWhere();
+        $ids = array_map('intval', R::getCol("SELECT id FROM inspection WHERE {$rebuildable}"));
+        $deviceIds = array_map('intval', R::getCol("SELECT DISTINCT device_id FROM inspection WHERE {$rebuildable} AND device_id > 0"));
         R::begin();
         try {
             if ($ids !== []) {
@@ -117,6 +118,18 @@ final class ImportedInspectionResetService
         }
         audit_log('importbestand_zurueckgesetzt', ['backup' => basename($backupPath), 'preview' => $preview]);
         return $preview + ['backup' => $backupPath];
+    }
+
+    private static function rebuildableInspectionWhere(): string
+    {
+        // Only real Prüfweb entries attached to a valid device survive. A
+        // device number shorter than six characters is a historic import
+        // placeholder (for example 001-23), never an inventory number.
+        $validManualDevice = "EXISTS (SELECT 1 FROM device AS reset_device"
+            . " WHERE reset_device.id = inspection.device_id"
+            . " AND LENGTH(TRIM(COALESCE(reset_device.external_number, ''))) >= 6)";
+
+        return "(source_type <> 'manual' OR NOT {$validManualDevice})";
     }
 
     /** Restores the verified SQLite backup if a subsequent rebuild step fails. */

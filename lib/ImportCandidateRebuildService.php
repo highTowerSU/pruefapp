@@ -295,6 +295,9 @@ final class ImportCandidateRebuildService
     private function slotKey(string $value): string { $value = $this->clean($value); return preg_match('/^\d+$/', $value) ? (string) (int) $value : $value; }
     private function comparisonValue(string $field, string $value): string
     {
+        if ($field === 'result_status') {
+            return InspectionEvaluationService::normalizeStatus($value);
+        }
         if ($field === 'inspection_type') {
             // The ST 725 stores its separate Leitungstest as "Kabel". It is
             // a SK-I-compatible special case (RPE/RISO), not a competing
