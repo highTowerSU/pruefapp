@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Importseite stabilisiert
+
+- Die Importseite bleibt funktionsfähig, wenn keine Statistik zur Prüfer-Migration vorliegt.
+- Revisionen: Prüfapp `4cccd7f`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – Was ist neu? in sinnvoller Reihenfolge
 
 - Aktuelle Prüfapp-Änderungen stehen vor älteren gemeinsamen Änderungen der Ceneos PHP Base.

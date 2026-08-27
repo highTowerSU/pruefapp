@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-import-page-stability',
+            'date' => '28.08.2026',
+            'title' => 'Importseite stabilisiert',
+            'items' => [
+                'Die Importseite bleibt funktionsfähig, wenn keine Statistik zur Prüfer-Migration vorliegt.',
+            ],
+            'pruefapp_revision' => '4cccd7f',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-whats-new-order',
             'date' => '28.08.2026',
             'title' => 'Was ist neu? in sinnvoller Reihenfolge',
