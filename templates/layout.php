@@ -232,7 +232,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         details.card > summary.card-header::before { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-right: .55rem; color: var(--app-primary); transition: transform .15s ease; }
         details.card[open] > summary.card-header::before { transform: rotate(180deg); }
         [data-bs-theme="light"] details.card > summary.card-header::before { color: var(--bs-secondary-color); }
-        .table > thead { --bs-table-bg: color-mix(in srgb, var(--app-primary), transparent 88%); }
+        .table > thead:not(.table-warning) { --bs-table-bg: color-mix(in srgb, var(--app-primary), transparent 88%); }
         .table > thead th { color: var(--bs-emphasis-color); font-weight: 700; border-bottom-width: 2px; }
         .table-hover > tbody > tr:hover { --bs-table-hover-bg: color-mix(in srgb, var(--app-primary), transparent 92%); }
         .badge { letter-spacing: .01em; }
