@@ -10,9 +10,10 @@ final class WhatsNewService
     /** @return list<array{id:string,date:string,title:string,items:list<string>}> */
     public static function entries(): array
     {
-        return array_merge([[
+        $entries = array_merge([[
             'id' => '2026-08-28-whats-new-order',
             'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:31:20+02:00',
             'title' => 'Was ist neu? in sinnvoller Reihenfolge',
             'items' => [
                 'Aktuelle Prüfapp-Änderungen stehen jetzt vor älteren gemeinsamen Änderungen der Ceneos PHP Base.',
@@ -22,6 +23,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-28-benning-headerless-csv',
             'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:29:07+02:00',
             'title' => 'Benning-CSV ohne Kopfzeile erkennen',
             'items' => [
                 'Unvollständige ST-725-Exporte mit einer einzelnen Vorsatzzeile werden wieder als CSV gelesen.',
@@ -32,6 +34,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-28-candidate-source-comparison',
             'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:25:00+02:00',
             'title' => 'Kandidatenquellen vollständig vergleichen',
             'items' => [
                 'Die Kandidatentabelle zeigt Hersteller und Modell direkt neben den übrigen Werten.',
@@ -42,6 +45,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-28-manual-candidate-safe-match',
             'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:25:49+02:00',
             'title' => 'Eindeutige Prüfweb-Zuordnung',
             'items' => [
                 'CSV-Messdaten werden bei gleicher Gerätenummer und gleichem Datum automatisch an die passende Prüfweb-Prüfung ergänzt.',
@@ -52,6 +56,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-28-compact-notification-history',
             'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:04:37+02:00',
             'title' => 'Kompakter Benachrichtigungsverlauf',
             'items' => [
                 'Unter Benachrichtigungen werden zunächst die zehn neuesten Einträge angezeigt; ältere lassen sich aufklappen.',
@@ -61,6 +66,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-28-candidate-toggle-all',
             'date' => '28.08.2026',
+            'changed_at' => '2026-08-28T00:00:59+02:00',
             'title' => 'Kandidatenfälle gesammelt öffnen',
             'items' => [
                 'Im Kandidatenlauf lassen sich alle offenen Fälle mit einem Klick aufklappen und anschließend wieder einklappen.',
@@ -70,6 +76,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-27-candidate-source-data',
             'date' => '27.08.2026',
+            'changed_at' => '2026-08-28T00:00:02+02:00',
             'title' => 'Unvollständige Importkandidaten prüfen',
             'items' => [
                 'Bei unvollständigen Kandidaten lassen sich jetzt alle eingelesenen Quelldaten der konkreten CSV-/ODS-Zeile anzeigen.',
@@ -79,6 +86,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-27-manual-failure-wins',
             'date' => '27.08.2026',
+            'changed_at' => '2026-08-27T23:57:15+02:00',
             'title' => 'Manuell nicht bestandene Prüfungen',
             'items' => [
                 'Ein manuell als nicht bestanden markiertes Prüfergebnis bleibt verbindlich, auch wenn importierte Messwerte bestanden sind.',
@@ -89,6 +97,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-27-candidate-leading-zeroes',
             'date' => '27.08.2026',
+            'changed_at' => '2026-08-27T23:54:58+02:00',
             'title' => 'Kandidaten: Speicherplätze mit führenden Nullen',
             'items' => [
                 'Speicherplätze wie 3 und 003 werden als gleicher Wert erkannt und nicht mehr als Widerspruch angezeigt.',
@@ -99,6 +108,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-08-27-import-rebuild',
             'date' => '27.08.2026',
+            'changed_at' => '2026-08-26T21:26:14+02:00',
             'title' => 'Import-Neuaufbau und Kandidatensichtung',
             'items' => [
                 'Prüfarten aus Importquellen werden einheitlich als SK1, SK2 oder SK3 gespeichert.',
@@ -109,6 +119,11 @@ final class WhatsNewService
             'pruefapp_revision' => 'a68d53a',
             'base_revision' => '4750c8f',
         ]], ReleaseNotes::entries());
+        usort($entries, static fn(array $left, array $right): int => strcmp(
+            (string) ($right['changed_at'] ?? $right['date'] ?? ''),
+            (string) ($left['changed_at'] ?? $left['date'] ?? '')
+        ));
+        return $entries;
     }
 
     public static function latestReleaseId(): string
