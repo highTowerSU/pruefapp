@@ -239,6 +239,11 @@ final class ImportCandidateRebuildService
             foreach ($rows as $row) {
                 $record = isset($row['raw_json']) ? $this->decode((string) $row['raw_json']) : $row;
                 $value = trim((string) ($this->identity($record, (string) ($row['source_kind'] ?? ''))[$field] ?? $record[$field] ?? ''));
+                // A direct Prüfweb entry is commonly still in progress when
+                // the Benning CSV arrives. Its provisional state must be
+                // completed by the measured result, not block the merge.
+                if ($field === 'result_status' && (string) ($row['source_kind'] ?? '') === 'manual'
+                    && in_array(InspectionEvaluationService::normalizeStatus($value), [InspectionEvaluationService::IN_PROGRESS, 'pending', 'data_missing', 'draft'], true)) continue;
                 if ($value !== '') $values[$this->comparisonValue($field, $value)] = $value;
             }
             if (count($values) > 1) $conflicts[$field] = array_values($values);

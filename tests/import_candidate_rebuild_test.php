@@ -19,10 +19,10 @@ try {
     $device = R::dispense('device'); $device->room_id = 0; $device->name = 'Aktuell'; $device->external_number = 'M-1'; $device->warming_device = 0; $deviceId = (int) R::store($device);
     $manual = R::dispense('inspection'); $manual->device_id = $deviceId; $manual->dedupe_key = 'manual'; $manual->public_id = 'prf-manual'; $manual->source_type = 'manual'; $manual->external_number = 'P-M'; $manual->test_date = '2026-07-01'; $manual->inspection_type = 'SK1'; $manual->storage_slot = '22'; R::store($manual);
     $manualDevice = R::dispense('device'); $manualDevice->room_id = 0; $manualDevice->name = 'Prüfweb-Gerät'; $manualDevice->external_number = 'G-1'; $manualDeviceId = (int) R::store($manualDevice);
-    $matchingManual = R::dispense('inspection'); $matchingManual->device_id = $manualDeviceId; $matchingManual->dedupe_key = 'manual-match'; $matchingManual->public_id = 'prf-manual-match'; $matchingManual->source_type = 'manual'; $matchingManual->external_number = 'WEB-1'; $matchingManual->test_date = '2025-07-01'; $matchingManual->inspection_type = 'SK1'; $matchingManual->storage_slot = '17'; R::store($matchingManual);
+    $matchingManual = R::dispense('inspection'); $matchingManual->device_id = $manualDeviceId; $matchingManual->dedupe_key = 'manual-match'; $matchingManual->public_id = 'prf-manual-match'; $matchingManual->source_type = 'manual'; $matchingManual->external_number = 'WEB-1'; $matchingManual->test_date = '2025-07-01'; $matchingManual->inspection_type = 'SK1'; $matchingManual->storage_slot = '17'; $matchingManual->result_status = 'in_progress'; R::store($matchingManual);
     $old = R::dispense('inspection'); $old->device_id = $deviceId; $old->dedupe_key = 'old'; $old->public_id = 'prf-old'; $old->source_type = 'json'; $old->external_number = 'P-O'; $old->test_date = '2024-07-01'; R::store($old);
     file_put_contents($root . '/sources/records.json', json_encode([
-        ['number' => 'P-1', 'external_number' => 'G-1', 'date' => '2025-07-01', 'type' => 'Kabel', 'audit_ok' => true],
+        ['number' => 'P-1', 'external_number' => 'G-1', 'date' => '2025-07-01', 'type' => 'Kabel', 'result_status' => 'passed', 'audit_ok' => true],
         ['number' => '', 'external_number' => '', 'date' => '2026-07-01', 'type' => 'SK1', 'storage_slot' => '22', 'audit_ok' => true],
         ['number' => '', 'external_number' => '', 'date' => '2025-07-01', 'type' => 'SK1'],
     ]));
