@@ -9,7 +9,7 @@
 ## 28.08.2026 – Benachrichtigungsverlauf kompakt
 
 - Unter Downloads sind zunächst nur die zehn neuesten Benachrichtigungen sichtbar; ältere Einträge lassen sich bei Bedarf aufklappen.
-- Revisionen: Prüfapp `folgt`, Ceneos PHP Base `4750c8f`.
+- Revisionen: Prüfapp `a37fbc9`, Ceneos PHP Base `4750c8f`.
 
 ## 28.08.2026 – Kandidatenfälle gesammelt öffnen
 
