@@ -297,6 +297,9 @@ final class ImportCandidateRebuildService
     private function slotKey(string $value): string { $value = $this->clean($value); return preg_match('/^\d+$/', $value) ? (string) (int) $value : $value; }
     private function comparisonValue(string $field, string $value): string
     {
+        if ($field === 'storage_slot') {
+            return $this->slotKey($value);
+        }
         if ($field === 'result_status') {
             return InspectionEvaluationService::normalizeStatus($value);
         }

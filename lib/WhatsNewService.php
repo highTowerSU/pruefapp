@@ -10,6 +10,14 @@ final class WhatsNewService
     public static function entries(): array
     {
         return [[
+            'id' => '2026-08-27-candidate-leading-zeroes',
+            'date' => '27.08.2026',
+            'title' => 'Kandidaten: Speicherplätze mit führenden Nullen',
+            'items' => [
+                'Speicherplätze wie 3 und 003 werden als gleicher Wert erkannt und nicht mehr als Widerspruch angezeigt.',
+                'Gleiche CSV- und Prüfweb-Prüfungen werden damit automatisch zusammengeführt.',
+            ],
+        ], [
             'id' => '2026-08-27-import-rebuild',
             'date' => '27.08.2026',
             'title' => 'Import-Neuaufbau und Kandidatensichtung',

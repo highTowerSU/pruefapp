@@ -23,12 +23,12 @@ try {
     $old = R::dispense('inspection'); $old->device_id = $deviceId; $old->dedupe_key = 'old'; $old->public_id = 'prf-old'; $old->source_type = 'reconciled'; $old->external_number = '001-23'; $old->test_date = '2024-07-01'; R::store($old);
     $pseudo = R::dispense('inspection'); $pseudo->device_id = 0; $pseudo->dedupe_key = 'pseudo'; $pseudo->public_id = 'prf-pseudo'; $pseudo->source_type = 'manual'; $pseudo->external_number = '001-23'; $pseudo->test_date = '2024-07-01'; R::store($pseudo);
     $passedDevice = R::dispense('device'); $passedDevice->room_id = 0; $passedDevice->name = 'Prüfweb-Gerät bestanden'; $passedDevice->external_number = '1000002'; $passedDevice->warming_device = 0; $passedDeviceId = (int) R::store($passedDevice);
-    $passedManual = R::dispense('inspection'); $passedManual->device_id = $passedDeviceId; $passedManual->dedupe_key = 'manual-passed'; $passedManual->public_id = 'prf-manual-passed'; $passedManual->source_type = 'manual'; $passedManual->external_number = 'WEB-2'; $passedManual->test_date = '2026-08-11'; $passedManual->inspection_type = 'SCHUTZKLASSEI'; $passedManual->storage_slot = '034'; $passedManual->result_status = 'passed'; R::store($passedManual);
+    $passedManual = R::dispense('inspection'); $passedManual->device_id = $passedDeviceId; $passedManual->dedupe_key = 'manual-passed'; $passedManual->public_id = 'prf-manual-passed'; $passedManual->source_type = 'manual'; $passedManual->external_number = 'WEB-2'; $passedManual->test_date = '2026-08-11'; $passedManual->inspection_type = 'SCHUTZKLASSEI'; $passedManual->storage_slot = '003'; $passedManual->regie_minutes = 3; $passedManual->result_status = 'passed'; R::store($passedManual);
     file_put_contents($root . '/sources/records.json', json_encode([
         ['number' => 'P-1', 'external_number' => '1000001', 'date' => '2025-07-01', 'type' => 'Kabel', 'result_status' => 'passed', 'audit_ok' => true],
         ['number' => '', 'external_number' => '', 'date' => '2026-07-01', 'type' => 'SK1', 'storage_slot' => '22', 'audit_ok' => true],
         ['number' => '', 'external_number' => '', 'date' => '2025-07-01', 'type' => 'SK1'],
-        ['number' => '', 'external_number' => '', 'date' => '2026-08-11', 'type' => 'KLASSEI', 'storage_slot' => '034', 'result_status' => 'bestanden'],
+        ['number' => '', 'external_number' => '1000002', 'date' => '2026-08-11', 'type' => 'KLASSEI', 'storage_slot' => '3', 'regie_minutes' => 3, 'result_status' => 'bestanden'],
     ]));
     file_put_contents($root . '/sources/standalone-measurements.csv', "Speicher Nr;RPE Wert\n1;0,12\n");
     file_put_contents($root . '/sources/phoenix.json', json_encode([
