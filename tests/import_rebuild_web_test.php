@@ -14,6 +14,8 @@ foreach ([
     [$template, 'Importbestand als Kandidaten neu aufbauen'],
     [$template, 'KANDIDATEN NEU AUFBAUEN'],
     [$template, 'Feldweise zusammenführen'],
+    [$template, 'Widersprüchliche Felder:'],
+    [$template, 'table-warning'],
     [$template, 'Aktualisierung in'],
     [$template, 'refresh-countdown'],
     [$template, 'Aktualisiere …'],
