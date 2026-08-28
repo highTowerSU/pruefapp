@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-candidate-source-data-collapsed',
+            'date' => '28.08.2026',
+            'title' => 'Rohdaten bei Kandidaten eingeklappt',
+            'items' => [
+                'Die vollständigen Quelldaten bleiben beim Laden und Aktualisieren der Kandidatensicht eingeklappt.',
+            ],
+            'pruefapp_revision' => 'd79e39b',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-import-history-empty-rows',
             'date' => '28.08.2026',
             'title' => 'Leere Zeilen aus Importverlauf entfernt',

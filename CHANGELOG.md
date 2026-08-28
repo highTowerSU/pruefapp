@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Rohdaten bei Kandidaten eingeklappt
+
+- Die vollständigen Quelldaten bleiben beim Laden und Aktualisieren der Kandidatensicht eingeklappt.
+- Revisionen: Prüfapp `d79e39b`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – Leere Zeilen aus Importverlauf entfernt
 
 - Nachbearbeitungslisten zeigen nur noch Prüfungen mit gültiger Gerätenummer; alte Leerzeilen werden vollständig ausgeblendet.
