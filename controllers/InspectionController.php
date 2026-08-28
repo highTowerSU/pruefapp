@@ -572,6 +572,10 @@ final class InspectionController
                 $historyInspection['status'] = (string) ($current->result_status ?? $historyInspection['status'] ?? 'ausstehend');
                 $historyInspection['storage_slot'] = (string) ($current->storage_slot ?? '');
                 $device = R::load('device', (int) ($current->device_id ?? 0));
+                // The rebuild removes legacy placeholder devices (for example
+                // “001-23”). Import history must not resurrect them as empty
+                // or misleading after-processing entries.
+                if (!$device->id || mb_strlen(trim((string) ($device->external_number ?? ''))) < 6) continue;
                 $historyInspection['device_number'] = (string) ($device->external_number ?? '');
                 $historyInspection['device_name'] = (string) ($device->name ?? '');
                 $numberStem = preg_replace('/-\d{2}(?:-\d+)?$/', '', trim((string) $historyInspection['number']));
