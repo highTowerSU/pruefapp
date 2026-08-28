@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Importverlauf bereinigt
+
+- Gelöschte oder nur kurz nummerierte Altgeräte und ihre Prüfungen erscheinen nicht mehr in den Nachbearbeitungslisten.
+- Revisionen: Prüfapp `92ea96b`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – Benning-Kabelzeilen zuverlässig einlesen
 
 - Kopflose ST-725-Zeilen mit „Kabel“ werden als SK1-Sonderfall erkannt und nicht mehr als leere Importkandidaten angezeigt.

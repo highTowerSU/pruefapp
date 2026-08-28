@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-import-history-cleanup',
+            'date' => '28.08.2026',
+            'title' => 'Importverlauf bereinigt',
+            'items' => [
+                'Gelöschte oder nur kurz nummerierte Altgeräte und ihre Prüfungen erscheinen nicht mehr in den Nachbearbeitungslisten.',
+            ],
+            'pruefapp_revision' => '92ea96b',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-benning-cable-records',
             'date' => '28.08.2026',
             'title' => 'Benning-Kabelzeilen zuverlässig einlesen',
