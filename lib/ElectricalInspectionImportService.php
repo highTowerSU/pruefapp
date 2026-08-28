@@ -601,7 +601,11 @@ final class ElectricalInspectionImportService
         $slot = trim((string) ($row[0] ?? ''));
         $protectionClass = trim((string) ($row[1] ?? ''));
         $date = $this->normalizeDate((string) ($row[2] ?? ''));
-        if (!preg_match('/^\d+$/', $slot) || $date === '' || preg_match('/klasse\s*(?:i|ii|iii|1|2|3)\b/iu', $protectionClass) !== 1) return null;
+        $isProtectionClass = preg_match('/klasse\s*(?:i|ii|iii|1|2|3)\b/iu', $protectionClass) === 1;
+        // The ST 725 records a cable in the same fixed second field instead
+        // of writing “Klasse I”. Cables are the documented SK1 special case.
+        $isCable = preg_match('/^kabel\b/iu', $protectionClass) === 1;
+        if (!preg_match('/^\d+$/', $slot) || $date === '' || (!$isProtectionClass && !$isCable)) return null;
         $values = [];
         foreach ($header as $index => $name) $values[$name] = trim((string) ($row[$index] ?? ''));
         return [
@@ -610,8 +614,8 @@ final class ElectricalInspectionImportService
             'cable_length_m' => '',
             'test_date' => $date,
             'result_status' => $this->status((string) ($row[3] ?? '')),
-            'inspection_type' => $protectionClass,
-            'device_type' => '',
+            'inspection_type' => $isCable ? 'SK1' : $protectionClass,
+            'device_type' => $isCable ? 'Kabel' : '',
             'manufacturer' => '',
             'device_model' => '',
             'room_snapshot' => '',
