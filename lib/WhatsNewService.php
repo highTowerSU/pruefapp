@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-import-history-empty-rows',
+            'date' => '28.08.2026',
+            'title' => 'Leere Zeilen aus Importverlauf entfernt',
+            'items' => [
+                'Nachbearbeitungslisten zeigen nur noch Prüfungen mit gültiger Gerätenummer; alte Leerzeilen werden vollständig ausgeblendet.',
+            ],
+            'pruefapp_revision' => '9ef70bd',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-import-history-cleanup',
             'date' => '28.08.2026',
             'title' => 'Importverlauf bereinigt',

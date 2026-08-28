@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Leere Zeilen aus Importverlauf entfernt
+
+- Nachbearbeitungslisten zeigen nur noch Prüfungen mit gültiger Gerätenummer; alte Leerzeilen werden vollständig ausgeblendet.
+- Revisionen: Prüfapp `9ef70bd`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – Importverlauf bereinigt
 
 - Gelöschte oder nur kurz nummerierte Altgeräte und ihre Prüfungen erscheinen nicht mehr in den Nachbearbeitungslisten.
