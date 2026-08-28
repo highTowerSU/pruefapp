@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-candidate-source-debug',
+            'date' => '28.08.2026',
+            'title' => 'CSV-Quellen zu Prüfweb-Prüfungen prüfen',
+            'items' => [
+                'Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen.',
+            ],
+            'pruefapp_revision' => '52ab6bb',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-candidate-source-data-collapsed',
             'date' => '28.08.2026',
             'title' => 'Rohdaten bei Kandidaten eingeklappt',

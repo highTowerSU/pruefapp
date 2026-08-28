@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – CSV-Quellen zu Prüfweb-Prüfungen prüfen
+
+- Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen.
+- Revisionen: Prüfapp `52ab6bb`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – Rohdaten bei Kandidaten eingeklappt
 
 - Die vollständigen Quelldaten bleiben beim Laden und Aktualisieren der Kandidatensicht eingeklappt.
