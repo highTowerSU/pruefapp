@@ -210,6 +210,7 @@ class AdminController
         foreach ($manualRows as &$manual) {
             $manual['candidate_run_id'] = $latestRunId;
             $manual['candidate_groups'] = [];
+            $manual['same_slot_date_external_sources'] = [];
             if ($latestRunId === 0) {
                 continue;
             }
@@ -238,6 +239,24 @@ class AdminController
                     'external_sources' => $sources,
                 ];
             }
+            $externalRows = R::getAll(
+                "SELECT source_kind, source_path, source_row_no, inspection_number, device_number, test_date,
+                        inspection_type, storage_slot, raw_json, group_key, state
+                 FROM importcandidate
+                 WHERE run_id=? AND source_kind<>'manual' AND test_date=?
+                 ORDER BY source_kind, source_path, source_row_no",
+                [$latestRunId, (string) $manual['test_date']]
+            );
+            $manualSlot = self::candidateSlotKey((string) ($manual['storage_slot'] ?? ''));
+            foreach ($externalRows as $source) {
+                if ($manualSlot === '' || self::candidateSlotKey((string) ($source['storage_slot'] ?? '')) !== $manualSlot) {
+                    continue;
+                }
+                $raw = json_decode((string) ($source['raw_json'] ?? ''), true);
+                $source['raw'] = is_array($raw) ? $raw : null;
+                unset($source['raw_json']);
+                $manual['same_slot_date_external_sources'][] = $source;
+            }
         }
         unset($manual);
 
@@ -248,6 +267,16 @@ class AdminController
             'candidate_run_id' => $latestRunId,
             'manual_inspections' => $manualRows,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    private static function candidateSlotKey(string $slot): string
+    {
+        $slot = trim($slot);
+        if ($slot === '') {
+            return '';
+        }
+        $normalized = ltrim($slot, '0');
+        return $normalized === '' ? '0' : $normalized;
     }
 
     /** Read-only aggregate diagnosis for investigation of import quality. */
