@@ -117,7 +117,9 @@ und verwaltet. `PRUEFAPP_API_DEBUG_SECRET` bleibt ausschließlich ein
 Installations-Fallback. Der Endpunkt
 `/pruefapp/api/debug/inspection?q=<Nummer>` akzeptiert das Geheimnis nur im
 Header `X-Api-Debug-Secret`; er ist nicht für Browser-Links oder die allgemeine
-Anwendungsoberfläche bestimmt.
+Anwendungsoberfläche bestimmt. Mit `summary=candidate-match` zeigt er für die
+gefundenen manuellen Prüfungen die zugehörigen Zeilen des neuesten
+Kandidatenlaufs einschließlich CSV-/ODS-Quelldaten an.
 
 ### Keycloak
 

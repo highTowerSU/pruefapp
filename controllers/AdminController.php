@@ -41,6 +41,9 @@ class AdminController
         if ($summary === 'import-config') {
             return self::importConfigApiDebug($headers);
         }
+        if ($summary === 'candidate-match') {
+            return self::candidateMatchApiDebug($query, $headers);
+        }
         if ($summary === 'phoenix') {
             return [200, $headers, json_encode(['ok' => true, 'phoenix' => PhoenixSyncService::serverConfigurationStatus()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)];
         }
@@ -176,6 +179,75 @@ class AdminController
             'step' => (int) ($job['step'] ?? 0), 'total' => (int) ($job['total'] ?? 0), 'message' => (string) ($job['message'] ?? ''),
         ], array_filter(BackgroundJobService::pending(200), static fn(array $job): bool => in_array((string) ($job['type'] ?? ''), ['inspection_duplicate_audit', 'inspection_duplicate_review_cleanup', 'inspection_confirmed_draft_archive', 'inspection_confirmed_archive', 'inspection_confirmed_legacy_csv_archive', 'inspection_confirmed_same_source_archive', 'inspection_confirmed_historical_device_repair', 'inspection_confirmed_historical_device_split', 'inspection_confirmed_csv_manual_merge', 'inspection_confirmed_number_restore', 'csv_source_fact_reconciliation', 'inspection_duplicate_archive', 'inspection_json_csv_mirror_archive', 'inspection_csv_source_duplicate_archive'], true))));
         return [200, $headers, json_encode(['summary' => 'inspection-duplicates', 'ok' => true, 'open_count' => (int) R::getCell("SELECT COUNT(*) FROM inspectiondupreview WHERE status='open'"), 'jobs' => $jobs, 'findings' => $findings], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /**
+     * Read-only correlation of current Prüfweb inspections with the most
+     * recent candidate run. This makes a missing CSV/ODS match diagnosable
+     * without shell access to the import directory.
+     *
+     * @param array<string,string> $headers
+     */
+    private static function candidateMatchApiDebug(string $query, array $headers): array
+    {
+        if ($query === '' || mb_strlen($query) > 120) {
+            return [400, $headers, json_encode(['ok' => false, 'error' => 'Parameter q (Prüf- oder Gerätenummer) fehlt.'], JSON_UNESCAPED_UNICODE)];
+        }
+
+        $latestRunId = (int) R::getCell('SELECT COALESCE(MAX(run_id), 0) FROM importcandidate');
+        $like = '%' . mb_strtolower($query) . '%';
+        $manualRows = R::getAll(
+            "SELECT i.id, i.external_number AS inspection_number, i.test_date, i.inspection_type, i.storage_slot,
+                    i.result_status, d.external_number AS device_number, d.name AS device_name
+             FROM inspection i
+             LEFT JOIN device d ON d.id=i.device_id
+             WHERE i.source_type='manual'
+               AND (LOWER(COALESCE(i.external_number, '')) LIKE ? OR LOWER(COALESCE(d.external_number, '')) LIKE ?)
+             ORDER BY i.test_date DESC, i.id DESC LIMIT 100",
+            [$like, $like]
+        );
+
+        foreach ($manualRows as &$manual) {
+            $manual['candidate_run_id'] = $latestRunId;
+            $manual['candidate_groups'] = [];
+            if ($latestRunId === 0) {
+                continue;
+            }
+            $groups = R::getAll(
+                'SELECT DISTINCT group_key, state FROM importcandidate WHERE run_id=? AND source_inspection_id=? ORDER BY group_key',
+                [$latestRunId, (int) $manual['id']]
+            );
+            foreach ($groups as $group) {
+                $sources = R::getAll(
+                    "SELECT source_kind, source_path, source_row_no, inspection_number, device_number, test_date,
+                            inspection_type, storage_slot, raw_json
+                     FROM importcandidate
+                     WHERE run_id=? AND group_key=? AND source_kind<>'manual'
+                     ORDER BY source_kind, source_path, source_row_no",
+                    [$latestRunId, (string) $group['group_key']]
+                );
+                foreach ($sources as &$source) {
+                    $raw = json_decode((string) ($source['raw_json'] ?? ''), true);
+                    $source['raw'] = is_array($raw) ? $raw : null;
+                    unset($source['raw_json']);
+                }
+                unset($source);
+                $manual['candidate_groups'][] = [
+                    'group_key' => (string) $group['group_key'],
+                    'state' => (string) $group['state'],
+                    'external_sources' => $sources,
+                ];
+            }
+        }
+        unset($manual);
+
+        return [200, $headers, json_encode([
+            'ok' => true,
+            'summary' => 'candidate-match',
+            'query' => $query,
+            'candidate_run_id' => $latestRunId,
+            'manual_inspections' => $manualRows,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
     /** Read-only aggregate diagnosis for investigation of import quality. */

@@ -12,6 +12,7 @@ foreach ([
     [str_contains($controller, 'csv_without_matching_ods_count'), 'CSV/ODS-Paarprüfung fehlt.'],
     [str_contains($controller, 'pending_import_jobs'), 'Wartende Importaufgaben werden nicht ausgegeben.'],
     [str_contains($controller, 'recent_import_jobs'), 'Abgeschlossene oder fehlgeschlagene Importaufgaben sind nicht diagnosierbar.'],
+    [str_contains($controller, "summary === 'candidate-match'") && str_contains($controller, 'candidateMatchApiDebug'), 'Der Debug-Abgleich zwischen manuellen Prüfungen und Kandidatenquellen fehlt.'],
     [str_contains($controller, "summary === 'inspection-overview'") && str_contains($controller, 'devices_with_multiple_room_snapshots'), 'Die geschützte Übersicht für Status- und Raumhistorien fehlt.'],
     [!str_contains($controller, 'file_get_contents($file->getPathname())'), 'Der Diagnoseendpunkt darf keine Importdateiinhalte auslesen.'],
 ] as [$ok, $message]) {
