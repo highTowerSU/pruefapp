@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-28-benning-cable-records',
+            'date' => '28.08.2026',
+            'title' => 'Benning-Kabelzeilen zuverlässig einlesen',
+            'items' => [
+                'Kopflose ST-725-Zeilen mit „Kabel“ werden als SK1-Sonderfall erkannt und nicht mehr als leere Importkandidaten angezeigt.',
+            ],
+            'pruefapp_revision' => 'c9d4bfd',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-import-page-stability',
             'date' => '28.08.2026',
             'title' => 'Importseite stabilisiert',

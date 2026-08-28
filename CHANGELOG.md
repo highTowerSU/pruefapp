@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 28.08.2026 – Benning-Kabelzeilen zuverlässig einlesen
+
+- Kopflose ST-725-Zeilen mit „Kabel“ werden als SK1-Sonderfall erkannt und nicht mehr als leere Importkandidaten angezeigt.
+- Revisionen: Prüfapp `c9d4bfd`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – Importseite stabilisiert
 
 - Die Importseite bleibt funktionsfähig, wenn keine Statistik zur Prüfer-Migration vorliegt.
