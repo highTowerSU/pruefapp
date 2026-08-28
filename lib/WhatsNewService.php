@@ -15,9 +15,9 @@ final class WhatsNewService
             'date' => '28.08.2026',
             'title' => 'CSV-Quellen zu Prüfweb-Prüfungen prüfen',
             'items' => [
-                'Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen.',
+                'Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen, auch wenn sie noch nicht zusammengeführt sind.',
             ],
-            'pruefapp_revision' => '52ab6bb',
+            'pruefapp_revision' => '52ab6bb · b123e15',
             'base_revision' => 'a631489',
         ], [
             'id' => '2026-08-28-candidate-source-data-collapsed',

@@ -2,8 +2,8 @@
 
 ## 28.08.2026 – CSV-Quellen zu Prüfweb-Prüfungen prüfen
 
-- Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen.
-- Revisionen: Prüfapp `52ab6bb`, Ceneos PHP Base `a631489`.
+- Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen, auch wenn sie noch nicht zusammengeführt sind.
+- Revisionen: Prüfapp `52ab6bb`, `b123e15`, Ceneos PHP Base `a631489`.
 
 ## 28.08.2026 – Rohdaten bei Kandidaten eingeklappt
 
