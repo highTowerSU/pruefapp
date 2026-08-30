@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-30-import-page-memory-stability',
+            'date' => '30.08.2026',
+            'title' => 'Kandidatenseite speichersparend geladen',
+            'items' => [
+                'Rohdaten werden erst beim Öffnen eines einzelnen Kandidaten geladen; große Kandidatenläufe führen nicht mehr zu einem Speicherfehler der Importseite.',
+            ],
+            'pruefapp_revision' => '398e2ac',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-30-candidate-ods-evidence',
             'date' => '30.08.2026',
             'title' => 'ODS-Herkunft bei CSV-Kandidaten sichtbar',

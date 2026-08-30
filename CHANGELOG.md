@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 30.08.2026 – Kandidatenseite speichersparend geladen
+
+- Rohdaten werden erst beim Öffnen eines einzelnen Kandidaten geladen; große Kandidatenläufe führen nicht mehr zu einem Speicherfehler der Importseite.
+- Revisionen: Prüfapp `398e2ac`, Ceneos PHP Base `a631489`.
+
 ## 30.08.2026 – ODS-Herkunft bei CSV-Kandidaten sichtbar
 
 - Zu jeder CSV-Zeile wird die zugeordnete ODS-Zeile lesbar als Tabelle angezeigt, einschließlich Geräte- und Regieangaben.
