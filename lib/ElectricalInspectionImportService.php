@@ -1222,6 +1222,10 @@ final class ElectricalInspectionImportService
                 $repeat = (int) ($cell->getAttributeNS('urn:oasis:names:tc:opendocument:xmlns:table:1.0', 'number-columns-repeated') ?: 1);
                 for ($i = 0; $i < $repeat; $i++) $values[] = $value;
             }
+            // LibreOffice writes a very large repeated range of empty cells
+            // at the end of some rows. Those cells have no information and
+            // must not turn into thousands of synthetic “Spalte …” fields.
+            while ($values !== [] && trim((string) end($values)) === '') array_pop($values);
             if ($header === null && $this->findColumn($values, ['Speicherplatz']) !== null) {
                 $header = $this->uniqueHeaders($values);
                 continue;
@@ -1238,7 +1242,7 @@ final class ElectricalInspectionImportService
                 'room_snapshot' => $this->value($sourceValues, ['Raumnummer']),
                 'comment' => $this->value($sourceValues, ['Bemerkung/Kommentar']),
                 'device_note' => $this->value($sourceValues, ['Notiz Gerät']),
-                '_source_values' => $sourceValues,
+                '_source_values' => array_filter($sourceValues, static fn(mixed $value): bool => trim((string) $value) !== ''),
                 // The paired ODS holds the per-device Regiezeit.  It is a
                 // minute value in these Benning/Phoenix sheets (e.g. 6), not
                 // a device master-data field, and must survive the join.
