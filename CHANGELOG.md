@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 30.08.2026 – Leere ODS-Spalten ausgeblendet
+
+- Wiederholte leere Tabellenzellen aus ODS-Dateien werden nicht mehr als künstliche „Spalte …“-Felder angezeigt oder gespeichert.
+- Revisionen: Prüfapp `c3e877e`, Ceneos PHP Base `a631489`.
+
 ## 30.08.2026 – Kandidatenseite speichersparend geladen
 
 - Rohdaten werden erst beim Öffnen eines einzelnen Kandidaten geladen; große Kandidatenläufe führen nicht mehr zu einem Speicherfehler der Importseite.

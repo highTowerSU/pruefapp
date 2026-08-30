@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-30-ods-empty-columns',
+            'date' => '30.08.2026',
+            'title' => 'Leere ODS-Spalten ausgeblendet',
+            'items' => [
+                'Wiederholte leere Tabellenzellen aus ODS-Dateien werden nicht mehr als künstliche „Spalte …“-Felder angezeigt oder gespeichert.',
+            ],
+            'pruefapp_revision' => 'c3e877e',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-30-import-page-memory-stability',
             'date' => '30.08.2026',
             'title' => 'Kandidatenseite speichersparend geladen',
