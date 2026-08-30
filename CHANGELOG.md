@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 30.08.2026 – ODS-Herkunft bei CSV-Kandidaten sichtbar
+
+- Zu jeder CSV-Zeile wird die zugeordnete ODS-Zeile lesbar als Tabelle angezeigt, einschließlich Geräte- und Regieangaben.
+- Revisionen: Prüfapp `ebfeff9`, Ceneos PHP Base `a631489`.
+
 ## 28.08.2026 – CSV-Quellen zu Prüfweb-Prüfungen prüfen
 
 - Der technische Debug-Zugang kann aktuelle Prüfweb-Prüfungen direkt mit den CSV-, ODS- und JSON-Kandidaten des neuesten Laufs abgleichen, auch wenn sie noch nicht zusammengeführt sind.

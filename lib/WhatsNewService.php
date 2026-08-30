@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-08-30-candidate-ods-evidence',
+            'date' => '30.08.2026',
+            'title' => 'ODS-Herkunft bei CSV-Kandidaten sichtbar',
+            'items' => [
+                'Zu jeder CSV-Zeile wird die zugeordnete ODS-Zeile lesbar als Tabelle angezeigt, einschließlich Geräte- und Regieangaben.',
+            ],
+            'pruefapp_revision' => 'ebfeff9',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-28-candidate-source-debug',
             'date' => '28.08.2026',
             'title' => 'CSV-Quellen zu Prüfweb-Prüfungen prüfen',
