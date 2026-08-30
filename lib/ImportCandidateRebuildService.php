@@ -74,6 +74,15 @@ final class ImportCandidateRebuildService
         return $rows;
     }
 
+    /** @return list<array<string,mixed>> */
+    public function sourceRows(int $runId, string $groupKey): array
+    {
+        return R::getAll(
+            'SELECT source_kind, source_path, source_row_no, raw_json FROM importcandidate WHERE run_id=? AND group_key=? ORDER BY source_kind, source_path, source_row_no',
+            [$runId, $groupKey]
+        );
+    }
+
     /** @param array<string,string> $fieldSources */
     public function decide(int $runId, string $groupKey, string $action, array $fieldSources, int $userId): array
     {

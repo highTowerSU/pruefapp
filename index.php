@@ -181,6 +181,7 @@ $routes = [
     ['POST', '/admin/pruefungen/{id}/bearbeiten', fn($params, $isHx) => InspectionController::edit($params, $isHx)],
     ['GET', '/admin/pruefungen/import', fn($params, $isHx) => InspectionController::import($params, $isHx)],
     ['POST', '/admin/pruefungen/import', fn($params, $isHx) => InspectionController::import($params, $isHx)],
+    ['GET', '/admin/pruefungen/import/kandidaten/{run}/{group}/rohdaten', fn($params, $isHx) => InspectionController::candidateRawSources($params, $isHx)],
     ['POST', '/admin/pruefungen/import/{id}/abbrechen', fn($params, $isHx) => InspectionController::cancelPhoenixJob($params, $isHx)],
     ['POST', '/admin/pruefungen/import/{id}/archivieren', fn($params, $isHx) => InspectionController::archivePhoenixJob($params, $isHx)],
     ['GET', '/admin/pruefungen/import/{id}/status', fn($params, $isHx) => InspectionController::phoenixStatus($params, $isHx)],

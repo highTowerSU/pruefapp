@@ -747,6 +747,20 @@ final class InspectionController
         ])];
     }
 
+    public static function candidateRawSources(array $params, bool $isHx): array
+    {
+        if (!current_user_is_superadmin()) return forbidden_response();
+        $runId = max(0, (int) ($params['run'] ?? 0));
+        $groupKey = trim((string) ($params['group'] ?? ''));
+        if ($runId <= 0 || !preg_match('/^candidate-[a-f0-9]{64}$/', $groupKey)) {
+            return [400, [], 'Ungültiger Kandidatenabruf.'];
+        }
+
+        $sources = (new ImportCandidateRebuildService())->sourceRows($runId, $groupKey);
+        if ($sources === []) return [404, [], 'Kandidatengruppe wurde nicht gefunden.'];
+        return [200, [], render_template('_import_candidate_raw.php', ['sources' => $sources])];
+    }
+
     public static function cancelPhoenixJob(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin')) return forbidden_response();

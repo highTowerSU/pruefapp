@@ -1759,6 +1759,11 @@ function decorate_form_label_icons(string $html): string
 
 function decorate_collapsible_icons(string $html): string
 {
+    // Candidate/source diagnostics can legitimately contain a substantial
+    // amount of escaped raw data. preg_replace_callback duplicates its input
+    // while scanning it; avoid turning an otherwise renderable page into a
+    // PHP memory exhaustion merely to add optional summary icons.
+    if (strlen($html) > 512 * 1024) return $html;
     $icons = [
         '/ereignisprotokoll/i' => 'fa-clock-rotate-left',
         '/neues gerät|gerät anlegen/i' => 'fa-plus-circle',
