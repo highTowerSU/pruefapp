@@ -128,7 +128,7 @@ final class ElectricalInspectionImportService
                 $record = $this->headerlessBenningRecord($header, $repairedRow) ?? $this->csvRecord($header, $repairedRow);
                 $slot = trim((string) ($record['storage_slot'] ?? ''));
                 $odsRow = $slot !== '' ? ($ods[$slot] ?? $ods[ltrim($slot, '0')] ?? null) : null;
-                if (is_array($odsRow)) $record = $this->mergeOdsRecord($record, $odsRow);
+                if (is_array($odsRow)) $record = $this->mergeOdsRecord($record, $odsRow, $odsPath);
                 // In Phoenix result.csv exports `number` identifies the
                 // device.  CSV has no independent inspection resource ID.
                 $deviceNumber = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
@@ -447,7 +447,7 @@ final class ElectricalInspectionImportService
             }
             if (is_array($odsRow)) {
                 $matchedSlots[ltrim($slot, '0')] = true;
-                $record = $this->mergeOdsRecord($record, $odsRow);
+                $record = $this->mergeOdsRecord($record, $odsRow, $odsPath);
                 if (is_array($record['raw'] ?? null) && trim((string) ($odsRow['regie_time_raw'] ?? '')) !== '') {
                     // Keep the original ODS value as evidence.  Older
                     // imports discarded it after joining CSV and ODS rows.
@@ -1182,14 +1182,21 @@ final class ElectricalInspectionImportService
      * @param array<string,mixed> $odsRow
      * @return array<string,mixed>
      */
-    private function mergeOdsRecord(array $record, array $odsRow): array
+    private function mergeOdsRecord(array $record, array $odsRow, ?string $odsPath = null): array
     {
         foreach ($odsRow as $field => $value) {
+            if ($field === '_source_values') continue;
             if (is_array($value)) {
                 if ($value !== []) $record[$field] = $value;
                 continue;
             }
             if (trim((string) $value) !== '') $record[$field] = $value;
+        }
+        if (is_array($record['raw'] ?? null) && is_array($odsRow['_source_values'] ?? null)) {
+            $record['raw']['ods'] = [
+                'path' => $odsPath ?? '',
+                'values' => $odsRow['_source_values'],
+            ];
         }
         return $record;
     }
@@ -1220,17 +1227,18 @@ final class ElectricalInspectionImportService
                 continue;
             }
             if ($header === null || count(array_filter($values, static fn($value): bool => $value !== '')) === 0) continue;
-            $rowData = array_combine($header, array_pad($values, count($header), '')) ?: [];
-            $slot = $this->value($rowData, ['Speicherplatz']);
+            $sourceValues = array_combine($header, array_pad($values, count($header), '')) ?: [];
+            $slot = $this->value($sourceValues, ['Speicherplatz']);
             if ($slot !== '') {
-                $regieRaw = $this->value($rowData, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']);
+                $regieRaw = $this->value($sourceValues, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']);
                 $rowData = [
                 'storage_slot' => $slot,
-                'legacy_number' => $this->value($rowData, ['Nr. alt', 'Nr alt']),
-                'external_number' => $this->value($rowData, ['Nr. neu', 'Nr neu']),
-                'room_snapshot' => $this->value($rowData, ['Raumnummer']),
-                'comment' => $this->value($rowData, ['Bemerkung/Kommentar']),
-                'device_note' => $this->value($rowData, ['Notiz Gerät']),
+                'legacy_number' => $this->value($sourceValues, ['Nr. alt', 'Nr alt']),
+                'external_number' => $this->value($sourceValues, ['Nr. neu', 'Nr neu']),
+                'room_snapshot' => $this->value($sourceValues, ['Raumnummer']),
+                'comment' => $this->value($sourceValues, ['Bemerkung/Kommentar']),
+                'device_note' => $this->value($sourceValues, ['Notiz Gerät']),
+                '_source_values' => $sourceValues,
                 // The paired ODS holds the per-device Regiezeit.  It is a
                 // minute value in these Benning/Phoenix sheets (e.g. 6), not
                 // a device master-data field, and must survive the join.
