@@ -11,21 +11,31 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-both-inspection-dates-required',
+            'date' => '25.09.2026',
+            'title' => 'Beide Prüfdaten sind Pflicht',
+            'items' => [
+                'Das Prüfdatum ist mit „heute“ vorausgefüllt; das nächste Prüfdatum wird zunächst ein Jahr später vorgeschlagen.',
+                'Beide Daten können geändert werden, dürfen beim Speichern aber nicht leer bleiben. Die frühere Optionalität wurde zurückgenommen.',
+            ],
+            'pruefapp_revision' => 'd8d2960',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-current-test-date-required',
             'date' => '25.09.2026',
             'title' => 'Prüfdatum bleibt Pflichtfeld',
             'items' => [
-                'Das aktuelle Prüfdatum ist auch beim Zwischenspeichern Pflicht; der nächste Prüftermin bleibt optional.',
+                'Zwischenstand: Das aktuelle Prüfdatum war Pflicht, der nächste Prüftermin optional. Auch das nächste Prüfdatum ist inzwischen wieder Pflicht.',
             ],
             'pruefapp_revision' => '33e413e',
             'base_revision' => 'a631489',
         ], [
             'id' => '2026-09-25-protection-cards-optional-due-date',
             'date' => '25.09.2026',
-            'title' => 'Schutzklassen-Karten und optionaler Prüftermin',
+            'title' => 'Schutzklassen-Karten und Prüftermin-Zwischenstand',
             'items' => [
                 'Die grafische Auswahl für SK I–III und Kabel ist wieder kompakt und übersichtlich.',
-                'Das nächste Prüfdatum kann bei Elektro- und Leiterprüfungen leer bleiben; Intervallknöpfe setzen es nur auf Wunsch.',
+                'Zwischenstand: Das nächste Prüfdatum konnte kurzzeitig leer bleiben; diese Änderung wurde zurückgenommen.',
             ],
             'pruefapp_revision' => '7f61c56',
             'base_revision' => 'a631489',

@@ -1,15 +1,24 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Beide Prüfdaten sind Pflicht
+
+- Das Prüfdatum ist bei neuen Prüfungen mit „heute“ vorausgefüllt; das nächste Prüfdatum wird zunächst ein Jahr später vorgeschlagen. Beide Angaben können angepasst werden.
+- Elektro-, Leiter- und Legacy-Prüfungen verlangen beide Daten im Formular und beim serverseitigen Speichern. Die Prüfungsauswertung nennt ein fehlendes nächstes Prüfdatum ausdrücklich.
+- Die kurzzeitig eingeführte Optionalität des nächsten Prüftermins wurde damit zurückgenommen.
+- Revisionen: Prüfapp `d8d2960`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Prüfdatum bleibt Pflichtfeld
 
 - Das aktuelle Prüfdatum ist in Elektro-, Leiter- und Legacy-Prüfungen sichtbar als Pflichtfeld gekennzeichnet und wird auch beim Zwischenspeichern serverseitig verlangt.
 - Der „Nächste Prüftermin“ ist davon getrennt und bleibt optional.
+- Dieser Zwischenstand wurde mit `d8d2960` zurückgenommen; auch das nächste Prüfdatum ist Pflicht.
 - Revisionen: Prüfapp `33e413e`, Ceneos PHP Base `a631489`.
 
 ## 25.09.2026 – Schutzklassen-Karten und optionaler Prüftermin
 
 - Die grafische Auswahl für SK I–III und Kabel nutzt wieder ein kompaktes Kartenraster ohne übergroße feste Höhen.
 - Das nächste Prüfdatum ist bei Elektro- und Leiterprüfungen optional. Neue Prüfungen beginnen ohne Termin; nur ein bewusst gewähltes Intervall setzt einen Vorschlag.
+- Dieser Zwischenstand wurde mit `d8d2960` zurückgenommen.
 - Revisionen: Prüfapp `7f61c56`, Ceneos PHP Base `a631489`.
 
 ## 25.09.2026 – Neues Gerät bleibt beim Listenwechsel erhalten
