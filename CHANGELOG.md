@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Geräteliste ohne Formular-Reset aktualisieren
+
+- Filter und Seitennavigation aktualisieren nur noch die Geräteliste unterhalb der Schnellsuche.
+- Eine bereits eingescannte oder eingetippte Gerätenummer für „Neue Prüfung“ bleibt dabei erhalten.
+- Revisionen: Prüfapp `f368ea6`, Ceneos PHP Base `a631489`.
+
 ## 30.08.2026 – Leere ODS-Spalten ausgeblendet
 
 - Wiederholte leere Tabellenzellen aus ODS-Dateien werden nicht mehr als künstliche „Spalte …“-Felder angezeigt oder gespeichert.

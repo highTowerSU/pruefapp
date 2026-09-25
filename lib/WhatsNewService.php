@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-device-list-partial-refresh',
+            'date' => '25.09.2026',
+            'title' => 'Geräteliste ohne Formular-Reset aktualisieren',
+            'items' => [
+                'Filter und Seitennavigation aktualisieren nur noch die Geräteliste unterhalb der Schnellsuche.',
+                'Eine bereits eingescannte oder eingetippte Gerätenummer für „Neue Prüfung“ bleibt dabei erhalten.',
+            ],
+            'pruefapp_revision' => 'f368ea6',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-08-30-ods-empty-columns',
             'date' => '30.08.2026',
             'title' => 'Leere ODS-Spalten ausgeblendet',
