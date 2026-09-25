@@ -10,7 +10,7 @@ function render_common_filter_panel(string $context, array $filters, array $data
     // Die Schnellprüfung oberhalb der Geräteliste bleibt beim Filtern erhalten.
     // Deshalb wird nur der Listenbereich selbst per HTMX ersetzt.
     $hxTarget = $context === 'billing' ? '#billing-content' : '#device-list-panel';
-    $hxSelect = $context === 'billing' ? '' : ' hx-select="#device-list-panel"';
+    $hxSelect = '';
     $value = static fn(string $key, string $fallback = ''): string => htmlspecialchars((string) ($filters[$key] ?? $fallback), ENT_QUOTES);
     $selected = static fn(string $key, string $option): string => (string) ($filters[$key] ?? '') === $option ? ' selected' : '';
     $roomLabels = is_array($data['roomLabels'] ?? null) ? $data['roomLabels'] : [];

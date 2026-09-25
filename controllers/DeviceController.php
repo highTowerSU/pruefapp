@@ -295,6 +295,7 @@ class DeviceController
                 'lastRoomLabel' => $lastRoomLabel,
                 'companionConnectionCount' => $companionConnectionCount,
                 'mediaByDevice' => $mediaByDevice,
+                'listOnly' => $isHx,
             ]);
         if ($isHx) return [200, ['Content-Type' => 'text/html; charset=utf-8'], $content];
         return [200, [], render_template('layout.php', [

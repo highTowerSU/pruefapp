@@ -35,8 +35,8 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
     <div class="col-md-4"><label class="form-label" for="serial-number-<?= $formKey ?>"><i class="fa-solid fa-hashtag icon-slot me-1" aria-hidden="true"></i>Seriennummer</label><div class="input-group"><input class="form-control" id="serial-number-<?= $formKey ?>" name="serial_number" value="<?= htmlspecialchars((string) $device->serial_number) ?>"><button class="btn btn-secondary" type="button" data-companion-for="serial-number-<?= $formKey ?>" title="Companion-Wert auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i></button></div></div>
 
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Gerätedaten</h2></div>
-    <div class="col-lg-4"><label class="form-label" for="manufacturer-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Hersteller</label><div class="input-group companion-field-group"><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" autocomplete="organization" value="<?= htmlspecialchars($currentManufacturer) ?>"><button class="btn btn-secondary" type="button" data-companion-for="manufacturer-<?= $formKey ?>" title="Companion-Wert auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><span class="visually-hidden">Companion-Wert auswählen</span></button></div></div>
-    <div class="col-lg-4"><label class="form-label" for="device-model-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Typ / Modell</label><div class="input-group companion-field-group"><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"><button class="btn btn-secondary" type="button" data-companion-for="device-model-<?= $formKey ?>" title="Companion-Wert auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><span class="visually-hidden">Companion-Wert auswählen</span></button></div></div>
+    <div class="col-lg-4"><label class="form-label" for="manufacturer-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Hersteller</label><div class="input-group companion-field-group"><input class="form-control" id="manufacturer-<?= $formKey ?>" name="manufacturer" list="device-manufacturer-options" autocomplete="off" value="<?= htmlspecialchars($currentManufacturer) ?>"><button class="btn btn-secondary" type="button" data-companion-for="manufacturer-<?= $formKey ?>" title="Companion-Wert auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><span class="visually-hidden">Companion-Wert auswählen</span></button></div></div>
+    <div class="col-lg-4"><label class="form-label" for="device-model-<?= $formKey ?>"><i class="fa-solid fa-tag icon-slot me-1" aria-hidden="true"></i>Typ / Modell</label><div class="input-group companion-field-group"><input class="form-control" id="device-model-<?= $formKey ?>" name="device_model" list="device-model-options" autocomplete="off" value="<?= htmlspecialchars((string) ($device->device_model ?? '')) ?>"><button class="btn btn-secondary" type="button" data-companion-for="device-model-<?= $formKey ?>" title="Companion-Wert auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><span class="visually-hidden">Companion-Wert auswählen</span></button></div></div>
     <div class="col-lg-4"><label class="form-label" for="device-name-<?= $formKey ?>"><i class="fa-solid fa-plug icon-slot me-1" aria-hidden="true"></i>Gerätebezeichnung</label><div class="input-group companion-field-group"><input class="form-control" id="device-name-<?= $formKey ?>" name="name" required value="<?= htmlspecialchars((string) $device->name) ?>"><button class="btn btn-secondary" type="button" data-companion-for="device-name-<?= $formKey ?>" title="Companion-Wert auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><span class="visually-hidden">Companion-Wert auswählen</span></button></div><div class="d-flex flex-wrap align-items-center gap-2 mt-2"><button type="button" class="btn btn-sm btn-primary" data-copy-device-name disabled><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i><span data-copy-device-name-label>Passende Bezeichnung</span></button><?php if ($formKey === 0): ?><div class="btn-group btn-group-sm"><button type="button" class="btn btn-secondary" data-open-typeplate><i class="fa-solid fa-id-card me-1" aria-hidden="true"></i>Typenschild-KI erfassen</button><button type="button" class="btn btn-secondary" data-companion-draft-photo title="Typenschildfoto aus der Companion-App auswählen"><i class="fa-solid fa-paperclip" aria-hidden="true"></i><span class="visually-hidden">Typenschildfoto aus der Companion-App auswählen</span></button></div><?php endif; ?></div><div class="form-text" data-device-name-hint>Nach der Modellwahl erscheint hier ein eindeutiger Vorschlag.</div></div>
 
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Standort und Kennzeichnung</h2></div>
@@ -57,7 +57,7 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
   </form>
 <?php }; ?>
 
-<div id="device-page">
+<?php if (empty($listOnly)): ?><div id="device-page">
 <?php if ($canManage): ?>
 <section id="device-inspection-lookup" data-action-nav="Neue Prüfung" data-action-icon="fa-clipboard-check" class="card card-body mb-4 device-new-inspection" aria-labelledby="device-inspection-lookup-title">
   <div class="row g-3 align-items-end">
@@ -79,7 +79,10 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
 </section>
 <?= render_template('inspection_companion_inbox.php', ['items' => InspectionCompanionInboxService::itemsForOwner((int) current_user()->id)]) ?>
 <?php endif; ?>
+<?php endif; ?>
 <div id="device-list-panel">
+<datalist id="device-manufacturer-options"><?php foreach ($manufacturerOptions as $option): ?><option value="<?= htmlspecialchars((string) $option, ENT_QUOTES) ?>"></option><?php endforeach; ?></datalist>
+<datalist id="device-model-options"><?php foreach ($modelOptions as $option): ?><option value="<?= htmlspecialchars((string) $option, ENT_QUOTES) ?>"></option><?php endforeach; ?></datalist>
 <?php if ($canManage): ?><details id="device-new-panel" data-action-nav="Neues Gerät" data-action-icon="fa-plus" class="card device-card mb-4"><summary class="card-header device-card-summary d-flex align-items-center gap-2"><i class="fa-solid fa-plus-circle text-primary" aria-hidden="true"></i><strong>Neues Gerät</strong><span class="small text-body-secondary device-new-caption">Gerätedaten anlegen</span></summary><div class="card-body"><?php $form(null, (string) ($newNumber ?? '')); ?></div></details><?php endif; ?>
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
 <?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'roomLabels', 'examinerOptions')) ?>
@@ -116,16 +119,17 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   const siteLabels = <?= json_encode($safeSiteLabels, JSON_UNESCAPED_UNICODE) ?>;
   const buildingLabels = <?= json_encode($safeBuildingLabels, JSON_UNESCAPED_UNICODE) ?>;
   const customerLabels = <?= json_encode(array_reduce($customers, static function (array $out, $customer): array { $code = is_scalar($customer->code ?? null) ? (string) $customer->code : ''; $name = is_scalar($customer->name ?? null) ? (string) $customer->name : ''; $out[(int) $customer->id] = $code !== '' ? $code . ' · ' . $name : $name; return $out; }, []), JSON_UNESCAPED_UNICODE) ?>;
-  const vocabularyOptions = <?= json_encode(['manufacturer' => array_values($manufacturerOptions)], JSON_UNESCAPED_UNICODE) ?>;
   const vocabularyEndpoint = <?= json_encode(url_for('geraete/stammdaten-optionen'), JSON_UNESCAPED_UNICODE) ?>;
   const initializeDeviceVocabulary = () => {
     if (typeof window.TomSelect !== 'function') return;
     document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
+      if (form.dataset.vocabularyBound === '1') return;
+      form.dataset.vocabularyBound = '1';
       const selects = {};
       const loadOptions = async (field) => {
         const query = new URLSearchParams({field});
-        if (field !== 'manufacturer') query.set('manufacturer', selects.manufacturer?.getValue() || '');
-        if (field === 'name') query.set('model', selects.device_model?.getValue() || '');
+        query.set('manufacturer', form.querySelector('[name="manufacturer"]')?.value.trim() || '');
+        query.set('model', form.querySelector('[name="device_model"]')?.value.trim() || '');
         const response = await fetch(`${vocabularyEndpoint}?${query.toString()}`, {headers: {'Accept': 'application/json'}});
         if (!response.ok) return [];
         const data = await response.json();
@@ -134,19 +138,18 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       const refresh = async (field, currentValue = '') => {
         const control = selects[field];
         if (!control) return [];
-        const values = field === 'manufacturer' ? (vocabularyOptions.manufacturer || []) : await loadOptions(field);
+        const values = await loadOptions(field);
         control.clearOptions();
         control.addOptions(values.map(value => ({value: String(value), text: String(value)})));
         if (currentValue && values.some(value => String(value).toLocaleLowerCase() === String(currentValue).toLocaleLowerCase())) control.setValue(currentValue, true);
         return values;
       };
-      [['manufacturer', 'Hersteller'], ['device_model', 'Modell'], ['name', 'Gerätebezeichnung']].forEach(([field, label]) => {
+      [['name', 'Gerätebezeichnung']].forEach(([field, label]) => {
         const input = form.querySelector(`[name="${field}"]`);
         if (!input || input.tomselect) return;
         const initialValue = input.value;
-        const options = field === 'manufacturer' ? (vocabularyOptions.manufacturer || []).map(value => ({value: String(value), text: String(value)})) : [];
         selects[field] = new window.TomSelect(input, {
-          plugins: ['dropdown_input'], options, create: value => String(value).trim(), createOnBlur: false,
+          plugins: ['dropdown_input'], create: value => String(value).trim(), createOnBlur: false,
           maxItems: 1, maxOptions: null, openOnFocus: true, selectOnTab: true, closeAfterSelect: true,
           placeholder: `${label} suchen oder mit Enter neu anlegen`,
           render: { option: (data, escape) => `<div${data.value === 'Nicht erkennbar' ? ' class="fw-semibold"' : ''}>${escape(data.text)}</div>` }
@@ -193,15 +196,12 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           : (values.length > 1 ? 'Bezeichnung auswählen' : 'Passende Bezeichnung');
       };
       const refreshName = async (currentValue = '') => updateNameSuggestion(await refresh('name', currentValue));
-      const initialModel = selects.device_model?.getValue() || '';
       const initialName = selects.name?.getValue() || '';
-      refresh('device_model', initialModel).then(() => refreshName(initialName));
-      selects.manufacturer?.on('change', async () => {
-        const oldModel = selects.device_model.getValue();
-        await refresh('device_model', oldModel);
-        await refreshName(selects.name.getValue());
+      refreshName(initialName);
+      ['manufacturer', 'device_model'].forEach(field => {
+        const input = form.querySelector(`[name="${field}"]`);
+        input?.addEventListener('change', () => refreshName(selects.name?.getValue() || ''));
       });
-      selects.device_model?.on('change', async () => refreshName(selects.name.getValue()));
       if (button) button.addEventListener('click', () => {
         const suggestion = String(button.dataset.suggestedName || '').trim();
         if (!suggestion) return;
@@ -213,10 +213,10 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   };
   if (typeof window.TomSelect === 'function') initializeDeviceVocabulary(); else window.addEventListener('DOMContentLoaded', initializeDeviceVocabulary, {once: true});
   const initializeDeviceShortcuts = () => { document.querySelectorAll('form[action$="/geraete"]').forEach(form => { const number = form.querySelector('[name="external_number"]'); const suggest = form.querySelector('[data-suggest-device-number]'); const hint = form.querySelector('[data-number-check-hint]'); if (suggest && number) suggest.addEventListener('click', () => { const value = suggest.dataset.suggestDeviceNumber || ''; if (!value) return; let count = 0; try { count = parseInt(localStorage.getItem('pruefapp-device-number-suggestions') || '0', 10) || 0; } catch (_) {} count++; if (count % 10 === 0) { const check = window.prompt('Bitte zur Kontrolle die letzten drei Stellen des vorgeschlagenen Werts eingeben: ' + value); if (check !== value.slice(-3)) { if (hint) hint.textContent = 'Vorschlag nicht übernommen – Abgleich fehlgeschlagen.'; return; } } number.value = value; number.dispatchEvent(new Event('input', {bubbles: true})); if (hint) hint.textContent = 'Vorschlag übernommen. Bitte vor dem Speichern prüfen.'; try { localStorage.setItem('pruefapp-device-number-suggestions', String(count)); } catch (_) {} }); const room = form.querySelector('[name="room_id"]'); if (!room) return; const rememberRoom = () => { if (!room.value) return; try { localStorage.setItem('pruefapp-last-room-id', room.value); } catch (_) {} }; room.addEventListener('change', rememberRoom); room.addEventListener('input', rememberRoom); }); };
-  window.addEventListener('DOMContentLoaded', initializeDeviceShortcuts, {once: true});
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initializeDeviceShortcuts, {once: true}); else initializeDeviceShortcuts();
   const applyTypeplateProposal = (form, proposal) => { ['manufacturer','device_model','name','serial_number','inventory_number'].forEach(key => { const value = String((proposal && proposal[key]) || '').trim(); const field = form.querySelector(`[name="${key}"]`); if (!value || !field) return; if (field.tomselect) { if (!field.tomselect.options[value]) field.tomselect.addOption({value, text: value}); field.tomselect.setValue(value, true); } else { field.value = value; field.dispatchEvent(new Event('change', {bubbles:true})); } }); };
   const stageNewDevicePhotos = () => document.querySelectorAll('form.device-form').forEach(form => { const photo = form.querySelector('[data-stage-device-photo]'); if (!photo || photo.dataset.bound) return; photo.dataset.bound = '1'; photo.addEventListener('change', async () => { if (photo.dataset.stageRequested !== '1' || !photo.files || !photo.files[0]) return; delete photo.dataset.stageRequested; const result = form.querySelector('[data-draft-photo-result]'); const token = form.querySelector('[data-draft-photo-token]'); const type = form.querySelector('[name="new_device_photo_type"]'); const caption = form.querySelector('[name="new_device_photo_caption"]'); const mediaType = type ? type.value : 'condition'; result.innerHTML = '<div class="alert alert-info py-2 mb-0"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Foto wird hochgeladen' + (mediaType === 'type_plate' ? ' und Typenschild ausgewertet' : '') + ' …</div>'; const body = new FormData(); body.append('photo', photo.files[0]); body.append('media_type', mediaType); body.append('caption', caption ? caption.value : ''); try { const response = await fetch(<?= json_encode(url_for('geraete/fotos/vorlaeufig'), JSON_UNESCAPED_UNICODE) ?>, {method: 'POST', body, headers: {'Accept': 'application/json'}}); const data = await response.json(); if (!response.ok || !data.ok) throw new Error(data.error || 'Foto konnte nicht hochgeladen werden.'); token.value = data.token || ''; const proposal = data.proposal || null; const fields = proposal ? ['manufacturer','device_model','name','serial_number','inventory_number'].filter(key => String(proposal[key] || '').trim()).map(key => `<li><strong>${key === 'name' ? 'Bezeichnung' : key === 'device_model' ? 'Modell' : key === 'manufacturer' ? 'Hersteller' : key === 'serial_number' ? 'Seriennummer' : 'Inventar'}:</strong> ${String(proposal[key]).replace(/[&<>]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[char]))}</li>`).join('') : ''; const analysisNote = data.analysis_error ? `<div class="small mt-1">KI-Vorschlag nicht verfügbar: ${String(data.analysis_error).replace(/[&<>]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[char]))}</div>` : ''; const noProposal = mediaType === 'type_plate' && !proposal ? '<div class="small mt-1">Auf dem Foto wurden keine eindeutigen Hersteller-, Modell- oder Seriennummerwerte erkannt.</div>' : ''; result.innerHTML = proposal ? `<div class="alert alert-success py-2 mb-0"><strong><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Typenschildvorschlag bereit</strong><ul class="mb-2 mt-1">${fields}</ul><button class="btn btn-sm btn-primary" type="button" data-apply-staged-typeplate><i class="fa-solid fa-arrow-down me-1" aria-hidden="true"></i>Vorschlag übernehmen</button></div>` : `<div class="alert ${data.analysis_error ? 'alert-warning' : 'alert-success'} py-2 mb-0"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>Foto ist hochgeladen und wird beim Speichern dem Gerät zugeordnet.${noProposal}${analysisNote}</div>`; const apply = result.querySelector('[data-apply-staged-typeplate]'); if (proposal && apply) apply.addEventListener('click', () => applyTypeplateProposal(form, proposal)); } catch (error) { result.innerHTML = `<div class="alert alert-danger py-2 mb-0">${String(error.message || error)}</div>`; } }); });
-  window.addEventListener('DOMContentLoaded', stageNewDevicePhotos, {once: true});
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', stageNewDevicePhotos, {once: true}); else stageNewDevicePhotos();
   const updateDraftPhotoButton = (form) => { const type = form.querySelector('[name="new_device_photo_type"]'); const button = form.querySelector('[data-stage-device-photo-upload]'); const hint = form.querySelector('[data-draft-upload-hint]'); if (!type || !button) return; const refresh = () => { const typePlate = type.value === 'type_plate'; button.innerHTML = typePlate ? '<i class="fa-solid fa-upload me-1" aria-hidden="true"></i>Foto hochladen und Vorschlag erzeugen' : '<i class="fa-solid fa-upload me-1" aria-hidden="true"></i>Foto hochladen'; if (hint) hint.textContent = typePlate ? 'Das Typenschild erzeugt nach dem Vorab-Upload einen übernehmbaren KI-Vorschlag.' : 'Foto wird beim Speichern dem neuen Gerät zugeordnet.'; }; refresh(); type.addEventListener('change', refresh); };
   const bindDraftPhotoButtons = () => document.querySelectorAll('form.device-form').forEach(updateDraftPhotoButton);
   if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', bindDraftPhotoButtons, {once: true}); else bindDraftPhotoButtons();
@@ -224,7 +224,8 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   document.addEventListener('click', event => { const button = event.target.closest('[data-open-typeplate]'); if (!button) return; const form = button.closest('form.device-form'); const photoPanel = form ? form.querySelector('[data-typeplate-panel]') : null; const photo = photoPanel ? photoPanel.querySelector('[data-stage-device-photo]') : null; if (!photoPanel || !photo) return; photoPanel.open = true; const type = photoPanel.querySelector('[name="new_device_photo_type"]'); if (type) { type.value = 'type_plate'; type.dispatchEvent(new Event('change', {bubbles: true})); } const result = photoPanel.querySelector('[data-draft-photo-result]'); if (result) result.innerHTML = '<div class="alert alert-info py-2 mb-0">Typenschildfoto auswählen – danach wird es direkt hochgeladen und ausgewertet.</div>'; photo.dataset.stageRequested = '1'; photo.click(); });
   document.addEventListener('click', event => { const button = event.target.closest('[data-suggest-last-room]'); if (!button) return; const form = button.closest('form.device-form'); const room = form?.querySelector('[name="room_id"]'); if (!room) return; const value = button.dataset.suggestLastRoom || ''; if (room.tomselect) room.tomselect.setValue(value); else { room.value = value; room.dispatchEvent(new Event('change', {bubbles: true})); } button.innerHTML = '<i class="fa-solid fa-check me-1" aria-hidden="true"></i>Raum übernommen'; });
   const panel = document.getElementById('device-inspection-lookup');
-  if (panel) {
+  if (panel && panel.dataset.lookupBound !== '1') {
+    panel.dataset.lookupBound = '1';
     const numberInput = document.getElementById('inspection-device-number');
     const result = document.getElementById('inspection-device-result');
     const lookupButton = document.getElementById('inspection-device-lookup-button');
@@ -477,6 +478,8 @@ document.querySelectorAll('.device-card').forEach(card => {
 });
 </script>
 <script>
+if (!window.deviceListActionsBound) {
+window.deviceListActionsBound = true;
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-device-details-action]');
   if (!button) return;
@@ -488,8 +491,9 @@ document.addEventListener('click', event => {
   const link = event.target.closest('#device-list-panel .pagination a');
   if (!link || !window.htmx) return;
   event.preventDefault();
-  htmx.ajax('GET', link.href, {target: '#device-list-panel', select: '#device-list-panel', swap: 'outerHTML', pushUrl: true});
+  htmx.ajax('GET', link.href, {target: '#device-list-panel', swap: 'outerHTML', pushUrl: true});
 });
+}
 </script>
 <script>
 document.querySelectorAll('[data-metadata-editor]').forEach(editor => {
@@ -538,4 +542,4 @@ document.querySelectorAll('[data-metadata-editor]').forEach(editor => {
 });
 </script>
 </div>
-</div>
+<?php if (empty($listOnly)): ?></div><?php endif; ?>
