@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-current-test-date-required',
+            'date' => '25.09.2026',
+            'title' => 'Prüfdatum bleibt Pflichtfeld',
+            'items' => [
+                'Das aktuelle Prüfdatum ist auch beim Zwischenspeichern Pflicht; der nächste Prüftermin bleibt optional.',
+            ],
+            'pruefapp_revision' => '33e413e',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-protection-cards-optional-due-date',
             'date' => '25.09.2026',
             'title' => 'Schutzklassen-Karten und optionaler Prüftermin',
