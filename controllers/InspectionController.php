@@ -539,7 +539,7 @@ final class InspectionController
     {
         $pending = [];
         $pendingExpression = InspectionEvaluationService::sqlStatusExpression('i');
-        $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.measurements_json, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE {$pendingExpression} IN ('in_progress','data_missing') ORDER BY CASE WHEN COALESCE(i.test_date, '') = '' THEN 1 ELSE 0 END, i.test_date DESC, i.id DESC");
+        $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE i.source_type = 'manual' AND {$pendingExpression} IN ('in_progress','data_missing') ORDER BY CASE WHEN COALESCE(i.test_date, '') = '' THEN 1 ELSE 0 END, i.test_date DESC, i.id DESC");
         foreach ($inspections as $inspection) {
             if ((int) ($inspection['device_id'] ?? 0) <= 0) continue;
             $date = trim((string) ($inspection['test_date'] ?? '')) ?: 'ohne Datum';
@@ -566,6 +566,28 @@ final class InspectionController
         if (!current_user_has_role('admin')) return forbidden_response();
 
         $message = null;
+        // Upload and queue the job before building the expensive import overview.
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pending_measurement_import') {
+            try {
+                $date = trim((string) ($_POST['measurement_date'] ?? ''));
+                $upload = $_FILES['measurement_csv'] ?? null;
+                $tmp = is_array($upload) ? (string) ($upload['tmp_name'] ?? '') : '';
+                if ($tmp === '' || !is_uploaded_file($tmp)) throw new InvalidArgumentException('CSV-Datei fehlt.');
+                $uploadRoot = app_data_root() . '/uploads/pending-measurements';
+                if (!is_dir($uploadRoot) && !mkdir($uploadRoot, 0770, true) && !is_dir($uploadRoot)) throw new RuntimeException('Uploadverzeichnis konnte nicht angelegt werden.');
+                $storedFile = $uploadRoot . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.csv';
+                if (!move_uploaded_file($tmp, $storedFile)) throw new RuntimeException('CSV-Datei konnte nicht für die Hintergrundverarbeitung gespeichert werden.');
+                $job = BackgroundJobService::enqueue('pending_measurement_import', [
+                    'type' => 'pending_measurement_import',
+                    'csv_path' => $storedFile,
+                    'test_date' => $date,
+                    'owner_user_id' => (int) (current_user()->id ?? 0),
+                ], ['cancellable' => true]);
+                return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
+            } catch (Throwable $exception) {
+                $message = 'Messdatenimport nicht möglich: ' . $exception->getMessage();
+            }
+        }
         $stats = null;
         $rebuildPreview = null;
         $candidateRunId = max(0, (int) ($_GET['candidate_run'] ?? 0));
@@ -597,7 +619,6 @@ final class InspectionController
         }
         unset($historyLog, $historyInspection);
         $cron = self::cronStatus();
-        $pendingMeasurementsByDate = self::pendingMeasurementsByDate();
         $examinerUsers = array_map(static fn($user): array => ['id' => (int) $user->id, 'label' => trim((string) ($user->name ?? '')) !== '' ? trim((string) $user->name) : trim((string) ($user->email ?? '')), 'value' => trim((string) ($user->email ?? $user->name ?? ''))], R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id '));
         $phoenixJob = trim((string) ($_GET['phoenix_job'] ?? ''));
         $activeJob = null;
@@ -627,24 +648,6 @@ final class InspectionController
                     $id = (string) $job['id'];
                     return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . $id)], ''];
                 }
-            }
-            if (($_POST['action'] ?? '') === 'pending_measurement_import' && isset($_FILES['measurement_csv']) && is_array($_FILES['measurement_csv'])) {
-                try {
-                    $date = trim((string) ($_POST['measurement_date'] ?? ''));
-                    $tmp = (string) ($_FILES['measurement_csv']['tmp_name'] ?? '');
-                    if ($tmp === '' || !is_uploaded_file($tmp)) throw new InvalidArgumentException('CSV-Datei fehlt.');
-                    $uploadRoot = app_data_root() . '/uploads/pending-measurements';
-                    if (!is_dir($uploadRoot) && !mkdir($uploadRoot, 0770, true) && !is_dir($uploadRoot)) throw new RuntimeException('Uploadverzeichnis konnte nicht angelegt werden.');
-                    $storedFile = $uploadRoot . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(8)) . '.csv';
-                    if (!move_uploaded_file($tmp, $storedFile)) throw new RuntimeException('CSV-Datei konnte nicht für die Hintergrundverarbeitung gespeichert werden.');
-                    $job = BackgroundJobService::enqueue('pending_measurement_import', [
-                        'type' => 'pending_measurement_import',
-                        'csv_path' => $storedFile,
-                        'test_date' => $date,
-                        'owner_user_id' => (int) (current_user()->id ?? 0),
-                    ], ['cancellable' => true]);
-                    return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
-                } catch (Throwable $exception) { $message = 'Messdatenimport nicht möglich: ' . $exception->getMessage(); }
             }
             if (($_POST['action'] ?? '') === 'directory_import_job') {
                 try {
