@@ -57,7 +57,7 @@ final class InspectionController
         $inspection->source_file = null;
         $inspection->test_date = date('Y-m-d');
         $inspection->examiner = $examiner;
-        $inspection->next_due_date = date('Y-m-d', strtotime('+1 year'));
+        $inspection->next_due_date = '';
         $inspection->status = InspectionEvaluationService::IN_PROGRESS;
         $inspection->result_status = InspectionEvaluationService::IN_PROGRESS;
         $inspection->classification = 'native';
@@ -114,9 +114,6 @@ final class InspectionController
         if (trim((string) ($inspection->examiner ?? '')) === '') {
             $user = current_user();
             $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
-        }
-        if (trim((string) ($inspection->next_due_date ?? '')) === '' && trim((string) ($inspection->test_date ?? '')) !== '') {
-            $inspection->next_due_date = date('Y-m-d', strtotime((string) $inspection->test_date . ' +1 year'));
         }
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
