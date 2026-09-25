@@ -8,10 +8,19 @@ $ladderForm = (string) file_get_contents($root . '/templates/inspection_ladder_e
 $legacyForm = (string) file_get_contents($root . '/templates/inspection_legacy_edit.php');
 $controller = (string) file_get_contents($root . '/controllers/InspectionController.php');
 
-foreach (['SK I', 'SK II', 'SK III', 'SK Kabel', 'connector-grid', 'connector-example'] as $part) {
+foreach (["'I' => [", "'II' => [", "'III' => [", "'Kabel' => [", 'connector-grid', '<span class="connector-example">', 'connector-caption', "'Drehstrom'"] as $part) {
     if (!str_contains($form, $part)) {
         throw new RuntimeException('Die grafische Schutzklassen-Auswahl ist unvollständig: ' . $part);
     }
+}
+
+foreach (['schuko-deutsch.jpg', 'schuko.jpg', 'iec-c5.svg', 'iec-c13.svg', 'iec-c19.svg', 'euro-flach.jpg', 'konturenstecker.jpg', 'iec-c7-real.svg', 'dc-hohlstecker.jpg', 'usb.svg', 'batterie.svg', 'kabel-schuko.jpg', 'kabel-c13.svg', 'c5_power_cable.svg', 'cee-drehstrom-16a-verlaengerung.jpg'] as $example) {
+    if (!str_contains($form, $example) || !is_file($root . '/public/img/stecker/' . $example)) {
+        throw new RuntimeException('Ein Schutzklassen-Beispielbild fehlt: ' . $example);
+    }
+}
+if (str_contains($form, 'schematicByClass') || str_contains($form, "document.createElement('figure')") || str_contains($form, 'plug-variant-gallery')) {
+    throw new RuntimeException('Beispielbilder müssen direkt im HTML erscheinen, nicht erst durch JavaScript.');
 }
 
 if (str_contains($form, 'min-height:760px') || str_contains($form, 'min-height:700px') || str_contains($form, 'height:400px')) {
