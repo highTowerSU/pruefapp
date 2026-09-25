@@ -123,7 +123,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
               <button class="nav-link dropdown-toggle border-0 bg-transparent<?= $inspectionImportActive ? ' active fw-semibold' : '' ?>" type="button" id="importNavigationDropdown" data-bs-toggle="dropdown" aria-expanded="false"><i class="fa-solid fa-file-import me-1" aria-hidden="true"></i>Import</button>
               <ul class="dropdown-menu" aria-labelledby="importNavigationDropdown">
                 <li><a class="dropdown-item<?= $inspectionImportActive ? ' active' : '' ?>" href="<?= htmlspecialchars($inspectionImportUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-arrows-rotate icon-slot me-2" aria-hidden="true"></i>Import &amp; Sync</a></li>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($inspectionImportUrl . '#measurement-import', ENT_QUOTES) ?>"><i class="fa-solid fa-vial icon-slot me-2" aria-hidden="true"></i>Messdaten importieren</a></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($inspectionImportUrl . '?view=measurement', ENT_QUOTES) ?>"><i class="fa-solid fa-vial icon-slot me-2" aria-hidden="true"></i>Messdaten importieren</a></li>
                 <?php if (current_user_is_superadmin()): ?>
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($inspectionImportUrl . '#report-regeneration', ENT_QUOTES) ?>"><i class="fa-solid fa-file-pdf icon-slot me-2" aria-hidden="true"></i>Berichte neu erzeugen</a></li>

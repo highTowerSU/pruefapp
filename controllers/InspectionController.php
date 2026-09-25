@@ -565,6 +565,15 @@ final class InspectionController
     {
         if (!current_user_has_role('admin')) return forbidden_response();
 
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['view'] ?? '') === 'measurement') {
+            $jobId = trim((string) ($_GET['phoenix_job'] ?? ''));
+            $activeJob = $jobId !== '' ? self::readPhoenixJob($jobId) : null;
+            return [200, [], render_template('layout.php', [
+                'title' => 'Messdaten importieren',
+                'content' => render_template('inspection_measurement_import.php', ['activeJob' => $activeJob]),
+            ])];
+        }
+
         $message = null;
         // Upload and queue the job before building the expensive import overview.
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pending_measurement_import') {
@@ -583,7 +592,7 @@ final class InspectionController
                     'test_date' => $date,
                     'owner_user_id' => (int) (current_user()->id ?? 0),
                 ], ['cancellable' => true]);
-                return [303, ['Location' => url_for('admin/pruefungen/import?phoenix_job=' . rawurlencode((string) $job['id']))], ''];
+                return [303, ['Location' => url_for('admin/pruefungen/import?view=measurement&phoenix_job=' . rawurlencode((string) $job['id']))], ''];
             } catch (Throwable $exception) {
                 $message = 'Messdatenimport nicht möglich: ' . $exception->getMessage();
             }
