@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-commented-device-storage-slots',
+            'date' => '25.09.2026',
+            'title' => 'Mehrere Prüf-Speicherplätze mit Kommentar',
+            'items' => [
+                'Im Geräteformular ergänzt „Weiterer Speicherplatz“ eine Zeile für Nummer und Kommentar, etwa für zwei Netzteile. Nur der Speicherplatzbereich wird dabei aktualisiert.',
+                'Die hinterlegten Plätze und Kommentare erscheinen auch als Auswahlhilfe in der Prüfung.',
+            ],
+            'pruefapp_revision' => '60466fa',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-protection-class-examples-restored',
             'date' => '25.09.2026',
             'title' => 'Schutzklassen-Auswahl mit Beispielbildern',

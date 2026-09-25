@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Kommentierte Prüf-Speicherplätze je Gerät
+
+- Im Geräteformular ergänzt „Weiterer Speicherplatz“ eine zusätzliche Zeile mit Speicherplatznummer und optionalem Kommentar, etwa „PSU links“ und „PSU rechts“. Hinzufügen und Entfernen aktualisieren per HTMX nur diesen Bereich; andere Formulareingaben bleiben erhalten.
+- Bis zu acht Plätze werden am Gerät gespeichert und in der Geräteansicht sowie als Auswahlhilfe bei der Prüfung angezeigt. Bestehende Speicherplatznummern und die Import-Zuordnung bleiben erhalten.
+- Revisionen: Prüfapp `60466fa`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Schutzklassen-Auswahl mit Beispielbildern wiederhergestellt
 
 - Die Karten für SK I, II, III und Kabel zeigen wieder passende Stecker-, Anschluss- und Leitungsbeispiele mit Bildunterschriften. Der CEE-Drehstrom-Sonderfall ist ebenfalls direkt sichtbar.
