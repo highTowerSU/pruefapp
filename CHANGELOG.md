@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Geräte-Vorschläge und gezielte Listenaktualisierung
+
+- Hersteller und Modelle schlagen vorhandene Werte direkt im Eingabefeld vor, auch nach dem Filtern oder Seitenwechsel.
+- HTMX liefert beim Filtern und Blättern nur noch die Geräteliste; die Schnellsuche „Neue Prüfung“ bleibt unverändert.
+- Revisionen: Prüfapp `f0209c9`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Mehrere Prüf-Speicherplätze je Gerät
 
 - Geräte können optional mehrere Prüf-Speicherplätze hinterlegen, etwa Server oder Gateways mit zwei Netzteilen.

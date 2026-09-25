@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-device-autocomplete-list-refresh',
+            'date' => '25.09.2026',
+            'title' => 'Geräte-Vorschläge und gezielte Listenaktualisierung',
+            'items' => [
+                'Hersteller und Modelle schlagen vorhandene Werte direkt im Eingabefeld vor, auch nach dem Filtern oder Seitenwechsel.',
+                'Beim Filtern und Blättern bleibt die Schnellsuche „Neue Prüfung“ unverändert.',
+            ],
+            'pruefapp_revision' => 'f0209c9',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-multiple-device-storage-slots',
             'date' => '25.09.2026',
             'title' => 'Mehrere Prüf-Speicherplätze je Gerät',
