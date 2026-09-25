@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Schutzklassen-Auswahl mit Beispielbildern wiederhergestellt
+
+- Die Karten für SK I, II, III und Kabel zeigen wieder passende Stecker-, Anschluss- und Leitungsbeispiele mit Bildunterschriften. Der CEE-Drehstrom-Sonderfall ist ebenfalls direkt sichtbar.
+- Die Beispiele werden im HTML gerendert und bleiben auch ohne nachträgliche JavaScript-Umformung sichtbar. Die Auswahl bleibt auf kleinen Bildschirmen responsiv.
+- Revisionen: Prüfapp `e42371c`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Hersteller- und Modellauswahl wieder aktiv
 
 - Hersteller und Modell werden im Geräteformular wieder als durchsuchbare Auswahl initialisiert, auch in bearbeiteten Gerätekarten.

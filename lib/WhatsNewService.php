@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-protection-class-examples-restored',
+            'date' => '25.09.2026',
+            'title' => 'Schutzklassen-Auswahl mit Beispielbildern',
+            'items' => [
+                'Die Karten für SK I, II, III und Kabel zeigen wieder passende Stecker-, Anschluss- und Leitungsbeispiele direkt im Formular.',
+                'Der CEE-Drehstrom-Sonderfall ist ebenfalls sichtbar; die Bildbeispiele hängen nicht mehr von einer nachträglichen JavaScript-Umformung ab.',
+            ],
+            'pruefapp_revision' => 'e42371c',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-manufacturer-model-selects',
             'date' => '25.09.2026',
             'title' => 'Hersteller- und Modellauswahl wieder aktiv',
