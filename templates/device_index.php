@@ -12,10 +12,7 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
     $modelListId = 'models-' . $formKey;
     $nameListId = 'device-names-' . $formKey;
     $currentManufacturer = trim((string) ($device->manufacturer ?? ''));
-    $storageSlots = json_decode((string) ($device->storage_slots_json ?? '[]'), true);
-    if (!is_array($storageSlots)) $storageSlots = [];
-    if ($storageSlots === [] && trim((string) ($device->storage_slot ?? '')) !== '') $storageSlots = [trim((string) $device->storage_slot)];
-    $storageSlots = array_values(array_filter(array_map(static fn($slot): string => trim((string) $slot), $storageSlots), static fn(string $slot): bool => $slot !== ''));
+    $storageSlotRows = DeviceStorageSlotService::fromDevice($device);
 ?>
   <form method="post" action="<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>" enctype="multipart/form-data" class="row g-3 device-form">
     <input type="hidden" name="id" value="<?= $formKey ?>">
@@ -44,7 +41,7 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
       <div class="d-flex justify-content-between align-items-center gap-2"><label class="form-label mb-1" for="device-room-<?= $formKey ?>"><i class="fa-solid fa-location-dot icon-slot me-1" aria-hidden="true"></i>Raum</label><?php if ($formKey === 0 && $lastRoomId > 0 && $lastRoomLabel !== ''): ?><button type="button" class="btn btn-sm btn-primary py-0" data-suggest-last-room="<?= $lastRoomId ?>" title="Übernimmt den zuletzt verwendeten Raum; bitte vor dem Speichern prüfen."><i class="fa-solid fa-location-arrow me-1" aria-hidden="true"></i><?= htmlspecialchars($lastRoomLabel) ?></button><?php endif; ?></div>
       <select class="form-select" id="device-room-<?= $formKey ?>" name="room_id" required data-search-select data-placeholder="Raum suchen"><option value="">Raum wählen</option><?php foreach ($rooms as $room): ?><option value="<?= (int) $room->id ?>"<?= (int) $device->room_id === (int) $room->id ? ' selected' : '' ?>><?= htmlspecialchars($roomLabels[(int) $room->id] ?? (string) $room->name) ?></option><?php endforeach; ?></select>
     </div>
-    <div class="col-md-4"><label class="form-label" for="storage-slots-<?= $formKey ?>"><i class="fa-solid fa-hard-drive icon-slot me-1" aria-hidden="true"></i>Prüf-Speicherplätze <span class="text-body-secondary fw-normal">optional</span></label><input class="form-control" id="storage-slots-<?= $formKey ?>" name="storage_slots" value="<?= htmlspecialchars(implode(', ', $storageSlots), ENT_QUOTES) ?>" placeholder="z. B. 120, 121"><div class="form-text">Mehrere Plätze mit Komma trennen, etwa bei Geräten mit zwei Netzteilen.</div></div>
+    <?= render_template('device_storage_slots.php', compact('storageSlotRows', 'formKey')) ?>
     <div class="col-md-4"><div class="device-option-card form-check form-switch h-100"><input class="form-check-input" type="checkbox" role="switch" name="warming_device" id="warming-<?= $formKey ?>"<?= !empty($device->warming_device) ? ' checked' : '' ?>><label class="form-check-label d-flex align-items-center gap-2" for="warming-<?= $formKey ?>"><span class="device-option-icon rounded-circle d-inline-flex align-items-center justify-content-center" aria-hidden="true"><i class="fa-solid fa-temperature-high"></i></span><span><strong class="d-block">Wärmegerät</strong><small class="text-body-secondary">Heizelement vorhanden</small></span></label></div></div>
 
     <div class="col-12 device-form-heading"><h2 class="h5 border-bottom pb-2 mb-0">Zusätzliche Angaben</h2></div>
@@ -357,8 +354,8 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     <div class="card-body"><?php if ($canManage): ?><?php $form($device, '', InspectionTypeService::normalize((string) ($latestInspection->inspection_type_code ?? InspectionTypeService::ELECTRICAL))); else: ?><p><?= nl2br(htmlspecialchars((string) $device->comment)) ?></p><?php endif; ?>
       <?= render_template('device_media_panel.php', ['deviceId' => (int) $device->id, 'media' => $mediaByDevice[(int) $device->id] ?? [], 'canManageMedia' => !empty($canManage)]) ?>
       <?php if (trim((string) ($device->external_number ?? '')) !== ''): ?><p class="small text-body-secondary mb-2">Gerätenummer: <?= htmlspecialchars((string) ($device->external_number ?? '')) ?><?php if (trim((string) ($device->legacy_number ?? '')) !== ''): ?> · alte Nummer: <?= htmlspecialchars((string) $device->legacy_number) ?><?php endif; ?></p><?php endif; ?>
-      <?php $deviceStorageSlots = json_decode((string) ($device->storage_slots_json ?? '[]'), true); if (!is_array($deviceStorageSlots)) $deviceStorageSlots = []; if ($deviceStorageSlots === [] && trim((string) ($device->storage_slot ?? '')) !== '') $deviceStorageSlots = [trim((string) $device->storage_slot)]; $deviceStorageSlots = array_values(array_filter(array_map(static fn($slot): string => trim((string) $slot), $deviceStorageSlots), static fn(string $slot): bool => $slot !== '')); ?>
-      <?php if ($deviceStorageSlots !== []): ?><p class="small text-body-secondary mb-2"><i class="fa-solid fa-hard-drive me-1" aria-hidden="true"></i>Prüf-Speicherplätze: <?= htmlspecialchars(implode(' · ', $deviceStorageSlots)) ?></p><?php endif; ?>
+      <?php $deviceStorageSlots = array_values(array_filter(DeviceStorageSlotService::fromDevice($device), static fn(array $row): bool => $row['number'] !== '')); ?>
+      <?php if ($deviceStorageSlots !== []): ?><p class="small text-body-secondary mb-2"><i class="fa-solid fa-hard-drive me-1" aria-hidden="true"></i>Prüf-Speicherplätze: <?php foreach ($deviceStorageSlots as $index => $slot): ?><?= $index > 0 ? ' · ' : '' ?><?= htmlspecialchars($slot['number']) ?><?= $slot['comment'] !== '' ? ' (' . htmlspecialchars($slot['comment']) . ')' : '' ?><?php endforeach; ?></p><?php endif; ?>
   <?php if ($deviceInspections): ?>
     <h2 class="h6 mt-3"><i class="fa-solid fa-clipboard-check me-2" aria-hidden="true"></i>Prüfungen</h2>
     <div class="table-responsive">

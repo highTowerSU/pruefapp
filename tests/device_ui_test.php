@@ -46,7 +46,7 @@ $checks = [
     [($newDevicePosition = strpos($template, 'id="device-new-panel"')) !== false && ($filterPosition = strpos($template, "render_common_filter_panel('device'")) !== false && $newDevicePosition < $filterPosition, '„Neues Gerät“ steht nicht über den Filtern.'],
     [!str_contains($template, 'newPanel.before(actions)'), 'Die Geräteaktionen werden clientseitig vor die Filter verschoben.'],
     [str_contains($template, 'data-suggest-last-room') && str_contains($template, 'data-metadata-editor'), 'Der Raumvorschlag oder einklappbare Zusatzattribute fehlen.'],
-    [str_contains($template, 'name="storage_slots"') && str_contains($template, 'Geräten mit zwei Netzteilen') && str_contains($deviceController, 'storageSlots') && str_contains($schema, 'storage_slots_json'), 'Mehrere optionale Prüf-Speicherplätze werden nicht am Gerät verwaltet.'],
+    [str_contains($template, "render_template('device_storage_slots.php'") && str_contains($deviceController, 'DeviceStorageSlotService::fromPost') && str_contains($schema, 'storage_slots_json') && str_contains($schema, 'storage_slot_notes_json'), 'Mehrere kommentierte Prüf-Speicherplätze werden nicht am Gerät verwaltet.'],
     [str_contains($inspectionTemplate, 'name="metadata_notes"') && str_contains($inspectionController, "'metadata_notes'"), 'Die Prüfungsbemerkung wird nicht serverseitig gespeichert.'],
 ];
 

@@ -78,6 +78,7 @@ require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
+require_once __DIR__ . '/DeviceStorageSlotService.php';
 require_once __DIR__ . '/DeviceMediaService.php';
 require_once __DIR__ . '/RoomMediaService.php';
 require_once __DIR__ . '/StructureMediaService.php';
@@ -502,7 +503,7 @@ function ensure_structure_schema(): void
         'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'area' => ['description' => 'TEXT NULL'],
         'room' => ['area_id' => 'INTEGER NULL', 'number' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
-        'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''", 'storage_slots_json' => "TEXT NOT NULL DEFAULT '[]'", 'room_snapshot' => "TEXT NOT NULL DEFAULT ''", 'device_model' => 'TEXT NULL', 'manufacturer' => 'TEXT NULL', 'warming_device' => 'INTEGER NOT NULL DEFAULT 0', 'archived_at' => 'TEXT NULL'],
+        'device' => ['description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'external_number' => "TEXT NOT NULL DEFAULT ''", 'legacy_number' => "TEXT NOT NULL DEFAULT ''", 'storage_slot' => "TEXT NOT NULL DEFAULT ''", 'storage_slots_json' => "TEXT NOT NULL DEFAULT '[]'", 'storage_slot_notes_json' => "TEXT NOT NULL DEFAULT '{}'", 'room_snapshot' => "TEXT NOT NULL DEFAULT ''", 'device_model' => 'TEXT NULL', 'manufacturer' => 'TEXT NULL', 'warming_device' => 'INTEGER NOT NULL DEFAULT 0', 'archived_at' => 'TEXT NULL'],
         'inspection_catalog_version' => ['inspection_type_code' => "TEXT NOT NULL DEFAULT 'electrical'"],
         'inspection' => [
             'status' => "TEXT NOT NULL DEFAULT 'in_progress'",

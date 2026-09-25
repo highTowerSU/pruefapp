@@ -24,6 +24,7 @@ $tests = [
     'user_reminder_test.php',
     'signature_gate_test.php',
     'device_ui_test.php',
+    'device_storage_slots_test.php',
     'device_media_test.php',
     'media_upload_component_test.php',
     'inspection_companion_test.php',
