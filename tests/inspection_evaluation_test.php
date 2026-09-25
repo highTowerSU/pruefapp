@@ -8,6 +8,7 @@ $base = [
     'protection_class' => 'I',
     'examiner' => 'pruefer@example.test',
     'test_date' => '2026-08-05',
+    'next_due_date' => '2027-08-05',
     'warming_device_snapshot' => 0,
     'cable_length_m' => 12.6,
 ];
@@ -23,6 +24,10 @@ $measurements = [
 
 $passed = InspectionEvaluationService::evaluate($base, $answers, $measurements, true);
 if ($passed['status'] !== InspectionEvaluationService::PASSED) throw new RuntimeException('Gültige SK-I-Prüfung wurde nicht bestanden.');
+$missingDue = InspectionEvaluationService::evaluate(array_replace($base, ['next_due_date' => '']), $answers, $measurements, true);
+if ($missingDue['status'] !== InspectionEvaluationService::DATA_MISSING || !in_array('Nächstes Prüfdatum', $missingDue['missing'], true)) {
+    throw new RuntimeException('Eine Prüfung ohne nächstes Prüfdatum darf nicht bestanden werden.');
+}
 if (InspectionEvaluationService::rslLimit(12.6) !== 0.5) throw new RuntimeException('RSL-Grenzwert wurde nicht serverseitig aus der Kabellänge berechnet.');
 if (InspectionEvaluationService::requiredMeasurementKeys('Klasse II') !== ['RISO', 'IBER']) {
     throw new RuntimeException('Importierte Schutzklassenbezeichnung wurde nicht zentral normalisiert.');
@@ -65,14 +70,14 @@ $editing = InspectionEvaluationService::evaluate($base, [], [], false);
 if ($editing['status'] !== InspectionEvaluationService::IN_PROGRESS) throw new RuntimeException('Zwischenspeicherung muss in Bearbeitung bleiben.');
 
 $ladder = InspectionEvaluationService::evaluate(
-    ['inspection_type_code' => 'ladder', 'examiner' => 'leiter@example.test', 'test_date' => '2026-08-07'],
+    ['inspection_type_code' => 'ladder', 'examiner' => 'leiter@example.test', 'test_date' => '2026-08-07', 'next_due_date' => '2027-08-07'],
     [['item_key' => 'rails', 'question_snapshot' => 'Holme', 'outcome' => 'passed', 'required' => 1]],
     [],
     true
 );
 if ($ladder['status'] !== InspectionEvaluationService::PASSED) throw new RuntimeException('Leiterprüfung darf keine Elektro-Messwerte erzwingen.');
 $ladderFailed = InspectionEvaluationService::evaluate(
-    ['inspection_type_code' => 'ladder', 'examiner' => 'leiter@example.test', 'test_date' => '2026-08-07'],
+    ['inspection_type_code' => 'ladder', 'examiner' => 'leiter@example.test', 'test_date' => '2026-08-07', 'next_due_date' => '2027-08-07'],
     [['item_key' => 'rails', 'question_snapshot' => 'Holme', 'outcome' => 'failed', 'required' => 1]],
     [],
     true

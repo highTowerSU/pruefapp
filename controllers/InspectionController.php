@@ -57,7 +57,7 @@ final class InspectionController
         $inspection->source_file = null;
         $inspection->test_date = date('Y-m-d');
         $inspection->examiner = $examiner;
-        $inspection->next_due_date = '';
+        $inspection->next_due_date = date('Y-m-d', strtotime('+1 year'));
         $inspection->status = InspectionEvaluationService::IN_PROGRESS;
         $inspection->result_status = InspectionEvaluationService::IN_PROGRESS;
         $inspection->classification = 'native';
@@ -90,7 +90,9 @@ final class InspectionController
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $number = trim((string) ($_POST['external_number'] ?? ''));
                 $inspection->test_date = trim((string) ($_POST['test_date'] ?? ''));
+                $inspection->next_due_date = trim((string) ($_POST['next_due_date'] ?? ''));
                 if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
+                elseif ($inspection->next_due_date === '') $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
                 elseif ($number === '') $error = 'Die Prüfnummer darf nicht leer sein.';
                 elseif (R::count('inspection', ' external_number = ? AND id != ? ', [$number, (int) $inspection->id]) > 0) $error = 'Diese Prüfnummer ist bereits vergeben.';
                 if ($error === null) {
@@ -117,6 +119,9 @@ final class InspectionController
             $user = current_user();
             $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
         }
+        if (trim((string) ($inspection->next_due_date ?? '')) === '' && trim((string) ($inspection->test_date ?? '')) !== '') {
+            $inspection->next_due_date = date('Y-m-d', strtotime((string) $inspection->test_date . ' +1 year'));
+        }
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -125,6 +130,7 @@ final class InspectionController
             // dürfen sie in der Prüfungsmaske nicht verändern.
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'metadata_notes', 'customer_hint', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
             if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
+            elseif ($inspection->next_due_date === '') $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
             $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
             $submittedNumber = (string) (preg_replace('/-(?:\d{2}|20\d{2})$/', '', $submittedNumber) ?: $submittedNumber);
             if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;
@@ -276,6 +282,7 @@ final class InspectionController
             $inspection->test_date = trim((string) ($_POST['test_date'] ?? $inspection->test_date));
             $inspection->next_due_date = trim((string) ($_POST['next_due_date'] ?? $inspection->next_due_date));
             if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
+            elseif ($inspection->next_due_date === '') $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
             $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
             $attributes = is_array($_POST['attributes'] ?? null) ? $_POST['attributes'] : [];
             $values = is_array($_POST['finding'] ?? null) ? $_POST['finding'] : [];

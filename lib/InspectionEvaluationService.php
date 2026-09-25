@@ -243,8 +243,8 @@ final class InspectionEvaluationService
         }
 
         $requiredFields = $inspectionType === 'electrical'
-            ? ['protection_class' => 'Schutzklasse', 'examiner' => 'Prüfer', 'test_date' => 'Prüfdatum']
-            : ['examiner' => 'Prüfer', 'test_date' => 'Prüfdatum'];
+            ? ['protection_class' => 'Schutzklasse', 'examiner' => 'Prüfer', 'test_date' => 'Prüfdatum', 'next_due_date' => 'Nächstes Prüfdatum']
+            : ['examiner' => 'Prüfer', 'test_date' => 'Prüfdatum', 'next_due_date' => 'Nächstes Prüfdatum'];
         foreach ($requiredFields as $field => $label) {
             if (trim((string) ($inspection[$field] ?? '')) === '') {
                 $missing[] = $label;

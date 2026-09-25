@@ -18,23 +18,13 @@ if (str_contains($form, 'min-height:760px') || str_contains($form, 'min-height:7
     throw new RuntimeException('Die Schutzklassen-Karten dürfen keine großen festen Höhen erzwingen.');
 }
 
-foreach ([$form, $ladderForm] as $template) {
-    $html = (string) preg_replace('/<\?[\s\S]*?\?>/', '', $template);
-    if (!preg_match('/<input\b[^>]*name="next_due_date"[^>]*>/', $html, $match) || str_contains($match[0], 'required')) {
-        throw new RuntimeException('Das nächste Prüfdatum muss im Formular optional sein.');
-    }
-}
-
-if (!str_contains($controller, '$inspection->next_due_date = \'\';')
-    || str_contains($controller, "strtotime('+1 year')")
-    || str_contains($form, "date.addEventListener('change', () => update(365))")) {
-    throw new RuntimeException('Das nächste Prüfdatum darf nicht automatisch ausgefüllt werden.');
-}
-
 foreach ([$form, $ladderForm, $legacyForm] as $template) {
     $html = (string) preg_replace('/<\?[\s\S]*?\?>/', '', $template);
     if (!preg_match('/<input\b[^>]*name="test_date"[^>]*>/', $html, $match) || !str_contains($match[0], 'required')) {
         throw new RuntimeException('Das aktuelle Prüfdatum muss in jedem Prüfungsformular Pflicht sein.');
+    }
+    if (!preg_match('/<input\b[^>]*name="next_due_date"[^>]*>/', $html, $match) || !str_contains($match[0], 'required')) {
+        throw new RuntimeException('Auch das nächste Prüfdatum muss in jedem Prüfungsformular Pflicht sein.');
     }
 }
 
@@ -42,4 +32,10 @@ if (substr_count($controller, "'Das Prüfdatum ist ein Pflichtfeld.'") < 3) {
     throw new RuntimeException('Elektro-, Leiter- und Legacy-Prüfungen müssen ein leeres Prüfdatum auch serverseitig ablehnen.');
 }
 
-echo "PASS: Schutzklassen-Karten und optionales nächstes Prüfdatum\n";
+if (substr_count($controller, "'Das nächste Prüfdatum ist ein Pflichtfeld.'") < 3
+    || !str_contains($controller, "strtotime('+1 year')")
+    || !str_contains($form, "date.addEventListener('change', () => update(365))")) {
+    throw new RuntimeException('Das nächste Prüfdatum muss vorausgefüllt und serverseitig verpflichtend sein.');
+}
+
+echo "PASS: Schutzklassen-Karten und beide Pflichtdaten\n";
