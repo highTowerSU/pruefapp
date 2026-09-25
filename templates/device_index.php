@@ -126,34 +126,49 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       if (form.dataset.vocabularyBound === '1') return;
       form.dataset.vocabularyBound = '1';
       const selects = {};
+      const refreshVersion = {};
       const loadOptions = async (field) => {
         const query = new URLSearchParams({field});
         query.set('manufacturer', form.querySelector('[name="manufacturer"]')?.value.trim() || '');
         query.set('model', form.querySelector('[name="device_model"]')?.value.trim() || '');
-        const response = await fetch(`${vocabularyEndpoint}?${query.toString()}`, {headers: {'Accept': 'application/json'}});
-        if (!response.ok) return [];
-        const data = await response.json();
-        return Array.isArray(data.items) ? data.items : [];
+        try {
+          const response = await fetch(`${vocabularyEndpoint}?${query.toString()}`, {headers: {'Accept': 'application/json'}});
+          if (!response.ok) return null;
+          const data = await response.json();
+          return Array.isArray(data.items) ? data.items : null;
+        } catch (_) {
+          return null;
+        }
       };
       const refresh = async (field, currentValue = '') => {
         const control = selects[field];
-        if (!control) return [];
+        if (!control) return null;
+        const version = refreshVersion[field] = (refreshVersion[field] || 0) + 1;
         const values = await loadOptions(field);
+        if (values === null || version !== refreshVersion[field]) return null;
         control.clearOptions();
         control.addOptions(values.map(value => ({value: String(value), text: String(value)})));
-        if (currentValue && values.some(value => String(value).toLocaleLowerCase() === String(currentValue).toLocaleLowerCase())) control.setValue(currentValue, true);
+        if (currentValue) {
+          if (!control.options[currentValue]) control.addOption({value: currentValue, text: currentValue});
+          control.setValue(currentValue, true);
+        }
         return values;
       };
-      [['name', 'Gerätebezeichnung']].forEach(([field, label]) => {
+      [['manufacturer', 'Hersteller'], ['device_model', 'Typ / Modell'], ['name', 'Gerätebezeichnung']].forEach(([field, label]) => {
         const input = form.querySelector(`[name="${field}"]`);
-        if (!input || input.tomselect) return;
+        if (!input) return;
+        if (input.tomselect) { selects[field] = input.tomselect; return; }
         const initialValue = input.value;
+        const listId = input.getAttribute('list');
+        const initialOptions = listId ? [...(document.getElementById(listId)?.options || [])].map(option => ({value: option.value, text: option.value})) : [];
         selects[field] = new window.TomSelect(input, {
           plugins: ['dropdown_input'], create: value => String(value).trim(), createOnBlur: false,
           maxItems: 1, maxOptions: null, openOnFocus: true, selectOnTab: true, closeAfterSelect: true,
           placeholder: `${label} suchen oder mit Enter neu anlegen`,
+          options: initialOptions,
           render: { option: (data, escape) => `<div${data.value === 'Nicht erkennbar' ? ' class="fw-semibold"' : ''}>${escape(data.text)}</div>` }
         });
+        input.removeAttribute('list');
         // The dropdown-input plugin owns the visible input. Handle Enter
         // explicitly there so a deliberate new value is reliably retained,
         // while blur continues to reject accidental free text.
@@ -169,7 +184,10 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           selects[field].setValue(value, true);
           selects[field].close();
         }, true);
-        if (initialValue) selects[field].setValue(initialValue, true);
+        if (initialValue) {
+          if (!selects[field].options[initialValue]) selects[field].addOption({value: initialValue, text: initialValue});
+          selects[field].setValue(initialValue, true);
+        }
         input.addEventListener('blur', () => {
           const typed = selects[field].control_input.value.trim();
           if (!typed || selects[field].getValue()) return;
@@ -195,13 +213,19 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           ? `„${suggestion}“ übernehmen`
           : (values.length > 1 ? 'Bezeichnung auswählen' : 'Passende Bezeichnung');
       };
-      const refreshName = async (currentValue = '') => updateNameSuggestion(await refresh('name', currentValue));
+      const refreshName = async (currentValue = '') => {
+        const values = await refresh('name', currentValue);
+        if (values !== null) updateNameSuggestion(values);
+      };
       const initialName = selects.name?.getValue() || '';
+      refresh('manufacturer', selects.manufacturer?.getValue() || '');
+      refresh('device_model', selects.device_model?.getValue() || '');
       refreshName(initialName);
-      ['manufacturer', 'device_model'].forEach(field => {
-        const input = form.querySelector(`[name="${field}"]`);
-        input?.addEventListener('change', () => refreshName(selects.name?.getValue() || ''));
+      selects.manufacturer?.on('change', async () => {
+        await refresh('device_model', selects.device_model?.getValue() || '');
+        refreshName(selects.name?.getValue() || '');
       });
+      selects.device_model?.on('change', () => refreshName(selects.name?.getValue() || ''));
       if (button) button.addEventListener('click', () => {
         const suggestion = String(button.dataset.suggestedName || '').trim();
         if (!suggestion) return;
