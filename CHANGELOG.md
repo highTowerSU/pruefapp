@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Schutzklassen-Karten und optionaler Prüftermin
+
+- Die grafische Auswahl für SK I–III und Kabel nutzt wieder ein kompaktes Kartenraster ohne übergroße feste Höhen.
+- Das nächste Prüfdatum ist bei Elektro- und Leiterprüfungen optional. Neue Prüfungen beginnen ohne Termin; nur ein bewusst gewähltes Intervall setzt einen Vorschlag.
+- Revisionen: Prüfapp `7f61c56`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Neues Gerät bleibt beim Listenwechsel erhalten
 
 - „Neues Gerät“ steht jetzt wie „Neue Prüfung“ außerhalb des HTMX-Listenbereichs. Filter und Seitennavigation setzen ein begonnenes Geräteformular nicht mehr zurück.

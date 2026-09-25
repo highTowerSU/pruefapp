@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-protection-cards-optional-due-date',
+            'date' => '25.09.2026',
+            'title' => 'Schutzklassen-Karten und optionaler Prüftermin',
+            'items' => [
+                'Die grafische Auswahl für SK I–III und Kabel ist wieder kompakt und übersichtlich.',
+                'Das nächste Prüfdatum kann bei Elektro- und Leiterprüfungen leer bleiben; Intervallknöpfe setzen es nur auf Wunsch.',
+            ],
+            'pruefapp_revision' => '7f61c56',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-new-device-form-stable',
             'date' => '25.09.2026',
             'title' => 'Neues Gerät bleibt beim Listenwechsel erhalten',
