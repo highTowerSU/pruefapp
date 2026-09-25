@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Neues Gerät bleibt beim Listenwechsel erhalten
+
+- „Neues Gerät“ steht jetzt wie „Neue Prüfung“ außerhalb des HTMX-Listenbereichs. Filter und Seitennavigation setzen ein begonnenes Geräteformular nicht mehr zurück.
+- Eine übernommene Gerätenummer wird bei späteren Listenaktualisierungen nicht erneut ins Formular geschrieben.
+- Revisionen: Prüfapp `3263915`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Geräte-Vorschläge und gezielte Listenaktualisierung
 
 - Hersteller und Modelle schlagen vorhandene Werte direkt im Eingabefeld vor, auch nach dem Filtern oder Seitenwechsel.

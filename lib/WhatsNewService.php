@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-new-device-form-stable',
+            'date' => '25.09.2026',
+            'title' => 'Neues Gerät bleibt beim Listenwechsel erhalten',
+            'items' => [
+                'Filter und Seitennavigation setzen ein begonnenes Geräteformular nicht mehr zurück.',
+                'Eine übernommene Gerätenummer wird bei späteren Listenaktualisierungen nicht erneut ins Formular geschrieben.',
+            ],
+            'pruefapp_revision' => '3263915',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-device-autocomplete-list-refresh',
             'date' => '25.09.2026',
             'title' => 'Geräte-Vorschläge und gezielte Listenaktualisierung',
