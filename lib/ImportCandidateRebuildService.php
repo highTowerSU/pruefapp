@@ -154,20 +154,39 @@ final class ImportCandidateRebuildService
         $join = static function (int $left, int $right) use (&$parents, $find): void {
             $left = $find($left); $right = $find($right); if ($left !== $right) $parents[$right] = $left;
         };
-        $byInspection = []; $byDeviceDate = []; $manualBySlotDate = [];
+        $byInspection = []; $byDeviceDateSlot = []; $slotlessByDeviceDate = []; $manualBySlotDate = [];
         foreach ($rows as $index => $row) {
             $identity = $this->identity($this->decode((string) $row['raw_json']), (string) $row['source_kind']);
             $inspection = (string) $identity['inspection_number'];
-            $deviceDate = (string) $identity['device_number'] . '|' . (string) $identity['test_date'];
             if ($inspection !== '') {
                 if (isset($byInspection[$inspection])) $join($index, $byInspection[$inspection]); else $byInspection[$inspection] = $index;
             }
             if ((string) $identity['device_number'] !== '' && (string) $identity['test_date'] !== '') {
-                if (isset($byDeviceDate[$deviceDate])) $join($index, $byDeviceDate[$deviceDate]); else $byDeviceDate[$deviceDate] = $index;
+                $deviceDate = (string) $identity['device_number'] . '|' . (string) $identity['test_date'];
+                $slot = (string) $identity['storage_slot'];
+                if ($slot === '') $slotlessByDeviceDate[$deviceDate][] = $index;
+                else {
+                    $deviceDateSlot = $deviceDate . '|' . $this->slotKey($slot);
+                    if (isset($byDeviceDateSlot[$deviceDateSlot])) $join($index, $byDeviceDateSlot[$deviceDateSlot]); else $byDeviceDateSlot[$deviceDateSlot] = $index;
+                }
             }
             if ((string) $row['source_kind'] === 'manual' && (string) $identity['storage_slot'] !== '' && (string) $identity['test_date'] !== '') {
                 $key = (string) $identity['test_date'] . '|' . $this->slotKey((string) $identity['storage_slot']);
                 $manualBySlotDate[$key][] = $index;
+            }
+        }
+        // A device may have multiple power supplies and therefore multiple
+        // ST-725 memory positions on the same day.  Join only equal positions;
+        // a row without a position can join a device/date only when there is
+        // exactly one positioned counterpart.
+        foreach ($slotlessByDeviceDate as $deviceDate => $indexes) {
+            $positioned = [];
+            foreach ($byDeviceDateSlot as $key => $index) if (str_starts_with($key, $deviceDate . '|')) $positioned[] = $find($index);
+            $positioned = array_values(array_unique($positioned));
+            if (count($positioned) === 1) foreach ($indexes as $index) $join($index, $positioned[0]);
+            elseif ($positioned === []) {
+                $first = array_shift($indexes);
+                foreach ($indexes as $index) $join($index, $first);
             }
         }
         // A storage position is export-local. It may suggest the one matching

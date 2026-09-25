@@ -350,6 +350,13 @@ class DeviceController
         $device->manufacturer = $vocabulary['manufacturer'];
         $device->warming_device = isset($_POST['warming_device']) ? 1 : 0;
         $device->inventory_number = trim((string) ($_POST['inventory_number'] ?? ''));
+        $storageSlots = self::storageSlots((string) ($_POST['storage_slots'] ?? ''));
+        if (count($storageSlots) > 8) {
+            $_SESSION['fehlermeldung'] = 'Es können maximal acht Prüf-Speicherplätze je Gerät hinterlegt werden.';
+            return [303, ['Location' => url_for('geraete')], ''];
+        }
+        $device->storage_slots_json = json_encode($storageSlots, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (trim((string) ($device->storage_slot ?? '')) === '' && $storageSlots !== []) $device->storage_slot = $storageSlots[0];
         $description = trim((string) ($_POST['description'] ?? ''));
         if (mb_strlen($description) > 240) {
             $_SESSION['fehlermeldung'] = 'Die Kurzbeschreibung darf maximal 240 Zeichen enthalten.';
@@ -391,6 +398,20 @@ class DeviceController
         }
         $_SESSION['meldung'] = 'Gerät gespeichert.';
         return [303, ['Location' => url_for('geraete?device_id=' . (int) $device->id . '#geraet-' . (int) $device->id)], ''];
+    }
+
+    /** @return list<string> */
+    private static function storageSlots(string $input): array
+    {
+        $slots = preg_split('/[,;\s]+/u', trim($input)) ?: [];
+        $unique = [];
+        foreach ($slots as $slot) {
+            $slot = mb_substr(trim($slot), 0, 40);
+            if ($slot === '') continue;
+            $key = preg_match('/^\d+$/', $slot) === 1 ? (string) (int) $slot : mb_strtoupper($slot);
+            if (!isset($unique[$key])) $unique[$key] = $slot;
+        }
+        return array_values($unique);
     }
 
     /** Copies only non-empty device master data from the latest inspection. */

@@ -650,25 +650,28 @@ final class ElectricalInspectionImportService
         }
         if ($deviceResult === null) {
             $deviceResult = $this->findOrCreateDevice($record);
-            // The source's storage slot and result status are useful data, but
-            // neither identifies a separate inspection.  Older Phoenix CSVs
-            // occasionally change one of them between exports.  The former
-            // dedupe key consequently created a second completed row with the
-            // same device, inspection number and date on a re-import.  A
-            // completed inspection number is immutable, so this narrower
-            // fallback is safe: real re-tests receive their own number.
+            // A completed inspection number is immutable.  Re-imports may
+            // differ in a result or in an initially missing memory slot, but
+            // two populated, different slots can be separate power supplies
+            // of the same device and must remain separate inspections.
             if ($inspection === null && $external !== '' && $date !== '') {
-                $inspection = R::findOne(
+                $sameNumberAndDate = R::findAll(
                     'inspection',
                     ' device_id = ? AND source_type = ? AND external_number = ? AND test_date = ? ORDER BY id ASC ',
                     [(int) $deviceResult['device']->id, $sourceType, $external, $date]
                 );
+                foreach ($sameNumberAndDate as $candidate) {
+                    if ($this->sameStorageSlot((string) ($candidate->storage_slot ?? ''), $slot)) {
+                        $inspection = $candidate;
+                        break;
+                    }
+                }
             }
             // A measurement export can arrive shortly after the inspector opened
             // the same annual inspection manually. It supplements that unfinished
             // row; it must never create a misleading "-2" inspection.
             if ($inspection === null) {
-                $inspection = $this->findOpenInspectionForImport((int) $deviceResult['device']->id, $external);
+                $inspection = $this->findOpenInspectionForImport((int) $deviceResult['device']->id, $external, $slot);
             }
         }
         $created = $inspection === null;
@@ -832,6 +835,7 @@ final class ElectricalInspectionImportService
         if ($created || trim((string) ($device->external_number ?? '')) === '') $device->external_number = $external;
         if ($created || trim((string) ($device->legacy_number ?? '')) === '') $device->legacy_number = $legacy === '-' ? '' : $legacy;
         if ($created || trim((string) ($device->storage_slot ?? '')) === '') $device->storage_slot = $slot;
+        if ($slot !== '') $this->addDeviceStorageSlot($device, $slot);
         if (array_key_exists('warming_device', $record) && ($created || !isset($device->warming_device))) $device->warming_device = filter_var($record['warming_device'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
         if ($room !== '' && ($created || trim((string) ($device->room_snapshot ?? '')) === '')) $device->room_snapshot = $room;
@@ -868,6 +872,27 @@ final class ElectricalInspectionImportService
         // are reviewed only through the explicit, resumable admin batch – not
         // as one network job per imported device value.
         return ['device' => $device, 'created' => $created];
+    }
+
+    private function addDeviceStorageSlot(\RedBeanPHP\OODBBean $device, string $slot): void
+    {
+        $slots = json_decode((string) ($device->storage_slots_json ?? '[]'), true);
+        if (!is_array($slots)) $slots = [];
+        if ($slots === [] && trim((string) ($device->storage_slot ?? '')) !== '') $slots[] = trim((string) $device->storage_slot);
+        $key = static fn(string $value): string => preg_match('/^\d+$/', trim($value)) === 1 ? (string) (int) trim($value) : mb_strtoupper(trim($value));
+        foreach ($slots as $known) if ($key((string) $known) === $key($slot)) return;
+        $slots[] = $slot;
+        $device->storage_slots_json = json_encode(array_values($slots), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function sameStorageSlot(string $left, string $right): bool
+    {
+        $key = static function (string $value): string {
+            $value = trim($value);
+            return preg_match('/^\d+$/', $value) === 1 ? (string) (int) $value : mb_strtoupper($value);
+        };
+        $left = $key($left); $right = $key($right);
+        return $left === '' || $right === '' || $left === $right;
     }
 
     private function findRoomByIdentifier(string $identifier): ?\RedBeanPHP\OODBBean
@@ -1065,14 +1090,16 @@ final class ElectricalInspectionImportService
         return $candidate;
     }
 
-    private function findOpenInspectionForImport(int $deviceId, string $external): ?\RedBeanPHP\OODBBean
+    private function findOpenInspectionForImport(int $deviceId, string $external, string $slot = ''): ?\RedBeanPHP\OODBBean
     {
         if ($deviceId <= 0 || $external === '') return null;
-        return R::findOne('inspection', "device_id = ? AND external_number = ?
+        $candidates = R::findAll('inspection', "device_id = ? AND external_number = ?
             AND TRIM(COALESCE(report_path, '')) = ''
             AND (COALESCE(result_status, '') IN ('', 'in_progress', 'data_missing', 'pending')
                 OR COALESCE(status, '') IN ('', 'in_progress', 'data_missing', 'pending', 'draft'))
             ORDER BY id DESC", [$deviceId, $external]);
+        foreach ($candidates as $candidate) if ($this->sameStorageSlot((string) ($candidate->storage_slot ?? ''), $slot)) return $candidate;
+        return null;
     }
 
     private function applyImportRules(array $record): array

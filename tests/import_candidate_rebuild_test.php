@@ -35,6 +35,8 @@ try {
         ['number' => '', 'external_number' => '1000002', 'date' => '2026-08-11', 'type' => 'KLASSEI', 'storage_slot' => '3', 'regie_minutes' => 3, 'result_status' => 'bestanden'],
         ['number' => '', 'external_number' => '1000003', 'date' => '2026-08-12', 'type' => 'SK1', 'storage_slot' => '4', 'result_status' => 'bestanden', 'measurements' => [['name' => 'RPE', 'value' => '0,12']]],
         ['number' => '', 'external_number' => '', 'date' => '2026-08-13', 'type' => 'SK1', 'storage_slot' => '45', 'result_status' => 'bestanden'],
+        ['number' => '', 'external_number' => '1000005', 'date' => '2026-08-14', 'type' => 'SK1', 'storage_slot' => '51', 'result_status' => 'bestanden'],
+        ['number' => '', 'external_number' => '1000005', 'date' => '2026-08-14', 'type' => 'SK1', 'storage_slot' => '52', 'result_status' => 'bestanden'],
     ]));
     file_put_contents($root . '/sources/standalone-measurements.csv', "Speicher Nr;RPE Wert\n1;0,12\n");
     file_put_contents($root . '/sources/phoenix.json', json_encode([
@@ -42,8 +44,8 @@ try {
         'type' => ['brezel_name' => 'Wiederholungsprüfung SK1'], 'room' => 'N104', 'audit_ok' => true,
     ]));
     $result = (new ImportCandidateRebuildService())->prepare($root . '/sources', 1, static function (): void {});
-    if (($result['automatic'] ?? 0) !== 1 || ($result['manual_kept'] ?? 0) !== 5 || ($result['number_missing'] ?? 0) !== 1) throw new RuntimeException('Gesammelte Kandidaten wurden nicht erst nach der quellenübergreifenden Gruppierung bewertet.');
-    if ((int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual'") !== 5 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='reconciled'") !== 1 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number='001-23'") !== 0) throw new RuntimeException('Der Neuaufbau bewahrt echte Prüfweb-Prüfungen nicht oder entfernt Altimporte ohne Gerät nicht.');
+    if (($result['automatic'] ?? 0) !== 3 || ($result['manual_kept'] ?? 0) !== 5 || ($result['number_missing'] ?? 0) !== 1) throw new RuntimeException('Gesammelte Kandidaten wurden nicht erst nach der quellenübergreifenden Gruppierung bewertet.');
+    if ((int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='manual'") !== 5 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type='reconciled'") !== 3 || (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE external_number='001-23'") !== 0) throw new RuntimeException('Der Neuaufbau bewahrt echte Prüfweb-Prüfungen nicht oder entfernt Altimporte ohne Gerät nicht.');
     $groupedSources = (int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE run_id=? AND group_key=(SELECT group_key FROM importcandidate WHERE source_kind='manual' AND source_inspection_id=? LIMIT 1)", [(int) $result['run_id'], (int) $matchingManual->id]);
     if ($groupedSources !== 2) throw new RuntimeException('Prüfweb- und JSON-Quelle wurden nicht erst nach dem vollständigen Sammeln zusammengeführt.');
     $slotGroupedSources = (int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE run_id=? AND group_key=(SELECT group_key FROM importcandidate WHERE source_kind='manual' AND source_inspection_id=? LIMIT 1)", [(int) $result['run_id'], (int) $manual->id]);
@@ -53,6 +55,9 @@ try {
     if ((string) R::getCell('SELECT result_status FROM inspection WHERE id=?', [(int) $failedManual->id]) !== 'failed') throw new RuntimeException('Eine manuelle Sichtprüfungs-Sperre wurde durch ein CSV-Ergebnis überschrieben.');
     $paddedSlotGroupedSources = (int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE run_id=? AND group_key=(SELECT group_key FROM importcandidate WHERE source_kind='manual' AND source_inspection_id=? LIMIT 1)", [(int) $result['run_id'], (int) $slotManual->id]);
     if ($paddedSlotGroupedSources !== 2 || (string) R::getCell('SELECT result_status FROM inspection WHERE id=?', [(int) $slotManual->id]) !== 'failed' || (string) R::getCell('SELECT inspection_type FROM inspection WHERE id=?', [(int) $slotManual->id]) !== 'SK1') throw new RuntimeException('Speicherplätze mit führenden Nullen müssen eine eindeutige manuelle Prüfung sicher ergänzen, inklusive fehlender Prüfart, ohne deren Sichtprüfungsfehler zu überschreiben.');
+    $dualSupplyGroups = (int) R::getCell("SELECT COUNT(DISTINCT group_key) FROM importcandidate WHERE run_id=? AND device_number='1000005'", [(int) $result['run_id']]);
+    $dualSupplySlots = (string) R::getCell("SELECT storage_slots_json FROM device WHERE external_number='1000005'");
+    if ($dualSupplyGroups !== 2 || !str_contains($dualSupplySlots, '51') || !str_contains($dualSupplySlots, '52')) throw new RuntimeException('Mehrere Netzteile eines Geräts müssen je Speicherplatz getrennt importiert und am Gerät hinterlegt werden.');
     $phoenix = R::getRow("SELECT i.external_number AS inspection_number, d.external_number AS device_number FROM inspection i JOIN device d ON d.id=i.device_id WHERE i.external_number LIKE '%253741%'");
     if (!str_starts_with((string) ($phoenix['inspection_number'] ?? ''), '253741-') || ($phoenix['device_number'] ?? '') !== '100018880') throw new RuntimeException('Phoenix-Prüfungs-ID und Gerätenummer wurden nicht getrennt übernommen.');
     if ((int) R::getCell("SELECT COUNT(*) FROM importcandidate WHERE source_path LIKE '%standalone-measurements.csv'") !== 0) throw new RuntimeException('Einzelne Mess-CSV darf keinen historischen Kandidaten erzeugen.');

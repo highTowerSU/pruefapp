@@ -11,6 +11,7 @@ $customCss = (string) file_get_contents(dirname(__DIR__) . '/public/css/custom.c
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
 $inspectionController = (string) file_get_contents(dirname(__DIR__) . '/controllers/InspectionController.php');
 $inspectionTemplate = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_edit.php');
+$schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $dailyExaminerMarkup = strstr($template, 'id="daily-examiner"') ?: '';
 
 $lookupPosition = strpos($template, 'id="device-inspection-lookup"');
@@ -44,6 +45,7 @@ $checks = [
     [($newDevicePosition = strpos($template, 'id="device-new-panel"')) !== false && ($filterPosition = strpos($template, "render_common_filter_panel('device'")) !== false && $newDevicePosition < $filterPosition, '„Neues Gerät“ steht nicht über den Filtern.'],
     [!str_contains($template, 'newPanel.before(actions)'), 'Die Geräteaktionen werden clientseitig vor die Filter verschoben.'],
     [str_contains($template, 'data-suggest-last-room') && str_contains($template, 'data-metadata-editor'), 'Der Raumvorschlag oder einklappbare Zusatzattribute fehlen.'],
+    [str_contains($template, 'name="storage_slots"') && str_contains($template, 'Geräten mit zwei Netzteilen') && str_contains($deviceController, 'storageSlots') && str_contains($schema, 'storage_slots_json'), 'Mehrere optionale Prüf-Speicherplätze werden nicht am Gerät verwaltet.'],
     [str_contains($inspectionTemplate, 'name="metadata_notes"') && str_contains($inspectionController, "'metadata_notes'"), 'Die Prüfungsbemerkung wird nicht serverseitig gespeichert.'],
 ];
 
