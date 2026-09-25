@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Hersteller- und Modellauswahl wieder aktiv
+
+- Hersteller und Modell werden im Geräteformular wieder als durchsuchbare Auswahl initialisiert, auch in bearbeiteten Gerätekarten.
+- Modellvorschläge folgen dem gewählten Hersteller; bestehende Eingaben bleiben bei der Aktualisierung erhalten.
+- Revisionen: Prüfapp `98a4346`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Beide Prüfdaten sind Pflicht
 
 - Das Prüfdatum ist bei neuen Prüfungen mit „heute“ vorausgefüllt; das nächste Prüfdatum wird zunächst ein Jahr später vorgeschlagen. Beide Angaben können angepasst werden.

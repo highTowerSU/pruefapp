@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-manufacturer-model-selects',
+            'date' => '25.09.2026',
+            'title' => 'Hersteller- und Modellauswahl wieder aktiv',
+            'items' => [
+                'Hersteller und Modell sind wieder durchsuchbare Auswahlfelder; Modellvorschläge folgen dem gewählten Hersteller.',
+            ],
+            'pruefapp_revision' => '98a4346',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-both-inspection-dates-required',
             'date' => '25.09.2026',
             'title' => 'Beide Prüfdaten sind Pflicht',
