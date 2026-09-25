@@ -79,11 +79,11 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
 </section>
 <?= render_template('inspection_companion_inbox.php', ['items' => InspectionCompanionInboxService::itemsForOwner((int) current_user()->id)]) ?>
 <?php endif; ?>
-<?php endif; ?>
-<div id="device-list-panel">
 <datalist id="device-manufacturer-options"><?php foreach ($manufacturerOptions as $option): ?><option value="<?= htmlspecialchars((string) $option, ENT_QUOTES) ?>"></option><?php endforeach; ?></datalist>
 <datalist id="device-model-options"><?php foreach ($modelOptions as $option): ?><option value="<?= htmlspecialchars((string) $option, ENT_QUOTES) ?>"></option><?php endforeach; ?></datalist>
 <?php if ($canManage): ?><details id="device-new-panel" data-action-nav="Neues Gerät" data-action-icon="fa-plus" class="card device-card mb-4"><summary class="card-header device-card-summary d-flex align-items-center gap-2"><i class="fa-solid fa-plus-circle text-primary" aria-hidden="true"></i><strong>Neues Gerät</strong><span class="small text-body-secondary device-new-caption">Gerätedaten anlegen</span></summary><div class="card-body"><?php $form(null, (string) ($newNumber ?? '')); ?></div></details><?php endif; ?>
+<?php endif; ?>
+<div id="device-list-panel">
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
 <?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'roomLabels', 'examinerOptions')) ?>
 <style>.common-filter-panel{container-type:inline-size}.common-filter-panel .form-label{font-weight:600}.common-filter-panel .form-control,.common-filter-panel .form-select{min-height:2.75rem}@media(max-width:767.98px){.common-filter-panel{padding:1rem}.common-filter-panel .row{--bs-gutter-y:.75rem}}</style>
@@ -272,7 +272,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     focusScanner();
   }
   const newNumber = new URLSearchParams(window.location.search).get('new_number');
-  if (newNumber) { const newDeviceDetails = [...document.querySelectorAll('details')].find(item => item.querySelector('summary')?.textContent.includes('Neues Gerät')); const field = newDeviceDetails?.querySelector('[name="external_number"]'); if (newDeviceDetails && field) { newDeviceDetails.open = true; field.value = newNumber; field.readOnly = true; newDeviceDetails.scrollIntoView({behavior:'smooth', block:'start'}); } }
+  if (newNumber) { const newDeviceDetails = document.getElementById('device-new-panel'); const field = newDeviceDetails?.querySelector('[name="external_number"]'); if (newDeviceDetails && field && newDeviceDetails.dataset.initialNumberApplied !== '1') { newDeviceDetails.dataset.initialNumberApplied = '1'; newDeviceDetails.open = true; field.value = newNumber; field.readOnly = true; newDeviceDetails.scrollIntoView({behavior:'smooth', block:'start'}); } }
   const group = (select, key, label) => {
     if (!select) return;
     const options = [...select.querySelectorAll(':scope > option')];
