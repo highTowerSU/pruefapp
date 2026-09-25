@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.09.2026 – Mehrere Prüf-Speicherplätze je Gerät
+
+- Geräte können optional mehrere Prüf-Speicherplätze hinterlegen, etwa Server oder Gateways mit zwei Netzteilen.
+- Importzeilen für dieselbe Gerätenummer mit unterschiedlichen Speicherplätzen werden getrennt verarbeitet und nicht mehr als Widerspruch zusammengeworfen.
+- Revisionen: Prüfapp `b0c098a`, Ceneos PHP Base `a631489`.
+
 ## 25.09.2026 – Geräteliste ohne Formular-Reset aktualisieren
 
 - Filter und Seitennavigation aktualisieren nur noch die Geräteliste unterhalb der Schnellsuche.

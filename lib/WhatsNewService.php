@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-25-multiple-device-storage-slots',
+            'date' => '25.09.2026',
+            'title' => 'Mehrere Prüf-Speicherplätze je Gerät',
+            'items' => [
+                'Geräte können optional mehrere Prüf-Speicherplätze hinterlegen, etwa Server oder Gateways mit zwei Netzteilen.',
+                'Importzeilen für dieselbe Gerätenummer mit unterschiedlichen Speicherplätzen werden getrennt verarbeitet und nicht mehr als Widerspruch zusammengeworfen.',
+            ],
+            'pruefapp_revision' => 'b0c098a',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-device-list-partial-refresh',
             'date' => '25.09.2026',
             'title' => 'Geräteliste ohne Formular-Reset aktualisieren',
