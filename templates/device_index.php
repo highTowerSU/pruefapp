@@ -74,6 +74,7 @@ $form = static function ($device = null, string $newNumber = '', string $preferr
 </section>
 <?= render_template('inspection_companion_inbox.php', ['items' => InspectionCompanionInboxService::itemsForOwner((int) current_user()->id)]) ?>
 <?php endif; ?>
+<div id="device-list-panel">
 <?php if ($canManage): ?><details id="device-new-panel" data-action-nav="Neues Gerät" data-action-icon="fa-plus" class="card device-card mb-4"><summary class="card-header device-card-summary d-flex align-items-center gap-2"><i class="fa-solid fa-plus-circle text-primary" aria-hidden="true"></i><strong>Neues Gerät</strong><span class="small text-body-secondary device-new-caption">Gerätedaten anlegen</span></summary><div class="card-body"><?php $form(null, (string) ($newNumber ?? '')); ?></div></details><?php endif; ?>
 <!-- device-common-filter is rendered by lib/filter_renderer.php -->
 <?= render_common_filter_panel('device', $filters ?? [], compact('customers', 'sites', 'buildings', 'floors', 'rooms', 'roomLabels', 'examinerOptions')) ?>
@@ -472,15 +473,15 @@ document.querySelectorAll('.device-card').forEach(card => {
 document.addEventListener('click', event => {
   const button = event.target.closest('[data-device-details-action]');
   if (!button) return;
-  const cards = [...document.querySelectorAll('#device-page details.device-card[id^="geraet-"]')];
+  const cards = [...document.querySelectorAll('#device-list-panel details.device-card[id^="geraet-"]')];
   const expand = button.dataset.deviceDetailsAction === 'expand';
   cards.forEach(card => { card.open = expand; });
 });
 document.addEventListener('click', event => {
-  const link = event.target.closest('#device-page .pagination a');
+  const link = event.target.closest('#device-list-panel .pagination a');
   if (!link || !window.htmx) return;
   event.preventDefault();
-  htmx.ajax('GET', link.href, {target: '#device-page', select: '#device-page', swap: 'outerHTML', pushUrl: true});
+  htmx.ajax('GET', link.href, {target: '#device-list-panel', select: '#device-list-panel', swap: 'outerHTML', pushUrl: true});
 });
 </script>
 <script>
@@ -529,4 +530,5 @@ document.querySelectorAll('[data-metadata-editor]').forEach(editor => {
   editor.closest('form')?.addEventListener('submit', sync);
 });
 </script>
+</div>
 </div>
