@@ -15,10 +15,11 @@ final class WhatsNewService
             'date' => '25.09.2026',
             'title' => 'Messdatenimport startet schneller',
             'items' => [
+                'Der Menüpunkt „Messdaten importieren“ öffnet jetzt direkt das schlanke Upload-Formular statt der gesamten Importübersicht. Der Status der Hintergrundaufgabe bleibt dort sichtbar.',
                 'Der CSV-Upload startet die Hintergrundaufgabe ohne Wartezeit durch den Aufbau der Importübersicht. Während des Uploads zeigt der Button einen Ladezustand.',
                 'Die Importübersicht lädt offene Prüfweb-Prüfungen nur einmal und ohne ungenutzte Messdaten-JSONs.',
             ],
-            'pruefapp_revision' => '87db3c7',
+            'pruefapp_revision' => '87db3c7 · 29a6346',
             'base_revision' => 'a631489',
         ], [
             'id' => '2026-09-25-commented-device-storage-slots',

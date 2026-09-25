@@ -2,9 +2,10 @@
 
 ## 25.09.2026 – Messdatenimport startet schneller
 
+- „Messdaten importieren“ im Menü öffnet jetzt direkt eine schlanke Formularseite, ohne Kandidatensichtung und Importverlauf der großen Import-&-Sync-Seite aufzubauen. Beide Seiten verwenden dasselbe Upload-Formular; die neue Seite zeigt den Status der Hintergrundaufgabe.
 - Der CSV-Upload für bestehende Prüfweb-Prüfungen wird vor dem Aufbau der umfangreichen Importübersicht als Hintergrundaufgabe vorgemerkt. Der Button zeigt während des Uploads einen Ladezustand.
 - Die Übersicht lädt offene Prüfungen nur noch einmal, beschränkt die Messdatenliste auf manuelle Prüfungen und liest keine ungenutzten Messdaten-JSONs mehr mit.
-- Revisionen: Prüfapp `87db3c7`, Ceneos PHP Base `a631489` (unverändert).
+- Revisionen: Prüfapp `87db3c7`, `29a6346`; Ceneos PHP Base `a631489` (unverändert).
 
 ## 25.09.2026 – Kommentierte Prüf-Speicherplätze je Gerät
 
