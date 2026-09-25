@@ -89,7 +89,9 @@ final class InspectionController
             $error = null;
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $number = trim((string) ($_POST['external_number'] ?? ''));
-                if ($number === '') $error = 'Die Prüfnummer darf nicht leer sein.';
+                $inspection->test_date = trim((string) ($_POST['test_date'] ?? ''));
+                if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
+                elseif ($number === '') $error = 'Die Prüfnummer darf nicht leer sein.';
                 elseif (R::count('inspection', ' external_number = ? AND id != ? ', [$number, (int) $inspection->id]) > 0) $error = 'Diese Prüfnummer ist bereits vergeben.';
                 if ($error === null) {
                     foreach (['external_number', 'test_date', 'next_due_date', 'examiner', 'room_snapshot', 'metadata_notes'] as $field) {
@@ -122,24 +124,27 @@ final class InspectionController
             // Abrechnungsansicht gepflegt. Auch manipulierte Formularfelder
             // dürfen sie in der Prüfungsmaske nicht verändern.
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'metadata_notes', 'customer_hint', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
             $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
             $submittedNumber = (string) (preg_replace('/-(?:\d{2}|20\d{2})$/', '', $submittedNumber) ?: $submittedNumber);
             if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;
             $testYear = $inspection->test_date !== '' ? date('y', strtotime((string) $inspection->test_date)) : date('y');
             $numberWithYear = $submittedNumber . '-' . $testYear;
-            if (R::count('inspection', ' external_number = ? AND id != ? ', [$numberWithYear, (int) $inspection->id]) > 0) $error = 'Diese Prüfnummer ist bereits vergeben.';
+            if ($error === null && R::count('inspection', ' external_number = ? AND id != ? ', [$numberWithYear, (int) $inspection->id]) > 0) $error = 'Diese Prüfnummer ist bereits vergeben.';
             $inspection->external_number = $numberWithYear;
             $cableText = str_replace(',', '.', trim((string) ($inspection->cable_length_m ?? '')));
             $cableLength = $cableText !== '' && is_numeric($cableText) ? (float) $cableText : null;
             $inspection->cable_length_m = $cableLength;
             $warmingDevice = !empty($_POST['warming_device']);
             $inspection->warming_device_snapshot = $warmingDevice ? 1 : 0;
-            InspectionTypeService::saveDeviceAttributes((int) $device->id, InspectionTypeService::ELECTRICAL, [
-                'cable_length_m' => $cableLength ?? '',
-                'warming_device' => $warmingDevice,
-            ]);
-            R::exec('UPDATE device SET warming_device = ? WHERE id = ?', [$warmingDevice ? 1 : 0, (int) $device->id]);
-            $inspection->device_attributes_snapshot_json = json_encode(InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::ELECTRICAL), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($error === null) {
+                InspectionTypeService::saveDeviceAttributes((int) $device->id, InspectionTypeService::ELECTRICAL, [
+                    'cable_length_m' => $cableLength ?? '',
+                    'warming_device' => $warmingDevice,
+                ]);
+                R::exec('UPDATE device SET warming_device = ? WHERE id = ?', [$warmingDevice ? 1 : 0, (int) $device->id]);
+                $inspection->device_attributes_snapshot_json = json_encode(InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::ELECTRICAL), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
             $inspection->rsl_limit_ohm = InspectionEvaluationService::rslLimit($cableLength);
             $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III', 'Kabel' => 'Kabelprüfung'][$inspection->protection_class] ?? $inspection->inspection_type;
             if (!current_user_has_role('admin')) {
@@ -270,6 +275,7 @@ final class InspectionController
             if (!$permission['allowed']) $error = $permission['message'];
             $inspection->test_date = trim((string) ($_POST['test_date'] ?? $inspection->test_date));
             $inspection->next_due_date = trim((string) ($_POST['next_due_date'] ?? $inspection->next_due_date));
+            if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
             $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
             $attributes = is_array($_POST['attributes'] ?? null) ? $_POST['attributes'] : [];
             $values = is_array($_POST['finding'] ?? null) ? $_POST['finding'] : [];
