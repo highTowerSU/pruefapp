@@ -41,6 +41,9 @@ class AdminController
         if ($summary === 'import-config') {
             return self::importConfigApiDebug($headers);
         }
+        if ($summary === 'measurement-import') {
+            return self::measurementImportApiDebug(trim((string) ($_GET['job_id'] ?? '')), $headers);
+        }
         if ($summary === 'candidate-match') {
             return self::candidateMatchApiDebug($query, $headers);
         }
@@ -365,6 +368,89 @@ class AdminController
         return [200, $headers, json_encode(['ok' => true, 'summary' => 'user-permissions', 'users' => array_map(static fn(array $user): array => [
             'id' => (int) $user['id'], 'name' => (string) $user['name'], 'role' => (string) $user['selected_role'], 'signature_ready' => !empty($user['report_signature_ready']), 'permissions' => $user['inspection_permissions'] ?? [],
         ], $users)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
+    }
+
+    /**
+     * Read-only diagnosis of one completed measurement import. Only aggregate
+     * reasons and a bounded sample of storage slots are returned.
+     *
+     * @param array<string,string> $headers
+     */
+    private static function measurementImportApiDebug(string $jobId, array $headers): array
+    {
+        if (preg_match('/^[a-f0-9]{24}$/', $jobId) !== 1) {
+            return [400, $headers, json_encode(['ok' => false, 'error' => 'Ungültige Job-ID.'], JSON_UNESCAPED_UNICODE)];
+        }
+
+        $job = BackgroundJobService::find($jobId);
+        if ($job === null || (string) ($job['type'] ?? '') !== 'pending_measurement_import') {
+            return [404, $headers, json_encode(['ok' => false, 'error' => 'Messdaten-Job nicht gefunden.'], JSON_UNESCAPED_UNICODE)];
+        }
+
+        $payload = is_array($job['payload'] ?? null) ? $job['payload'] : [];
+        $filename = basename((string) ($payload['csv_path'] ?? ''));
+        $completion = null;
+        if ($filename !== '' && R::getWriter()->tableExists('auditlog')) {
+            $audits = R::getAll(
+                "SELECT correlation_id, details_json FROM auditlog WHERE aktion='import_abgeschlossen' "
+                . "AND correlation_id LIKE 'measurement-import-%' ORDER BY id DESC LIMIT 100"
+            );
+            foreach ($audits as $audit) {
+                $details = json_decode((string) ($audit['details_json'] ?? ''), true);
+                if (is_array($details) && (string) ($details['source_file'] ?? '') === $filename) {
+                    $completion = $audit;
+                    break;
+                }
+            }
+        }
+
+        $reasonCounts = [];
+        $sampleSlots = [];
+        if ($completion !== null) {
+            $correlationId = (string) $completion['correlation_id'];
+            $reasons = R::getAll(
+                "SELECT json_extract(details_json, '$.reason') AS reason, COUNT(*) AS count "
+                . "FROM auditlog WHERE correlation_id=? AND aktion='import_datensatz_uebersprungen' "
+                . "GROUP BY json_extract(details_json, '$.reason') ORDER BY count DESC",
+                [$correlationId]
+            );
+            foreach ($reasons as $reason) {
+                $reasonCounts[] = ['reason' => (string) ($reason['reason'] ?? ''), 'count' => (int) $reason['count']];
+            }
+            $slots = R::getAll(
+                "SELECT json_extract(details_json, '$.storage_slot') AS storage_slot "
+                . "FROM auditlog WHERE correlation_id=? AND aktion='import_datensatz_uebersprungen' "
+                . "AND json_extract(details_json, '$.storage_slot') IS NOT NULL ORDER BY id LIMIT 100",
+                [$correlationId]
+            );
+            $sampleSlots = array_values(array_map(static fn(array $row): string => (string) $row['storage_slot'], $slots));
+        }
+
+        return [200, $headers, json_encode([
+            'ok' => true,
+            'summary' => 'measurement-import',
+            'job_id' => $jobId,
+            'state' => (string) ($job['state'] ?? ''),
+            'created_at' => (string) ($job['created_at'] ?? ''),
+            'finished_at' => (string) ($job['finished_at'] ?? ''),
+            'selected_test_date' => (string) ($payload['test_date'] ?? ''),
+            'source_file' => $filename,
+            'stats' => [
+                'updated' => (int) ($job['stats']['updated'] ?? 0),
+                'skipped' => (int) ($job['stats']['skipped'] ?? 0),
+                'cable_length_required' => (int) ($job['stats']['cable_length_required'] ?? 0),
+                'updated_inspections' => array_values(array_map(
+                    static fn(array $row): array => [
+                        'number' => (string) ($row['number'] ?? ''),
+                        'status' => (string) ($row['status'] ?? ''),
+                    ],
+                    array_filter((array) ($job['stats']['updated_inspections'] ?? []), 'is_array')
+                )),
+            ],
+            'audit_found' => $completion !== null,
+            'skip_reasons' => $reasonCounts,
+            'skipped_storage_slots_sample' => $sampleSlots,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE)];
     }
 
     /**
