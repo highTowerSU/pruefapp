@@ -290,6 +290,14 @@ final class ElectricalInspectionImportService
             if (!$inspection) { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Keine bestehende Prüfung für Prüfdatum und Speicherplatz gefunden.', ['test_date' => $testDate, 'storage_slot' => $slot]); continue; }
             $configuredSlots = array_values(array_filter(array_column(DeviceStorageSlotService::fromDevice($inspection), 'number'), static fn(string $number): bool => $number !== ''));
             $multipleSlots = count($configuredSlots) > 1;
+            // Das passive Kabelprogramm ist ein Messverfahren innerhalb SK I,
+            // keine vierte Schutzklasse. SK-II-Geräte samt Leitung bleiben SK II.
+            if (!$multipleSlots
+                && InspectionEvaluationService::normalizeProtectionClass((string) ($record['device_type'] ?? '')) === 'KABEL'
+                && in_array(InspectionEvaluationService::normalizeProtectionClass((string) ($inspection->protection_class ?? '')), ['', 'I', 'KABEL'], true)
+            ) {
+                $inspection->protection_class = 'I';
+            }
             $previousMeasurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
             $previousResultStatus = (string) ($inspection->result_status ?? InspectionEvaluationService::DATA_MISSING);
             $matchedSlot = $slot;
@@ -1129,7 +1137,7 @@ final class ElectricalInspectionImportService
             return 'I';
         }
         if (str_contains($text, 'drehstrom') || str_contains($text, 'cee')) return 'Drehstrom';
-        if (str_contains($text, 'kabel')) return 'Kabel';
+        if (str_contains($text, 'kabel')) return 'I';
         return '';
     }
 

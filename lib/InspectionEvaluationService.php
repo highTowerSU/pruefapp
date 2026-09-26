@@ -140,6 +140,44 @@ final class InspectionEvaluationService
         };
     }
 
+    /**
+     * BENNING's passive cable program belongs to SK I but has no active IPE
+     * measurement. Only explicit source evidence may relax that requirement;
+     * a missing IPE value or a cable-like device name is not evidence.
+     *
+     * @param array<string,mixed> $inspection
+     * @param list<array<string,mixed>> $measurements
+     * @return list<string>
+     */
+    public static function requiredMeasurementKeysForInspection(array $inspection, array $measurements): array
+    {
+        $protectionClass = self::normalizeProtectionClass((string) ($inspection['protection_class'] ?? ''));
+        $required = self::requiredMeasurementKeys($protectionClass);
+        if ($protectionClass !== 'I') {
+            return $required;
+        }
+
+        $slotResults = json_decode((string) ($inspection['measurement_slots_json'] ?? ''), true);
+        if (is_array($slotResults) && count($slotResults) > 1) {
+            return $required;
+        }
+
+        foreach ($measurements as $measurement) {
+            if (self::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? '')) === 'KABEL'
+                && trim((string) ($measurement['value'] ?? $measurement['text_value'] ?? $measurement['numeric_value'] ?? '')) !== ''
+            ) {
+                return ['RPE', 'RISO'];
+            }
+        }
+
+        $csvRow = json_decode((string) ($inspection['csv_row_json'] ?? ''), true);
+        if (is_array($csvRow) && self::normalizeProtectionClass((string) ($csvRow['Bezeichnung'] ?? '')) === 'KABEL') {
+            return ['RPE', 'RISO'];
+        }
+
+        return $required;
+    }
+
     public static function normalizeProtectionClass(string $protectionClass): string
     {
         $value = strtoupper(trim($protectionClass));
@@ -236,7 +274,7 @@ final class InspectionEvaluationService
         }
 
         $inspectionType = trim((string) ($inspection['inspection_type_code'] ?? 'electrical')) ?: 'electrical';
-        foreach ($inspectionType === 'electrical' ? self::requiredMeasurementKeys((string) ($inspection['protection_class'] ?? '')) : [] as $requiredKey) {
+        foreach ($inspectionType === 'electrical' ? self::requiredMeasurementKeysForInspection($inspection, $measurements) : [] as $requiredKey) {
             if (!isset($measurementMap[$requiredKey])) {
                 $missing[] = 'Messung ' . self::measurementLabel($requiredKey) . ' fehlt';
             } elseif ($measurementMap[$requiredKey]['outcome'] !== 'passed') {

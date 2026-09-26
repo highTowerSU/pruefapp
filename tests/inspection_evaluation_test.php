@@ -93,6 +93,48 @@ $missing = InspectionEvaluationService::evaluate($base, $answers, array_slice($m
 if ($missing['status'] !== InspectionEvaluationService::DATA_MISSING || !str_contains(implode(' ', $missing['missing']), 'IPE')) {
     throw new RuntimeException('Fehlender Pflichtmesswert wurde nicht eindeutig ausgewiesen.');
 }
+$passiveCableMeasurements = [
+    ['name' => 'RPE', 'value' => '0.10', 'unit' => 'Ohm', 'result' => 'bestanden'],
+    ['name' => 'RISO', 'value' => '>19.99', 'unit' => 'MOhm', 'result' => 'bestanden'],
+    ['name' => 'Kabel', 'value' => 'Gut', 'result' => 'bestanden'],
+];
+$passiveCable = InspectionEvaluationService::evaluate($base, $answers, $passiveCableMeasurements, true);
+if ($passiveCable['status'] !== InspectionEvaluationService::PASSED) {
+    throw new RuntimeException('Das belegte passive SK-I-Kabelprogramm darf keinen IPE-Wert verlangen.');
+}
+$cableFromSourceRow = InspectionEvaluationService::evaluate(
+    array_replace($base, ['csv_row_json' => '{"Bezeichnung":"Kabel"}']),
+    $answers,
+    array_slice($passiveCableMeasurements, 0, 2),
+    true
+);
+if ($cableFromSourceRow['status'] !== InspectionEvaluationService::PASSED) {
+    throw new RuntimeException('Der BENNING-Kabelmodus muss auch aus der CSV-Zeile erkannt werden.');
+}
+$ordinarySk1 = InspectionEvaluationService::evaluate($base, $answers, array_slice($passiveCableMeasurements, 0, 2), true);
+if ($ordinarySk1['status'] !== InspectionEvaluationService::DATA_MISSING || !str_contains(implode(' ', $ordinarySk1['missing']), 'IPE')) {
+    throw new RuntimeException('Eine gewöhnliche SK-I-Prüfung ohne IPE darf nicht stillschweigend als Kabel gelten.');
+}
+$sk2WithCableMeasurement = InspectionEvaluationService::evaluate(
+    array_replace($base, ['protection_class' => 'II']),
+    $answers,
+    $passiveCableMeasurements,
+    true
+);
+if ($sk2WithCableMeasurement['status'] !== InspectionEvaluationService::DATA_MISSING
+    || !str_contains(implode(' ', $sk2WithCableMeasurement['missing']), 'IB')) {
+    throw new RuntimeException('SK-II-Geräte dürfen durch eine Kabelmessung nicht herabgestuft werden.');
+}
+$multiSlotCable = InspectionEvaluationService::evaluate(
+    array_replace($base, ['measurement_slots_json' => '{"060":{},"061":{}}', 'csv_row_json' => '{"Bezeichnung":"Kabel"}']),
+    $answers,
+    $passiveCableMeasurements,
+    true
+);
+if ($multiSlotCable['status'] !== InspectionEvaluationService::DATA_MISSING
+    || !str_contains(implode(' ', $multiSlotCable['missing']), 'IPE')) {
+    throw new RuntimeException('Ein passiver Kabelplatz darf IPE für weitere SK-I-Speicherplätze nicht ersetzen.');
+}
 $textOnly = $measurements;
 $textOnly[0] = ['measurement_key' => 'RPE', 'text_value' => '0.39', 'unit' => 'Ohm'];
 if (InspectionEvaluationService::evaluate($base, $answers, $textOnly, true)['status'] !== InspectionEvaluationService::PASSED) {

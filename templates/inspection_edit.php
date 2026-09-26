@@ -22,13 +22,14 @@ $protectionChoices = [
     'I' => [
         'title' => 'Klasse I', 'symbol' => '⏚', 'icon' => 'fa-plug-circle-check',
         'description' => 'Schutzleiter vorhanden; metallische Schutzkontakte am Netzstecker.',
-        'detail' => 'Auch IEC C5, C13 und C19 gehören bei Schutzleiteranschluss zu SK I.',
+        'detail' => 'Auch Leitungen mit Schutzleiter gehören zu SK I. Das passive BENNING-Kabelprogramm wird anhand der Messdaten erkannt.',
         'examples' => [
             ['schuko-deutsch.jpg', 'CEE 7/4 · Schuko-Stecker'],
             ['schuko.jpg', 'CEE 7/7 · Kombistecker'],
             ['iec-c5.svg', 'IEC C5 · Mickey Mouse'],
             ['iec-c13.svg', 'IEC C13 · Kaltgerät'],
             ['iec-c19.svg', 'IEC C19 · Kaltgerät'],
+            ['kabel-schuko.jpg', 'Schuko-Verlängerung'],
         ],
     ],
     'II' => [
@@ -51,16 +52,6 @@ $protectionChoices = [
             ['batterie.svg', 'Batterie / Akku'],
         ],
     ],
-    'Kabel' => [
-        'title' => 'Kabel', 'symbol' => '⌁', 'icon' => 'fa-link',
-        'description' => 'Anschluss- und Verlängerungsleitungen mit Schutzleiter.',
-        'detail' => 'Zweipolige IEC-C7-Leitungen werden zusammen mit dem SK-II-Gerät geprüft.',
-        'examples' => [
-            ['kabel-schuko.jpg', 'Schuko-Verlängerung'],
-            ['kabel-c13.svg', 'Schuko → IEC C13'],
-            ['c5_power_cable.svg', 'IEC C5 · Kleeblattkabel'],
-        ],
-    ],
 ];
 ?>
 <div class="col-12 protection-options">
@@ -69,7 +60,7 @@ $protectionChoices = [
     <?php foreach ($protectionChoices as $class => $choice): ?>
       <div class="col-12 col-sm-6 col-xl-3">
         <label class="border rounded-3 p-3 d-grid h-100 protection-choice" data-sk="SK <?= htmlspecialchars($class, ENT_QUOTES) ?>">
-          <input class="visually-hidden" type="radio" name="protection_class" value="<?= htmlspecialchars($class, ENT_QUOTES) ?>"<?= (string) $inspection->protection_class === $class ? ' checked' : '' ?>>
+          <input class="visually-hidden" type="radio" name="protection_class" value="<?= htmlspecialchars($class, ENT_QUOTES) ?>"<?= (string) $inspection->protection_class === $class || ($class === 'I' && InspectionEvaluationService::normalizeProtectionClass((string) $inspection->protection_class) === 'KABEL') ? ' checked' : '' ?>>
           <span class="d-flex align-items-center justify-content-between"><span class="sk-symbol" aria-hidden="true"><?= htmlspecialchars($choice['symbol']) ?></span><span class="badge text-bg-dark">SK <?= htmlspecialchars($class) ?></span></span>
           <span class="connector-grid">
             <?php foreach ($choice['examples'] as [$file, $caption]): ?>
@@ -166,10 +157,9 @@ $protectionChoices = [
     [regieBlock, reasonBlock].forEach(block => { if (block) { block.classList.remove('col-md-3', 'col-md-9'); block.classList.add('col-12'); } });
   }
   const criteriaByClass = {
-    I: {title:'Kriterienkatalog · Schutzklasse I', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Schutzleiterstrom IPE (Differenzstrom): maximal 3,5 mA an leitfähigen Teilen mit PE-Verbindung.','Berührungsstrom IB: kleiner als 0,5 mA an allen berührbaren leitfähigen Teilen.','Hinweis: Heizgeräte, Netzfilter und lange Leitungen können abweichende Messwerte verursachen und müssen besonders bewertet werden.']},
+    I: {title:'Kriterienkatalog · Schutzklasse I', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Schutzleiterstrom IPE (Differenzstrom): maximal 3,5 mA bei aktiven Geräten; beim ausdrücklich dokumentierten passiven BENNING-Kabelprogramm nicht erforderlich.','Berührungsstrom IB: kleiner als 0,5 mA, soweit am Prüfling anwendbar.','Zweipolige Leitungen ohne Schutzleiter werden gemeinsam mit dem SK-II-Gerät bewertet.']},
     II: {title:'Kriterienkatalog · Schutzklasse II', items:['Kein Schutzleiter: keine metallischen Schutzkontakte auf 6 und 12 Uhr.','Isolationswiderstand RISO: mindestens 1 MΩ; bei Geräten mit Heizelementen mindestens 0,3 MΩ.','Berührungsstrom IB: kleiner als 0,5 mA an allen berührbaren leitfähigen Teilen.','Berührbare leitfähige Teile und doppelte/verstärkte Isolierung besonders auf Beschädigungen prüfen.','Hinweis: IEC C7 und andere zweipolige Leitungen werden gemeinsam mit dem zugehörigen Gerät bewertet.']},
     III: {title:'Kriterienkatalog · Schutzklasse III', items:['Nur Schutzkleinspannung: kein direkter Netzanschluss am Prüfobjekt.','Versorgung, Polarität, Akku/Batterie und Kleinspannungsanschluss auf Beschädigung und sicheren Sitz prüfen.','Messgrenzen richten sich nach der Gerätespezifikation und dem verwendeten Netzteil.']},
-    Kabel: {title:'Kriterienkatalog · Anschluss- und Verlängerungsleitung', items:['Schutzleiterwiderstand RSL: ≤ 0,3 Ω bis 5 m Leitungslänge; danach +0,1 Ω je weitere 7,5 m, maximal 1 Ω.','Isolationswiderstand RISO: mindestens 1 MΩ.','Schutzleiterstrom IPE (Differenzstrom): maximal 3,5 mA; Berührungsstrom IB: kleiner als 0,5 mA.','Leitungslänge und Leitungsquerschnitt dokumentieren; Stecker, Kupplung, Zugentlastung, Isolation und Aderanschlüsse prüfen.']},
     Drehstrom: {title:'Sonderfall · CEE-Drehstrom-Verlängerungsleitung mit BENNING ST 725', items:['Geeignet für CEE-Verlängerungsleitungen und dreiphasige Betriebsmittel mit 16 A oder 32 A, 400 V und fünfpoligem CEE-Anschluss.','Einen zum BENNING ST 725 passenden CEE-Messadapter verwenden. Je nach Prüfablauf ist ein passiver oder aktiver Adapter erforderlich.','Sichtprüfung von Leitung, Stecker und Kupplung; Schutzleiterwiderstand, Durchgang von L1, L2, L3 und N, Leiterzuordnung, Unterbrechungen, Verwechslungen und Kurzschlüsse prüfen.','Isolationswiderstand messen; gegebenenfalls zusätzlich Phasenfolge beziehungsweise Drehfeld prüfen.','Passive Messungen erfolgen spannungsfrei. Aktive Drehstromprüfungen ausschließlich mit einem dafür vorgesehenen BENNING-CEE-Messadapter und entsprechend der Bedienungsanleitung durchführen. Den Prüfling niemals ohne geeigneten Messadapter über das Prüfgerät an das Drehstromnetz anschließen.','Eine Strom- beziehungsweise Leckstrommesszange ist nur erforderlich, wenn das gewählte Prüfverfahren eine Ableit- oder Leckstrommessung über eine Stromzange vorsieht.','Dokumentieren: 16 A oder 32 A, Polzahl, Nennspannung, Leitungslänge, Leiterquerschnitt, Messadapter, passive oder aktive Prüfung, Messwerte sowie Leiterzuordnung und Durchgang.']}
   };
   const warmingDevice = <?= !empty($device->warming_device) ? 'true' : 'false' ?>;
@@ -182,7 +172,7 @@ $protectionChoices = [
     const renderCriteria = () => {
       const selected = protection.find(input => input.checked)?.value;
       const criteria = criteriaByClass[selected];
-      criteriaPanel.innerHTML = criteria ? `<h2 class="h5 mb-2">${criteria.title} <span class="badge text-bg-${warmingDevice ? 'warning' : 'secondary'} ms-2">Wärmegerät: ${warmingDevice ? 'Ja' : 'Nein'}</span></h2><ul class="mb-0">${criteria.items.map(item => `<li>${item}</li>`).join('')}</ul>${selected === 'I' || selected === 'Kabel' ? '<div class="rsl-calculator mt-3"><strong>Vorschau des RSL-Grenzwerts:</strong> <output class="badge text-bg-secondary rsl-result">≤ 0,30 Ω</output><div class="form-text">Die verbindliche Entscheidung und Verifizierung erfolgt im Backend anhand der gespeicherten Kabellänge.</div></div>' : ''}` : '<h2 class="h5 mb-2">Kriterienkatalog</h2><p class="mb-0 text-body-secondary">Bitte zuerst eine Schutzklasse auswählen.</p>';
+      criteriaPanel.innerHTML = criteria ? `<h2 class="h5 mb-2">${criteria.title} <span class="badge text-bg-${warmingDevice ? 'warning' : 'secondary'} ms-2">Wärmegerät: ${warmingDevice ? 'Ja' : 'Nein'}</span></h2><ul class="mb-0">${criteria.items.map(item => `<li>${item}</li>`).join('')}</ul>${selected === 'I' ? '<div class="rsl-calculator mt-3"><strong>Vorschau des RSL-Grenzwerts:</strong> <output class="badge text-bg-secondary rsl-result">≤ 0,30 Ω</output><div class="form-text">Die verbindliche Entscheidung und Verifizierung erfolgt im Backend anhand der gespeicherten Kabellänge.</div></div>' : ''}` : '<h2 class="h5 mb-2">Kriterienkatalog</h2><p class="mb-0 text-body-secondary">Bitte zuerst eine Schutzklasse auswählen.</p>';
       const lengthInput = form?.querySelector('[name="cable_length_m"]');
       const result = criteriaPanel.querySelector('.rsl-result');
       const updateLimitHint = () => { if (!lengthInput || !result) return; const length = Number(lengthInput.value); const steps = !Number.isFinite(length) || length <= 5 ? 0 : Math.ceil((length - 5) / 7.5); result.value = `≤ ${Math.min(1, 0.3 + steps * 0.1).toFixed(2).replace('.', ',')} Ω`; };
@@ -195,7 +185,7 @@ $protectionChoices = [
   const update = days => { if (!date.value) return; const d = new Date(date.value + 'T12:00:00'); d.setDate(d.getDate() + Number(days)); next.value = d.toISOString().slice(0, 10); };
   document.querySelectorAll('.interval-btn').forEach(button => button.addEventListener('click', () => update(button.dataset.days)));
   date.addEventListener('change', () => update(365));
-  const syncType = () => { const selected = protection.find(input => input.checked); if (selected && type) type.value = ({I:'Schutzklasse I', II:'Schutzklasse II', III:'Schutzklasse III', Kabel:'Kabelprüfung', Drehstrom:'CEE-Drehstromprüfung 400 V'})[selected.value] || ''; };
+  const syncType = () => { const selected = protection.find(input => input.checked); if (selected && type) type.value = ({I:'Schutzklasse I', II:'Schutzklasse II', III:'Schutzklasse III', Drehstrom:'CEE-Drehstromprüfung 400 V'})[selected.value] || ''; };
   const syncChecklist = () => { const selected = protection.find(input => input.checked); const label = document.querySelectorAll('.checklist-card > div:first-child')[3]; if (label) label.textContent = selected?.value === 'I' ? 'Metallische Schutzkontakte auf 6 und 12 Uhr vorhanden und unbeschädigt' : (selected?.value === 'II' ? 'Keine metallischen Schutzkontakte auf 6 und 12 Uhr; Schutzisolierung erkennbar' : 'Stecker, Kontakte und Anschluss unbeschädigt'); };
   protection.forEach(input => input.addEventListener('change', () => { syncType(); syncChecklist(); })); syncType(); syncChecklist();
 })();

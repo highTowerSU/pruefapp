@@ -193,6 +193,9 @@ final class InspectionController
             // Abrechnungsansicht gepflegt. Auch manipulierte Formularfelder
             // dürfen sie in der Prüfungsmaske nicht verändern.
             foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'regie_reason', 'metadata_notes', 'customer_hint', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            if (InspectionEvaluationService::normalizeProtectionClass((string) $inspection->protection_class) === 'KABEL') {
+                $inspection->protection_class = 'I';
+            }
             if ($error === null && $inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
             elseif ($error === null && $inspection->next_due_date === '') $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
             $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
@@ -216,7 +219,7 @@ final class InspectionController
                 $inspection->device_attributes_snapshot_json = json_encode(InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::ELECTRICAL), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
             $inspection->rsl_limit_ohm = InspectionEvaluationService::rslLimit($cableLength);
-            $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III', 'Kabel' => 'Kabelprüfung'][$inspection->protection_class] ?? $inspection->inspection_type;
+            $inspection->inspection_type = ['I' => 'Schutzklasse I', 'II' => 'Schutzklasse II', 'III' => 'Schutzklasse III'][$inspection->protection_class] ?? $inspection->inspection_type;
             if (!current_user_has_role('admin')) {
                 $user = current_user();
                 $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
@@ -584,6 +587,9 @@ final class InspectionController
             'sort' => trim((string) ($input['sort'] ?? 'newest')),
             'per_page' => (int) ($input['per_page'] ?? 50),
         ];
+        if (InspectionEvaluationService::normalizeProtectionClass($filters['protection_class']) === 'KABEL') {
+            $filters['protection_class'] = 'I';
+        }
         // Archived source duplicates remain visible to superadmins through
         // the diagnostic/audit trail, never through normal operational lists.
         $where = ["COALESCE(i.archived_at, '') = ''"];
@@ -618,7 +624,12 @@ final class InspectionController
         if ($filters['from'] !== '') { $where[] = 'i.test_date>=?'; $args[] = $filters['from']; }
         if ($filters['to'] !== '') { $where[] = 'i.test_date<=?'; $args[] = $filters['to']; }
         if ($filters['examiner'] !== '') { $where[] = 'i.examiner=?'; $args[] = $filters['examiner']; }
-        if (in_array($filters['protection_class'], ['I','II','III','Kabel','Drehstrom'], true)) { $where[] = 'i.protection_class=?'; $args[] = $filters['protection_class']; }
+        if ($filters['protection_class'] === 'I') {
+            $where[] = "i.protection_class IN ('I', 'Kabel')";
+        } elseif (in_array($filters['protection_class'], ['II', 'III', 'Drehstrom'], true)) {
+            $where[] = 'i.protection_class = ?';
+            $args[] = $filters['protection_class'];
+        }
         if (in_array($filters['source_type'], ['manual', 'csv', 'json'], true)) { $where[] = 'i.source_type=?'; $args[] = $filters['source_type']; }
         if (in_array($filters['warming_device'], ['0', '1'], true)) { $where[] = 'COALESCE(i.warming_device_snapshot,d.warming_device,0)=?'; $args[] = (int) $filters['warming_device']; }
         $usableReport = '(' . InspectionEvaluationService::sqlStatusExpression('i')
