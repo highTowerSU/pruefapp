@@ -259,7 +259,36 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
         const data = await response.json();
         result.replaceChildren();
         if (data.found) { const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`; const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.innerHTML = '<i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Prüfung anlegen'; result.append(text, link); }
-        else { const text = document.createElement('span'); text.className = 'text-warning-emphasis'; text.textContent = 'Keine passende Gerätenummer gefunden.'; const link = document.createElement('a'); link.className = 'btn btn-sm btn-secondary ms-2'; link.href = `<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>?new_number=${encodeURIComponent(number)}`; link.innerHTML = '<i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Gerät neu anlegen'; result.append(text, link); }
+        else {
+          const text = document.createElement('span'); text.className = 'text-warning-emphasis'; text.textContent = 'Keine passende Gerätenummer gefunden.';
+          const link = document.createElement('a'); link.className = 'btn btn-sm btn-secondary ms-2';
+          link.href = `<?= htmlspecialchars(url_for('geraete'), ENT_QUOTES) ?>?new_number=${encodeURIComponent(number)}`;
+          link.innerHTML = '<i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Gerät neu anlegen';
+          link.addEventListener('click', event => {
+            const newDeviceDetails = document.getElementById('device-new-panel');
+            const form = newDeviceDetails?.querySelector('form.device-form');
+            const field = form?.querySelector('[name="external_number"]');
+            if (!newDeviceDetails || !field) return;
+            event.preventDefault();
+            if (field.value.trim() !== '' && field.value.trim() !== number
+              && !window.confirm('Im Geräteformular steht bereits eine andere Gerätenummer. Durch die gescannte Nummer ersetzen?')) return;
+            newDeviceDetails.open = true;
+            field.value = number;
+            field.readOnly = true;
+            field.dispatchEvent(new Event('input', {bubbles: true}));
+            const targetUrl = new URL(window.location.href);
+            targetUrl.searchParams.set('new_number', number);
+            targetUrl.hash = 'device-new-panel';
+            window.history.replaceState(null, '', targetUrl);
+            requestAnimationFrame(() => {
+              newDeviceDetails.scrollIntoView({behavior: 'smooth', block: 'start'});
+              const nameField = form.querySelector('[name="name"]');
+              if (nameField?.tomselect) nameField.tomselect.focus();
+              else nameField?.focus({preventScroll: true});
+            });
+          });
+          result.append(text, link);
+        }
       } catch (_) { result.textContent = 'Suche momentan nicht verfügbar.'; }
     };
     lookupButton.addEventListener('click', lookup);
