@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 26.09.2026 – Neues Gerät aus Barcode-Suche ohne Seitenwechsel
+
+- Findet die Suche nach Gerätenummer oder Barcode kein Gerät, öffnet „Gerät neu anlegen“ das bereits vorhandene Geräteformular ohne Seiten-Reload. Die gesuchte Nummer wird übernommen, der Bereich sichtbar gemacht und das nächste Eingabefeld fokussiert.
+- Ein begonnenes Formular mit anderer Gerätenummer wird nicht stillschweigend überschrieben; der Wechsel erfordert eine Bestätigung. Der Link bleibt als Rückfall für nicht verfügbare Skripte erhalten.
+- Revisionen: Prüfapp `55007b5`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 26.09.2026 – Speicherplatz-Kommentar nur bei mehreren Plätzen
 
 - Bei einem einzelnen Prüf-Speicherplatz wird das Kommentarfeld ausgeblendet; vorhandene Kommentare bleiben beim Speichern erhalten. Ab zwei Plätzen sind die Kommentare zur Unterscheidung sichtbar.

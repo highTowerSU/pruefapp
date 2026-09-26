@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-26-barcode-new-device-inline',
+            'date' => '26.09.2026',
+            'title' => 'Neues Gerät direkt aus dem Barcode anlegen',
+            'items' => [
+                'Wenn eine Gerätenummer oder ein Barcode noch nicht existiert, öffnet „Gerät neu anlegen“ das Formular jetzt direkt auf derselben Seite.',
+                'Die gesuchte Nummer wird übernommen; ein begonnenes Formular mit anderer Nummer wird nur nach Bestätigung geändert.',
+            ],
+            'pruefapp_revision' => '55007b5',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-26-slot-comment-visibility',
             'date' => '26.09.2026',
             'title' => 'Speicherplätze übersichtlicher erfassen',
