@@ -97,7 +97,8 @@ require_once __DIR__ . '/WhatsNewService.php';
 require_once __DIR__ . '/WhatsNewChecklistService.php';
 require_once __DIR__ . '/MaintenanceJobHandler.php';
 
-initialize_database();
+$fastDeviceLookup = is_fast_device_lookup_request();
+initialize_database($fastDeviceLookup);
 
 /**
  * Retrieves a stored application configuration value.
@@ -228,7 +229,22 @@ function moodle_webservice_token(): string
     return trim($configured);
 }
 
-function initialize_database(): void
+function is_fast_device_lookup_request(): bool
+{
+    if (PHP_SAPI === 'cli' || strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'GET') {
+        return false;
+    }
+
+    $path = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+    $base = base_path();
+    if ($base !== '' && str_starts_with($path, $base . '/')) {
+        $path = substr($path, strlen($base));
+    }
+
+    return $path === '/geraete/suche' || $path === '/index.php/geraete/suche';
+}
+
+function initialize_database(bool $lightweight = false): void
 {
     static $initialized = false;
 
@@ -248,6 +264,10 @@ function initialize_database(): void
         R::setup($configuredDsn, $dbUser, $dbPassword);
         $GLOBALS['pruefapp_database_path'] = $configuredDsn;
         R::freeze(false);
+        if ($lightweight) {
+            $initialized = true;
+            return;
+        }
         ensure_structure_schema();
         AiProviderService::ensureSchema();
         RevisionSupport::enableFor(
@@ -307,6 +327,10 @@ function initialize_database(): void
     R::setup('sqlite:' . $dbPath);
     $GLOBALS['pruefapp_database_path'] = $dbPath;
     R::freeze(false);
+    if ($lightweight) {
+        $initialized = true;
+        return;
+    }
     ensure_structure_schema();
     AiProviderService::ensureSchema();
 
@@ -1612,6 +1636,9 @@ if ($aktuelleSeite === 'callback.php') {
 initialize_database();
 if (isset($_SESSION['auth_user_id'])) {
     current_user();
+}
+if ($fastDeviceLookup && session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
 }
 
 function transliterate_to_ascii(string $value): string

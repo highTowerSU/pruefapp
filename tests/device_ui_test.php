@@ -29,6 +29,13 @@ $checks = [
         && str_contains($template, 'numberInput.value.trim().length >= 6 ? 100 : 250'), 'Die Barcode-Suche wartet zu lange oder zeigt veraltete Antworten an.'],
     [str_contains($schema, 'CREATE INDEX IF NOT EXISTS idx_device_external_number ON device (external_number)')
         && str_contains($schema, 'CREATE INDEX IF NOT EXISTS idx_device_legacy_number ON device (legacy_number)'), 'Die Barcode-Suche hat keine Indizes für Geräte- und Altnummer.'],
+    [str_contains($schema, '$fastDeviceLookup = is_fast_device_lookup_request();')
+        && str_contains($schema, 'initialize_database($fastDeviceLookup);')
+        && str_contains($schema, "return \$path === '/geraete/suche' || \$path === '/index.php/geraete/suche';")
+        && str_contains($schema, 'if ($lightweight) {')
+        && str_contains($schema, 'session_write_close();')
+        && str_contains($deviceController, "'Server-Timing'")
+        && str_contains($deviceController, "'Cache-Control' => 'no-store'"), 'Die lesende Barcode-Suche durchläuft weiterhin die vollen Migrationen oder blockiert die Sitzung.'],
     [str_contains($template, "link.addEventListener('click', event => {")
         && str_contains($template, "document.getElementById('device-new-panel')")
         && str_contains($template, "field.value = number;")

@@ -579,14 +579,32 @@ class DeviceController
 
     public static function lookup(array $params, bool $isHx): array
     {
-        if (!current_user()) return [401, ['Content-Type' => 'application/json'], json_encode(['error' => 'Nicht angemeldet'])];
+        $startedAt = microtime(true);
+        $headers = ['Content-Type' => 'application/json; charset=utf-8', 'Cache-Control' => 'no-store'];
+        if (!current_user()) return [401, $headers, json_encode(['error' => 'Nicht angemeldet'])];
         $number = trim((string) ($_GET['number'] ?? ''));
-        if ($number === '') return [200, ['Content-Type' => 'application/json'], json_encode(['found' => false])];
+        if ($number === '') return [200, $headers, json_encode(['found' => false])];
+        $queryStartedAt = microtime(true);
         $device = R::findOne('device', ' external_number = ? OR legacy_number = ? ', [$number, $number]);
+        $queryFinishedAt = microtime(true);
         if (!$device || (!current_user_has_role('admin') && !current_user_can_access_customer(device_customer_id($device)))) {
-            return [200, ['Content-Type' => 'application/json'], json_encode(['found' => false], JSON_UNESCAPED_UNICODE)];
+            $headers['Server-Timing'] = self::lookupTiming($startedAt, $queryStartedAt, $queryFinishedAt);
+            return [200, $headers, json_encode(['found' => false], JSON_UNESCAPED_UNICODE)];
         }
-        return [200, ['Content-Type' => 'application/json'], json_encode(['found' => true, 'id' => (int) $device->id, 'number' => (string) $device->external_number, 'name' => (string) $device->name, 'url' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], JSON_UNESCAPED_UNICODE)];
+        $headers['Server-Timing'] = self::lookupTiming($startedAt, $queryStartedAt, $queryFinishedAt);
+        return [200, $headers, json_encode(['found' => true, 'id' => (int) $device->id, 'number' => (string) $device->external_number, 'name' => (string) $device->name, 'url' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], JSON_UNESCAPED_UNICODE)];
+    }
+
+    private static function lookupTiming(float $startedAt, float $queryStartedAt, float $queryFinishedAt): string
+    {
+        $requestStartedAt = (float) ($GLOBALS['pruefapp_request_started_at'] ?? $startedAt);
+        return sprintf(
+            'bootstrap;dur=%.1f, auth;dur=%.1f, db;dur=%.1f, access;dur=%.1f',
+            max(0, ($startedAt - $requestStartedAt) * 1000),
+            max(0, ($queryStartedAt - $startedAt) * 1000),
+            max(0, ($queryFinishedAt - $queryStartedAt) * 1000),
+            max(0, (microtime(true) - $queryFinishedAt) * 1000)
+        );
     }
 
     private static function token($bean): string

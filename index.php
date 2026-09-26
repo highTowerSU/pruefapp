@@ -1,4 +1,5 @@
 <?php
+$GLOBALS['pruefapp_request_started_at'] = microtime(true);
 require_once __DIR__ . '/lib/lib.inc.php';
 
 // Keep technical details in the server log and present users with a useful, safe error page.
