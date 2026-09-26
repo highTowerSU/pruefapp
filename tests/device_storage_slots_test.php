@@ -43,15 +43,21 @@ foreach ([
 $component = (string) file_get_contents($root . '/templates/device_storage_slots.php');
 $controller = (string) file_get_contents($root . '/controllers/DeviceController.php');
 $inspectionForm = (string) file_get_contents($root . '/templates/inspection_edit.php');
+$inspectionController = (string) file_get_contents($root . '/controllers/InspectionController.php');
+$schema = (string) file_get_contents($root . '/lib/lib.inc.php');
 $routes = (string) file_get_contents($root . '/index.php');
 if (!str_contains($component, 'Weiterer Speicherplatz')
     || !str_contains($component, 'name="storage_slot_comments[]"')
     || !str_contains($component, 'hx-target="closest [data-storage-slots-panel]"')
     || !str_contains($component, 'hx-include="closest [data-storage-slots-panel]"')
-    || !str_contains($component, 'hx-params="storage_form_key,storage_slot_numbers[],storage_slot_comments[],slot_action,slot_index"')
+    || !str_contains($component, 'hx-params="storage_form_key,storage_slot_numbers[],storage_slot_comments[],slot_context,slot_action,slot_index"')
     || !str_contains($controller, 'storageSlotRows(')
     || !str_contains($inspectionForm, 'inspection-storage-slot-options')
     || !str_contains($inspectionForm, "DeviceStorageSlotService::fromDevice(")
+    || !str_contains($inspectionForm, "'storageContext' => 'inspection'")
+    || !str_contains($component, 'Bei zwei Netzteilen (PSU 1 und PSU 2)')
+    || !str_contains($inspectionController, 'DeviceStorageSlotService::fromPost($storagePost)')
+    || !str_contains($schema, "'measurement_slots_json' =>")
     || !str_contains($routes, "'/geraete/speicherplaetze/form'")) {
     throw new RuntimeException('Der HTMX-Speicherplatzbereich ist nicht vollständig angebunden.');
 }
@@ -86,6 +92,15 @@ if ($status !== 200 || substr_count($markup, 'name="storage_slot_numbers[]"') !=
     || !str_contains($markup, 'value="PSU links"') || !str_contains($markup, 'id="device-storage-slots-42"')
     || str_contains($markup, '<form')) {
     throw new RuntimeException('Das Hinzufügen muss nur den Speicherplatzbereich mit unveränderten bisherigen Werten liefern.');
+}
+
+$_POST['slot_context'] = 'inspection';
+[$status, , $inspectionMarkup] = DeviceController::storageSlotRows([], true);
+if ($status !== 200 || !str_contains($inspectionMarkup, 'id="inspection-storage-slots-42"')
+    || !str_contains($inspectionMarkup, 'id="inspection-storage-slot"')
+    || !str_contains($inspectionMarkup, 'Bei zwei Netzteilen (PSU 1 und PSU 2)')
+    || substr_count($inspectionMarkup, 'name="storage_slot_numbers[]"') !== 2) {
+    throw new RuntimeException('Auch im Prüfungsformular muss der zusätzliche Speicherplatz mit PSU-Erklärung erscheinen.');
 }
 
 $_POST = [

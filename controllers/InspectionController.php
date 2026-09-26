@@ -125,12 +125,42 @@ final class InspectionController
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $previousStorageSlot = trim((string) ($inspection->storage_slot ?? ''));
+            $previousResultStatus = InspectionEvaluationService::normalizeStatus((string) ($inspection->result_status ?? ''), (string) ($inspection->status ?? ''));
+            try {
+                $storagePost = $_POST;
+                if (!array_key_exists('storage_slot_numbers', $storagePost)) {
+                    $storagePost['storage_slots'] = (string) ($_POST['storage_slot'] ?? $inspection->storage_slot ?? '');
+                }
+                $storageRows = DeviceStorageSlotService::fromPost($storagePost);
+                $storageNumbers = array_column($storageRows, 'number');
+                $storageNotes = [];
+                foreach ($storageRows as $storageRow) {
+                    if ($storageRow['comment'] !== '') {
+                        $storageNotes[$storageRow['number']] = $storageRow['comment'];
+                    }
+                }
+                $inspection->storage_slot = $storageNumbers[0] ?? '';
+                $inspection->storage_slots_json = json_encode($storageNumbers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $inspection->storage_slot_notes_json = json_encode($storageNotes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                if (count($storageNumbers) > 1 && $previousStorageSlot !== '' && $previousStorageSlot === $storageNumbers[0]) {
+                    $slotResults = json_decode((string) ($inspection->measurement_slots_json ?? '{}'), true);
+                    $priorMeasurements = json_decode((string) ($inspection->measurements_json ?? '[]'), true);
+                    if (($slotResults === [] || !is_array($slotResults)) && is_array($priorMeasurements) && $priorMeasurements !== []) {
+                        $inspection->measurement_slots_json = json_encode([
+                            $previousStorageSlot => ['measurements' => $priorMeasurements, 'status' => $previousResultStatus, 'evaluation_reasons' => []],
+                        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    }
+                }
+            } catch (InvalidArgumentException $exception) {
+                $error = $exception->getMessage();
+            }
             // Abrechenbarkeit wird ausschließlich in der separaten
             // Abrechnungsansicht gepflegt. Auch manipulierte Formularfelder
             // dürfen sie in der Prüfungsmaske nicht verändern.
-            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'storage_slot', 'regie_reason', 'metadata_notes', 'customer_hint', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
-            if ($inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
-            elseif ($inspection->next_due_date === '') $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
+            foreach (['protection_class', 'inspection_type', 'examiner', 'test_date', 'next_due_date', 'regie_reason', 'metadata_notes', 'customer_hint', 'cable_length_m'] as $field) $inspection->$field = trim((string) ($_POST[$field] ?? ''));
+            if ($error === null && $inspection->test_date === '') $error = 'Das Prüfdatum ist ein Pflichtfeld.';
+            elseif ($error === null && $inspection->next_due_date === '') $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
             $submittedNumber = trim((string) ($_POST['external_number'] ?? $inspection->external_number ?? ''));
             $submittedNumber = (string) (preg_replace('/-(?:\d{2}|20\d{2})$/', '', $submittedNumber) ?: $submittedNumber);
             if ($submittedNumber === '') $submittedNumber = (string) $inspection->external_number;

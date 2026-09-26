@@ -96,6 +96,36 @@ try {
         throw new RuntimeException('Gleicher Speicherplatz an anderem Datum wurde überschrieben.');
     }
 
+    $dualSupply = R::dispense('inspection');
+    $dualSupply->external_number = 'test-dual-psu';
+    $dualSupply->device_id = $deviceId;
+    $dualSupply->dedupe_key = 'mixed-measurement-dual-psu';
+    $dualSupply->public_id = 'mixed-measurement-dual-psu';
+    $dualSupply->source_type = 'manual';
+    $dualSupply->test_date = '2026-09-26';
+    $dualSupply->storage_slot = '120';
+    $dualSupply->storage_slots_json = '["120","121"]';
+    $dualSupply->storage_slot_notes_json = '{"120":"PSU 1","121":"PSU 2"}';
+    $dualSupply->result_status = 'in_progress';
+    $dualId = R::store($dualSupply);
+    $firstPsuCsv = $root . '/first-psu.csv';
+    file_put_contents($firstPsuCsv, $csvRows[0] . "\n120;Klasse I;26/09/2026;bestanden;0;20;Ohm;bestanden\n");
+    $firstPsuStats = $service->importPendingMeasurements($firstPsuCsv, '');
+    if ($firstPsuStats['updated'] !== 1 || (string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$dualId]) !== 'data_missing') {
+        throw new RuntimeException('Bei zwei Netzteilen darf die Prüfung nach nur einem Messdatensatz nicht bestanden sein.');
+    }
+    $secondPsuCsv = $root . '/second-psu.csv';
+    file_put_contents($secondPsuCsv, $csvRows[0] . "\n121;Klasse I;26/09/2026;bestanden;0;21;Ohm;bestanden\n");
+    $secondPsuStats = $service->importPendingMeasurements($secondPsuCsv, '');
+    $dualRow = R::getRow('SELECT storage_slot, result_status, measurements_json, measurement_slots_json FROM inspection WHERE id = ?', [$dualId]);
+    $dualMeasurements = json_decode((string) ($dualRow['measurements_json'] ?? ''), true);
+    $slotResults = json_decode((string) ($dualRow['measurement_slots_json'] ?? ''), true);
+    if ($secondPsuStats['updated'] !== 1 || ($dualRow['storage_slot'] ?? '') !== '120'
+        || ($dualRow['result_status'] ?? '') !== 'passed' || count($dualMeasurements ?? []) !== 2
+        || !isset($slotResults['120'], $slotResults['121'])) {
+        throw new RuntimeException('Beide PSU-Messungen müssen in derselben Prüfung erhalten bleiben.');
+    }
+
     echo "PASS: Messdaten werden pro CSV-Zeile über Prüfdatum und Speicherplatz zugeordnet\n";
 } finally {
     R::close();

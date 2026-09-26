@@ -36,6 +36,7 @@ class DeviceController
             'storageSlotRows' => $rows,
             'formKey' => (int) ($_POST['storage_form_key'] ?? 0),
             'slotError' => $error,
+            'storageContext' => ($_POST['slot_context'] ?? '') === 'inspection' ? 'inspection' : 'device',
         ])];
     }
 

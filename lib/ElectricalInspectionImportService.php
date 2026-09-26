@@ -262,12 +262,21 @@ final class ElectricalInspectionImportService
         // attach its measurements to an imported history row merely because
         // that row has the same date and export-local storage slot.
         foreach (array_keys($testDates) as $testDate) {
-            foreach (R::findAll('inspection', " test_date = ? AND source_type = 'manual' ORDER BY id DESC ", [$testDate]) as $candidate) {
+            $candidates = R::findAll('inspection', " test_date = ? AND source_type = 'manual' ORDER BY id DESC ", [$testDate]);
+            foreach ($candidates as $candidate) {
                 $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
                 if ($candidateSlot === '') continue;
                 $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
                 if (!isset($inspectionsByDateAndSlot[$testDate][$key])) {
                     $inspectionsByDateAndSlot[$testDate][$key] = $candidate;
+                }
+            }
+            foreach ($candidates as $candidate) {
+                foreach (DeviceStorageSlotService::fromDevice($candidate) as $slotRow) {
+                    $candidateSlot = trim($slotRow['number']);
+                    if ($candidateSlot === '') continue;
+                    $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
+                    $inspectionsByDateAndSlot[$testDate][$key] ??= $candidate;
                 }
             }
         }
@@ -279,9 +288,18 @@ final class ElectricalInspectionImportService
             $slotKey = preg_match('/^\d+$/', $slot) ? (string) ((int) $slot) : $slot;
             $inspection = $inspectionsByDateAndSlot[$testDate][$slotKey] ?? null;
             if (!$inspection) { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Keine bestehende Prüfung für Prüfdatum und Speicherplatz gefunden.', ['test_date' => $testDate, 'storage_slot' => $slot]); continue; }
+            $configuredSlots = array_values(array_filter(array_column(DeviceStorageSlotService::fromDevice($inspection), 'number'), static fn(string $number): bool => $number !== ''));
+            $multipleSlots = count($configuredSlots) > 1;
+            $previousMeasurements = json_decode((string) ($inspection->measurements_json ?? ''), true);
+            $previousResultStatus = (string) ($inspection->result_status ?? InspectionEvaluationService::DATA_MISSING);
+            $matchedSlot = $slot;
+            foreach ($configuredSlots as $configuredSlot) {
+                $configuredKey = preg_match('/^\d+$/', $configuredSlot) ? (string) ((int) $configuredSlot) : $configuredSlot;
+                if ($configuredKey === $slotKey) { $matchedSlot = $configuredSlot; break; }
+            }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $inspection->storage_slot = $slot;
+            if (!$multipleSlots) $inspection->storage_slot = $slot;
             $measurements = is_array($record['measurements'] ?? null) ? $record['measurements'] : [];
             $failed = false; $unclear = false; $evaluationReasons = [];
             if ($measurements === []) { $unclear = true; $evaluationReasons[] = 'keine Messwerte'; }
@@ -320,8 +338,46 @@ final class ElectricalInspectionImportService
             $unclear = $evaluationReasons !== [];
             $inspection->status = $failed ? 'completed' : ($unclear ? InspectionEvaluationService::DATA_MISSING : 'completed');
             $inspection->result_status = $failed ? InspectionEvaluationService::FAILED : ($unclear ? InspectionEvaluationService::DATA_MISSING : InspectionEvaluationService::PASSED);
+            if ($multipleSlots) {
+                $slotResults = json_decode((string) ($inspection->measurement_slots_json ?? '{}'), true);
+                if (!is_array($slotResults)) $slotResults = [];
+                $primarySlot = trim((string) ($inspection->storage_slot ?? ''));
+                if ($slotResults === [] && $primarySlot !== '' && $primarySlot !== $matchedSlot && is_array($previousMeasurements) && $previousMeasurements !== []) {
+                    $slotResults[$primarySlot] = [
+                        'measurements' => $previousMeasurements,
+                        'status' => $previousResultStatus,
+                        'evaluation_reasons' => [],
+                    ];
+                }
+                $slotResults[$matchedSlot] = [
+                    'measurements' => $measurements,
+                    'status' => $inspection->result_status,
+                    'evaluation_reasons' => $evaluationReasons,
+                ];
+                $allMeasurements = [];
+                $allFailed = false;
+                $allPassed = true;
+                foreach ($configuredSlots as $configuredSlot) {
+                    $slotResult = $slotResults[$configuredSlot] ?? null;
+                    if (!is_array($slotResult)) { $allPassed = false; continue; }
+                    if (($slotResult['status'] ?? '') === InspectionEvaluationService::FAILED) $allFailed = true;
+                    if (($slotResult['status'] ?? '') !== InspectionEvaluationService::PASSED) $allPassed = false;
+                    foreach (($slotResult['measurements'] ?? []) as $slotMeasurement) {
+                        if (!is_array($slotMeasurement)) continue;
+                        $slotMeasurement['storage_slot'] = $configuredSlot;
+                        $allMeasurements[] = $slotMeasurement;
+                    }
+                }
+                $inspection->measurement_slots_json = json_encode($slotResults, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $inspection->measurements_json = json_encode($allMeasurements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $inspection->result_status = $allFailed ? InspectionEvaluationService::FAILED : ($allPassed ? InspectionEvaluationService::PASSED : InspectionEvaluationService::DATA_MISSING);
+                $inspection->status = $allFailed || $allPassed ? 'completed' : InspectionEvaluationService::DATA_MISSING;
+            }
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
+            if ($multipleSlots) {
+                InspectionDataService::replaceMeasurements((int) $inspection->id, $allMeasurements, $inspection->export());
+            }
             audit_log('import_datensatz_aktualisiert', ['_correlation_id' => $correlationId, '_category' => 'import', '_status' => 'aktualisiert', 'source_file' => basename($csvPath), 'inspection_id' => (int) $inspection->id, 'inspection_number' => (string) ($inspection->external_number ?? ''), 'status' => 'aktualisiert']);
             $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status, 'evaluation_reasons' => $evaluationReasons];
         }

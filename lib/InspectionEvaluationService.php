@@ -241,6 +241,18 @@ final class InspectionEvaluationService
                 $missing[] = 'Messung ' . self::measurementLabel($requiredKey);
             }
         }
+        $configuredSlots = json_decode((string) ($inspection['storage_slots_json'] ?? '[]'), true);
+        $measuredSlots = json_decode((string) ($inspection['measurement_slots_json'] ?? '{}'), true);
+        if ($inspectionType === 'electrical' && is_array($configuredSlots) && count($configuredSlots) > 1) {
+            foreach ($configuredSlots as $configuredSlot) {
+                $configuredSlot = trim((string) $configuredSlot);
+                if ($configuredSlot === '') continue;
+                $slotResult = is_array($measuredSlots) ? ($measuredSlots[$configuredSlot] ?? null) : null;
+                if (!is_array($slotResult) || !is_array($slotResult['measurements'] ?? null) || $slotResult['measurements'] === []) {
+                    $missing[] = 'Messdaten für Speicherplatz ' . $configuredSlot;
+                }
+            }
+        }
 
         $requiredFields = $inspectionType === 'electrical'
             ? ['protection_class' => 'Schutzklasse', 'examiner' => 'Prüfer', 'test_date' => 'Prüfdatum', 'next_due_date' => 'Nächstes Prüfdatum']

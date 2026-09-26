@@ -507,6 +507,9 @@ function ensure_structure_schema(): void
         'inspection_catalog_version' => ['inspection_type_code' => "TEXT NOT NULL DEFAULT 'electrical'"],
         'inspection' => [
             'status' => "TEXT NOT NULL DEFAULT 'in_progress'",
+            'storage_slots_json' => "TEXT NOT NULL DEFAULT '[]'",
+            'storage_slot_notes_json' => "TEXT NOT NULL DEFAULT '{}'",
+            'measurement_slots_json' => "TEXT NOT NULL DEFAULT '{}'",
             'classification' => "TEXT NOT NULL DEFAULT ''",
             'catalog_version_id' => 'INTEGER NULL',
             'result_reason_code' => "TEXT NOT NULL DEFAULT ''",

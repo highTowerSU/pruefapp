@@ -18,6 +18,7 @@ $reportAllowed = InspectionEvaluationService::reportPathAllowed(
     (string) ($inspection->report_path ?? ''),
     current_user_is_superadmin()
 );
+$inspectionStorageSlots = array_values(array_filter(DeviceStorageSlotService::fromDevice($inspection), static fn(array $row): bool => $row['number'] !== ''));
 ?>
 <div class="card shadow-sm">
   <div class="card-body">
@@ -47,6 +48,13 @@ $reportAllowed = InspectionEvaluationService::reportPathAllowed(
         <div class="col-sm-6 col-xl-3"><div class="border rounded h-100 p-3"><div class="small text-body-secondary"><i class="fa-solid <?= $icon ?> me-1" aria-hidden="true"></i><?= htmlspecialchars($label) ?></div><div class="fw-semibold text-break mt-1"><?= htmlspecialchars($value) ?></div></div></div>
       <?php endforeach; ?>
     </div>
+
+    <?php if ($inspectionStorageSlots !== []): ?>
+      <div class="border rounded p-3 mt-3">
+        <div class="small text-body-secondary mb-2"><i class="fa-solid fa-hard-drive me-1" aria-hidden="true"></i>Prüf-Speicherplätze</div>
+        <div class="d-flex flex-wrap gap-2"><?php foreach ($inspectionStorageSlots as $slotRow): ?><span class="badge text-bg-secondary"><?= htmlspecialchars($slotRow['number']) ?><?= $slotRow['comment'] !== '' ? ' · ' . htmlspecialchars($slotRow['comment']) : '' ?></span><?php endforeach; ?></div>
+      </div>
+    <?php endif; ?>
 
     <div class="d-flex flex-wrap gap-2 mt-4">
       <?php if ($reportAllowed): ?><a class="btn btn-primary" href="<?= htmlspecialchars(url_for('pruefungen/' . (int) $inspection->id . '/bericht'), ENT_QUOTES) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf me-1" aria-hidden="true"></i><?= ($isLegacy || $hasOriginalReport) ? 'Original-Prüfbericht' : 'Prüfbericht' ?> öffnen</a><?php endif; ?>
