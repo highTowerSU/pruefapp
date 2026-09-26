@@ -237,8 +237,10 @@ final class InspectionEvaluationService
 
         $inspectionType = trim((string) ($inspection['inspection_type_code'] ?? 'electrical')) ?: 'electrical';
         foreach ($inspectionType === 'electrical' ? self::requiredMeasurementKeys((string) ($inspection['protection_class'] ?? '')) : [] as $requiredKey) {
-            if (!isset($measurementMap[$requiredKey]) || $measurementMap[$requiredKey]['outcome'] !== 'passed') {
-                $missing[] = 'Messung ' . self::measurementLabel($requiredKey);
+            if (!isset($measurementMap[$requiredKey])) {
+                $missing[] = 'Messung ' . self::measurementLabel($requiredKey) . ' fehlt';
+            } elseif ($measurementMap[$requiredKey]['outcome'] !== 'passed') {
+                $missing[] = 'Messung ' . self::measurementLabel($requiredKey) . ': Messwert vorhanden, aber nicht auswertbar';
             }
         }
         $configuredSlots = json_decode((string) ($inspection['storage_slots_json'] ?? '[]'), true);
@@ -286,7 +288,7 @@ final class InspectionEvaluationService
         $key = self::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? ''));
         $label = self::measurementLabel($key);
         $explicit = self::normalizeOutcome((string) ($measurement['outcome'] ?? $measurement['result'] ?? ''));
-        $value = self::numericValue($measurement['numeric_value'] ?? $measurement['value'] ?? null);
+        $value = self::numericValue($measurement['numeric_value'] ?? $measurement['value'] ?? $measurement['text_value'] ?? null);
         $warming = !empty($inspection['warming_device_snapshot']) || !empty($inspection['warming_device']);
         $limit = null;
         $unit = '';

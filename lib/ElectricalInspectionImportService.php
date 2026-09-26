@@ -375,9 +375,11 @@ final class ElectricalInspectionImportService
             }
             $inspection->updated_at = date(DATE_ATOM);
             R::store($inspection); $updated++;
-            if ($multipleSlots) {
-                InspectionDataService::replaceMeasurements((int) $inspection->id, $allMeasurements, $inspection->export());
-            }
+            InspectionDataService::replaceMeasurements(
+                (int) $inspection->id,
+                $multipleSlots ? $allMeasurements : $measurements,
+                $inspection->export()
+            );
             audit_log('import_datensatz_aktualisiert', ['_correlation_id' => $correlationId, '_category' => 'import', '_status' => 'aktualisiert', 'source_file' => basename($csvPath), 'inspection_id' => (int) $inspection->id, 'inspection_number' => (string) ($inspection->external_number ?? ''), 'status' => 'aktualisiert']);
             $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status, 'evaluation_reasons' => $evaluationReasons];
         }

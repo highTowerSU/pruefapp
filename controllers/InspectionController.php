@@ -293,10 +293,17 @@ final class InspectionController
             }
         }
 
+        $measurements = InspectionDataService::measurements((int) $inspection->id);
+        if ($measurements === []) {
+            $storedMeasurements = json_decode((string) ($inspection->measurements_json ?? '[]'), true);
+            if (is_array($storedMeasurements)) {
+                $measurements = array_values(array_filter($storedMeasurements, 'is_array'));
+            }
+        }
         $evaluation = InspectionEvaluationService::evaluate(
             $inspection->export(),
             $answers,
-            InspectionDataService::measurements((int) $inspection->id),
+            $measurements,
             true
         );
         return $evaluation['missing'];

@@ -15,9 +15,11 @@ $tests = [
     'notifications_htmx_test.php',
     'billing_v1_test.php',
     'inspection_evaluation_test.php',
+    'inspection_missing_summary_test.php',
     'inspection_type_workflow_test.php',
     'inspection_migration_test.php',
     'pending_measurement_job_test.php',
+    'pending_measurement_mixed_dates_test.php',
     'import_directory_debug_api_test.php',
     'application_failure_diagnostics_test.php',
     'inspection_filter_test.php',
@@ -36,6 +38,7 @@ $tests = [
     'navbar_sticky_test.php',
     'action_navigation_test.php',
     'accessibility_preferences_test.php',
+    'whats_new_test.php',
 ];
 $failed = 0;
 foreach ($tests as $test) {

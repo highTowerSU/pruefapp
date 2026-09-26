@@ -58,6 +58,18 @@ $missing = InspectionEvaluationService::evaluate($base, $answers, array_slice($m
 if ($missing['status'] !== InspectionEvaluationService::DATA_MISSING || !str_contains(implode(' ', $missing['missing']), 'IPE')) {
     throw new RuntimeException('Fehlender Pflichtmesswert wurde nicht eindeutig ausgewiesen.');
 }
+$textOnly = $measurements;
+$textOnly[0] = ['measurement_key' => 'RPE', 'text_value' => '0.39', 'unit' => 'Ohm'];
+if (InspectionEvaluationService::evaluate($base, $answers, $textOnly, true)['status'] !== InspectionEvaluationService::PASSED) {
+    throw new RuntimeException('Textuell gespeicherter Messwert wurde trotz Zahlenwert nicht ausgewertet.');
+}
+$unreadable = $measurements;
+$unreadable[0] = ['measurement_key' => 'RPE', 'text_value' => 'unlesbar', 'outcome' => 'missing'];
+$unreadableResult = InspectionEvaluationService::evaluate($base, $answers, $unreadable, true);
+if ($unreadableResult['status'] !== InspectionEvaluationService::DATA_MISSING
+    || !str_contains(implode(' ', $unreadableResult['missing']), 'Messwert vorhanden, aber nicht auswertbar')) {
+    throw new RuntimeException('Vorhandener, nicht auswertbarer Messwert wird als vollständig fehlend bezeichnet.');
+}
 
 $incompleteAnswers = $answers;
 $incompleteAnswers[0]['outcome'] = 'missing';

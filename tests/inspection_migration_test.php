@@ -37,6 +37,7 @@ try {
     $deviceId = (int) R::store($device);
 
     $legacy = R::dispense('inspection');
+    $legacy->public_id = 'migration-legacy';
     $legacy->device_id = $deviceId;
     $legacy->dedupe_key = 'legacy-test';
     $legacy->source_type = 'json';
@@ -51,6 +52,7 @@ try {
     $legacyId = (int) R::store($legacy);
 
     $imported = R::dispense('inspection');
+    $imported->public_id = 'migration-imported';
     $imported->device_id = $deviceId;
     $imported->dedupe_key = 'import-test';
     $imported->source_type = 'json';
@@ -145,6 +147,7 @@ try {
     // completed: V2 must classify them by date, not leave them as missing data.
     foreach (['100016494-23', '100016495-24'] as $offset => $number) {
         $historical = R::dispense('inspection');
+        $historical->public_id = 'migration-historical-' . $offset;
         $historical->device_id = $deviceId;
         $historical->dedupe_key = 'late-legacy-' . $offset;
         $historical->source_type = 'json';
@@ -212,6 +215,7 @@ try {
     // A late CSV measurement import must enrich an existing unfinished annual
     // inspection, not leave a second artificial "-2" inspection behind.
     $open = R::dispense('inspection');
+    $open->public_id = 'migration-open';
     $open->device_id = $deviceId;
     $open->dedupe_key = 'open-manual';
     $open->source_type = 'manual';
@@ -224,6 +228,7 @@ try {
     $open->measurements_json = '[]';
     $openId = (int) R::store($open);
     $duplicate = R::dispense('inspection');
+    $duplicate->public_id = 'migration-duplicate';
     $duplicate->device_id = $deviceId;
     $duplicate->dedupe_key = 'late-csv-import';
     $duplicate->source_type = 'csv';
@@ -261,6 +266,7 @@ try {
     // staff member then starts a manual "-2" inspection. Keep the import as
     // the canonical number and transfer the working state into it.
     $importedBase = R::dispense('inspection');
+    $importedBase->public_id = 'migration-imported-base';
     $importedBase->device_id = $deviceId;
     $importedBase->dedupe_key = 'imported-base-number';
     $importedBase->source_type = 'csv';
@@ -277,6 +283,7 @@ try {
     $importedBase->measurements_json = '[]';
     $importedBaseId = (int) R::store($importedBase);
     $manualSuffix = R::dispense('inspection');
+    $manualSuffix->public_id = 'migration-manual-suffix';
     $manualSuffix->device_id = $deviceId;
     $manualSuffix->dedupe_key = 'manual-suffix-number';
     $manualSuffix->source_type = 'manual';

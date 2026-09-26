@@ -63,6 +63,11 @@ try {
             throw new RuntimeException('Speicherplatz ' . $slot . ' wurde nicht mit seinem eigenen Prüfdatum aktualisiert.');
         }
     }
+    $firstId = (int) R::getCell('SELECT id FROM inspection WHERE external_number = ?', ['test-1']);
+    if ((int) R::getCell('SELECT COUNT(*) FROM inspection_measurement WHERE inspection_id = ? AND measurement_key = ?', [$firstId, 'RPE']) !== 1) {
+        throw new RuntimeException('Messdaten eines einzelnen Speicherplatzes müssen strukturiert gespeichert werden.');
+    }
+
 
     foreach ([['test-aug15-slot1', '2026-08-15', '1'], ['test-fallback-slot77', '2026-09-25', '77']] as [$number, $date, $slot]) {
         $inspection = R::dispense('inspection');
@@ -124,6 +129,26 @@ try {
         || ($dualRow['result_status'] ?? '') !== 'passed' || count($dualMeasurements ?? []) !== 2
         || !isset($slotResults['120'], $slotResults['121'])) {
         throw new RuntimeException('Beide PSU-Messungen müssen in derselben Prüfung erhalten bleiben.');
+    }
+
+    // Older single-slot imports contained only JSON. Opening their edit page
+    // must not claim that all three stored measurements are absent.
+    R::exec('DELETE FROM inspection_measurement WHERE inspection_id = ?', [$firstId]);
+    R::exec('UPDATE inspection SET result_status = ?, protection_class = ?, measurements_json = ? WHERE id = ?', [
+        'data_missing',
+        'I',
+        json_encode([
+            ['name' => 'RPE', 'value' => '0.20', 'unit' => 'Ohm', 'result' => 'bestanden'],
+            ['name' => 'RISO', 'value' => '>19.99', 'unit' => 'MOhm', 'result' => 'bestanden'],
+            ['name' => 'IPE', 'value' => '2.61', 'unit' => 'mA', 'result' => 'bestanden'],
+        ], JSON_UNESCAPED_UNICODE),
+        $firstId,
+    ]);
+    require_once dirname(__DIR__) . '/controllers/InspectionController.php';
+    $missingForEdit = new ReflectionMethod(InspectionController::class, 'missingRequirementsForEdit');
+    $missing = $missingForEdit->invoke(null, R::load('inspection', $firstId));
+    if (str_contains(implode(' ', $missing), 'Messung ')) {
+        throw new RuntimeException('Vorhandene JSON-Messwerte werden in der Prüfmaske fälschlich als fehlend angezeigt.');
     }
 
     echo "PASS: Messdaten werden pro CSV-Zeile über Prüfdatum und Speicherplatz zugeordnet\n";
