@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Ladezeit einer Prüfung messbar machen
+
+- Die Antworten der Prüfapp enthalten `Server-Timing` für Gesamtzeit, Konfiguration, Sitzung, Datenbankstart und Routing.
+- Beim Speichern einer Prüfung werden Laden, Formularvorbereitung, Datenbankspeicherung, Bewertung und Berichtserzeugung getrennt gemessen. Die Werte stehen im Browser-Netzwerkdialog, ohne Prüfungsdaten im Header preiszugeben.
+- So lässt sich eine lange Wartezeit beim POST von allgemeinem App-Start, Datenbankarbeit und PDF-Erzeugung unterscheiden.
+- Revisionen: Prüfapp `fb6c0ac`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – CEE-Sonderfall neben den Schutzklassen
 
 - Die CEE-Drehstrom-Kachel steht auf breiten Bildschirmen direkt neben SK I, II und III statt in einer eigenen Zeile. Auf schmalen Bildschirmen bricht die Bootstrap-Anordnung responsiv um.

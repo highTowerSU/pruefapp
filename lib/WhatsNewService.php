@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-request-server-timing',
+            'date' => '27.09.2026',
+            'title' => 'Wartezeiten beim Prüfungs-Speichern untersuchen',
+            'items' => [
+                'Im Browser-Netzwerkdialog zeigt „Server-Timing“ jetzt getrennt, wie lange App-Start, Speichern, Bewertung und PDF-Bericht dauern.',
+            ],
+            'pruefapp_revision' => 'fb6c0ac',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-cee-special-case-column',
             'date' => '27.09.2026',
             'title' => 'CEE-Sonderfall neben den Schutzklassen',
