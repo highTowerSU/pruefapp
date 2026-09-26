@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-cable-length-evaluation-reason',
+            'date' => '27.09.2026',
+            'title' => 'Fehlende Kabellänge klar benannt',
+            'items' => [
+                'Wenn ein Schutzleiterwiderstand ohne Kabellänge nicht eindeutig bewertbar ist, steht jetzt ausdrücklich „Kabellänge fehlt“ bei der Prüfung.',
+                'Nach Eintrag der Länge kann der vorhandene Messwert korrekt neu bewertet werden.',
+            ],
+            'pruefapp_revision' => '946a763',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-single-slot-measurements-evaluation',
             'date' => '27.09.2026',
             'title' => 'Importierte Messwerte korrekt auswerten',

@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Fehlende Kabellänge bei der Bewertung benennen
+
+- Liegt der Schutzleiterwiderstand über 0,3 Ω und höchstens bei 1,0 Ω, wird ohne Kabellänge kein pauschales Fehlerurteil mehr gefällt. Die Prüfung nennt ausdrücklich „Kabellänge fehlt“ und erklärt, warum der Messwert noch nicht eindeutig bewertet werden kann.
+- Bei eindeutigem Messwert bis 0,3 Ω bzw. über 1,0 Ω bleibt die Bewertung auch ohne Längenangabe möglich. Ein ausdrücklich nicht bestandener Messwert bleibt nicht bestanden.
+- In der Prüfungsdetailseite erscheint der Hinweis auch bei älteren, noch nicht neu bewerteten Messdaten. Ist eine Kabellänge bereits in der Prüfung hinterlegt, nutzt der erneute CSV-Messdatenimport sie auch dann, wenn die CSV-Spalte leer ist.
+- Revisionen: Prüfapp `946a763`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Importierte Messwerte korrekt auswerten
 
 - Beim Messdatenimport für einen einzelnen Speicherplatz werden die Werte nun auch in die strukturierte Messtabelle übernommen. Bisher konnte die Prüfmaske drei JSON-Messwerte zählen und dieselben Messungen trotzdem als fehlend melden.
