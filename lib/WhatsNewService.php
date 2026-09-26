@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-cee-special-case-column',
+            'date' => '27.09.2026',
+            'title' => 'CEE-Sonderfall neben den Schutzklassen',
+            'items' => [
+                'Die CEE-Drehstrom-Auswahl steht jetzt als vierte Kachel direkt neben SK I, II und III.',
+            ],
+            'pruefapp_revision' => '3e59f2e',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-cable-protection-class-i',
             'date' => '27.09.2026',
             'title' => 'Kabelprüfung gehört zu Schutzklasse I',

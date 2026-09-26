@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – CEE-Sonderfall neben den Schutzklassen
+
+- Die CEE-Drehstrom-Kachel steht auf breiten Bildschirmen direkt neben SK I, II und III statt in einer eigenen Zeile. Auf schmalen Bildschirmen bricht die Bootstrap-Anordnung responsiv um.
+- Revisionen: Prüfapp `3e59f2e`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Kabelprüfung innerhalb der Schutzklasse I
 
 - „Kabel“ ist in der Prüfmaske keine eigene Schutzklasse mehr. Leitungen mit Schutzleiter werden als SK I erfasst; zweipolige Leitungen bleiben Teil der Prüfung des zugehörigen SK-II-Geräts.
