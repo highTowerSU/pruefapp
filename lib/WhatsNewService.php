@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-barcode-lookup-lightweight',
+            'date' => '27.09.2026',
+            'title' => 'Barcode-Suche startet ohne lange Wartezeit',
+            'items' => [
+                'Die Gerätenummer-/Barcode-Suche überspringt jetzt die aufwendigen Schema- und Wartungsprüfungen beim App-Start. Die Anmeldung und Kundenzuordnung bleiben geprüft.',
+                'Im Netzwerkdialog zeigen Server-Timing-Werte, ob noch Zeit beim Start, bei der Datenbankabfrage oder bei der Zugriffskontrolle verloren geht.',
+            ],
+            'pruefapp_revision' => '9209601',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-barcode-lookup-speed',
             'date' => '27.09.2026',
             'title' => 'Barcode-Suche reagiert schneller',

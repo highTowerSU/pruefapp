@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Barcode-Suche ohne schwere Startprüfungen
+
+- Der lesende Endpunkt `/geraete/suche` startet ohne die bei jedem normalen App-Aufruf ausgeführten Schema-, Seed- und Wartungsprüfungen. Anmeldung und Kundenzugriff bleiben unverändert geprüft.
+- Die Antwort zeigt `Server-Timing` für Bootstrap, Anmeldung, Datenbankabfrage und Zugriffskontrolle. Damit lässt sich die verbleibende Wartezeit im Browser gezielt zuordnen.
+- Revisionen: Prüfapp `9209601`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Barcode-Suche beschleunigt
 
 - Gescannte Nummern werden bei Enter sofort gesucht; längere Eingaben starten die Suche nach 100 statt 250 Millisekunden. Doppelte und überholte Anfragen werden abgebrochen, damit nur das aktuelle Ergebnis erscheint.
