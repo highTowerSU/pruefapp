@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Kabelprüfung innerhalb der Schutzklasse I
+
+- „Kabel“ ist in der Prüfmaske keine eigene Schutzklasse mehr. Leitungen mit Schutzleiter werden als SK I erfasst; zweipolige Leitungen bleiben Teil der Prüfung des zugehörigen SK-II-Geräts.
+- Beim ausdrücklich belegten passiven BENNING-Kabelprogramm genügen RPE und RISO; ein fehlender IPE-Wert wird dort nicht mehr als fehlende Pflichtmessung gemeldet. Für normale SK-I-Geräte und für SK II bleiben die bisherigen Pflichtmessungen erhalten.
+- Bestehende Kabel-Einträge werden in Detailansicht, Bericht und Filter als SK I behandelt. Der Messdatenimport ordnet neue einzelne Kabelprüfungen SK I zu, ohne Mehrfach-Speicherplätze umzudeuten.
+- Revisionen: Prüfapp `20c6329`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Gerätefilter ohne wiederholtes Nachladen
 
 - Gerätefilter werden erst nach „Filtern“ oder Enter angewendet. Das verhindert zusätzliche HTMX-Aufrufe beim Auswählen mehrerer Filter.

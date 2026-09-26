@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-cable-protection-class-i',
+            'date' => '27.09.2026',
+            'title' => 'Kabelprüfung gehört zu Schutzklasse I',
+            'items' => [
+                '„Kabel“ ist keine zusätzliche Schutzklasse mehr: Schutzleiter-Leitungen gehören zu SK I, zweipolige Leitungen zur Prüfung des SK-II-Geräts.',
+                'Bei belegtem passivem BENNING-Kabelprogramm wird kein Schutzleiterstrom IPE verlangt. Für normale SK-I-Geräte bleiben die Pflichtmessungen unverändert.',
+            ],
+            'pruefapp_revision' => '20c6329',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-device-filter-refresh',
             'date' => '27.09.2026',
             'title' => 'Gerätefilter lädt nur noch einmal',
