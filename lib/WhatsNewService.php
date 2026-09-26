@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-barcode-lookup-speed',
+            'date' => '27.09.2026',
+            'title' => 'Barcode-Suche reagiert schneller',
+            'items' => [
+                'Gescannte Nummern werden sofort nach Enter gesucht. Bei Eingaben ohne Enter startet die Suche nach kurzer Pause; veraltete Ergebnisse werden nicht mehr angezeigt.',
+                'Die Gerätenummernsuche nutzt jetzt Datenbank-Indizes.',
+            ],
+            'pruefapp_revision' => '9e2911e',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-26-barcode-focus-inventory',
             'date' => '26.09.2026',
             'title' => 'Inventarnummer nach Barcode-Suche direkt erfassen',
