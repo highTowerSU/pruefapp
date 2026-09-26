@@ -245,30 +245,40 @@ final class ElectricalInspectionImportService
             if (count(array_filter($row, static fn($value): bool => trim((string) $value) !== '')) > 0) $rows[] = $row;
         }
         fclose($stream);
-        $date = $this->normalizeDate($date);
-        if ($date === '' && isset($rows[0])) {
-            $date = $this->csvRecord($header, $rows[0])['test_date'] ?? '';
+        $fallbackDate = $this->normalizeDate($date);
+        $records = [];
+        $testDates = [];
+        foreach ($rows as $row) {
+            $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
+            $record['test_date'] = trim((string) ($record['test_date'] ?? '')) ?: $fallbackDate;
+            $records[] = $record;
+            if ($record['test_date'] !== '') $testDates[$record['test_date']] = true;
         }
-        if ($date === '') throw new InvalidArgumentException('Die CSV enthält kein Prüfdatum.');
+        if ($testDates === []) throw new InvalidArgumentException('Die CSV enthält kein Prüfdatum.');
         $correlationId = 'measurement-import-' . bin2hex(random_bytes(8));
         $updated = 0; $skipped = 0; $needsCableLength = 0; $updatedInspections = [];
-        $inspectionsBySlot = [];
+        $inspectionsByDateAndSlot = [];
         // A lone Benning CSV supplements a Prüfweb entry. It must never
         // attach its measurements to an imported history row merely because
         // that row has the same date and export-local storage slot.
-        foreach (R::findAll('inspection', " test_date = ? AND source_type = 'manual' ORDER BY id DESC ", [$date]) as $candidate) {
-            $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
-            if ($candidateSlot === '') continue;
-            $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
-            if (!isset($inspectionsBySlot[$key])) $inspectionsBySlot[$key] = $candidate;
+        foreach (array_keys($testDates) as $testDate) {
+            foreach (R::findAll('inspection', " test_date = ? AND source_type = 'manual' ORDER BY id DESC ", [$testDate]) as $candidate) {
+                $candidateSlot = trim((string) ($candidate->storage_slot ?? ''));
+                if ($candidateSlot === '') continue;
+                $key = preg_match('/^\d+$/', $candidateSlot) ? (string) ((int) $candidateSlot) : $candidateSlot;
+                if (!isset($inspectionsByDateAndSlot[$testDate][$key])) {
+                    $inspectionsByDateAndSlot[$testDate][$key] = $candidate;
+                }
+            }
         }
-        foreach ($rows as $row) {
-            $record = $this->csvRecord($header, $this->repairDecimalColumns($header, $row));
+        foreach ($records as $record) {
+            $testDate = (string) $record['test_date'];
             $slot = trim((string) ($record['storage_slot'] ?? ''));
-            if ($slot === '') { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Speicherplatz fehlt in der Messdatenzeile.'); continue; }
+            if ($testDate === '') { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Prüfdatum fehlt in der Messdatenzeile.', ['storage_slot' => $slot]); continue; }
+            if ($slot === '') { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Speicherplatz fehlt in der Messdatenzeile.', ['test_date' => $testDate]); continue; }
             $slotKey = preg_match('/^\d+$/', $slot) ? (string) ((int) $slot) : $slot;
-            $inspection = $inspectionsBySlot[$slotKey] ?? null;
-            if (!$inspection) { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Keine bestehende Prüfung für den Speicherplatz gefunden.', ['storage_slot' => $slot]); continue; }
+            $inspection = $inspectionsByDateAndSlot[$testDate][$slotKey] ?? null;
+            if (!$inspection) { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Keine bestehende Prüfung für Prüfdatum und Speicherplatz gefunden.', ['test_date' => $testDate, 'storage_slot' => $slot]); continue; }
             $inspection->measurements_json = json_encode($record['measurements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->csv_row_json = json_encode($record['raw'] ?? $record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $inspection->storage_slot = $slot;
@@ -316,7 +326,7 @@ final class ElectricalInspectionImportService
             $updatedInspections[] = ['id' => (int) $inspection->id, 'number' => (string) ($inspection->external_number ?? ''), 'status' => (string) $inspection->result_status, 'evaluation_reasons' => $evaluationReasons];
         }
         $stats = ['files' => 1, 'updated' => $updated, 'skipped' => $skipped, 'cable_length_required' => $needsCableLength, 'updated_inspections' => $updatedInspections, 'imported' => 0, 'devices' => 0, 'reports' => 0, 'new_devices' => [], 'updated_devices' => [], 'not_imported' => [], 'errors' => []];
-        $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'date' => $date]);
+        $this->persistImportLog($stats + ['type' => 'Pending-Messdaten-CSV', 'test_dates' => array_keys($testDates)]);
         audit_log('import_abgeschlossen', ['_correlation_id' => $correlationId, '_category' => 'import', '_status' => 'abgeschlossen', 'source_file' => basename($csvPath), 'stats' => $stats]);
         return $stats;
     }
