@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-26-measurement-csv-row-dates',
+            'date' => '26.09.2026',
+            'title' => 'Messdaten aus mehreren Prüftagen importieren',
+            'items' => [
+                'Der Messdatenimport ordnet jede CSV-Zeile anhand ihres eigenen Prüfdatums und Speicherplatzes zu. Exporte mit mehreren Prüftagen können zusammen hochgeladen werden.',
+                'Das optionale Ersatz-Prüfdatum wird nur verwendet, wenn einer CSV-Zeile das Datum fehlt. Nicht zuordenbare Zeilen bleiben unverändert und werden protokolliert.',
+            ],
+            'pruefapp_revision' => '4cdffff',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-25-pending-measurement-import-speed',
             'date' => '25.09.2026',
             'title' => 'Messdatenimport startet schneller',

@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 26.09.2026 – Messdaten aus CSV mit mehreren Prüftagen zuordnen
+
+- Beim Import in bestehende Prüfweb-Prüfungen wird jede CSV-Zeile über ihr eigenes Prüfdatum und ihren Speicherplatz zugeordnet. Ein gemischter Export wird nicht mehr vollständig auf das Datum der ersten Zeile festgelegt.
+- Das optionale Ersatz-Prüfdatum gilt nur für Zeilen ohne eigenes Datum. Nicht zuordenbare Zeilen bleiben unangetastet und erhalten einen konkreten Überspringgrund.
+- Ein Regressionstest deckt einen Export mit 4, 20 und 52 Messungen an drei unterschiedlichen Prüftagen ab.
+- Revisionen: Prüfapp `4cdffff`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 25.09.2026 – Messdatenimport startet schneller
 
 - „Messdaten importieren“ im Menü öffnet jetzt direkt eine schlanke Formularseite, ohne Kandidatensichtung und Importverlauf der großen Import-&-Sync-Seite aufzubauen. Beide Seiten verwenden dasselbe Upload-Formular; die neue Seite zeigt den Status der Hintergrundaufgabe.
