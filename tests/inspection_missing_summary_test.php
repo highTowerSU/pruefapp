@@ -26,6 +26,9 @@ $device = (object) [
     'device_model' => 'Modell X',
     'inventory_number' => 'INV-1',
     'serial_number' => 'SER-1',
+    'legacy_number' => 'ALT-1',
+    'room_snapshot' => 'N112',
+    'description' => '<b>Prüfgerät</b>',
 ];
 ob_start();
 require $root . '/templates/inspection_device_summary.php';
@@ -33,9 +36,22 @@ $summary = (string) ob_get_clean();
 if (!str_contains($summary, 'Modell X')
     || !str_contains($summary, 'INV-1')
     || !str_contains($summary, 'SER-1')
+    || !str_contains($summary, 'ALT-1')
+    || !str_contains($summary, 'N112')
+    || !str_contains($summary, '&lt;b&gt;Prüfgerät&lt;/b&gt;')
     || !str_contains($summary, '&lt;script&gt;')
     || str_contains($summary, '<script>')) {
     throw new RuntimeException('Die Stammdaten-Zusammenfassung ist unvollständig oder nicht HTML-sicher.');
+}
+
+$device->inventory_number = '';
+$device->serial_number = '';
+ob_start();
+require $root . '/templates/inspection_device_summary.php';
+$emptySummary = (string) ob_get_clean();
+if (!str_contains($emptySummary, 'Inventarnummer: nicht hinterlegt')
+    || !str_contains($emptySummary, 'Seriennummer: nicht hinterlegt')) {
+    throw new RuntimeException('Fehlende Kennnummern müssen in der Prüfmaske sichtbar bleiben.');
 }
 
 echo "PASS: Prüfmaske zeigt Stammdaten und konkrete fehlende Prüfpunkte\n";
