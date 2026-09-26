@@ -115,9 +115,12 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
   const buildingLabels = <?= json_encode($safeBuildingLabels, JSON_UNESCAPED_UNICODE) ?>;
   const customerLabels = <?= json_encode(array_reduce($customers, static function (array $out, $customer): array { $code = is_scalar($customer->code ?? null) ? (string) $customer->code : ''; $name = is_scalar($customer->name ?? null) ? (string) $customer->name : ''; $out[(int) $customer->id] = $code !== '' ? $code . ' · ' . $name : $name; return $out; }, []), JSON_UNESCAPED_UNICODE) ?>;
   const vocabularyEndpoint = <?= json_encode(url_for('geraete/stammdaten-optionen'), JSON_UNESCAPED_UNICODE) ?>;
-  const initializeDeviceVocabulary = () => {
+  const initializeDeviceVocabulary = (scope = document) => {
     if (typeof window.TomSelect !== 'function') return;
-    document.querySelectorAll('form[action$="/geraete"]').forEach(form => {
+    scope.querySelectorAll('form.device-form').forEach(form => {
+      // Geschlossene Gerätekarten brauchen noch keine Vorschläge: pro Formular
+      // würden sonst nach jedem Listen-Refresh drei HTTP-Anfragen starten.
+      if (!form.closest('details')?.open) return;
       if (form.dataset.vocabularyBound === '1') return;
       form.dataset.vocabularyBound = '1';
       const selects = {};
@@ -230,7 +233,15 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       });
     });
   };
-  if (typeof window.TomSelect === 'function') initializeDeviceVocabulary(); else window.addEventListener('DOMContentLoaded', initializeDeviceVocabulary, {once: true});
+  if (typeof window.TomSelect === 'function') initializeDeviceVocabulary(); else window.addEventListener('DOMContentLoaded', () => initializeDeviceVocabulary(), {once: true});
+  if (!window.deviceVocabularyToggleBound) {
+    window.deviceVocabularyToggleBound = true;
+    document.addEventListener('toggle', event => {
+      if (event.target.matches?.('#device-new-panel, #device-list-panel details.device-card') && event.target.open) {
+        initializeDeviceVocabulary(event.target);
+      }
+    }, true);
+  }
   const initializeDeviceShortcuts = () => { document.querySelectorAll('form[action$="/geraete"]').forEach(form => { const number = form.querySelector('[name="external_number"]'); const suggest = form.querySelector('[data-suggest-device-number]'); const hint = form.querySelector('[data-number-check-hint]'); if (suggest && number) suggest.addEventListener('click', () => { const value = suggest.dataset.suggestDeviceNumber || ''; if (!value) return; let count = 0; try { count = parseInt(localStorage.getItem('pruefapp-device-number-suggestions') || '0', 10) || 0; } catch (_) {} count++; if (count % 10 === 0) { const check = window.prompt('Bitte zur Kontrolle die letzten drei Stellen des vorgeschlagenen Werts eingeben: ' + value); if (check !== value.slice(-3)) { if (hint) hint.textContent = 'Vorschlag nicht übernommen – Abgleich fehlgeschlagen.'; return; } } number.value = value; number.dispatchEvent(new Event('input', {bubbles: true})); if (hint) hint.textContent = 'Vorschlag übernommen. Bitte vor dem Speichern prüfen.'; try { localStorage.setItem('pruefapp-device-number-suggestions', String(count)); } catch (_) {} }); const room = form.querySelector('[name="room_id"]'); if (!room) return; const rememberRoom = () => { if (!room.value) return; try { localStorage.setItem('pruefapp-last-room-id', room.value); } catch (_) {} }; room.addEventListener('change', rememberRoom); room.addEventListener('input', rememberRoom); }); };
   if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', initializeDeviceShortcuts, {once: true}); else initializeDeviceShortcuts();
   const applyTypeplateProposal = (form, proposal) => { ['manufacturer','device_model','name','serial_number','inventory_number'].forEach(key => { const value = String((proposal && proposal[key]) || '').trim(); const field = form.querySelector(`[name="${key}"]`); if (!value || !field) return; if (field.tomselect) { if (!field.tomselect.options[value]) field.tomselect.addOption({value, text: value}); field.tomselect.setValue(value, true); } else { field.value = value; field.dispatchEvent(new Event('change', {bubbles:true})); } }); };

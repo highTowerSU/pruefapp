@@ -10,6 +10,8 @@ function render_common_filter_panel(string $context, array $filters, array $data
     // Die Schnellprüfung oberhalb der Geräteliste bleibt beim Filtern erhalten.
     // Deshalb wird nur der Listenbereich selbst per HTMX ersetzt.
     $hxTarget = $context === 'billing' ? '#billing-content' : '#device-list-panel';
+    // Gerätefilter erst gesammelt anwenden: sonst feuert jede Auswahl zusätzlich zum Submit.
+    $hxTrigger = $context === 'device' ? 'submit' : 'submit, change from:select delay:120ms';
     $hxSelect = '';
     $value = static fn(string $key, string $fallback = ''): string => htmlspecialchars((string) ($filters[$key] ?? $fallback), ENT_QUOTES);
     $selected = static fn(string $key, string $option): string => (string) ($filters[$key] ?? '') === $option ? ' selected' : '';
@@ -33,7 +35,7 @@ function render_common_filter_panel(string $context, array $filters, array $data
     $rooms = $data['rooms'] ?? [];
     $examiners = $data['examinerOptions'] ?? [];
     ?>
-    <form id="<?= $id ?>" class="common-filter-panel card card-body mb-4" method="get" action="<?= htmlspecialchars($action, ENT_QUOTES) ?>" hx-get="<?= htmlspecialchars($action, ENT_QUOTES) ?>" hx-target="<?= $hxTarget ?>"<?= $hxSelect ?> hx-swap="outerHTML" hx-push-url="true" hx-indicator="#<?= $id ?>-progress" hx-trigger="submit, change from:select delay:120ms" data-filter-form>
+    <form id="<?= $id ?>" class="common-filter-panel card card-body mb-4" method="get" action="<?= htmlspecialchars($action, ENT_QUOTES) ?>" hx-get="<?= htmlspecialchars($action, ENT_QUOTES) ?>" hx-target="<?= $hxTarget ?>"<?= $hxSelect ?> hx-swap="outerHTML" hx-push-url="true" hx-indicator="#<?= $id ?>-progress" hx-trigger="<?= $hxTrigger ?>" data-filter-form>
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="h6 mb-0"><i class="fa-solid fa-filter me-2" aria-hidden="true"></i>Filter</h2>
         <button class="btn btn-sm btn-outline-secondary d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#<?= $id ?>-fields"><i class="fa-solid fa-sliders me-1" aria-hidden="true"></i>Filter anzeigen</button>

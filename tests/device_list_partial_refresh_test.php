@@ -19,6 +19,12 @@ foreach ([
         && str_contains(substr($template, $newDeviceStart, $listStart - $newDeviceStart), '<?php endif; ?>'), 'Neue Prüfung und Neues Gerät müssen außerhalb des austauschbaren Listenbereichs stehen.'],
     [str_contains($filters, "\$hxSelect = ''")
         && str_contains($template, "{target: '#device-list-panel', swap: 'outerHTML', pushUrl: true}"), 'Filter und Seitennavigation müssen nur den Listenbereich tauschen.'],
+    [str_contains($filters, "\$hxTrigger = \$context === 'device' ? 'submit' : 'submit, change from:select delay:120ms'")
+        && str_contains($filters, 'hx-trigger="<?= $hxTrigger ?>"'), 'Gerätefilter dürfen nur einmal beim Absenden neu laden.'],
+    [str_contains($template, "scope.querySelectorAll('form.device-form')")
+        && str_contains($template, "if (!form.closest('details')?.open) return;")
+        && str_contains($template, "document.addEventListener('toggle'")
+        && str_contains($template, 'window.deviceVocabularyToggleBound'), 'Zugeklappte Geräte dürfen nach Filterwechsel keine Vorschlags-Abfragen auslösen.'],
     [str_contains($template, 'list="device-manufacturer-options"')
         && str_contains($template, 'list="device-model-options"')
         && str_contains($template, '<datalist id="device-manufacturer-options">')
