@@ -7,14 +7,47 @@
     <?php if (!empty($cron['healthy'])): ?><div class="alert alert-success py-2">Cron letzter Lauf: <?= htmlspecialchars((string) $cron['last_run']) ?></div><?php else: ?><div class="alert alert-warning py-2">Warnung: Der Phoenix-Cron wurde seit mehr als 5 Minuten nicht ausgeführt<?= !empty($cron['last_run']) ? ' (letzter Lauf: ' . htmlspecialchars((string) $cron['last_run']) . ')' : '' ?>.</div><?php endif; ?>
     <?php if (!empty($pendingMeasurementsByDate)): ?>
       <details class="mb-3" open>
-        <summary><strong>Messdaten noch importieren</strong> (<?= array_sum(array_map('count', $pendingMeasurementsByDate)) ?> Prüfungen)</summary>
-        <div class="small text-body-secondary mt-2">Für diese manuellen Prüfungen fehlen noch Messwerte. Nach dem Import werden die Prüfungen automatisch vervollständigt.</div>
+        <summary><strong>Offene Prüfungen nachbearbeiten</strong> (<?= array_sum(array_map('count', $pendingMeasurementsByDate)) ?> Prüfungen)</summary>
+        <div class="small text-body-secondary mt-2">Hier stehen manuelle Prüfungen ohne Messdaten und Prüfungen, bei denen trotz vorhandener Messdaten noch Angaben fehlen.</div>
         <?php $pendingDateIndex = 0; foreach ($pendingMeasurementsByDate as $pendingDate => $pendingRows): ?>
           <details class="border rounded mt-2"<?= $pendingDateIndex++ === 0 ? ' open' : '' ?>>
             <summary class="d-flex justify-content-between align-items-center gap-2 px-3 py-2"><span class="fw-semibold">Prüfdatum <?= htmlspecialchars(format_datetime_for_display((string) $pendingDate, 'd.m.Y'), ENT_QUOTES) ?></span><span class="badge text-bg-secondary"><?= count($pendingRows) ?></span></summary>
             <div class="px-3 pb-3">
               <div class="d-flex justify-content-end mt-2"><a class="btn btn-sm btn-outline-primary" href="#pair-upload" data-import-date="<?= htmlspecialchars((string) $pendingDate, ENT_QUOTES) ?>"><i class="fa-solid fa-file-arrow-up me-1" aria-hidden="true"></i>CSV/ODS für diesen Tag hochladen</a></div>
-              <div class="table-responsive mt-2"><table class="table table-sm align-middle mb-0"><thead><tr><th>Prüfung</th><th>Gerät</th><th>Speicherplatz</th><th></th></tr></thead><tbody><?php foreach ($pendingRows as $pending): ?><tr><td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $pending['inspection_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) ($pending['inspection_number'] ?: '—')) ?></a></td><td><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $pending['device_id']), ENT_QUOTES) ?>"><?= htmlspecialchars(trim((string) $pending['number'] . ' · ' . (string) $pending['name'])) ?></a></td><td><?= htmlspecialchars((string) ($pending['storage_slot'] ?: '—')) ?></td><td><a class="btn btn-sm btn-outline-primary" href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $pending['inspection_id'] . '/bearbeiten'), ENT_QUOTES) ?>">Prüfung öffnen</a></td></tr><?php endforeach; ?></tbody></table></div>
+              <div class="table-responsive mt-2">
+                <table class="table table-sm align-middle mb-0">
+                  <thead><tr><th>Prüfung</th><th>Gerät</th><th>Speicherplatz</th><th>Status</th><th></th></tr></thead>
+                  <tbody>
+                    <?php foreach ($pendingRows as $pending):
+                        $hasMeasurements = !empty($pending['has_measurements']);
+                        $dataMissingWithMeasurements = $hasMeasurements && $pending['result_status'] === InspectionEvaluationService::DATA_MISSING;
+                        $editUrl = url_for('admin/pruefungen/' . (int) $pending['inspection_id'] . '/bearbeiten');
+                    ?>
+                      <tr<?= $dataMissingWithMeasurements ? ' class="table-warning"' : '' ?>>
+                        <td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $pending['inspection_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) ($pending['inspection_number'] ?: '—')) ?></a></td>
+                        <td><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $pending['device_id']), ENT_QUOTES) ?>"><?= htmlspecialchars(trim((string) $pending['number'] . ' · ' . (string) $pending['name'])) ?></a></td>
+                        <td>
+                          <?php if ($pending['storage_slot'] !== ''): ?>
+                            <?= htmlspecialchars((string) $pending['storage_slot']) ?>
+                          <?php else: ?>
+                            <a class="btn btn-sm btn-outline-primary" href="<?= htmlspecialchars($editUrl . '#inspection-storage-slot', ENT_QUOTES) ?>"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Speicherplatz hinzufügen</a>
+                          <?php endif; ?>
+                        </td>
+                        <td>
+                          <?php if ($dataMissingWithMeasurements): ?>
+                            <span class="badge text-bg-warning">Messdaten vorhanden · Daten fehlen</span>
+                          <?php elseif ($hasMeasurements): ?>
+                            <span class="badge text-bg-info">Messdaten vorhanden · Prüfung offen</span>
+                          <?php else: ?>
+                            <span class="badge text-bg-secondary">Messdaten fehlen</span>
+                          <?php endif; ?>
+                        </td>
+                        <td><a class="btn btn-sm btn-outline-primary" href="<?= htmlspecialchars($editUrl, ENT_QUOTES) ?>">Prüfung öffnen</a></td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </details>
         <?php endforeach; ?>

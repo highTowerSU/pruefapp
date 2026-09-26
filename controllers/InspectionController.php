@@ -539,7 +539,7 @@ final class InspectionController
     {
         $pending = [];
         $pendingExpression = InspectionEvaluationService::sqlStatusExpression('i');
-        $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE i.source_type = 'manual' AND {$pendingExpression} IN ('in_progress','data_missing') ORDER BY CASE WHEN COALESCE(i.test_date, '') = '' THEN 1 ELSE 0 END, i.test_date DESC, i.id DESC");
+        $inspections = R::getAll("SELECT i.id AS inspection_id, i.device_id, i.external_number AS inspection_number, i.storage_slot, i.test_date, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, CASE WHEN EXISTS (SELECT 1 FROM inspection_measurement im WHERE im.inspection_id = i.id) OR COALESCE(i.measurements_json, '') NOT IN ('', '[]', 'null') THEN 1 ELSE 0 END AS has_measurements FROM inspection i LEFT JOIN device d ON d.id = i.device_id WHERE i.source_type = 'manual' AND {$pendingExpression} IN ('in_progress','data_missing') ORDER BY CASE WHEN COALESCE(i.test_date, '') = '' THEN 1 ELSE 0 END, i.test_date DESC, i.id DESC");
         foreach ($inspections as $inspection) {
             if ((int) ($inspection['device_id'] ?? 0) <= 0) continue;
             $date = trim((string) ($inspection['test_date'] ?? '')) ?: 'ohne Datum';
@@ -550,6 +550,7 @@ final class InspectionController
                 'name' => trim((string) ($inspection['device_name'] ?? '')),
                 'inspection_number' => trim((string) ($inspection['inspection_number'] ?? '')),
                 'storage_slot' => trim((string) ($inspection['storage_slot'] ?? '')),
+                'has_measurements' => (int) ($inspection['has_measurements'] ?? 0) === 1,
                 'result_status' => InspectionEvaluationService::normalizeStatus((string) ($inspection['result_status'] ?? ''), (string) ($inspection['status'] ?? '')),
             ];
         }

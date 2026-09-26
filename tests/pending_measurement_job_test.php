@@ -52,5 +52,13 @@ if ($quickView === false || $quickView >= $overviewLoad) {
 if (substr_count($controller, '$pendingMeasurementsByDate = self::pendingMeasurementsByDate();') !== 1) {
     throw new RuntimeException('Die offenen Prüfungen dürfen pro Seitenaufruf nur einmal geladen werden.');
 }
+if (!str_contains($controller, 'AS has_measurements')
+    || !str_contains($controller, "FROM inspection_measurement im WHERE im.inspection_id = i.id")
+    || !str_contains($template, 'Messdaten vorhanden · Daten fehlen')
+    || !str_contains($template, 'class="table-warning"')
+    || !str_contains($template, 'Speicherplatz hinzufügen')
+    || !str_contains($template, '#inspection-storage-slot')) {
+    throw new RuntimeException('Offene Prüfungen müssen vorhandene Messdaten und fehlende Speicherplätze sichtbar nachbearbeiten lassen.');
+}
 
 echo "PASS: Messdatenimport wird als Hintergrundaufgabe verarbeitet\n";
