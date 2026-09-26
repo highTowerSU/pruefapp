@@ -59,6 +59,14 @@ if ($missing['status'] !== InspectionEvaluationService::DATA_MISSING || !str_con
     throw new RuntimeException('Fehlender Pflichtmesswert wurde nicht eindeutig ausgewiesen.');
 }
 
+$incompleteAnswers = $answers;
+$incompleteAnswers[0]['outcome'] = 'missing';
+$missingChecklist = InspectionEvaluationService::evaluate($base, $incompleteAnswers, $measurements, true);
+if ($missingChecklist['status'] !== InspectionEvaluationService::DATA_MISSING
+    || !in_array('identification', $missingChecklist['missing'], true)) {
+    throw new RuntimeException('Die konkrete offene Prüffrage muss für die Ergebnisbox verfügbar sein.');
+}
+
 $missingQuestions = InspectionEvaluationService::evaluate($base, [], $measurements, true);
 if ($missingQuestions['status'] !== InspectionEvaluationService::DATA_MISSING
     || !in_array('Erforderliche Prüffragen', $missingQuestions['missing'], true)

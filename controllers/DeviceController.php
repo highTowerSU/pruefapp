@@ -592,7 +592,16 @@ class DeviceController
             return [200, $headers, json_encode(['found' => false], JSON_UNESCAPED_UNICODE)];
         }
         $headers['Server-Timing'] = self::lookupTiming($startedAt, $queryStartedAt, $queryFinishedAt);
-        return [200, $headers, json_encode(['found' => true, 'id' => (int) $device->id, 'number' => (string) $device->external_number, 'name' => (string) $device->name, 'url' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu')], JSON_UNESCAPED_UNICODE)];
+        return [200, $headers, json_encode([
+            'found' => true,
+            'id' => (int) $device->id,
+            'number' => (string) $device->external_number,
+            'name' => (string) $device->name,
+            'manufacturer' => (string) ($device->manufacturer ?? ''),
+            'model' => (string) ($device->device_model ?? ''),
+            'inventory_number' => (string) ($device->inventory_number ?? ''),
+            'url' => url_for('geraete/' . (int) $device->id . '/pruefungen/neu'),
+        ], JSON_UNESCAPED_UNICODE)];
     }
 
     private static function lookupTiming(float $startedAt, float $queryStartedAt, float $queryFinishedAt): string

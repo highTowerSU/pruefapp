@@ -267,7 +267,18 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
         const data = await response.json();
         if (sequence !== lookupSequence || number !== numberInput.value.trim()) return;
         result.replaceChildren();
-        if (data.found) { const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`; const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.innerHTML = '<i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Prüfung anlegen'; result.append(text, link); }
+        if (data.found) {
+          const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`;
+          const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.innerHTML = '<i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Prüfung anlegen';
+          const details = document.createElement('span'); details.className = 'd-flex flex-wrap gap-1 mt-2';
+          const labels = [
+            [data.manufacturer ? `Hersteller: ${data.manufacturer}` : 'Hersteller: nicht hinterlegt', data.manufacturer ? 'text-bg-primary' : 'text-bg-warning'],
+            [data.model ? `Modell: ${data.model}` : 'Modell: nicht hinterlegt', data.model ? 'text-bg-secondary' : 'text-bg-warning'],
+            ...(data.inventory_number ? [[`Inventarnummer: ${data.inventory_number}`, 'bg-body border text-body']] : [])
+          ];
+          labels.forEach(([label, color]) => { const badge = document.createElement('span'); badge.className = `badge ${color}`; badge.textContent = label; details.append(badge); });
+          result.append(text, link, details);
+        }
         else {
           const text = document.createElement('span'); text.className = 'text-warning-emphasis'; text.textContent = 'Keine passende Gerätenummer gefunden.';
           const link = document.createElement('a'); link.className = 'btn btn-sm btn-secondary ms-2';

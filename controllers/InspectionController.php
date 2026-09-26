@@ -248,7 +248,8 @@ final class InspectionController
                     $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
                     $companionSession = InspectionCompanionService::activeForInspection((int) $inspection->id, (int) current_user()->id);
                     if ($companionSession !== []) $companionSession['token'] = (string) ($_SESSION['inspection_companion_tokens'][(int) $inspection->id] ?? '');
-                    return [422, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia', 'companionSession'))])];
+                    $missingRequirements = self::missingRequirementsForEdit($inspection);
+                    return [422, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia', 'companionSession', 'missingRequirements'))])];
                 }
                 $target = $complete
                     ? 'admin/pruefungen/' . (int) $inspection->id
@@ -261,7 +262,44 @@ final class InspectionController
         $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
         $companionSession = InspectionCompanionService::activeForInspection((int) $inspection->id, (int) current_user()->id);
         if ($companionSession !== []) $companionSession['token'] = (string) ($_SESSION['inspection_companion_tokens'][(int) $inspection->id] ?? '');
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia', 'companionSession'))])];
+        $missingRequirements = self::missingRequirementsForEdit($inspection);
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung bearbeiten', 'content' => render_template('inspection_edit.php', compact('inspection', 'device', 'users', 'error', 'canChooseOtherExaminer', 'inspectionMedia', 'companionSession', 'missingRequirements'))])];
+    }
+
+    /** @return list<string> */
+    private static function missingRequirementsForEdit($inspection): array
+    {
+        if (InspectionEvaluationService::statusForInspection($inspection) !== InspectionEvaluationService::DATA_MISSING) {
+            return [];
+        }
+
+        $answers = InspectionDataService::answers((int) $inspection->id);
+        $knownKeys = array_fill_keys(array_column($answers, 'item_key'), true);
+        $catalogId = (int) ($inspection->catalog_version_id ?? 0);
+        if ($catalogId > 0) {
+            $required = R::getAll(
+                "SELECT item_key, question, sort_order FROM inspection_catalog_item WHERE version_id = ? AND input_type = 'boolean' AND required = 1 ORDER BY sort_order, id",
+                [$catalogId]
+            );
+            foreach ($required as $item) {
+                $key = (string) $item['item_key'];
+                if (isset($knownKeys[$key])) continue;
+                $answers[] = [
+                    'item_key' => $key,
+                    'question_snapshot' => (string) $item['question'],
+                    'outcome' => 'missing',
+                    'required' => 1,
+                ];
+            }
+        }
+
+        $evaluation = InspectionEvaluationService::evaluate(
+            $inspection->export(),
+            $answers,
+            InspectionDataService::measurements((int) $inspection->id),
+            true
+        );
+        return $evaluation['missing'];
     }
 
     /** @param array<string,string> $checklist */
