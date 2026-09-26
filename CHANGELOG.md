@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 26.09.2026 – Mehrere Speicherplätze direkt in der Prüfung
+
+- In den Prüfungsdaten ergänzt „Weiterer Speicherplatz“ per HTMX zusätzliche BENNING-Speicherplätze mit Kommentar. Die Erklärung nennt ausdrücklich Geräte mit zwei Netzteilen (PSU 1 und PSU 2). Nummern und Kommentare bleiben beim Bearbeiten bestehender Prüfungen erhalten und erscheinen in der Prüfungsansicht.
+- Beim Messdatenimport können mehrere Speicherplätze derselben manuellen Prüfung zugeordnet werden. Nach nur einem von zwei Netzteilen bleibt die Prüfung unvollständig; beide Messwertsätze werden getrennt erhalten.
+- Revisionen: Prüfapp `bcdfea7`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 26.09.2026 – Offene Prüfungen mit Messdaten klar kennzeichnen
 
 - In der Importübersicht werden offene Prüfweb-Prüfungen mit bereits vorhandenen Messdaten und weiterhin fehlenden Angaben gelb als „Messdaten vorhanden · Daten fehlen“ markiert. Die Liste unterscheidet sie von Prüfungen ohne Messdaten.

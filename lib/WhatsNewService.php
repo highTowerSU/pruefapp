@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-26-inspection-dual-psu-slots',
+            'date' => '26.09.2026',
+            'title' => 'Mehrere Speicherplätze in einer Prüfung',
+            'items' => [
+                'In den Prüfungsdaten fügt „Weiterer Speicherplatz“ zusätzliche Plätze mit Kommentar hinzu, etwa PSU 1 und PSU 2 bei Geräten mit zwei Netzteilen.',
+                'Der Messdatenimport ordnet beide Plätze derselben Prüfung zu; nach nur einem Netzteil bleibt sie unvollständig.',
+            ],
+            'pruefapp_revision' => 'bcdfea7',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-26-pending-measurement-labels',
             'date' => '26.09.2026',
             'title' => 'Offene Prüfungen mit Messdaten erkennen',
