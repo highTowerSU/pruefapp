@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-inspection-device-details-missing-list',
+            'date' => '27.09.2026',
+            'title' => 'Gerätedaten und fehlende Prüfpunkte auf einen Blick',
+            'items' => [
+                'Bei der neuen Prüfung zeigen Suche und Formular jetzt Hersteller, Modell und vorhandene Kennnummern des Geräts.',
+                'Steht das Ergebnis auf „Daten fehlen“, nennt eine gelb markierte Liste die konkreten offenen Angaben, Prüffragen und Messungen.',
+            ],
+            'pruefapp_revision' => '2b7c46e',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-barcode-lookup-lightweight',
             'date' => '27.09.2026',
             'title' => 'Barcode-Suche startet ohne lange Wartezeit',

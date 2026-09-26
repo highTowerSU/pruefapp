@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Gerätedaten und fehlende Prüfungsangaben sichtbar
+
+- Nach der Gerätenummer-/Barcode-Suche und oben in der Prüfungsmaske werden Hersteller, Modell und vorhandene Inventar- bzw. Seriennummern angezeigt. Fehlende Hersteller- oder Modellangaben sind gelb markiert.
+- Bei „Daten fehlen“ nennt die Ergebnisbox die konkreten offenen Pflichtangaben, Prüffragen und Messungen in einer gelb markierten Liste. Bei importierten Prüfungen werden nicht gespeicherte Pflichtfragen anhand des Prüfkatalogs ergänzt.
+- Revisionen: Prüfapp `2b7c46e`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Barcode-Suche ohne schwere Startprüfungen
 
 - Der lesende Endpunkt `/geraete/suche` startet ohne die bei jedem normalen App-Aufruf ausgeführten Schema-, Seed- und Wartungsprüfungen. Anmeldung und Kundenzugriff bleiben unverändert geprüft.
