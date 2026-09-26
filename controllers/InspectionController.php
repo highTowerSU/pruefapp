@@ -111,10 +111,12 @@ final class InspectionController
     public static function edit(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        RequestTimingService::start('inspection_load');
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Prüfung nicht gefunden'];
+        RequestTimingService::stop('inspection_load');
         $classification = trim((string) ($inspection->classification ?? ''));
         $isLegacy = $classification === 'legacy'
             || ($classification === '' && InspectionMigrationService::classification($inspection->export()) === 'legacy');
@@ -159,6 +161,7 @@ final class InspectionController
         $error = null;
         $correctionMode = current_user_has_role('admin', 'editor');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            RequestTimingService::start('inspection_prepare');
             $previousStorageSlot = trim((string) ($inspection->storage_slot ?? ''));
             $previousResultStatus = InspectionEvaluationService::normalizeStatus((string) ($inspection->result_status ?? ''), (string) ($inspection->status ?? ''));
             try {
@@ -228,6 +231,7 @@ final class InspectionController
             $checklist = is_array($_POST['checklist'] ?? null) ? array_map(static fn($value): string => in_array((string) $value, ['ja', 'ok', 'nein'], true) ? ((string) $value === 'ok' ? 'ja' : (string) $value) : '', $_POST['checklist']) : [];
             $inspection->checklist_json = json_encode($checklist, JSON_UNESCAPED_UNICODE);
             $complete = ($_POST['complete'] ?? '') === '1';
+            RequestTimingService::stop('inspection_prepare');
             if ($error !== null) {
                 // Keep submitted values visible in the correction form.
             } elseif ($complete && ($inspection->protection_class === '' || $inspection->inspection_type === '' || $inspection->examiner === '')) {
@@ -241,6 +245,7 @@ final class InspectionController
                 if ($catalogId <= 0) $catalogId = InspectionTypeService::defaultCatalogId(InspectionTypeService::ELECTRICAL);
                 $inspection->catalog_version_id = $catalogId;
                 $inspection->updated_at = date(DATE_ATOM);
+                RequestTimingService::start('inspection_persist');
                 R::store($inspection);
                 self::storeChecklistAnswers((int) $inspection->id, $catalogId, $checklist);
                 if (InspectionDataService::measurements((int) $inspection->id) === []) {
@@ -249,12 +254,15 @@ final class InspectionController
                         InspectionDataService::replaceMeasurements((int) $inspection->id, $legacyMeasurements, $inspection->export());
                     }
                 }
+                RequestTimingService::stop('inspection_persist');
+                RequestTimingService::start('inspection_evaluate');
                 $evaluation = InspectionEvaluationService::evaluate(
                     $inspection->export(),
                     InspectionDataService::answers((int) $inspection->id),
                     InspectionDataService::measurements((int) $inspection->id),
                     $complete
                 );
+                RequestTimingService::stop('inspection_evaluate');
                 $inspection->result_status = $evaluation['status'];
                 $inspection->result_reason_code = $evaluation['reason_code'];
                 $inspection->result_reason_text = $evaluation['reason'];
@@ -269,6 +277,7 @@ final class InspectionController
                 if ($complete && $evaluation['status'] === InspectionEvaluationService::DATA_MISSING) {
                     $error = $evaluation['reason'] . ($evaluation['missing'] !== [] ? ' Fehlend: ' . implode(', ', $evaluation['missing']) . '.' : '');
                 } elseif ($error === null && $complete && InspectionEvaluationService::reportAllowed($evaluation['status'], (string) $inspection->classification) && class_exists('ReportController')) {
+                    RequestTimingService::start('inspection_report');
                     $relativeReport = 'reports/current/' . (int) $inspection->id . '.pdf';
                     $reportPath = app_data_root() . '/' . $relativeReport;
                     if (!is_dir(dirname($reportPath))) mkdir(dirname($reportPath), 0770, true);
@@ -278,6 +287,7 @@ final class InspectionController
                     $inspection->report_path = $relativeReport;
                     R::store($inspection);
                     InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $reportPath, true);
+                    RequestTimingService::stop('inspection_report');
                 }
                 if ($error !== null) {
                     $users = R::findAll('oauthuser', ' ORDER BY LOWER(name), LOWER(email), id ');

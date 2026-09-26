@@ -22,6 +22,7 @@ $tests = [
     'pending_measurement_mixed_dates_test.php',
     'import_directory_debug_api_test.php',
     'application_failure_diagnostics_test.php',
+    'request_timing_test.php',
     'inspection_filter_test.php',
     'user_reminder_test.php',
     'signature_gate_test.php',

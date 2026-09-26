@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/RequestTimingService.php';
+
 use \RedBeanPHP\R as R;
 use Ceneos\PhpBase\Config\Config;
 use Ceneos\PhpBase\Database\RevisionSupport;
@@ -28,6 +30,7 @@ if (!class_exists(Config::class)) {
     );
 }
 
+RequestTimingService::start('config');
 try {
     ob_start();
     Config::load(
@@ -42,10 +45,13 @@ try {
     }
     BootstrapErrorPage::emit('PrüfApp', $exception);
 }
+RequestTimingService::stop('config');
 
 if (PHP_SAPI !== 'cli') {
+    RequestTimingService::start('session');
     configure_session();
     session_start();
+    RequestTimingService::stop('session');
 }
 
 if (!class_exists('RedBeanPHP\\R')) {
@@ -98,7 +104,9 @@ require_once __DIR__ . '/WhatsNewChecklistService.php';
 require_once __DIR__ . '/MaintenanceJobHandler.php';
 
 $fastDeviceLookup = is_fast_device_lookup_request();
+RequestTimingService::start('db_init');
 initialize_database($fastDeviceLookup);
+RequestTimingService::stop('db_init');
 
 /**
  * Retrieves a stored application configuration value.
