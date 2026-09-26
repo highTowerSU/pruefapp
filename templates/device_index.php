@@ -282,9 +282,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
             window.history.replaceState(null, '', targetUrl);
             requestAnimationFrame(() => {
               newDeviceDetails.scrollIntoView({behavior: 'smooth', block: 'start'});
-              const nameField = form.querySelector('[name="name"]');
-              if (nameField?.tomselect) nameField.tomselect.focus();
-              else nameField?.focus({preventScroll: true});
+              form.querySelector('[name="inventory_number"]')?.focus({preventScroll: true});
             });
           });
           result.append(text, link);
