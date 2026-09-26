@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 26.09.2026 – Fokus auf Inventarnummer nach Barcode-Suche
+
+- Nach „Gerät neu anlegen“ aus der Gerätenummer-/Barcode-Suche wird das neue Geräteformular ohne Seitenwechsel geöffnet und der Fokus direkt auf „Inventarnummer“ gesetzt.
+- Revisionen: Prüfapp `7e1d7cf`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 26.09.2026 – Neues Gerät aus Barcode-Suche ohne Seitenwechsel
 
 - Findet die Suche nach Gerätenummer oder Barcode kein Gerät, öffnet „Gerät neu anlegen“ das bereits vorhandene Geräteformular ohne Seiten-Reload. Die gesuchte Nummer wird übernommen, der Bereich sichtbar gemacht und das nächste Eingabefeld fokussiert.

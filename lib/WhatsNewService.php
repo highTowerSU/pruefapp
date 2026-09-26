@@ -11,6 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-26-barcode-focus-inventory',
+            'date' => '26.09.2026',
+            'title' => 'Inventarnummer nach Barcode-Suche direkt erfassen',
+            'items' => [
+                'Nach „Gerät neu anlegen“ aus der Gerätenummer-/Barcode-Suche steht der Cursor direkt im Feld „Inventarnummer“.',
+            ],
+            'pruefapp_revision' => '7e1d7cf',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-26-barcode-new-device-inline',
             'date' => '26.09.2026',
             'title' => 'Neues Gerät direkt aus dem Barcode anlegen',
