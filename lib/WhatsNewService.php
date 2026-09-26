@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-26-slot-comment-visibility',
+            'date' => '26.09.2026',
+            'title' => 'Speicherplätze übersichtlicher erfassen',
+            'items' => [
+                'Der Kommentar zu Platz 1 erscheint erst, wenn ein weiterer Speicherplatz ergänzt wird. Ein vorhandener Kommentar bleibt dabei erhalten.',
+                'Die Erklärung zeigt einen Server mit zwei Netzteilen (PSU 1 und PSU 2) als Beispiel.',
+            ],
+            'pruefapp_revision' => 'a5e33bb',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-26-inspection-dual-psu-slots',
             'date' => '26.09.2026',
             'title' => 'Mehrere Speicherplätze in einer Prüfung',

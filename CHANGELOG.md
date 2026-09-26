@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 26.09.2026 – Speicherplatz-Kommentar nur bei mehreren Plätzen
+
+- Bei einem einzelnen Prüf-Speicherplatz wird das Kommentarfeld ausgeblendet; vorhandene Kommentare bleiben beim Speichern erhalten. Ab zwei Plätzen sind die Kommentare zur Unterscheidung sichtbar.
+- Als Beispiel nennt die Hilfe nun ausdrücklich einen Server mit zwei Netzteilen (PSU 1 und PSU 2).
+- Revisionen: Prüfapp `a5e33bb`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 26.09.2026 – Mehrere Speicherplätze direkt in der Prüfung
 
 - In den Prüfungsdaten ergänzt „Weiterer Speicherplatz“ per HTMX zusätzliche BENNING-Speicherplätze mit Kommentar. Die Erklärung nennt ausdrücklich Geräte mit zwei Netzteilen (PSU 1 und PSU 2). Nummern und Kommentare bleiben beim Bearbeiten bestehender Prüfungen erhalten und erscheinen in der Prüfungsansicht.
