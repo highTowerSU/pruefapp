@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Importierte Messwerte korrekt auswerten
+
+- Beim Messdatenimport für einen einzelnen Speicherplatz werden die Werte nun auch in die strukturierte Messtabelle übernommen. Bisher konnte die Prüfmaske drei JSON-Messwerte zählen und dieselben Messungen trotzdem als fehlend melden.
+- Bei bereits betroffenen Prüfungen berücksichtigt die Fehlauflistung die vorhandenen JSON-Messwerte ohne stillschweigende Datenbankänderung. Ist nur die gespeicherte Bewertung veraltet, weist die Maske auf „Prüfung serverseitig prüfen und abschließen“ hin; dieser Schritt übernimmt die Messwerte und bewertet die Prüfung neu.
+- Fehlende und vorhandene, aber nicht auswertbare Messungen sind in der Hinweisliste unterscheidbar. Textuell gespeicherte Zahlenwerte werden wieder ausgewertet.
+- Vier veraltete Testannahmen/-datensätze wurden korrigiert. Der reguläre Testlauf umfasst jetzt auch die Messdaten- und Prüfmaskenregressionen.
+- Revisionen: Prüfapp `a2ed096`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Mehr Gerätedaten bei neuer Prüfung
 
 - Oben in der Prüfmaske sind Inventar- und Seriennummer stets sichtbar, auch wenn sie am Gerät noch nicht hinterlegt sind. Vorhandene Altnummer, importierte Raumangabe und Kurzbeschreibung helfen bei der Identifizierung des Geräts.

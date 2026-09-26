@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-single-slot-measurements-evaluation',
+            'date' => '27.09.2026',
+            'title' => 'Importierte Messwerte korrekt auswerten',
+            'items' => [
+                'Messwerte aus einem einzelnen BENNING-Speicherplatz werden nun vollständig in die Prüfungsbewertung übernommen.',
+                'Bei älteren betroffenen Prüfungen zeigt die Maske vorhandene Werte korrekt an und fordert bei veralteter Bewertung zum erneuten Prüfen und Abschließen auf.',
+            ],
+            'pruefapp_revision' => 'a2ed096',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-inspection-more-device-details',
             'date' => '27.09.2026',
             'title' => 'Mehr Gerätedaten bei neuer Prüfung',
