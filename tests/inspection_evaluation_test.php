@@ -54,6 +54,41 @@ $failedMeasurements[0]['numeric_value'] = 0.51;
 $failed = InspectionEvaluationService::evaluate($base, $answers, $failedMeasurements, true);
 if ($failed['status'] !== InspectionEvaluationService::FAILED) throw new RuntimeException('Grenzwertverletzung wurde nicht als nicht bestanden bewertet.');
 
+$withoutCableLength = array_replace($base, ['cable_length_m' => null]);
+$unknownLength = InspectionEvaluationService::evaluate($withoutCableLength, $answers, $measurements, true);
+if ($unknownLength['status'] !== InspectionEvaluationService::DATA_MISSING
+    || !str_contains(implode(' ', $unknownLength['missing']), 'Kabellänge fehlt')
+    || !str_contains($unknownLength['reason'], 'Kabellänge fehlt')) {
+    throw new RuntimeException('RPE zwischen 0,3 und 1,0 Ω darf ohne Kabellänge nicht als Fehler oder bestanden gelten.');
+}
+$shortSafe = $measurements;
+$shortSafe[0]['numeric_value'] = 0.2;
+if (InspectionEvaluationService::evaluate($withoutCableLength, $answers, $shortSafe, true)['status'] !== InspectionEvaluationService::PASSED) {
+    throw new RuntimeException('RPE bis 0,3 Ω ist auch ohne Kabellänge eindeutig innerhalb des Grenzwerts.');
+}
+$alwaysFailed = $measurements;
+$alwaysFailed[0]['numeric_value'] = 1.1;
+if (InspectionEvaluationService::evaluate($withoutCableLength, $answers, $alwaysFailed, true)['status'] !== InspectionEvaluationService::FAILED) {
+    throw new RuntimeException('RPE über 1,0 Ω muss auch ohne Kabellänge als Fehler gelten.');
+}
+$explicitFailure = $measurements;
+$explicitFailure[0]['outcome'] = 'failed';
+if (InspectionEvaluationService::evaluate($withoutCableLength, $answers, $explicitFailure, true)['status'] !== InspectionEvaluationService::FAILED) {
+    throw new RuntimeException('Ein ausdrücklich nicht bestandener RPE-Wert darf nicht zu Daten fehlen herabgestuft werden.');
+}
+$staleCanonical = $measurements;
+$staleCanonical[0] = [
+    'measurement_key' => 'RPE',
+    'numeric_value' => 0.39,
+    'outcome' => 'failed',
+    'raw_json' => '{"name":"RPE","value":"0.39","result":"bestanden"}',
+];
+$staleResult = InspectionEvaluationService::evaluate($withoutCableLength, $answers, $staleCanonical, true);
+if ($staleResult['status'] !== InspectionEvaluationService::DATA_MISSING
+    || !str_contains(implode(' ', $staleResult['missing']), 'Kabellänge fehlt')) {
+    throw new RuntimeException('Altes, aus 0,3 Ω berechnetes Urteil muss anhand der Originalmessung neu bewertbar sein.');
+}
+
 $missing = InspectionEvaluationService::evaluate($base, $answers, array_slice($measurements, 0, 2), true);
 if ($missing['status'] !== InspectionEvaluationService::DATA_MISSING || !str_contains(implode(' ', $missing['missing']), 'IPE')) {
     throw new RuntimeException('Fehlender Pflichtmesswert wurde nicht eindeutig ausgewiesen.');

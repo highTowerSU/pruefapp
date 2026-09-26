@@ -7,6 +7,7 @@ $form = (string) file_get_contents($root . '/templates/inspection_edit.php');
 $ladderForm = (string) file_get_contents($root . '/templates/inspection_ladder_edit.php');
 $controller = (string) file_get_contents($root . '/controllers/InspectionController.php');
 $lookup = (string) file_get_contents($root . '/templates/device_index.php');
+$detail = (string) file_get_contents($root . '/templates/inspection_detail.php');
 
 if (!str_contains($form, "render_template('inspection_device_summary.php'")
     || !str_contains($ladderForm, "render_template('inspection_device_summary.php'")
@@ -17,6 +18,11 @@ if (!str_contains($form, "render_template('inspection_device_summary.php'")
     || !str_contains($lookup, 'data.manufacturer')
     || !str_contains($lookup, 'data.model')) {
     throw new RuntimeException('Gerätestammdaten oder konkrete fehlende Prüfpunkte fehlen in der Prüfmaske.');
+}
+if (!str_contains($detail, 'Kabellänge eintragen')
+    || !str_contains($controller, "str_starts_with(\$assessment['reason'], 'Kabellänge fehlt')")
+    || !str_contains($controller, "!== 'legacy'")) {
+    throw new RuntimeException('Die Prüfungsdetailseite muss eine fehlende Kabellänge als Bewertungsgrund nennen.');
 }
 
 $device = (object) [

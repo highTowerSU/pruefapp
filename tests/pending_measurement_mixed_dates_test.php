@@ -151,6 +151,30 @@ try {
         throw new RuntimeException('Vorhandene JSON-Messwerte werden in der Prüfmaske fälschlich als fehlend angezeigt.');
     }
 
+    $unknownLengthInspection = R::dispense('inspection');
+    $unknownLengthInspection->device_id = $deviceId;
+    $unknownLengthInspection->dedupe_key = 'mixed-measurement-no-length';
+    $unknownLengthInspection->public_id = 'mixed-measurement-no-length';
+    $unknownLengthInspection->source_type = 'manual';
+    $unknownLengthInspection->external_number = 'test-no-length';
+    $unknownLengthInspection->test_date = '2026-09-27';
+    $unknownLengthInspection->storage_slot = '79';
+    $unknownLengthInspection->result_status = 'in_progress';
+    $unknownLengthId = (int) R::store($unknownLengthInspection);
+    $unknownLengthCsv = $root . '/unknown-length.csv';
+    file_put_contents($unknownLengthCsv, $csvRows[0] . "\n079;Klasse I;27/09/2026;bestanden;0;39;Ohm;bestanden\n");
+    $unknownLengthStats = $service->importPendingMeasurements($unknownLengthCsv, '');
+    if ($unknownLengthStats['updated'] !== 1 || $unknownLengthStats['cable_length_required'] !== 1
+        || (string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$unknownLengthId]) !== 'data_missing') {
+        throw new RuntimeException('Ein RPE von 0,39 Ω benötigt für die Bewertung die Kabellänge.');
+    }
+    R::exec('UPDATE inspection SET cable_length_m = ? WHERE id = ?', [12.6, $unknownLengthId]);
+    $rechecked = $service->importPendingMeasurements($unknownLengthCsv, '');
+    if ($rechecked['updated'] !== 1 || $rechecked['cable_length_required'] !== 0
+        || (string) R::getCell('SELECT result_status FROM inspection WHERE id = ?', [$unknownLengthId]) !== 'passed') {
+        throw new RuntimeException('Nach Eintrag der Kabellänge muss derselbe RPE-Wert bewertet werden können.');
+    }
+
     echo "PASS: Messdaten werden pro CSV-Zeile über Prüfdatum und Speicherplatz zugeordnet\n";
 } finally {
     R::close();

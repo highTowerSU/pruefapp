@@ -1013,10 +1013,22 @@ final class InspectionController
         $findings = DeviceFindingService::openForDevice((int) $device->id);
         $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
         $inspectionType = InspectionTypeService::find((string) ($inspection->inspection_type_code ?? InspectionTypeService::ELECTRICAL));
-        if ($measurements === [] && trim((string) ($inspection->classification ?? '')) === '') {
+        if ($measurements === [] && trim((string) ($inspection->classification ?? '')) !== 'legacy') {
             $measurements = self::normalizeImportedMeasurements(json_decode((string) ($inspection->measurements_json ?? ''), true) ?: [], (string) ($inspection->result_status ?? ''));
         }
-        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'diagnostics', 'billingInvoice', 'billingHistory', 'findings', 'inspectionType', 'inspectionMedia'))])];
+        $cableLengthNotice = '';
+        if (in_array(InspectionEvaluationService::statusForInspection($inspection), [InspectionEvaluationService::DATA_MISSING, InspectionEvaluationService::FAILED], true)
+            && (string) ($inspection->inspection_type_code ?? InspectionTypeService::ELECTRICAL) === InspectionTypeService::ELECTRICAL
+        ) {
+            foreach ($measurements as $measurement) {
+                $assessment = InspectionEvaluationService::evaluateMeasurement($inspection->export(), $measurement);
+                if (str_starts_with($assessment['reason'], 'Kabellänge fehlt')) {
+                    $cableLengthNotice = $assessment['reason'];
+                    break;
+                }
+            }
+        }
+        return [200, [], render_template('layout.php', ['title' => 'Prüfung ' . (string) $inspection->external_number, 'content' => render_template('inspection_detail.php', compact('inspection', 'device', 'raw', 'measurements', 'checklist', 'diagnostics', 'billingInvoice', 'billingHistory', 'findings', 'inspectionType', 'inspectionMedia', 'cableLengthNotice'))])];
     }
 
     /** Repair legacy Benning rows created before decimal-comma columns were fixed. */

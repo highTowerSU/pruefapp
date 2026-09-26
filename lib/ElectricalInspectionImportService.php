@@ -314,8 +314,9 @@ final class ElectricalInspectionImportService
                 $numeric = $this->measurementNumber((string) ($measurement['value'] ?? ''));
                 if ($numeric === null) continue;
                 if (in_array($name, ['RPE', 'RSL'], true)) {
-                    $lengthRaw = trim((string) ($record['cable_length_m'] ?? $inspection->cable_length_m ?? ''));
-                    if ($lengthRaw === '' && $numeric > 0.3) {
+                    $lengthRaw = trim((string) ($record['cable_length_m'] ?? ''));
+                    if ($lengthRaw === '') $lengthRaw = trim((string) ($inspection->cable_length_m ?? ''));
+                    if ($lengthRaw === '' && $numeric > 0.3 && $numeric <= 1.0) {
                         $unclear = true; $needsCableLength++; $evaluationReasons[] = 'Kabellänge fehlt für RPE-Grenzwert';
                     } else {
                         $length = (float) str_replace(',', '.', $lengthRaw);

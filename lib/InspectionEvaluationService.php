@@ -240,7 +240,9 @@ final class InspectionEvaluationService
             if (!isset($measurementMap[$requiredKey])) {
                 $missing[] = 'Messung ' . self::measurementLabel($requiredKey) . ' fehlt';
             } elseif ($measurementMap[$requiredKey]['outcome'] !== 'passed') {
-                $missing[] = 'Messung ' . self::measurementLabel($requiredKey) . ': Messwert vorhanden, aber nicht auswertbar';
+                $reason = (string) $measurementMap[$requiredKey]['reason'];
+                $missing[] = 'Messung ' . self::measurementLabel($requiredKey) . ': '
+                    . (str_starts_with($reason, 'Kabellänge fehlt') ? $reason : 'Messwert vorhanden, aber nicht auswertbar');
             }
         }
         $configuredSlots = json_decode((string) ($inspection['storage_slots_json'] ?? '[]'), true);
@@ -267,10 +269,17 @@ final class InspectionEvaluationService
 
         $missing = array_values(array_unique($missing));
         if ($missing !== []) {
+            $reason = 'Erforderliche Prüfungsdaten fehlen oder sind nicht eindeutig auswertbar.';
+            foreach ($missing as $item) {
+                if (str_contains($item, 'Kabellänge fehlt')) {
+                    $reason = 'Kabellänge fehlt; der Schutzleiterwiderstand kann ohne Leitungslänge nicht eindeutig bewertet werden.';
+                    break;
+                }
+            }
             return self::result(
                 self::DATA_MISSING,
                 'required_data_missing',
-                'Erforderliche Prüfungsdaten fehlen oder sind nicht eindeutig auswertbar.',
+                $reason,
                 $missing
             );
         }
@@ -287,19 +296,29 @@ final class InspectionEvaluationService
     {
         $key = self::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? ''));
         $label = self::measurementLabel($key);
-        $explicit = self::normalizeOutcome((string) ($measurement['outcome'] ?? $measurement['result'] ?? ''));
+        $rawMeasurement = json_decode((string) ($measurement['raw_json'] ?? ''), true);
+        $sourceOutcome = is_array($rawMeasurement)
+            ? ($rawMeasurement['result'] ?? $rawMeasurement['outcome'] ?? null)
+            : null;
+        $explicit = self::normalizeOutcome((string) ($sourceOutcome ?? $measurement['outcome'] ?? $measurement['result'] ?? ''));
         $value = self::numericValue($measurement['numeric_value'] ?? $measurement['value'] ?? $measurement['text_value'] ?? null);
         $warming = !empty($inspection['warming_device_snapshot']) || !empty($inspection['warming_device']);
         $limit = null;
         $unit = '';
         $rule = '';
         $passedByValue = null;
+        $lengthMissing = false;
 
         if (in_array($key, ['RPE', 'RSL'], true)) {
-            $limit = self::rslLimit(self::numericValue($inspection['cable_length_m'] ?? null));
+            $cableLength = self::numericValue($inspection['cable_length_m'] ?? null);
             $unit = 'Ω';
             $rule = 'rsl_by_cable_length_v1';
-            $passedByValue = $value !== null ? $value <= $limit : null;
+            $lengthMissing = $value !== null && ($cableLength === null || $cableLength <= 0)
+                && $value > 0.3 && $value <= 1.0;
+            $limit = $lengthMissing ? null : ($cableLength === null || $cableLength <= 0
+                ? ($value !== null && $value > 1.0 ? 1.0 : 0.3)
+                : self::rslLimit($cableLength));
+            $passedByValue = $value !== null && !$lengthMissing ? $value <= $limit : null;
         } elseif ($key === 'RISO') {
             $limit = $warming ? 0.3 : 1.0;
             $unit = 'MΩ';
@@ -318,8 +337,10 @@ final class InspectionEvaluationService
         }
 
         $outcome = $explicit;
-        if ($passedByValue !== null) {
-            $outcome = $passedByValue ? 'passed' : 'failed';
+        if ($lengthMissing && $explicit !== 'failed') {
+            $outcome = 'missing';
+        } elseif ($passedByValue !== null) {
+            $outcome = $passedByValue && $explicit !== 'failed' ? 'passed' : 'failed';
         }
         if (!in_array($outcome, ['passed', 'failed'], true)) {
             $outcome = 'missing';
@@ -332,7 +353,9 @@ final class InspectionEvaluationService
             'limit_value' => $limit,
             'limit_unit' => $unit,
             'rule_key' => $rule,
-            'reason' => $outcome === 'missing' ? 'Kein eindeutig auswertbarer Messwert vorhanden.' : '',
+            'reason' => $lengthMissing && $outcome === 'missing'
+                ? 'Kabellänge fehlt; der Schutzleiterwiderstand kann ohne Leitungslänge nicht eindeutig bewertet werden.'
+                : ($outcome === 'missing' ? 'Kein eindeutig auswertbarer Messwert vorhanden.' : ''),
         ];
     }
 
