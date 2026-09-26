@@ -42,6 +42,8 @@ foreach ([
 
 $component = (string) file_get_contents($root . '/templates/device_storage_slots.php');
 $controller = (string) file_get_contents($root . '/controllers/DeviceController.php');
+$deviceForm = (string) file_get_contents($root . '/templates/device_index.php');
+$importer = (string) file_get_contents($root . '/lib/ElectricalInspectionImportService.php');
 $inspectionForm = (string) file_get_contents($root . '/templates/inspection_edit.php');
 $inspectionController = (string) file_get_contents($root . '/controllers/InspectionController.php');
 $schema = (string) file_get_contents($root . '/lib/lib.inc.php');
@@ -51,15 +53,23 @@ if (!str_contains($component, 'Weiterer Speicherplatz')
     || !str_contains($component, 'hx-target="closest [data-storage-slots-panel]"')
     || !str_contains($component, 'hx-include="closest [data-storage-slots-panel]"')
     || !str_contains($component, 'hx-params="storage_form_key,storage_slot_numbers[],storage_slot_comments[],slot_context,slot_action,slot_index"')
-    || !str_contains($controller, 'storageSlotRows(')
-    || !str_contains($inspectionForm, 'inspection-storage-slot-options')
-    || !str_contains($inspectionForm, "DeviceStorageSlotService::fromDevice(")
+    || !str_contains($inspectionController, 'storageSlotRows(')
+    || !str_contains($inspectionForm, 'DeviceStorageSlotService::fromDevice($inspection)')
     || !str_contains($inspectionForm, "'storageContext' => 'inspection'")
     || !str_contains($component, 'Server mit zwei Netzteilen (PSU 1 und PSU 2)')
     || !str_contains($inspectionController, 'DeviceStorageSlotService::fromPost($storagePost)')
     || !str_contains($schema, "'measurement_slots_json' =>")
-    || !str_contains($routes, "'/geraete/speicherplaetze/form'")) {
+    || !str_contains($routes, "'/admin/pruefungen/speicherplaetze/form'")) {
     throw new RuntimeException('Der HTMX-Speicherplatzbereich ist nicht vollständig angebunden.');
+}
+if (str_contains($deviceForm, "render_template('device_storage_slots.php'")
+    || str_contains($deviceForm, 'Prüf-Speicherplätze:')
+    || str_contains($inspectionForm, 'DeviceStorageSlotService::fromDevice($device)')
+    || str_contains($controller, 'DeviceStorageSlotService::fromPost')
+    || str_contains($importer, 'addDeviceStorageSlot')
+    || str_contains($importer, "R::findOne('device', ' storage_slot = ? '")
+) {
+    throw new RuntimeException('Prüf-Speicherplätze dürfen weder aus Gerätedaten vorgeschlagen noch am Gerät gespeichert werden.');
 }
 
 function current_user_has_role(string ...$roles): bool
@@ -80,7 +90,7 @@ function render_template(string $template, array $data = []): string
     return (string) ob_get_clean();
 }
 
-require_once $root . '/controllers/DeviceController.php';
+require_once $root . '/controllers/InspectionController.php';
 $singleMarkup = render_template('device_storage_slots.php', [
     'storageSlotRows' => [['number' => '120', 'comment' => 'PSU links']],
     'formKey' => 42,
@@ -94,18 +104,18 @@ if (str_contains($singleMarkup, 'Kommentar zu Platz 1')
 $_POST = [
     'slot_action' => 'add',
     'storage_form_key' => '42',
+    'slot_context' => 'inspection',
     'storage_slot_numbers' => ['120'],
     'storage_slot_comments' => ['PSU links'],
 ];
-[$status, , $markup] = DeviceController::storageSlotRows([], true);
+[$status, , $markup] = InspectionController::storageSlotRows([], true);
 if ($status !== 200 || substr_count($markup, 'name="storage_slot_numbers[]"') !== 2
-    || !str_contains($markup, 'value="PSU links"') || !str_contains($markup, 'id="device-storage-slots-42"')
+    || !str_contains($markup, 'value="PSU links"') || !str_contains($markup, 'id="inspection-storage-slots-42"')
     || str_contains($markup, '<form')) {
     throw new RuntimeException('Das Hinzufügen muss nur den Speicherplatzbereich mit unveränderten bisherigen Werten liefern.');
 }
 
-$_POST['slot_context'] = 'inspection';
-[$status, , $inspectionMarkup] = DeviceController::storageSlotRows([], true);
+[$status, , $inspectionMarkup] = InspectionController::storageSlotRows([], true);
 if ($status !== 200 || !str_contains($inspectionMarkup, 'id="inspection-storage-slots-42"')
     || !str_contains($inspectionMarkup, 'id="inspection-storage-slot"')
     || !str_contains($inspectionMarkup, 'Server mit zwei Netzteilen (PSU 1 und PSU 2)')
@@ -118,10 +128,11 @@ $_POST = [
     'slot_action' => 'remove',
     'slot_index' => '0',
     'storage_form_key' => '42',
+    'slot_context' => 'inspection',
     'storage_slot_numbers' => ['120', '121'],
     'storage_slot_comments' => ['PSU links', 'PSU rechts'],
 ];
-[$status, , $markup] = DeviceController::storageSlotRows([], true);
+[$status, , $markup] = InspectionController::storageSlotRows([], true);
 if ($status !== 200 || substr_count($markup, 'name="storage_slot_numbers[]"') !== 1
     || !str_contains($markup, 'value="PSU rechts"') || str_contains($markup, 'value="PSU links"')) {
     throw new RuntimeException('Beim Entfernen muss der verbleibende Speicherplatz samt Kommentar erhalten bleiben.');

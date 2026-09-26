@@ -886,9 +886,6 @@ final class ElectricalInspectionImportService
         $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' legacy_number = ? ', [$legacy]) : null;
         $device ??= $legacy !== '' && $legacy !== '-' ? R::findOne('device', ' external_number = ? ', [$legacy]) : null;
         $device ??= $external !== '' ? R::findOne('device', ' legacy_number = ? ', [$external]) : null;
-        // Speicherplätze are export-local.  They are only a last resort when
-        // an old row has no durable device number at all.
-        $device ??= $external === '' && $slot !== '' ? R::findOne('device', ' storage_slot = ? ', [$slot]) : null;
         $created = $device === null;
         if (!$created && $legacy !== '' && $legacy !== '-' && $external !== '') {
             $oldDevices = R::findAll('device', ' (legacy_number = ? OR external_number = ?) AND id <> ? ', [$legacy, $legacy, (int) $device->id]);
@@ -903,8 +900,6 @@ final class ElectricalInspectionImportService
         $device ??= R::dispense('device');
         if ($created || trim((string) ($device->external_number ?? '')) === '') $device->external_number = $external;
         if ($created || trim((string) ($device->legacy_number ?? '')) === '') $device->legacy_number = $legacy === '-' ? '' : $legacy;
-        if ($created || trim((string) ($device->storage_slot ?? '')) === '') $device->storage_slot = $slot;
-        if ($slot !== '') $this->addDeviceStorageSlot($device, $slot);
         if (array_key_exists('warming_device', $record) && ($created || !isset($device->warming_device))) $device->warming_device = filter_var($record['warming_device'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
         $room = trim((string) ($record['room_snapshot'] ?? $record['room'] ?? ''));
         if ($room !== '' && ($created || trim((string) ($device->room_snapshot ?? '')) === '')) $device->room_snapshot = $room;
@@ -941,17 +936,6 @@ final class ElectricalInspectionImportService
         // are reviewed only through the explicit, resumable admin batch – not
         // as one network job per imported device value.
         return ['device' => $device, 'created' => $created];
-    }
-
-    private function addDeviceStorageSlot(\RedBeanPHP\OODBBean $device, string $slot): void
-    {
-        $slots = json_decode((string) ($device->storage_slots_json ?? '[]'), true);
-        if (!is_array($slots)) $slots = [];
-        if ($slots === [] && trim((string) ($device->storage_slot ?? '')) !== '') $slots[] = trim((string) $device->storage_slot);
-        $key = static fn(string $value): string => preg_match('/^\d+$/', trim($value)) === 1 ? (string) (int) trim($value) : mb_strtoupper(trim($value));
-        foreach ($slots as $known) if ($key((string) $known) === $key($slot)) return;
-        $slots[] = $slot;
-        $device->storage_slots_json = json_encode(array_values($slots), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function sameStorageSlot(string $left, string $right): bool

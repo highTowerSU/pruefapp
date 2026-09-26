@@ -2,9 +2,9 @@
 $storageSlotRows ??= [['number' => '', 'comment' => '']];
 $formKey ??= 0;
 $slotError ??= '';
-$storageContext ??= 'device';
+$storageContext ??= 'inspection';
 $isInspectionStorage = $storageContext === 'inspection';
-$slotFormUrl = htmlspecialchars(url_for('geraete/speicherplaetze/form'), ENT_QUOTES);
+$slotFormUrl = htmlspecialchars(url_for('admin/pruefungen/speicherplaetze/form'), ENT_QUOTES);
 ?>
 <div class="col-12" data-storage-slots-panel id="<?= $isInspectionStorage ? 'inspection' : 'device' ?>-storage-slots-<?= (int) $formKey ?>">
   <input type="hidden" name="storage_form_key" value="<?= (int) $formKey ?>">
@@ -16,7 +16,7 @@ $slotFormUrl = htmlspecialchars(url_for('geraete/speicherplaetze/form'), ENT_QUO
   <?php if ($slotError !== ''): ?><div class="alert alert-warning py-2 mb-2" role="alert"><?= htmlspecialchars($slotError) ?></div><?php endif; ?>
   <?php foreach ($storageSlotRows as $index => $row): ?>
     <div class="row g-2 align-items-end mb-2">
-      <div class="col-12 col-md-3"><label class="form-label" for="<?= $isInspectionStorage && $index === 0 ? 'inspection-storage-slot' : 'storage-slot-number-' . (int) $formKey . '-' . $index ?>">Speicherplatz <?= $index + 1 ?></label><input class="form-control" id="<?= $isInspectionStorage && $index === 0 ? 'inspection-storage-slot' : 'storage-slot-number-' . (int) $formKey . '-' . $index ?>" name="storage_slot_numbers[]" value="<?= htmlspecialchars((string) ($row['number'] ?? ''), ENT_QUOTES) ?>" maxlength="40" placeholder="z. B. 120"<?= $isInspectionStorage ? ' list="inspection-storage-slot-options"' : '' ?>></div>
+      <div class="col-12 col-md-3"><label class="form-label" for="<?= $isInspectionStorage && $index === 0 ? 'inspection-storage-slot' : 'storage-slot-number-' . (int) $formKey . '-' . $index ?>">Speicherplatz <?= $index + 1 ?></label><input class="form-control" id="<?= $isInspectionStorage && $index === 0 ? 'inspection-storage-slot' : 'storage-slot-number-' . (int) $formKey . '-' . $index ?>" name="storage_slot_numbers[]" value="<?= htmlspecialchars((string) ($row['number'] ?? ''), ENT_QUOTES) ?>" maxlength="40" placeholder="z. B. 120"></div>
       <?php if (count($storageSlotRows) > 1): ?>
         <div class="col-12 col-md-8"><label class="form-label" for="storage-slot-comment-<?= (int) $formKey ?>-<?= $index ?>">Kommentar zu Platz <?= $index + 1 ?></label><input class="form-control" id="storage-slot-comment-<?= (int) $formKey ?>-<?= $index ?>" name="storage_slot_comments[]" value="<?= htmlspecialchars((string) ($row['comment'] ?? ''), ENT_QUOTES) ?>" maxlength="240" placeholder="z. B. Netzteil links / PSU 1"></div>
       <?php else: ?>
@@ -26,5 +26,5 @@ $slotFormUrl = htmlspecialchars(url_for('geraete/speicherplaetze/form'), ENT_QUO
     </div>
   <?php endforeach; ?>
   <button class="btn btn-outline-primary btn-sm" type="button" hx-post="<?= $slotFormUrl ?>" hx-target="closest [data-storage-slots-panel]" hx-include="closest [data-storage-slots-panel]" hx-params="storage_form_key,storage_slot_numbers[],storage_slot_comments[],slot_context,slot_action,slot_index" hx-vals='{"slot_action":"add"}' hx-swap="outerHTML" hx-disabled-elt="this"<?= count($storageSlotRows) >= DeviceStorageSlotService::MAX_SLOTS ? ' disabled' : '' ?>><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>Weiterer Speicherplatz</button>
-  <div class="form-text"><?= $isInspectionStorage ? 'Beispiel: Server mit zwei Netzteilen (PSU 1 und PSU 2). Für jedes Netzteil einen eigenen BENNING-Speicherplatz hinzufügen und zur Unterscheidung kommentieren. Die Plätze werden mit dieser Prüfung gespeichert.' : 'Beispiel: Server mit zwei Netzteilen (PSU 1 und PSU 2). Pro Netzteil einen Speicherplatz hinzufügen und zur Unterscheidung kommentieren. Gespeichert wird zusammen mit dem Gerät.' ?></div>
+  <div class="form-text">Beispiel: Server mit zwei Netzteilen (PSU 1 und PSU 2). Für jedes Netzteil einen eigenen BENNING-Speicherplatz hinzufügen und zur Unterscheidung kommentieren. Die Plätze werden mit dieser Prüfung gespeichert.</div>
 </div>

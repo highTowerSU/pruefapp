@@ -6,40 +6,6 @@ use RedBeanPHP\R;
 
 class DeviceController
 {
-    public static function storageSlotRows(array $params, bool $isHx): array
-    {
-        if (!current_user_has_role('admin', 'editor')) {
-            return forbidden_response();
-        }
-        try {
-            $rows = DeviceStorageSlotService::fromFields($_POST['storage_slot_numbers'] ?? [], $_POST['storage_slot_comments'] ?? []);
-            $error = '';
-            $action = (string) ($_POST['slot_action'] ?? '');
-            if ($action === 'add') {
-                if (count($rows) < DeviceStorageSlotService::MAX_SLOTS) {
-                    $rows[] = ['number' => '', 'comment' => ''];
-                } else {
-                    $error = 'Es können maximal acht Prüf-Speicherplätze je Gerät hinterlegt werden.';
-                }
-            } elseif ($action === 'remove') {
-                $index = filter_var($_POST['slot_index'] ?? null, FILTER_VALIDATE_INT);
-                if ($index !== false && $index !== null && isset($rows[$index]) && count($rows) > 1) {
-                    array_splice($rows, $index, 1);
-                }
-            } else {
-                return [400, [], 'Ungültige Speicherplatzaktion.'];
-            }
-        } catch (InvalidArgumentException $exception) {
-            return [422, [], htmlspecialchars($exception->getMessage(), ENT_QUOTES)];
-        }
-        return [200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store'], render_template('device_storage_slots.php', [
-            'storageSlotRows' => $rows,
-            'formKey' => (int) ($_POST['storage_form_key'] ?? 0),
-            'slotError' => $error,
-            'storageContext' => ($_POST['slot_context'] ?? '') === 'inspection' ? 'inspection' : 'device',
-        ])];
-    }
-
     public static function vocabularyOptions(array $params, bool $isHx): array
     {
         if (!current_user_has_role('editor')) return forbidden_response();
@@ -385,22 +351,6 @@ class DeviceController
         $device->manufacturer = $vocabulary['manufacturer'];
         $device->warming_device = isset($_POST['warming_device']) ? 1 : 0;
         $device->inventory_number = trim((string) ($_POST['inventory_number'] ?? ''));
-        try {
-            $storageSlotRows = DeviceStorageSlotService::fromPost($_POST);
-        } catch (InvalidArgumentException $exception) {
-            $_SESSION['fehlermeldung'] = $exception->getMessage();
-            return [303, ['Location' => url_for('geraete')], ''];
-        }
-        $storageSlots = array_column($storageSlotRows, 'number');
-        $storageSlotNotes = [];
-        foreach ($storageSlotRows as $row) {
-            if ($row['comment'] !== '') {
-                $storageSlotNotes[$row['number']] = $row['comment'];
-            }
-        }
-        $device->storage_slots_json = json_encode($storageSlots, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $device->storage_slot_notes_json = json_encode($storageSlotNotes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $device->storage_slot = $storageSlots[0] ?? '';
         $description = trim((string) ($_POST['description'] ?? ''));
         if (mb_strlen($description) > 240) {
             $_SESSION['fehlermeldung'] = 'Die Kurzbeschreibung darf maximal 240 Zeichen enthalten.';

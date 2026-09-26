@@ -42,7 +42,7 @@ final class DeviceStorageSlotService
             throw new InvalidArgumentException('Die Speicherplatzangaben sind ungültig.');
         }
         if (count($numbers) > self::MAX_SLOTS || count($comments) > self::MAX_SLOTS) {
-            throw new InvalidArgumentException('Es können maximal acht Prüf-Speicherplätze je Gerät hinterlegt werden.');
+            throw new InvalidArgumentException('Es können maximal acht Prüf-Speicherplätze je Prüfung hinterlegt werden.');
         }
         $rows = [];
         $comments = array_values($comments);
@@ -88,7 +88,7 @@ final class DeviceStorageSlotService
             $saved[] = $row;
         }
         if (count($saved) > self::MAX_SLOTS) {
-            throw new InvalidArgumentException('Es können maximal acht Prüf-Speicherplätze je Gerät hinterlegt werden.');
+            throw new InvalidArgumentException('Es können maximal acht Prüf-Speicherplätze je Prüfung hinterlegt werden.');
         }
         return $saved;
     }

@@ -6,6 +6,40 @@ use RedBeanPHP\R;
 
 final class InspectionController
 {
+    public static function storageSlotRows(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin', 'editor')) {
+            return forbidden_response();
+        }
+        try {
+            $rows = DeviceStorageSlotService::fromFields($_POST['storage_slot_numbers'] ?? [], $_POST['storage_slot_comments'] ?? []);
+            $error = '';
+            $action = (string) ($_POST['slot_action'] ?? '');
+            if ($action === 'add') {
+                if (count($rows) < DeviceStorageSlotService::MAX_SLOTS) {
+                    $rows[] = ['number' => '', 'comment' => ''];
+                } else {
+                    $error = 'Es können maximal acht Prüf-Speicherplätze je Prüfung hinterlegt werden.';
+                }
+            } elseif ($action === 'remove') {
+                $index = filter_var($_POST['slot_index'] ?? null, FILTER_VALIDATE_INT);
+                if ($index !== false && $index !== null && isset($rows[$index]) && count($rows) > 1) {
+                    array_splice($rows, $index, 1);
+                }
+            } else {
+                return [400, [], 'Ungültige Speicherplatzaktion.'];
+            }
+        } catch (InvalidArgumentException $exception) {
+            return [422, [], htmlspecialchars($exception->getMessage(), ENT_QUOTES)];
+        }
+        return [200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store'], render_template('device_storage_slots.php', [
+            'storageSlotRows' => $rows,
+            'formKey' => (int) ($_POST['storage_form_key'] ?? 0),
+            'slotError' => $error,
+            'storageContext' => 'inspection',
+        ])];
+    }
+
     public static function normalizeManualResult($inspection): void
     {
         // Kept as a compatibility hook. Result repair now happens only in the
