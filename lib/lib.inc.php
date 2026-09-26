@@ -571,6 +571,12 @@ function ensure_structure_schema(): void
             }
         }
     }
+    // Both branches of the barcode lookup must use an index, including on
+    // databases where these columns were added after the initial device table.
+    if (!$isMysql) {
+        R::exec('CREATE INDEX IF NOT EXISTS idx_device_external_number ON device (external_number)');
+        R::exec('CREATE INDEX IF NOT EXISTS idx_device_legacy_number ON device (legacy_number)');
+    }
     R::exec("UPDATE room SET number = name WHERE number = ''");
     R::exec('CREATE INDEX IF NOT EXISTS idx_room_area ON room (area_id)');
     R::exec('CREATE INDEX IF NOT EXISTS idx_inspection_billing_status ON inspection (billing_eligibility, billing_status)');

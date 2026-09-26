@@ -250,13 +250,22 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
     const numberInput = document.getElementById('inspection-device-number');
     const result = document.getElementById('inspection-device-result');
     const lookupButton = document.getElementById('inspection-device-lookup-button');
+    let lookupTimer = 0;
+    let lookupController = null;
+    let lookupSequence = 0;
     const lookup = async () => {
+      window.clearTimeout(lookupTimer);
       const number = numberInput.value.trim();
+      lookupController?.abort();
+      const sequence = ++lookupSequence;
       if (!number) { result.textContent = ''; return; }
+      lookupController = new AbortController();
       result.textContent = 'Suche …';
       try {
-        const response = await fetch(`<?= htmlspecialchars(url_for('geraete/suche'), ENT_QUOTES) ?>?number=${encodeURIComponent(number)}`, {headers:{Accept:'application/json'}});
+        const response = await fetch(`<?= htmlspecialchars(url_for('geraete/suche'), ENT_QUOTES) ?>?number=${encodeURIComponent(number)}`, {headers:{Accept:'application/json'}, signal: lookupController.signal});
+        if (!response.ok) throw new Error('Lookup failed');
         const data = await response.json();
+        if (sequence !== lookupSequence || number !== numberInput.value.trim()) return;
         result.replaceChildren();
         if (data.found) { const text = document.createElement('span'); text.className = 'text-success'; text.textContent = `Vorhanden: ${data.number} · ${data.name}`; const link = document.createElement('a'); link.className = 'btn btn-sm btn-success ms-2'; link.href = data.url; link.innerHTML = '<i class="fa-solid fa-clipboard-check me-1" aria-hidden="true"></i>Prüfung anlegen'; result.append(text, link); }
         else {
@@ -287,10 +296,18 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
           });
           result.append(text, link);
         }
-      } catch (_) { result.textContent = 'Suche momentan nicht verfügbar.'; }
+      } catch (error) {
+        if (error.name !== 'AbortError' && sequence === lookupSequence) result.textContent = 'Suche momentan nicht verfügbar.';
+      }
     };
     lookupButton.addEventListener('click', lookup);
-    numberInput.addEventListener('input', () => { clearTimeout(numberInput._lookupTimer); numberInput._lookupTimer = setTimeout(lookup, 250); });
+    numberInput.addEventListener('input', () => {
+      window.clearTimeout(lookupTimer);
+      lookupController?.abort();
+      ++lookupSequence;
+      if (!numberInput.value.trim()) { result.textContent = ''; return; }
+      lookupTimer = window.setTimeout(lookup, numberInput.value.trim().length >= 6 ? 100 : 250);
+    });
     numberInput.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); lookup(); } });
     let scannerFocusTimer = 0;
     const focusScanner = () => {

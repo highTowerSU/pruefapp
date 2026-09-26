@@ -22,6 +22,13 @@ $deviceOverviewPosition = strpos($navbar, 'Geräteübersicht</a>');
 $checks = [
     [$lookupPosition !== false && $filterPosition !== false && $lookupPosition < $filterPosition, 'Die Prüfungssuche steht nicht vor den Gerätefiltern.'],
     [str_contains($template, 'id="inspection-device-number"') && str_contains($template, 'autofocus'), 'Das Scannerfeld mit Autofokus fehlt.'],
+    [str_contains($template, 'window.clearTimeout(lookupTimer);')
+        && str_contains($template, "event.key === 'Enter'")
+        && str_contains($template, 'lookupController?.abort();')
+        && str_contains($template, 'sequence !== lookupSequence')
+        && str_contains($template, 'numberInput.value.trim().length >= 6 ? 100 : 250'), 'Die Barcode-Suche wartet zu lange oder zeigt veraltete Antworten an.'],
+    [str_contains($schema, 'CREATE INDEX IF NOT EXISTS idx_device_external_number ON device (external_number)')
+        && str_contains($schema, 'CREATE INDEX IF NOT EXISTS idx_device_legacy_number ON device (legacy_number)'), 'Die Barcode-Suche hat keine Indizes für Geräte- und Altnummer.'],
     [str_contains($template, "link.addEventListener('click', event => {")
         && str_contains($template, "document.getElementById('device-new-panel')")
         && str_contains($template, "field.value = number;")
