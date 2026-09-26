@@ -55,7 +55,7 @@ if (!str_contains($component, 'Weiterer Speicherplatz')
     || !str_contains($inspectionForm, 'inspection-storage-slot-options')
     || !str_contains($inspectionForm, "DeviceStorageSlotService::fromDevice(")
     || !str_contains($inspectionForm, "'storageContext' => 'inspection'")
-    || !str_contains($component, 'Bei zwei Netzteilen (PSU 1 und PSU 2)')
+    || !str_contains($component, 'Server mit zwei Netzteilen (PSU 1 und PSU 2)')
     || !str_contains($inspectionController, 'DeviceStorageSlotService::fromPost($storagePost)')
     || !str_contains($schema, "'measurement_slots_json' =>")
     || !str_contains($routes, "'/geraete/speicherplaetze/form'")) {
@@ -81,6 +81,16 @@ function render_template(string $template, array $data = []): string
 }
 
 require_once $root . '/controllers/DeviceController.php';
+$singleMarkup = render_template('device_storage_slots.php', [
+    'storageSlotRows' => [['number' => '120', 'comment' => 'PSU links']],
+    'formKey' => 42,
+    'storageContext' => 'inspection',
+]);
+if (str_contains($singleMarkup, 'Kommentar zu Platz 1')
+    || !str_contains($singleMarkup, 'type="hidden" name="storage_slot_comments[]" value="PSU links"')
+    || !str_contains($singleMarkup, 'Server mit zwei Netzteilen (PSU 1 und PSU 2)')) {
+    throw new RuntimeException('Bei einem Speicherplatz muss der Kommentar verborgen, aber beim Speichern erhalten bleiben.');
+}
 $_POST = [
     'slot_action' => 'add',
     'storage_form_key' => '42',
@@ -98,7 +108,8 @@ $_POST['slot_context'] = 'inspection';
 [$status, , $inspectionMarkup] = DeviceController::storageSlotRows([], true);
 if ($status !== 200 || !str_contains($inspectionMarkup, 'id="inspection-storage-slots-42"')
     || !str_contains($inspectionMarkup, 'id="inspection-storage-slot"')
-    || !str_contains($inspectionMarkup, 'Bei zwei Netzteilen (PSU 1 und PSU 2)')
+    || !str_contains($inspectionMarkup, 'Server mit zwei Netzteilen (PSU 1 und PSU 2)')
+    || !str_contains($inspectionMarkup, 'Kommentar zu Platz 1')
     || substr_count($inspectionMarkup, 'name="storage_slot_numbers[]"') !== 2) {
     throw new RuntimeException('Auch im Prüfungsformular muss der zusätzliche Speicherplatz mit PSU-Erklärung erscheinen.');
 }
