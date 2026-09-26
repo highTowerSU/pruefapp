@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-device-filter-refresh',
+            'date' => '27.09.2026',
+            'title' => 'Gerätefilter lädt nur noch einmal',
+            'items' => [
+                'Filteränderungen werden gesammelt und mit „Filtern“ oder Enter angewendet.',
+                'Vorschläge für Hersteller, Modell und Bezeichnung werden erst beim Öffnen eines Geräteformulars geladen. Dadurch entfallen die vielen Hintergrundabfragen nach jedem Filterwechsel.',
+            ],
+            'pruefapp_revision' => '78ffdbb',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-inspection-only-storage-slots',
             'date' => '27.09.2026',
             'title' => 'Prüf-Speicherplätze nur bei Prüfungen',

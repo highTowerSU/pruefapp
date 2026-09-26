@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Gerätefilter ohne wiederholtes Nachladen
+
+- Gerätefilter werden erst nach „Filtern“ oder Enter angewendet. Das verhindert zusätzliche HTMX-Aufrufe beim Auswählen mehrerer Filter.
+- Hersteller-, Modell- und Bezeichnungsvorschläge werden erst geladen, wenn das jeweilige Geräteformular geöffnet wird. Ein Filterwechsel startet damit nicht mehr bis zu drei Vorschlagsabfragen pro zugeklapptem Gerät.
+- Die Abrechnungsfilter behalten ihr bisheriges Verhalten; Seitennavigation tauscht weiterhin nur die Geräteliste.
+- Revisionen: Prüfapp `78ffdbb`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Prüf-Speicherplätze gehören zur Prüfung
 
 - Optionale BENNING-Speicherplätze und ihre Kommentare werden nur noch in der einzelnen Prüfung erfasst und angezeigt, nicht im Geräteformular oder in der Geräteübersicht.
