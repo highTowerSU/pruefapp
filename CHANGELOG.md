@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Mehr Gerätedaten bei neuer Prüfung
+
+- Oben in der Prüfmaske sind Inventar- und Seriennummer stets sichtbar, auch wenn sie am Gerät noch nicht hinterlegt sind. Vorhandene Altnummer, importierte Raumangabe und Kurzbeschreibung helfen bei der Identifizierung des Geräts.
+- Die Gerätenummer-/Barcode-Suche bleibt unverändert.
+- Revisionen: Prüfapp `a036ba8`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Gerätedaten und fehlende Prüfungsangaben sichtbar
 
 - Nach der Gerätenummer-/Barcode-Suche und oben in der Prüfungsmaske werden Hersteller, Modell und vorhandene Inventar- bzw. Seriennummern angezeigt. Fehlende Hersteller- oder Modellangaben sind gelb markiert.

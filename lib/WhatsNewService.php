@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-inspection-more-device-details',
+            'date' => '27.09.2026',
+            'title' => 'Mehr Gerätedaten bei neuer Prüfung',
+            'items' => [
+                'Oben in der Prüfmaske bleiben Inventar- und Seriennummer sichtbar, auch wenn sie noch nicht hinterlegt sind.',
+                'Vorhandene Altnummer, Raumangabe und Kurzbeschreibung erleichtern die Identifizierung des Geräts.',
+            ],
+            'pruefapp_revision' => 'a036ba8',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-inspection-device-details-missing-list',
             'date' => '27.09.2026',
             'title' => 'Gerätedaten und fehlende Prüfpunkte auf einen Blick',
