@@ -1,5 +1,12 @@
 # Änderungsprotokoll
 
+## 27.09.2026 – Prüf-Speicherplätze gehören zur Prüfung
+
+- Optionale BENNING-Speicherplätze und ihre Kommentare werden nur noch in der einzelnen Prüfung erfasst und angezeigt, nicht im Geräteformular oder in der Geräteübersicht.
+- Die Prüfung übernimmt keine Geräte-Speicherplätze mehr als Vorschläge. Beim CSV-/ODS-Import werden Speicherplätze nicht mehr am Gerät gespeichert oder als Gerätekennung für die Zuordnung verwendet.
+- Bereits vorhandene Gerätedaten bleiben aus Sicherheitsgründen in der Datenbank erhalten, werden aber nicht mehr bearbeitet oder angezeigt. Bestehende Prüfungs-Speicherplätze bleiben unverändert.
+- Revisionen: Prüfapp `8f8ccba`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 27.09.2026 – Fehlende Kabellänge bei der Bewertung benennen
 
 - Liegt der Schutzleiterwiderstand über 0,3 Ω und höchstens bei 1,0 Ω, wird ohne Kabellänge kein pauschales Fehlerurteil mehr gefällt. Die Prüfung nennt ausdrücklich „Kabellänge fehlt“ und erklärt, warum der Messwert noch nicht eindeutig bewertet werden kann.

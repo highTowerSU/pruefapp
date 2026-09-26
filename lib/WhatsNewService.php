@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-27-inspection-only-storage-slots',
+            'date' => '27.09.2026',
+            'title' => 'Prüf-Speicherplätze nur bei Prüfungen',
+            'items' => [
+                'Optionale Speicherplätze und Kommentare stehen nur noch bei der einzelnen Prüfung, nicht mehr am Gerät.',
+                'Bereits erfasste Prüfungs-Speicherplätze bleiben erhalten.',
+            ],
+            'pruefapp_revision' => '8f8ccba',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-cable-length-evaluation-reason',
             'date' => '27.09.2026',
             'title' => 'Fehlende Kabellänge klar benannt',
