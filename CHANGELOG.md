@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 26.09.2026 – Offene Prüfungen mit Messdaten klar kennzeichnen
+
+- In der Importübersicht werden offene Prüfweb-Prüfungen mit bereits vorhandenen Messdaten und weiterhin fehlenden Angaben gelb als „Messdaten vorhanden · Daten fehlen“ markiert. Die Liste unterscheidet sie von Prüfungen ohne Messdaten.
+- Bei leerem Speicherplatz führt „Speicherplatz hinzufügen“ direkt zum bearbeitbaren Speicherplatzfeld der Prüfung.
+- Revisionen: Prüfapp `a4bc69e`; Ceneos PHP Base `a631489` (unverändert).
+
 ## 26.09.2026 – Messdaten aus CSV mit mehreren Prüftagen zuordnen
 
 - Beim Import in bestehende Prüfweb-Prüfungen wird jede CSV-Zeile über ihr eigenes Prüfdatum und ihren Speicherplatz zugeordnet. Ein gemischter Export wird nicht mehr vollständig auf das Datum der ersten Zeile festgelegt.

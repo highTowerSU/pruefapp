@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-09-26-pending-measurement-labels',
+            'date' => '26.09.2026',
+            'title' => 'Offene Prüfungen mit Messdaten erkennen',
+            'items' => [
+                'Die Importübersicht markiert offene Prüfungen, bei denen Messdaten schon vorhanden sind, aber noch Angaben fehlen. Prüfungen ohne Messdaten sind davon unterscheidbar.',
+                'Fehlt der Speicherplatz, führt „Speicherplatz hinzufügen“ direkt zum Eingabefeld der Prüfung.',
+            ],
+            'pruefapp_revision' => 'a4bc69e',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-26-measurement-csv-row-dates',
             'date' => '26.09.2026',
             'title' => 'Messdaten aus mehreren Prüftagen importieren',
