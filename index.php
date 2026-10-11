@@ -13,9 +13,7 @@ $renderApplicationError = static function (string $requestId): void {
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-store');
     }
-    $safeId = htmlspecialchars($requestId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $safePath = htmlspecialchars((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '/'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    echo '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vorübergehend nicht verfügbar</title><style>body{font-family:system-ui,-apple-system,sans-serif;background:#f8f9fa;color:#212529;margin:0;padding:2rem}.box{max-width:42rem;margin:8vh auto;background:#fff;border:1px solid #dee2e6;border-radius:.75rem;padding:2rem;box-shadow:0 .25rem 1rem #0001}h1{margin-top:0;font-size:1.5rem}.muted{color:#6c757d;font-size:.9rem}.actions{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.5rem}a{display:inline-block;padding:.6rem 1rem;border-radius:.4rem;text-decoration:none;background:#0d6efd;color:#fff}a.secondary{background:#6c757d}</style></head><body><main class="box"><h1>Diese Seite konnte gerade nicht geladen werden.</h1><p>Die Anwendung hat einen internen Fehler festgestellt. Deine Daten wurden nicht absichtlich verändert.</p><p>Bitte versuche es erneut. Wenn der Fehler bleibt, gib dem Support diese Vorgangs-ID:</p><p><strong>' . $safeId . '</strong></p><p class="muted">Betroffene Seite: ' . $safePath . '</p><div class="actions"><a href="javascript:location.reload()">Erneut versuchen</a><a class="secondary" href="' . htmlspecialchars(url_for('geraete'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">Zur Geräteübersicht</a></div></main></body></html>';
+    echo \Ceneos\PhpBase\Http\RuntimeErrorPage::render('PrüfApp', $requestId, url_for(''), 'pruefapp-theme');
 };
 $handleApplicationFailure = static function (Throwable $throwable) use ($renderApplicationError): void {
     $requestId = strtoupper(bin2hex(random_bytes(4)));

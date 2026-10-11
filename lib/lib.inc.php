@@ -43,7 +43,7 @@ try {
     if (ob_get_level() > 0) {
         ob_end_clean();
     }
-    BootstrapErrorPage::emit('PrüfApp', $exception);
+    BootstrapErrorPage::emit('PrüfApp', $exception, 'pruefapp-theme');
 }
 RequestTimingService::stop('config');
 
@@ -1854,7 +1854,7 @@ function decorate_collapsible_icons(string $html): string
 
 function forbidden_response(?string $message = null): array
 {
-    return [403, [], \Ceneos\PhpBase\Http\AccessDeniedPage::render('Prüfapp', url_for(''))];
+    return [403, [], \Ceneos\PhpBase\Http\AccessDeniedPage::render('Prüfapp', url_for(''), 'pruefapp-theme')];
 }
 
 // Gibt HTML für farbig markiertes Passwort zurück

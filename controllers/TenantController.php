@@ -209,7 +209,7 @@ class TenantController
             (string) ($_SESSION['ceneos_central_notice'] ?? '')
         );
         unset($_SESSION['ceneos_central_notice']);
-        return [200, [], render_template('layout.php', ['title' => 'Zentrale CENEOS-Verwaltung', 'content' => $content])];
+        return [200, [], render_template('layout.php', ['title' => 'Globale Einstellungen', 'content' => $content])];
     }
 
     private static function handleForm(?\RedBeanPHP\OODBBean $company, bool $isPost = false): array
