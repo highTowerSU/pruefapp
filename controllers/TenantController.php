@@ -92,7 +92,7 @@ class TenantController
         if ($company === null || !$company->id) return [404, [], 'Mandant nicht gefunden.'];
 
         try {
-            $client = new SevDeskClient((string) ($company->sevdesk_api_url ?? ''), (string) ($company->sevdesk_api_token ?? ''));
+            $client = new SevDeskClient((string) ($company->sevdesk_api_url ?? ''), (new TenantRepository())->sevDeskToken((int) $company->id));
             if (!$client->configured()) throw new RuntimeException('Bitte zuerst SevDesk-API-URL und API-Token speichern.');
             $users = array_values(array_filter(array_map(static function (array $user): array {
                 $id = trim((string) ($user['id'] ?? ''));
@@ -179,6 +179,39 @@ class TenantController
         return [303, ['Location' => url_for('mandanten')], ''];
     }
 
+    public static function central(array $params, bool $isHx): array
+    {
+        if (!current_user_has_role('admin')) return forbidden_response();
+        $csrf = (string) ($_SESSION['ceneos_central_csrf'] ?? '');
+        if ($csrf === '') {
+            $csrf = bin2hex(random_bytes(32));
+            $_SESSION['ceneos_central_csrf'] = $csrf;
+        }
+        if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
+            if (!hash_equals($csrf, (string) ($_POST['_csrf'] ?? ''))) return [419, [], 'Die Sitzung ist abgelaufen. Bitte lade die Seite neu.'];
+            try {
+                $_SESSION['ceneos_central_notice'] = \Ceneos\PhpBase\Central\AdminPanel::action(
+                    trim((string) ($_POST['_action'] ?? '')),
+                    $_POST,
+                    app_storage_namespace(),
+                    (string) current_user_role()
+                );
+            } catch (\Throwable $exception) {
+                $_SESSION['ceneos_central_notice'] = $exception->getMessage();
+            }
+            return [303, ['Location' => url_for('admin/base')], ''];
+        }
+        $content = \Ceneos\PhpBase\Central\AdminPanel::render(
+            app_storage_namespace(),
+            (string) current_user_role(),
+            $csrf,
+            url_for('admin/base'),
+            (string) ($_SESSION['ceneos_central_notice'] ?? '')
+        );
+        unset($_SESSION['ceneos_central_notice']);
+        return [200, [], render_template('layout.php', ['title' => 'Zentrale CENEOS-Verwaltung', 'content' => $content])];
+    }
+
     private static function handleForm(?\RedBeanPHP\OODBBean $company, bool $isPost = false): array
     {
         if (!current_user_is_superadmin()) {
@@ -240,7 +273,7 @@ class TenantController
                     $company->nav_background_color = $data['nav_background_color'];
                     $company->nav_text_color = $data['nav_text_color'];
                     $company->sevdesk_api_url = $data['sevdesk_api_url'];
-                    if ($data['sevdesk_api_token'] !== '') $company->sevdesk_api_token = $data['sevdesk_api_token'];
+                    // SevDesk token is written encrypted after the company row has been stored.
                     $company->sevdesk_inspection_rate = $data['sevdesk_inspection_rate'];
                     $company->sevdesk_regie_rate = $data['sevdesk_regie_rate'];
                     $company->sevdesk_tax_rule = $data['sevdesk_tax_rule'];
@@ -263,6 +296,7 @@ class TenantController
 
                     try {
                         $repository->applySelections($company, $isDefault, $isLoginBrand);
+                        if ($data['sevdesk_api_token'] !== '') $repository->setSevDeskToken((int) $company->id, $data['sevdesk_api_token']);
                     } catch (\Throwable $throwable) {
                         $errors[] = 'Speichern fehlgeschlagen: ' . $throwable->getMessage();
                     }

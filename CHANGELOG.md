@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 11.10.2026 – Gemeinsame Verwaltung unter /admin/base
+
+- Die zentrale Mandanten-, Gruppen- und Rollenverwaltung ist in Prüfapp, Moodle User Gen und Königsblau Abrechnung über `/admin/base` erreichbar; `/admin/ceneos` bleibt als Altpfad verfügbar.
+- innoGPT-Schlüssel lassen sich global, je App und je Mandant speichern. Fehlt ein wirksamer Schlüssel, fordert die Verwaltung die Einrichtung verpflichtend an.
+- Revisionen (Ausgangsstände; Änderungen noch im Arbeitsbaum): Prüfapp `70ef90f`; Ceneos PHP Base `a631489`.
+
 ## 27.09.2026 – Ladezeit einer Prüfung messbar machen
 
 - Die Antworten der Prüfapp enthalten `Server-Timing` für Gesamtzeit, Konfiguration, Sitzung, Datenbankstart und Routing.

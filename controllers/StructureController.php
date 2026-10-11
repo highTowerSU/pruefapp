@@ -94,7 +94,7 @@ class StructureController
         $error = '';
         try {
             if (!$tenant || trim((string) ($customer->sevdesk_customer_id ?? '')) === '') throw new RuntimeException('Bitte zuerst einen SevDesk-Kunden auswählen und speichern.');
-            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? ''));
+            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (new TenantRepository())->sevDeskToken((int) $tenant->id));
             $addresses = $client->contactAddresses((string) $customer->sevdesk_customer_id);
             $persons = $client->contactPersons((string) $customer->sevdesk_customer_id);
         } catch (Throwable $exception) {
@@ -299,8 +299,8 @@ class StructureController
     private static function sevdeskContacts($tenant): array
     {
         try {
-            if (!$tenant || trim((string) ($tenant->sevdesk_api_token ?? '')) === '') return [];
-            $contacts = (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) $tenant->sevdesk_api_token))->contacts();
+            if (!$tenant || trim((new TenantRepository())->sevDeskToken((int) $tenant->id)) === '') return [];
+            $contacts = (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (new TenantRepository())->sevDeskToken((int) $tenant->id)))->contacts();
             usort($contacts, static function (array $left, array $right): int {
                 $leftName = trim((string) ($left['name'] ?? (($left['familyname'] ?? '') . ' ' . ($left['firstname'] ?? ''))));
                 $rightName = trim((string) ($right['name'] ?? (($right['familyname'] ?? '') . ' ' . ($right['firstname'] ?? ''))));

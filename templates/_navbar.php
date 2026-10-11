@@ -146,6 +146,7 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
                 <?php if (current_user_has_role('admin')): ?>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzer</a></li>
                 <?php endif; ?>
+                <?php if (current_user_has_role('admin')): ?><li><a class="dropdown-item" href="<?= htmlspecialchars(url_for('admin/base'), ENT_QUOTES) ?>"><i class="fa-solid fa-building-user me-2" aria-hidden="true"></i>Mandanten, Gruppen &amp; Rollen</a></li><?php endif; ?>
                 <?php if (current_user_is_superadmin()): ?>
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="<?= htmlspecialchars($companyUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-building me-2" aria-hidden="true"></i>Mandanten</a></li>
@@ -243,23 +244,8 @@ $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $
           </div>
         <?php endif; ?>
 
-        <div class="btn-group navbar-hover-dropdown" role="group">
-          <button type="button" class="btn btn-outline-navbar" id="themeCycleButton" aria-label="Theme umschalten">
-            <i class="fas fa-circle-half-stroke" data-theme-icon></i>
-          </button>
-          <button type="button" class="btn btn-outline-navbar dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Theme auswählen">
-            <span class="visually-hidden">Theme auswählen</span>
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><button type="button" class="dropdown-item" data-bs-theme-value="light"><i class="fas fa-sun me-2"></i>Hell</button></li>
-            <li><button type="button" class="dropdown-item" data-bs-theme-value="dark"><i class="fas fa-moon me-2"></i>Dunkel</button></li>
-            <li><button type="button" class="dropdown-item" data-bs-theme-value="auto"><i class="fas fa-circle-half-stroke me-2"></i>Automatisch</button></li>
-            <?php if ($authUser !== null): ?>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil') . '#display-preferences', ENT_QUOTES) ?>"><i class="fa-solid fa-universal-access me-2" aria-hidden="true"></i>Darstellung &amp; Barrierefreiheit</a></li>
-            <?php endif; ?>
-          </ul>
-        </div>
+        <?= \Ceneos\PhpBase\View\ThemeSwitcher::render('pruefapp-theme', 'btn-outline-navbar') ?>
+        <?php if ($authUser !== null): ?><a class="btn btn-outline-navbar" href="<?= htmlspecialchars(url_for('profil') . '#display-preferences', ENT_QUOTES) ?>" title="Darstellung &amp; Barrierefreiheit" aria-label="Darstellung &amp; Barrierefreiheit"><i class="fa-solid fa-universal-access" aria-hidden="true"></i></a><?php endif; ?>
       </div>
     </div>
   </div>

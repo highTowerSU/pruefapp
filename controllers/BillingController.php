@@ -81,7 +81,7 @@ final class BillingController
                 'customers' => R::findAll('customer', ' ORDER BY name '), 'sites' => R::findAll('site', ' ORDER BY name '),
                 'buildings' => R::findAll('building', ' ORDER BY name '), 'floors' => R::findAll('floor', ' ORDER BY sort_order, name '),
                 'rooms' => $rooms, 'roomLabels' => $roomLabels, 'examinerOptions' => InspectionFilterService::examinerOptions(),
-                'configured' => $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '', 'preselectedIds' => [],
+                'configured' => $tenant && trim((new TenantRepository())->sevDeskToken((int) $tenant->id)) !== '', 'preselectedIds' => [],
                 'page' => $page, 'pages' => max(1, (int) ceil(count($allRows) / $perPage)), 'perPage' => $perPage, 'message' => null, 'filters' => $filters,
             ]);
             $pageHtml = render_template('layout.php', ['title' => 'Abrechnung', 'content' => $content]);
@@ -210,7 +210,7 @@ final class BillingController
         }
         $examinerOptions = InspectionFilterService::examinerOptions();
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
-        $configured = $tenant && trim((string) ($tenant->sevdesk_api_token ?? '')) !== '';
+        $configured = $tenant && trim((new TenantRepository())->sevDeskToken((int) $tenant->id)) !== '';
         $invoices = self::recentInvoices();
         $messageInvoiceIds = array_values(array_filter(array_map('intval', (array) ($_SESSION['billing_message_invoice_ids'] ?? [])), static fn(int $id): bool => $id > 0));
         $messageInvoices = $messageInvoiceIds === [] ? [] : R::findAll('billinginvoice', ' id IN (' . implode(',', array_fill(0, count($messageInvoiceIds), '?')) . ') ORDER BY id DESC ', $messageInvoiceIds);
@@ -260,7 +260,7 @@ final class BillingController
                 audit_log('abrechnung_export_blockiert', ['inspection_ids' => array_column($missingCustomerRows, 'id'), 'reason' => 'missing_sevdesk_customer']);
                 return $isHx ? [200, ['HX-Trigger' => 'billing-refresh'], ''] : [303, ['Location' => url_for('admin/abrechnung')], ''];
             }
-            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? ''));
+            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (new TenantRepository())->sevDeskToken((int) $tenant->id));
             $exportKey = hash('sha256', implode(',', array_map('intval', array_column($rows, 'id'))) . '|' . (int) (current_user()->id ?? 0) . '|' . (string) floor(time() / 10));
             $existingExport = R::findOne('billingexport', ' idempotency_key = ? ', [$exportKey]);
             if ($existingExport && in_array((string) $existingExport->status, ['pending', 'running', 'succeeded'], true)) {
@@ -324,7 +324,7 @@ final class BillingController
         if ($numbers === []) return [422, [], 'Bitte mindestens eine Rechnungsnummer angeben.'];
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         try {
-            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? ''), (string) ($tenant->sevdesk_api_token ?? ''));
+            $client = new SevDeskClient((string) ($tenant->sevdesk_api_url ?? ''), (new TenantRepository())->sevDeskToken((int) $tenant->id));
             $invoices = $client->invoicesByNumbers($numbers);
             foreach ($invoices as $remote) self::storeSyncedInvoice($client, $remote);
             // Repair records written by the first version of the importer,
@@ -871,7 +871,7 @@ final class BillingController
         $tenant = (new TenantRepository())->find((int) (get_branding()['company_id'] ?? 0));
         $transactionStarted = false;
         try {
-            (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (string) ($tenant->sevdesk_api_token ?? '')))->deleteDraftInvoice($sevDeskId);
+            (new SevDeskClient((string) ($tenant->sevdesk_api_url ?? 'https://my.sevdesk.de/api/v1'), (new TenantRepository())->sevDeskToken((int) $tenant->id)))->deleteDraftInvoice($sevDeskId);
             R::begin();
             $transactionStarted = true;
             $items = R::findAll('billinginvoiceitem', ' invoice_id = ? AND active = 1 ', [(int) $invoice->id]);

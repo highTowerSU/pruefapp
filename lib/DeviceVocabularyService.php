@@ -115,7 +115,7 @@ final class DeviceVocabularyService
         $provider = AiProviderService::selectedVocabularyProvider();
         if (get_app_config('vocabulary_ai_enabled', '0') !== '1' || $provider === null) return false;
         if (trim((string) $provider->base_url) === '' || trim((string) get_app_config('vocabulary_ai_model', '')) === '') return false;
-        return (string) $provider->auth_mode === 'oauth' || trim((string) $provider->api_token) !== '';
+        return (string) $provider->auth_mode === 'oauth' || AiProviderService::tokenConfigured($provider);
     }
 
     /** Starts one resumable scan without creating a job per historic device. */

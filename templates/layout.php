@@ -23,6 +23,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title ?? 'Seite') ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= htmlspecialchars(url_for('public/favicon.svg'), ENT_QUOTES) ?>">
+    <?= \Ceneos\PhpBase\View\ThemeSwitcher::headScript('pruefapp-theme') ?>
     <script>
         (() => {
             'use strict';
@@ -301,55 +302,23 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
 </main>
 
 <?php $versionDisplay = app_version_display_data(); $baseVersionDisplay = ceneos_base_version_display_data(); ?>
-<footer class="footer mt-auto py-4 border-top bg-body-tertiary noprint">
-  <div class="container">
-    <div class="row align-items-center gy-3">
-      <div class="col-lg">
-        <div class="text-uppercase fw-semibold small text-secondary mb-1">
-          Softwareprojekt der CENEOS GmbH
-        </div>
-      </div>
-      <?php if (!empty($versionDisplay['version'])): ?>
-        <div class="col-lg-auto ms-lg-auto text-lg-end">
-          <span class="small text-body-secondary">
-            Version <?= htmlspecialchars($versionDisplay['version']) ?>
-            <?php if (!empty($versionDisplay['commit'])): ?>
-              <span class="text-body-tertiary mx-1">·</span>
-              <span class="font-monospace">#<?= htmlspecialchars($versionDisplay['commit']) ?></span>
-            <?php endif; ?>
-            <?php if (!empty($versionDisplay['build_date_human']) && !empty($versionDisplay['build_date_iso'])): ?>
-              <span class="text-body-tertiary mx-1">·</span>
-              <time datetime="<?= htmlspecialchars($versionDisplay['build_date_iso'], ENT_QUOTES) ?>">
-                <?= htmlspecialchars($versionDisplay['build_date_human']) ?>
-              </time>
-            <?php endif; ?>
-          </span>
-          <span class="d-block small text-body-tertiary mt-1">
-            CENEOS Base <?= htmlspecialchars($baseVersionDisplay['version']) ?>
-            <?php if (!empty($baseVersionDisplay['commit'])): ?>
-              <span class="mx-1">·</span><span class="font-monospace">#<?= htmlspecialchars($baseVersionDisplay['commit']) ?></span>
-            <?php endif; ?>
-          </span>
-        </div>
-      <?php endif; ?>
-    </div>
-    <?php $legal = $branding['legal'] ?? []; ?>
-    <?php if (!empty($legal['impressum']['url']) || !empty($legal['privacy']['url'])): ?>
-      <div class="mt-3 small">
-        <?php if (!empty($legal['impressum']['url'])): ?>
-          <a class="link-secondary text-decoration-none me-3" href="<?= htmlspecialchars($legal['impressum']['url'], ENT_QUOTES) ?>" target="_blank" rel="noopener">
-            <?= htmlspecialchars($legal['impressum']['label'] ?? 'Impressum') ?>
-          </a>
-        <?php endif; ?>
-        <?php if (!empty($legal['privacy']['url'])): ?>
-          <a class="link-secondary text-decoration-none" href="<?= htmlspecialchars($legal['privacy']['url'], ENT_QUOTES) ?>" target="_blank" rel="noopener">
-            <?= htmlspecialchars($legal['privacy']['label'] ?? 'Datenschutz') ?>
-          </a>
-        <?php endif; ?>
-      </div>
-    <?php endif; ?>
-  </div>
-</footer>
+<?php
+$footerLegal = $branding['legal'] ?? [];
+$footerImpressum = $footerLegal['impressum'] ?? [];
+$footerPrivacy = $footerLegal['privacy'] ?? [];
+echo \Ceneos\PhpBase\View\FooterRenderer::render([
+    'app_name' => 'Prüfapp',
+    'app_version' => $versionDisplay['version'] ?? '',
+    'app_commit' => $versionDisplay['commit'] ?? '',
+    'build_label' => $versionDisplay['build_date_human'] ?? '',
+    'base_version' => $baseVersionDisplay['version'] ?? '',
+    'base_commit' => $baseVersionDisplay['commit'] ?? '',
+    'impressum_label' => $footerImpressum['label'] ?? 'Impressum',
+    'impressum_url' => $footerImpressum['url'] ?? '',
+    'privacy_label' => $footerPrivacy['label'] ?? 'Datenschutz',
+    'privacy_url' => $footerPrivacy['url'] ?? '',
+]);
+?>
 
 <!-- Scripts -->
     <script src="<?= htmlspecialchars(url_for('node_modules/jquery/dist/jquery.min.js'), ENT_QUOTES) ?>"></script>

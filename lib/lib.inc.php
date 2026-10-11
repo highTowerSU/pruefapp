@@ -106,6 +106,13 @@ require_once __DIR__ . '/MaintenanceJobHandler.php';
 $fastDeviceLookup = is_fast_device_lookup_request();
 RequestTimingService::start('db_init');
 initialize_database($fastDeviceLookup);
+if (Config::string('APP_CENEOS_SECRETS_KEY') !== null) {
+    try {
+        (new \Ceneos\PhpBase\Tenant\TenantRepository())->migrateLegacySevDeskTokens();
+    } catch (\Throwable $exception) {
+        error_log('[pruefapp] Legacy-SevDesk-Schlüssel konnten nicht in Base verschlüsselt werden: ' . $exception->getMessage());
+    }
+}
 RequestTimingService::stop('db_init');
 
 /**
@@ -1063,8 +1070,10 @@ function oidc_userinfo_to_array($userInfo): array
 
 function determine_default_role(array $userData): string
 {
-    $superadminEmails = array_filter(array_map('strtolower', array_map('trim', explode(',', (string) (config_value('APP_SUPERADMIN_EMAILS') ?? '')))));
     $email = strtolower((string) ($userData['email'] ?? ''));
+    $globalAdminEmails = array_map('strtolower', \Ceneos\PhpBase\Config\Config::csv('APP_GLOBAL_ADMIN_EMAILS'));
+    if ($email !== '' && in_array($email, $globalAdminEmails, true)) return 'global-admin';
+    $superadminEmails = array_filter(array_map('strtolower', array_map('trim', explode(',', (string) (config_value('APP_SUPERADMIN_EMAILS') ?? '')))));
     if ($email !== '' && in_array($email, $superadminEmails, true)) return 'superadmin';
     $configuredEmails = config_value('APP_ADMIN_EMAILS') ?? '';
     $emailCandidates = array_filter(array_map('trim', explode(',', $configuredEmails)), static function ($value) {
@@ -1117,6 +1126,15 @@ function sync_authenticated_user($userInfo): \RedBeanPHP\OODBBean
     if (!isset($user->role) || trim((string) $user->role) === '') {
         $user->role = determine_default_role($data);
     }
+    $centralIdentity = (new \Ceneos\PhpBase\Central\IdentityRepository())->syncOidcClaims(
+        $data,
+        (string) (config_value('APP_OIDC_ISSUER_URL') ?? ''),
+        app_storage_namespace(),
+        (string) $user->role
+    );
+    $user->role = $centralIdentity['role'];
+    $user->ceneos_identity_id = $centralIdentity['id'];
+    $user->ceneos_groups_json = json_encode($centralIdentity['groups'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
     $user->userinfo_json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $user->login_count = (int) ($user->login_count ?? 0) + 1;
@@ -1296,7 +1314,7 @@ function current_user_has_role(string ...$roles): bool
 
 function current_user_is_superadmin(): bool
 {
-    return strtolower((string) current_user_role()) === 'superadmin';
+    return in_array(strtolower((string) current_user_role()), ['superadmin', 'global-admin'], true);
 }
 
 /**

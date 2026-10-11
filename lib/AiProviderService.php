@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Ceneos\PhpBase\Integration\OpenAiCompatibleClient;
+use Ceneos\PhpBase\Central\SecretStore;
+use Ceneos\PhpBase\Config\Config;
+use Ceneos\PhpBase\Tenant\TenantRepository;
 use RedBeanPHP\R;
 
 /** Shared provider profiles; tasks select a profile instead of duplicating credentials. */
@@ -50,15 +53,26 @@ final class AiProviderService
         foreach (['name', 'base_url', 'header_name', 'auth_mode', 'pricing_url', 'oauth_authorization_url', 'oauth_token_url', 'oauth_client_id', 'oauth_scopes'] as $field) {
             if (array_key_exists($field, $values)) $provider->{$field} = trim((string) $values[$field]);
         }
-        foreach (['api_token', 'oauth_client_secret'] as $secret) {
-            if (array_key_exists($secret, $values) && trim((string) $values[$secret]) !== '') $provider->{$secret} = (string) $values[$secret];
-        }
+        if (array_key_exists('oauth_client_secret', $values) && trim((string) $values['oauth_client_secret']) !== '') $provider->oauth_client_secret = (string) $values['oauth_client_secret'];
         $provider->auth_mode = $provider->auth_mode === 'oauth' ? 'oauth' : 'token';
         $provider->header_name = trim((string) $provider->header_name) ?: 'Authorization';
         $provider->name = trim((string) $provider->name) ?: 'KI-Anbieter';
         $provider->updated_at = $now;
         if (empty($provider->created_at)) $provider->created_at = $now;
         R::store($provider);
+        $token = trim((string) ($values['api_token'] ?? ''));
+        if ($token !== '') {
+            (new SecretStore())->set(self::tokenScope($provider), self::tokenName($provider), $token);
+            $provider->api_token = '';
+            R::store($provider);
+        } elseif (trim((string) ($provider->api_token ?? '')) !== '' && Config::string('APP_CENEOS_SECRETS_KEY') !== null) {
+            $store = new SecretStore();
+            if (!$store->has(self::tokenScope($provider), self::tokenName($provider))) {
+                $store->set(self::tokenScope($provider), self::tokenName($provider), (string) $provider->api_token);
+            }
+            $provider->api_token = '';
+            R::store($provider);
+        }
         return $provider;
     }
 
@@ -112,7 +126,98 @@ final class AiProviderService
     public static function accessToken(object $provider): string
     {
         if ((string) $provider->auth_mode === 'oauth') return VocabularyOAuthService::accessToken($provider);
-        return trim((string) $provider->api_token);
+        if (self::isInnoGpt($provider)) {
+            $store = new SecretStore();
+            try {
+                $effective = $store->innoGptApiKey(app_storage_namespace(), self::currentTenantId());
+                if ($effective !== null && $effective !== '') {
+                    if (trim((string) ($provider->api_token ?? '')) !== '') {
+                        $provider->api_token = '';
+                        R::store($provider);
+                    }
+                    return $effective;
+                }
+            } catch (Throwable $exception) {
+                if (Config::string('APP_CENEOS_SECRETS_KEY') !== null) throw $exception;
+            }
+            $configured = trim((string) Config::string('APP_INNOGPT_API_KEY', ''));
+            $keyFile = trim((string) Config::string('APP_INNOGPT_API_KEY_FILE', ''));
+            if ($configured === '' && $keyFile !== '' && is_readable($keyFile)) $configured = trim((string) file_get_contents($keyFile));
+            if ($configured !== '') return $configured;
+            $legacy = trim((string) ($provider->api_token ?? ''));
+            if ($legacy !== '' && Config::string('APP_CENEOS_SECRETS_KEY') !== null) {
+                $store->set(SecretStore::innoGptAppScope(app_storage_namespace()), 'innogpt_api_key', $legacy);
+                $provider->api_token = '';
+                R::store($provider);
+                return $legacy;
+            }
+            if ($legacy !== '') return $legacy;
+            throw new RuntimeException('innoGPT-Schlüssel fehlt. Bitte unter /admin/base global, für diese App oder für den Mandanten hinterlegen.');
+        }
+        try {
+            $secret = (new SecretStore())->get(self::tokenScope($provider), self::tokenName($provider));
+            if ($secret !== null && $secret !== '') {
+                if (trim((string) ($provider->api_token ?? '')) !== '') {
+                    $provider->api_token = '';
+                    R::store($provider);
+                }
+                return $secret;
+            }
+        } catch (Throwable $exception) {
+            if (Config::string('APP_CENEOS_SECRETS_KEY') !== null) throw $exception;
+        }
+        $legacy = trim((string) ($provider->api_token ?? ''));
+        if ($legacy !== '' && Config::string('APP_CENEOS_SECRETS_KEY') !== null) {
+            (new SecretStore())->set(self::tokenScope($provider), self::tokenName($provider), $legacy);
+            $provider->api_token = '';
+            R::store($provider);
+            return $legacy;
+        }
+        return $legacy;
+    }
+
+    public static function tokenConfigured(object $provider): bool
+    {
+        if ((string) ($provider->auth_mode ?? '') === 'oauth') return trim((string) ($provider->oauth_access_token ?? '')) !== '';
+        try {
+            if (self::isInnoGpt($provider)) {
+                $store = new SecretStore();
+                $appScope = SecretStore::innoGptAppScope(app_storage_namespace());
+                $tenantId = self::currentTenantId();
+                if (($tenantId > 0 && $store->has(SecretStore::innoGptTenantScope(app_storage_namespace(), $tenantId), 'innogpt_api_key'))
+                    || $store->has($appScope, 'innogpt_api_key')
+                    || $store->has('global', 'innogpt_api_key')) return true;
+                $keyFile = trim((string) Config::string('APP_INNOGPT_API_KEY_FILE', ''));
+                if (Config::string('APP_INNOGPT_API_KEY') !== null || ($keyFile !== '' && is_readable($keyFile) && trim((string) file_get_contents($keyFile)) !== '')) return true;
+            }
+            if ((new SecretStore())->has(self::tokenScope($provider), self::tokenName($provider))) return true;
+        } catch (Throwable) {
+            // The legacy row remains the migration fallback until the key exists.
+        }
+        return trim((string) ($provider->api_token ?? '')) !== '';
+    }
+
+    private static function isInnoGpt(object $provider): bool
+    {
+        $identity = mb_strtolower((string) ($provider->name ?? '') . ' ' . (string) ($provider->base_url ?? ''), 'UTF-8');
+        return str_contains($identity, 'innogpt') || str_contains($identity, 'inno-gpt');
+    }
+
+    private static function tokenScope(object $provider): string
+    {
+        return self::isInnoGpt($provider) ? SecretStore::innoGptAppScope(app_storage_namespace()) : 'app:' . app_storage_namespace() . ':ai-provider:' . (int) ($provider->id ?? 0);
+    }
+
+    private static function currentTenantId(): int
+    {
+        if (!function_exists('get_branding')) return 0;
+        try { return max(0, (int) (get_branding()['company_id'] ?? 0)); }
+        catch (Throwable) { return 0; }
+    }
+
+    private static function tokenName(object $provider): string
+    {
+        return self::isInnoGpt($provider) ? 'innogpt_api_key' : 'api_token';
     }
 
     public static function pricingUrl(object $provider): string

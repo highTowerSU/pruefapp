@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-11-central-base-admin-innogpt-scopes',
+            'date' => '11.10.2026',
+            'title' => 'Zentrale Verwaltung unter /admin/base',
+            'items' => [
+                'Mandanten, Gruppen und Rollen sind über denselben Admin-Pfad in den angeschlossenen Apps erreichbar.',
+                'innoGPT-Schlüssel können global, je App und je Mandant hinterlegt werden. Die jeweils spezifischste Einstellung wird verwendet; ohne Schlüssel ist die Einrichtung vor der KI-Nutzung erforderlich.',
+            ],
+            'pruefapp_revision' => '70ef90f',
+            'base_revision' => 'a631489',
+        ], [
             'id' => '2026-09-27-request-server-timing',
             'date' => '27.09.2026',
             'title' => 'Wartezeiten beim Prüfungs-Speichern untersuchen',
