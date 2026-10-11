@@ -1854,16 +1854,7 @@ function decorate_collapsible_icons(string $html): string
 
 function forbidden_response(?string $message = null): array
 {
-    $content = render_template('forbidden.php', [
-        'message' => $message ?? 'Du besitzt nicht die erforderlichen Rechte für diese Aktion.',
-    ]);
-
-    $body = render_template('layout.php', [
-        'title' => 'Zugriff verweigert',
-        'content' => $content,
-    ]);
-
-    return [403, [], $body];
+    return [403, [], \Ceneos\PhpBase\Http\AccessDeniedPage::render('Prüfapp', url_for(''))];
 }
 
 // Gibt HTML für farbig markiertes Passwort zurück
