@@ -31,7 +31,7 @@
 <div class="card shadow-sm">
     <div class="card-body">
         <h2 class="h4">Bestehende Übermittlungslinks</h2>
-        <div class="table-responsive">
+        <div class="table-responsive ceneos-sticky-table">
             <table class="table align-middle">
                 <thead>
                 <tr>

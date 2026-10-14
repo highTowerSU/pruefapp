@@ -12,6 +12,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - Optionale Erfassung der zugehörigen Firma für Datensätze
 - Wiederverwendbare Datenflüsse für strukturierte Dokumentationsprozesse
 - HTMX-basierte Oberfläche mit Bootstrap-Layout und Tabulator-Tabellen
+- Gemeinsame CENEOS-Base-Linkfelder für Impressum/Datenschutz und sticky Tabellenköpfe
 - Zentrale Hilfe- und Ablaufseite für den Prüfprozess
 - Prüfberichte als A4-Writer-Dokumente mit Mandantenbranding, festen
   Tabellenbreiten, Prüfschritten, Ergebnismarkierung und Unterschriftsbereich

@@ -420,7 +420,7 @@ details.card>summary.card-header{user-select:none;-webkit-user-select:none}.devi
       <?php if (trim((string) ($device->external_number ?? '')) !== ''): ?><p class="small text-body-secondary mb-2">Gerätenummer: <?= htmlspecialchars((string) ($device->external_number ?? '')) ?><?php if (trim((string) ($device->legacy_number ?? '')) !== ''): ?> · alte Nummer: <?= htmlspecialchars((string) $device->legacy_number) ?><?php endif; ?></p><?php endif; ?>
   <?php if ($deviceInspections): ?>
     <h2 class="h6 mt-3"><i class="fa-solid fa-clipboard-check me-2" aria-hidden="true"></i>Prüfungen</h2>
-    <div class="table-responsive">
+    <div class="table-responsive ceneos-sticky-table">
       <table class="table table-sm align-middle">
         <thead><tr><th>Prüfnummer</th><th>Datum</th><th>Prüfart</th><th>Prüfer</th><th>Nächste Prüfung</th><th>Ergebnis</th><th>Raum</th><th>Bericht</th></tr></thead>
         <tbody>

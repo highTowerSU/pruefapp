@@ -44,7 +44,7 @@
 
 <?php if ($rowCount > 0): ?>
     <h5>Vorschau (<?= $rowCount ?> Datensatz<?= $rowCount === 1 ? '' : 'e' ?>)</h5>
-    <div class="table-responsive">
+    <div class="table-responsive ceneos-sticky-table">
         <table class="table table-sm table-bordered">
             <thead>
                 <tr>

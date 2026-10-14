@@ -20,7 +20,7 @@ declare(strict_types=1);
     </div>
     <?php if (is_array($odsValues) && $odsValues !== []): ?>
         <div class="small text-body-secondary mt-2"><i class="fa-solid fa-table-cells me-1" aria-hidden="true"></i>Zuordnung aus ODS: <?= htmlspecialchars((string) ($candidateRaw['raw']['ods']['path'] ?? '')) ?></div>
-        <div class="table-responsive mb-2"><table class="table table-sm table-striped mb-0"><tbody>
+        <div class="table-responsive ceneos-sticky-table mb-2"><table class="table table-sm table-striped mb-0"><tbody>
             <?php foreach ($odsValues as $label => $value): ?>
                 <?php if (trim((string) $value) === '') continue; ?>
                 <tr><th scope="row" class="text-nowrap"><?= htmlspecialchars((string) $label) ?></th><td><?= htmlspecialchars((string) $value) ?></td></tr>

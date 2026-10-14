@@ -33,7 +33,7 @@
   <?php endif; ?>
 </div>
 
-<div class="table-responsive">
+<div class="table-responsive ceneos-sticky-table">
   <table class="table table-striped table-hover table-sm align-middle" id="teilnehmer-tabelle">
     <thead>
       <tr>

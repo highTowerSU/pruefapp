@@ -16,7 +16,7 @@
     <?php if ($jobs === []): ?>
       <div class="p-4 text-body-secondary"><i class="fa-solid fa-circle-info me-2" aria-hidden="true"></i>Noch keine Aufgaben oder Downloads vorhanden.</div>
     <?php else: ?>
-      <div class="table-responsive">
+      <div class="table-responsive ceneos-sticky-table">
         <table class="table table-hover align-middle mb-0">
           <thead><tr><th>Aufgabe</th><th>Status</th><th>Fortschritt</th><th>Erstellt</th><th>Aktion</th></tr></thead>
           <tbody>

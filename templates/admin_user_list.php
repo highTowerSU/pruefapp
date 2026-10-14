@@ -8,7 +8,7 @@
 <div class="card shadow-sm" id="user-actions-panel" data-action-nav="Nutzerverwaltung" data-action-icon="fa-users-gear">
     <div class="card-body">
         <p class="text-body-secondary">Verwalte hier die Rollen aller angemeldeten Nutzer*innen und öffne bei Bedarf den jeweiligen Eintrag im Keycloak-Adminbereich.</p>
-        <div class="table-responsive">
+        <div class="table-responsive ceneos-sticky-table">
             <table class="table table-striped align-middle mb-0">
                 <thead>
                     <tr>

@@ -192,20 +192,14 @@
           <label class="form-label" for="legal_impressum_label">Impressum Label</label>
           <input type="text" class="form-control" id="legal_impressum_label" name="legal_impressum_label" value="<?= htmlspecialchars($company['legal_impressum_label']) ?>">
         </div>
-        <div class="mb-4">
-          <label class="form-label" for="legal_impressum_url">Impressum URL</label>
-          <input type="url" class="form-control" id="legal_impressum_url" name="legal_impressum_url" value="<?= htmlspecialchars($company['legal_impressum_url']) ?>">
-        </div>
+        <?= \Ceneos\PhpBase\View\LinkField::input('legal_impressum_url', 'Impressum URL', (string) $company['legal_impressum_url'], ['id' => 'legal_impressum_url', 'container_class' => 'mb-4']) ?>
       </div>
       <div class="col-lg-6">
         <div class="mb-3">
           <label class="form-label" for="legal_privacy_label">Datenschutz Label</label>
           <input type="text" class="form-control" id="legal_privacy_label" name="legal_privacy_label" value="<?= htmlspecialchars($company['legal_privacy_label']) ?>">
         </div>
-        <div class="mb-4">
-          <label class="form-label" for="legal_privacy_url">Datenschutz URL</label>
-          <input type="url" class="form-control" id="legal_privacy_url" name="legal_privacy_url" value="<?= htmlspecialchars($company['legal_privacy_url']) ?>">
-        </div>
+        <?= \Ceneos\PhpBase\View\LinkField::input('legal_privacy_url', 'Datenschutz URL', (string) $company['legal_privacy_url'], ['id' => 'legal_privacy_url', 'container_class' => 'mb-4']) ?>
       </div>
     </div>
 
