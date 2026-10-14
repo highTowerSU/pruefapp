@@ -4,6 +4,39 @@ $navColors = $branding['nav_colors'] ?? [];
 $navBackgroundColor = $navColors['background'] ?? '#0D6EFD';
 $navTextColor = $navColors['text'] ?? '#FFFFFF';
 $navStyle = sprintf('--navbar-bg:%s; --navbar-color:%s;', $navBackgroundColor, $navTextColor);
+$loginHeaderUser = current_user();
+if ($loginHeaderUser === null) {
+    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $helpUrl = url_for('hilfe');
+    $backgroundHex = ltrim((string) $navBackgroundColor, '#');
+    if (strlen($backgroundHex) === 3) $backgroundHex = $backgroundHex[0] . $backgroundHex[0] . $backgroundHex[1] . $backgroundHex[1] . $backgroundHex[2] . $backgroundHex[2];
+    $luminance = strlen($backgroundHex) === 6
+        ? (0.299 * hexdec(substr($backgroundHex, 0, 2)) + 0.587 * hexdec(substr($backgroundHex, 2, 2)) + 0.114 * hexdec(substr($backgroundHex, 4, 2)))
+        : 0;
+    $logoVariant = $luminance > 150 ? 'light' : 'dark';
+    $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path'] ?? '');
+    $brandLogoUrl = $brandLogo === '' ? '' : (preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo));
+    echo \Ceneos\PhpBase\View\NavbarRenderer::renderLogin([
+        'brand' => [
+            'url' => url_for(),
+            'logo_url' => $brandLogoUrl,
+            'logo_alt' => $branding['header_logo']['alt'] ?? ($branding['company_name'] ?? ''),
+            'logo_height' => 36,
+            'label' => $branding['app_title'] ?? 'Prüfapp',
+        ],
+        'nav_colors' => ['background' => $navBackgroundColor, 'text' => $navTextColor],
+        'nav_items' => [[
+            'type' => 'link',
+            'label' => 'Hilfe',
+            'url' => $helpUrl,
+            'icon' => 'fa-solid fa-circle-question',
+            'active' => $currentPath === $helpUrl || str_starts_with($currentPath, rtrim($helpUrl, '/') . '/'),
+        ]],
+        'theme_key' => 'pruefapp-theme',
+        'theme_button_class' => 'btn-outline-navbar',
+    ]);
+    return;
+}
 ?>
 <header class="sticky-top app-navbar-shell noprint">
 <nav class="navbar navbar-expand-lg navbar-themed" style="<?= htmlspecialchars($navStyle, ENT_QUOTES) ?>">

@@ -29,14 +29,6 @@
         <div class="col-md-7 bg-body">
           <div class="p-4 p-lg-5">
             <div class="text-center mb-4">
-              <?php foreach (['light' => 'brand-logo-for-light', 'dark' => 'brand-logo-for-dark'] as $variant => $class): ?>
-                <?php $logo = $branding['logos'][$variant] ?? ($branding['header_logo']['path'] ?? ''); ?>
-                <?php if ($logo !== ''): ?>
-                  <?php $logoUrl = preg_match('#^https?://#i', $logo) ? $logo : url_for($logo); ?>
-                  <img src="<?= htmlspecialchars($logoUrl, ENT_QUOTES) ?>" class="img-fluid mb-3 <?= $class ?>"
-                       style="max-height:70px" alt="<?= htmlspecialchars($branding['logos']['alt'] ?? ($branding['company_name'] ?? 'Logo')) ?>">
-                <?php endif; ?>
-              <?php endforeach; ?>
               <h2 class="h4 mb-1">Anmelden</h2>
               <p class="text-body-secondary mb-0">Melde dich mit deinem Login.Koenigsbl.au-Konto an, um fortzufahren.</p>
             </div>
