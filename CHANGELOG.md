@@ -1,10 +1,24 @@
 # Änderungsprotokoll
 
+## 15.10.2026 – Zentrale Mandantenmarke für alle Apps
+
+- Name, Logos, Farben und Rechtslinks werden aus CENEOS Base geladen. Abrechnung behandelt den Mandanten als abrechnende Firma; Rechnungsempfänger und SevDesk-Kontakte bleiben eigene Fachdaten.
+- Auftragsmanagement verwendet den CENEOS-Mandanten für die bisherigen Aufträge und das gemeinsame Kundenverzeichnis.
+- Hosts wie `pruef.ceneos.net` verwenden standardmäßig CENEOS; Kundenmandanten lassen sich über URL-Präfix oder einen explizit zugeordneten Host wählen.
+- Ausgangsrevisionen (Änderungen im Arbeitsbaum): Prüfapp `04e6c2b`; CENEOS PHP Base `cba176c`.
+
 ## 15.10.2026 – Gemeinsame Linkfelder und Tabellen-Navigation
 
 - Mandanten-Impressum und Datenschutz verwenden das Linkfeld aus CENEOS Base. Es bietet einen sicheren Öffnen-Link für HTTP-/HTTPS-Adressen.
-- Responsive Tabellen unterstützen sticky Tabellenköpfe; die Seitenpfeile in Abrechnung und Auftragsmanagement kommen nun ebenfalls aus CENEOS Base.
+- Responsive Tabellen unterstützen sticky Tabellenköpfe; die Beleglisten-Pfeile kommen nun ebenfalls aus CENEOS Base.
 - Revisionen der Änderung: Prüfapp `d2b34c8`; CENEOS PHP Base `cba176c`.
+
+## 14.10.2026 – Gemeinsames CENEOS-Kundenverzeichnis
+
+- Kunden und Standorte werden tenant-scoped in der CENEOS Base gespiegelt und über lokale System-IDs verknüpft.
+- PrüfApp behält lokale IDs für Gebäude, Etagen, Bereiche, Räume und Geräte.
+- Bestehende lokale Kunden werden wiederholbar übernommen; zentrale Änderungen werden bei der Strukturansicht in die lokalen Spiegel übernommen.
+- Ausgangsrevisionen dieser Änderung: PrüfApp 94a6e43, CENEOS PHP Base c8c61cc.
 
 ## 11.10.2026 – Gemeinsame Verwaltung unter /admin/base
 

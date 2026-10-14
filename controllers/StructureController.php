@@ -6,6 +6,8 @@ use RedBeanPHP\OODBBean;
 use RedBeanPHP\R;
 use Ceneos\PhpBase\Tenant\TenantRepository;
 
+require_once __DIR__ . '/../lib/CustomerDirectorySyncService.php';
+
 class StructureController
 {
     private const DEFINITIONS = [
@@ -20,6 +22,12 @@ class StructureController
     public static function index(array $params, bool $isHx): array
     {
         if (!current_user()) return [303, ['Location' => url_for('login.php')], ''];
+        try {
+            CustomerDirectorySyncService::synchronizeAll();
+        } catch (Throwable $exception) {
+            error_log('[pruefapp] Zentrales Kundenverzeichnis konnte nicht synchronisiert werden: ' . get_class($exception));
+            $_SESSION['fehlermeldung'] = 'Das gemeinsame CENEOS-Kundenverzeichnis ist gerade nicht erreichbar. Angezeigte lokale Daten können veraltet sein.';
+        }
 
         $data = [];
         foreach (array_keys(self::DEFINITIONS) as $table) {
@@ -291,6 +299,14 @@ class StructureController
         }
 
         R::store($entity);
+        if (in_array($type, ['customer', 'site'], true)) {
+            try {
+                CustomerDirectorySyncService::syncSaved($type, (int) $entity->id);
+            } catch (Throwable $exception) {
+                error_log('[pruefapp] Kunden-/Standortänderung konnte nicht ins CENEOS-Verzeichnis gespiegelt werden: ' . get_class($exception));
+                $_SESSION['fehlermeldung'] = 'Der lokale Eintrag wurde gespeichert, aber die Übernahme in das gemeinsame CENEOS-Kundenverzeichnis ist fehlgeschlagen. Bitte später erneut speichern.';
+            }
+        }
         audit_log('struktur_' . $type . '_gespeichert', ['id' => (int) $entity->id, 'name' => $name]);
         $_SESSION['meldung'] = $definition['label'] . ' gespeichert.';
         return [303, ['Location' => url_for('struktur')], ''];

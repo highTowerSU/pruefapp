@@ -33,7 +33,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - Zeitbudget, Arbeitsschrittgröße, Worker-Lease sowie FIFO-Grenzen für Cron- und
   Audit-Protokolle werden in der Superadmin-Konfiguration gepflegt.
 
-- Mandantenfähiges Branding inklusive Verwaltung, Logo-Upload und Impressumssteuerung
+- Mandantenfähiges Branding mit zentraler Mandantenpräsentation aus CENEOS Base; URL-Präfixe und genaue Hosts wählen den Mandanten, Hosts wie `pruef.ceneos.net` verwenden standardmäßig CENEOS
 - Individuelle Navigationsfarben pro Mandant
 - Gemeinsame Ansicht „Audit & Revisionen“ für fachliche Ereignisse und ReBean-Datenänderungen
 - Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung

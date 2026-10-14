@@ -9,6 +9,7 @@ $tests = [
     'revision_history_test.php',
     'shared_tenant_database_test.php',
     'structure_identifier_test.php',
+    'customer_directory_sync_test.php',
     'background_job_resume_test.php',
     'cron_queue_integration_test.php',
     'audit_htmx_test.php',

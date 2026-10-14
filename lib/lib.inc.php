@@ -537,7 +537,7 @@ function ensure_structure_schema(): void
     }
 
     $columns = [
-        'site' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
+        'site' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL', 'ceneos_site_id' => 'INTEGER NULL', 'street' => "TEXT NOT NULL DEFAULT ''", 'postal_code' => "TEXT NOT NULL DEFAULT ''", 'city' => "TEXT NOT NULL DEFAULT ''", 'country' => "TEXT NOT NULL DEFAULT 'Deutschland'"],
         'building' => ['code' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'floor' => ['code' => "TEXT NOT NULL DEFAULT ''", 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'room_code_pattern' => "TEXT NOT NULL DEFAULT ''", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL'],
         'area' => ['description' => 'TEXT NULL'],
@@ -592,7 +592,7 @@ function ensure_structure_schema(): void
         'oauthuser_customer' => ['include_descendants' => 'INTEGER NOT NULL DEFAULT 1'],
         'customer' => [
             'code' => "TEXT NOT NULL DEFAULT ''", 'room_code_pattern' => "TEXT NOT NULL DEFAULT 'auto'", 'description' => 'TEXT NULL', 'comment' => 'TEXT NULL', 'metadata_json' => 'TEXT NULL',
-            'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_customer_number' => "TEXT NOT NULL DEFAULT ''", 'tenant_id' => 'INTEGER NOT NULL DEFAULT 0',
+            'sevdesk_customer_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_customer_number' => "TEXT NOT NULL DEFAULT ''", 'tenant_id' => 'INTEGER NOT NULL DEFAULT 0', 'ceneos_customer_id' => 'INTEGER NULL',
             'invoice_recipient_name' => "TEXT NOT NULL DEFAULT ''", 'invoice_contact_name' => "TEXT NOT NULL DEFAULT ''", 'invoice_address_street' => "TEXT NOT NULL DEFAULT ''", 'invoice_address_zip' => "TEXT NOT NULL DEFAULT ''", 'invoice_address_city' => "TEXT NOT NULL DEFAULT ''", 'invoice_address_country' => "TEXT NOT NULL DEFAULT 'Deutschland'", 'sevdesk_contact_address_id' => "TEXT NOT NULL DEFAULT ''", 'sevdesk_contact_person_id' => "TEXT NOT NULL DEFAULT ''",
         ],
         'customerinfo' => ['customer_id' => 'INTEGER NOT NULL DEFAULT 0', 'title' => "TEXT NOT NULL DEFAULT ''", 'slug' => "TEXT NOT NULL DEFAULT ''", 'markdown' => "TEXT NOT NULL DEFAULT ''", 'file_path' => "TEXT NOT NULL DEFAULT ''", 'file_name' => "TEXT NOT NULL DEFAULT ''", 'file_mime' => "TEXT NOT NULL DEFAULT ''", 'created_at' => 'TEXT NULL', 'updated_at' => 'TEXT NULL'],

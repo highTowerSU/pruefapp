@@ -11,15 +11,35 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-15-central-tenant-branding',
+            'date' => '15.10.2026',
+            'title' => 'Mandanten und Erscheinungsbild kommen aus CENEOS Base',
+            'items' => [
+                'Mandantennamen, Logos, Farben und Rechtslinks werden zentral in CENEOS Base gepflegt und von Prüfapp, Abrechnung und Auftragsmanagement verwendet.',
+                'Abrechnungsmandanten sind abrechnende Firmen. Rechnungsempfänger und SevDesk-Kontakte bleiben eigenständige Fachdaten; die bisherigen Aufträge bleiben dem CENEOS-Mandanten zugeordnet.',
+            ],
+            'pruefapp_revision' => '04e6c2b (Ausgangsstand)',
+            'base_revision' => 'cba176c (Ausgangsstand)',
+        ], [
             'id' => '2026-10-15-ceneos-shared-link-and-table-controls',
             'date' => '15.10.2026',
             'title' => 'Einheitliche Links und Tabellenbedienung',
             'items' => [
                 'Linkfelder für Impressum und Datenschutz öffnen gültige HTTP-/HTTPS-Adressen direkt in einem neuen Tab.',
-                'Tabellenköpfe bleiben beim Scrollen sichtbar; die Seitenpfeile in Abrechnung und Auftragsmanagement kommen nun ebenfalls aus CENEOS Base.',
+                'Tabellenköpfe bleiben beim Scrollen sichtbar; die Seitenpfeile in Abrechnung und Auftragsmanagement kommen aus CENEOS Base.',
             ],
             'pruefapp_revision' => 'd2b34c8',
             'base_revision' => 'cba176c',
+        ], [
+            'id' => '2026-10-14-central-customer-directory',
+            'date' => '14.10.2026',
+            'title' => 'Kunden und Standorte liegen im gemeinsamen CENEOS-Verzeichnis',
+            'items' => [
+                'PrüFapp verknüpft Kunden und Standorte mit dem zentralen Mandantenverzeichnis und hält lokale Struktur-IDs für Gebäude, Etagen, Räume und Geräte stabil.',
+                'Kunden- und Standortänderungen werden ins gemeinsame Verzeichnis gespiegelt; wenn es vorübergehend nicht erreichbar ist, erscheint ein Hinweis zum erneuten Speichern.',
+            ],
+            'pruefapp_revision' => '94a6e43',
+            'base_revision' => 'c8c61cc',
         ], [
             'id' => '2026-10-11-central-base-admin-innogpt-scopes',
             'date' => '11.10.2026',

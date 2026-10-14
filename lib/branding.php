@@ -32,6 +32,13 @@ function branding_key_for_configured_host(string $host): string
         return strtolower(trim((string) $hostBrands[$host]));
     }
 
+    try {
+        $tenant = (new TenantRepository())->findByDomainHost($host);
+        if ($tenant !== null) return strtolower(trim((string) ($tenant->slug ?? '')));
+    } catch (\Throwable $error) {
+        error_log('Mandanten-Domain konnte nicht aufgelöst werden: ' . $error->getMessage());
+    }
+
     // Safe defaults during first rollout and for reverse proxies that do not
     // yet pass APP_BRAND_HOSTS through to PHP.
     return match ($host) {
@@ -238,72 +245,14 @@ function ensure_company_branding_schema(): void
 
 function map_company_branding(\RedBeanPHP\OODBBean $company): array
 {
-    $normalizeColor = static function (string $value, string $fallback): string {
-        $value = trim($value);
-        if ($value === '') {
-            return strtoupper($fallback);
-        }
-
-        if ($value[0] !== '#') {
-            $value = '#' . $value;
-        }
-
-        $value = strtoupper($value);
-        if (!preg_match('/^#([0-9A-F]{3}|[0-9A-F]{6})$/', $value)) {
-            return strtoupper($fallback);
-        }
-
-        return $value;
-    };
-
-    $companyName = (string)($company->name ?? '');
-    $headerLogoPath = (string)($company->header_logo_path ?? '');
-    $headerLogoAlt = trim((string)($company->header_logo_alt ?? '')) ?: $companyName;
-    $navBackground = $normalizeColor((string)($company->nav_background_color ?? ''), '#0D6EFD');
-    $navText = $normalizeColor((string)($company->nav_text_color ?? ''), '#FFFFFF');
-
-    return [
-        'company_id' => (int) $company->id,
-        'key' => strtolower((string)($company->slug ?? '')) ?: 'company_' . (int)$company->id,
-        'public_host' => strtolower(trim((string) ($company->public_host ?? ''))),
-        'url_prefix' => rtrim('/' . trim((string) ($company->url_prefix ?? ''), '/'), '/') ?: ((string) ($company->slug ?? '') !== '' ? '/' . (string) $company->slug : ''),
-        'company_name' => $companyName,
-        'app_title' => (string)($company->app_title ?? 'Prüf-Doku'),
-        'nav_brand' => (string)($company->nav_brand ?? 'Prüf-Doku'),
-        'home_headline' => (string)($company->home_headline ?? ''),
-        'home_intro' => (string)($company->home_intro ?? ''),
-        'home_details' => (string)($company->home_details ?? ''),
-        'header_logo' => [
-            'path' => $headerLogoPath,
-            'alt' => $headerLogoAlt,
-        ],
-        'logos' => [
-            'light' => (string) ($company->logo_light_path ?? '') ?: $headerLogoPath,
-            'dark' => (string) ($company->logo_dark_path ?? '') ?: $headerLogoPath,
-            'long' => (string) ($company->logo_long_path ?? '') ?: ((string) ($company->logo_light_path ?? '') ?: $headerLogoPath),
-            'alt' => $headerLogoAlt,
-        ],
-        'theme_colors' => [
-            'primary' => $normalizeColor((string) ($company->primary_color ?? ''), $navBackground),
-            'primary_text' => $normalizeColor((string) ($company->primary_text_color ?? ''), $navText),
-            'light' => $normalizeColor((string) ($company->light_color ?? ''), '#F8F9FA'),
-            'dark' => $normalizeColor((string) ($company->dark_color ?? ''), '#212529'),
-        ],
-        'nav_colors' => [
-            'background' => $navBackground,
-            'text' => $navText,
-        ],
-        'legal' => [
-            'impressum' => [
-                'label' => (string)($company->legal_impressum_label ?? ''),
-                'url' => (string)($company->legal_impressum_url ?? ''),
-            ],
-            'privacy' => [
-                'label' => (string)($company->legal_privacy_label ?? ''),
-                'url' => (string)($company->legal_privacy_url ?? ''),
-            ],
-        ],
-    ];
+    $presentation = \Ceneos\PhpBase\Tenant\TenantPresentation::fromTenant($company);
+    $slug = (string) ($presentation['slug'] ?? '');
+    if ($presentation['app_title'] === '') $presentation['app_title'] = 'Prüf-Doku';
+    if ($presentation['nav_brand'] === '') $presentation['nav_brand'] = 'Prüf-Doku';
+    $presentation['company_id'] = (int) $company->id;
+    $presentation['key'] = $slug !== '' ? $slug : 'company_' . (int) $company->id;
+    $presentation['url_prefix'] = rtrim('/' . trim((string) ($presentation['url_prefix'] ?? ''), '/'), '/') ?: ($slug !== '' ? '/' . $slug : '');
+    return $presentation;
 }
 
 function map_static_branding(string $key, array $data): array
