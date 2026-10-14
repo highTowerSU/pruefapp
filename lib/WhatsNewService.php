@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-15-ceneos-shared-link-and-table-controls',
+            'date' => '15.10.2026',
+            'title' => 'Einheitliche Links und Tabellenbedienung',
+            'items' => [
+                'Linkfelder für Impressum und Datenschutz öffnen gültige HTTP-/HTTPS-Adressen direkt in einem neuen Tab.',
+                'Tabellenköpfe bleiben beim Scrollen sichtbar; die Seitenpfeile in Abrechnung und Auftragsmanagement kommen nun ebenfalls aus CENEOS Base.',
+            ],
+            'pruefapp_revision' => 'd2b34c8',
+            'base_revision' => 'cba176c',
+        ], [
             'id' => '2026-10-11-central-base-admin-innogpt-scopes',
             'date' => '11.10.2026',
             'title' => 'Zentrale Verwaltung unter /admin/base',

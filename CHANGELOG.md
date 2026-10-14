@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 15.10.2026 – Gemeinsame Linkfelder und Tabellen-Navigation
+
+- Mandanten-Impressum und Datenschutz verwenden das Linkfeld aus CENEOS Base. Es bietet einen sicheren Öffnen-Link für HTTP-/HTTPS-Adressen.
+- Responsive Tabellen unterstützen sticky Tabellenköpfe; die Seitenpfeile in Abrechnung und Auftragsmanagement kommen nun ebenfalls aus CENEOS Base.
+- Revisionen der Änderung: Prüfapp `d2b34c8`; CENEOS PHP Base `cba176c`.
+
 ## 11.10.2026 – Gemeinsame Verwaltung unter /admin/base
 
 - Die zentrale Mandanten-, Gruppen- und Rollenverwaltung ist in Prüfapp, Moodle User Gen und Königsblau Abrechnung über `/admin/base` erreichbar; `/admin/ceneos` bleibt als Altpfad verfügbar.
