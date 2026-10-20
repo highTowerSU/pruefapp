@@ -18,7 +18,7 @@ final class WhatsNewService
                 'Administrative Konten können ihre Sitzungsrolle im Benutzermenü reduzieren und zur eigenen Rolle zurückkehren. Gespeicherte Rollen bleiben unverändert.',
                 'Abmelden beendet die lokale Sitzung und die Keycloak-SSO-Sitzung.',
             ],
-            'pruefapp_revision' => 'siehe zugehöriger Änderungscommit',
+            'pruefapp_revision' => '80ef329',
             'base_revision' => '52b0c9a',
         ], [
             'id' => '2026-10-15-central-tenant-branding',
