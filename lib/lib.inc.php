@@ -1245,7 +1245,7 @@ function inspection_report_signature_sql(string $inspectionAlias = 'inspection')
     return "EXISTS (SELECT 1 FROM oauthuser report_examiner WHERE TRIM(COALESCE(report_examiner.report_signature_path, '')) <> '' AND (LOWER(TRIM(COALESCE(report_examiner.email, ''))) = LOWER(TRIM(COALESCE({$alias}.examiner, ''))) OR LOWER(TRIM(COALESCE(report_examiner.name, ''))) = LOWER(TRIM(COALESCE({$alias}.examiner, ''))) OR LOWER(TRIM(COALESCE(report_examiner.preferred_username, ''))) = LOWER(TRIM(COALESCE({$alias}.examiner, '')))))";
 }
 
-function current_user_role(): ?string
+function current_user_true_role(): ?string
 {
     $user = current_user();
 
@@ -1254,6 +1254,11 @@ function current_user_role(): ?string
     }
 
     $role = (string) ($user->role ?? '');
+    if (!empty($user->ceneos_identity_id)) {
+        $groups = json_decode((string) ($user->ceneos_groups_json ?? '[]'), true) ?: [];
+        $central = (new \Ceneos\PhpBase\Central\IdentityRepository())->roleForClaims((int) $user->ceneos_identity_id, app_storage_namespace(), $groups);
+        if ($central !== null) $role = $central;
+    }
     // Keep the emergency/bootstrap superadmin available even if an older
     // deployment accidentally stored the account as a plain admin.
     $configured = config_value('APP_SUPERADMIN_EMAILS') ?? '';
@@ -1262,6 +1267,12 @@ function current_user_role(): ?string
     if ($email !== '' && in_array($email, $superadminEmails, true)) return 'superadmin';
 
     return $role !== '' ? $role : null;
+}
+
+function current_user_role(): ?string
+{
+    $role = current_user_true_role();
+    return $role === null ? null : \Ceneos\PhpBase\Auth\SessionRole::effective(app_storage_namespace(), $role, url_for());
 }
 
 /** Customer IDs visible to the current user. Admins are unrestricted; an unassigned user sees nothing. */
@@ -1549,6 +1560,8 @@ function initialisiere_oidc(bool $force = false): void
             );
             $oidc->setRedirectURL(config_value('APP_OIDC_REDIRECT_URL') ?? absolute_url_for('callback.php'));
             $oidc->authenticate();
+            $_SESSION['ceneos_id_token'] = (string) $oidc->getIdToken();
+            unset($_SESSION['_ceneos_role_overrides']);
 
             $userInfo = $oidc->requestUserInfo();
         } catch (\Throwable $throwable) {
@@ -1956,3 +1969,5 @@ function app_asset_version(): string
     if ($version === '') $version = (string) @filemtime($base . '/public/js/search-select.js');
     return $version !== '' ? $version : '1';
 }
+
+if (PHP_SAPI !== 'cli' && isset($_SESSION['auth_user_id'])) current_user_role();

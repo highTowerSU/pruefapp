@@ -202,7 +202,7 @@ if ($loginHeaderUser === null) {
         <?php if ($authUser !== null): ?>
           <?php
             $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
-            $roleLabel = !empty($authUser->role) ? role_label((string) $authUser->role) : null;
+            $roleLabel = current_user_role() ? role_label((string) current_user_role()) : null;
             $userMenuId = 'userMenuDropdown';
             $userManagementUrl = $branding['user_management_url'] ?? null;
             if (empty($userManagementUrl)) {
@@ -239,6 +239,7 @@ if ($loginHeaderUser === null) {
                 <?php endif; ?>
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="<?= htmlspecialchars($userMenuId, ENT_QUOTES) ?>">
+                <?= \Ceneos\PhpBase\Auth\SessionRole::form(app_storage_namespace(), (string) current_user_true_role(), url_for()) ?>
                 <li>
                   <a class="dropdown-item" href="<?= htmlspecialchars(url_for('profil'), ENT_QUOTES) ?>"><i class="fa-solid fa-user-pen me-2" aria-hidden="true"></i>Mein Profil</a>
                 </li>

@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 20.10.2026 – Sitzungsrollen und Keycloak-Abmeldung
+
+- Administrative Konten können im Benutzermenü ihre Rolle für die Sitzung reduzieren und wieder zur eigenen Rolle zurückkehren. Serverseitige Zugriffsprüfungen verwenden diese Sitzungsrolle; gespeicherte Rollen bleiben unverändert.
+- Die Abmeldung löscht Sitzung und Cookie und führt zum aktuellen Keycloak-Logout mit registriertem Rücksprungziel.
+- Prüfapp-Ausgangsrevision `5485c9c`; CENEOS PHP Base `52b0c9a`.
+
 ## 15.10.2026 – Zentrale Mandantenmarke für alle Apps
 
 - Name, Logos, Farben und Rechtslinks werden aus CENEOS Base geladen. Abrechnung behandelt den Mandanten als abrechnende Firma; Rechnungsempfänger und SevDesk-Kontakte bleiben eigene Fachdaten.

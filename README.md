@@ -317,3 +317,7 @@ php tests/inspection_report_render_test.php /tmp/pruefapp-inspection-report.pdf
 ## Lizenz
 
 Keine explizite Lizenzdatei vorhanden. Bitte interne Richtlinien beachten.
+
+## Sitzungsrolle und Abmeldung
+
+Im Benutzermenü können administrative Konten ihre Rolle für diese Sitzung reduzieren und wiederherstellen. Der Rollenwechsel läuft CSRF-geschützt über CENEOS Base und ändert keine gespeicherten Berechtigungen. Abmelden löscht Sitzung und Cookie und beendet anschließend die Keycloak-SSO-Sitzung.

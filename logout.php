@@ -1,13 +1,9 @@
 <?php
 require_once __DIR__ . '/lib/lib.inc.php';
 
-session_destroy();
-
-// Keycloak Logout-URL mit Redirect zurück zur aktuellen App-Instanz
-$redirect = urlencode(absolute_url_for());
-$realm = config_value('APP_KEYCLOAK_REALM') ?? 'koenigsbl.au';
-$serverUrl = rtrim(config_value('APP_KEYCLOAK_SERVER_URL') ?? 'https://login.koenigsbl.au', '/');
-$logoutUrl = $serverUrl . '/realms/' . rawurlencode($realm) . '/protocol/openid-connect/logout?redirect_uri=' . $redirect;
-
-header('Location: ' . $logoutUrl);
-exit;
+\Ceneos\PhpBase\Auth\KeycloakLogout::redirect(
+    (string) config_value('APP_OIDC_ISSUER_URL'),
+    (string) config_value('APP_OIDC_CLIENT_ID'),
+    absolute_url_for('login.php'),
+    (string) ($_SESSION['ceneos_id_token'] ?? '')
+);
