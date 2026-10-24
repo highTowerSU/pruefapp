@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-25-shared-mysql-connections',
+            'date' => '25.10.2026',
+            'title' => 'Gemeinsame MySQL-Anbindung vorbereitet',
+            'items' => [
+                'MySQL-Verbindungen werden zentral über CENEOS Base und RedBean verwaltet. Laufende Anfragen werden bei der Datenübernahme geschützt.',
+                'Die Umstellung erfolgt erst nach Sicherung und vollständigem Datenvergleich auf dem Server; bis dahin bleibt die vorhandene Datenbank aktiv.',
+            ],
+            'pruefapp_revision' => '344cb89',
+            'base_revision' => 'c93863b',
+        ], [
             'id' => '2026-10-20-session-roles-and-sso-logout',
             'date' => '20.10.2026',
             'title' => 'Rolle für die Sitzung reduzieren und zentral abmelden',

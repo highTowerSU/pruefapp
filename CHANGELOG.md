@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.10.2026 – Gemeinsame MySQL-Datenbankanbindung vorbereitet
+
+- Die Prüfapp verwendet für MySQL dieselbe RedBean-Verbindung wie CENEOS Base. Wartungsarbeiten warten auf laufende Anfragen; neue Zugriffe werden während einer Datenübernahme angehalten.
+- Bestehende Installationen bleiben bis zur gesicherten, geprüften Root-Migration auf ihrer bisherigen Datenbank. Wartungsabfragen unterstützen beide Datenbanktypen.
+- Umsetzung: Prüfapp `344cb89`; CENEOS PHP Base `c93863b`.
+
 ## 20.10.2026 – Sitzungsrollen und Keycloak-Abmeldung
 
 - Administrative Konten können im Benutzermenü ihre Rolle für die Sitzung reduzieren und wieder zur eigenen Rolle zurückkehren. Serverseitige Zugriffsprüfungen verwenden diese Sitzungsrolle; gespeicherte Rollen bleiben unverändert.
