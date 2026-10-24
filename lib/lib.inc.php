@@ -5,6 +5,7 @@ require_once __DIR__ . '/RequestTimingService.php';
 use \RedBeanPHP\R as R;
 use Ceneos\PhpBase\Config\Config;
 use Ceneos\PhpBase\Database\RevisionSupport;
+use Ceneos\PhpBase\Database\Database;
 use Ceneos\PhpBase\Database\Migrator;
 use Ceneos\PhpBase\Http\BootstrapErrorPage;
 
@@ -261,6 +262,7 @@ function is_fast_device_lookup_request(): bool
 
 function initialize_database(bool $lightweight = false): void
 {
+    \Ceneos\PhpBase\Database\ConnectionLease::acquire();
     static $initialized = false;
 
     if ($initialized) {
@@ -274,11 +276,8 @@ function initialize_database(bool $lightweight = false): void
 
     $configuredDsn = trim((string) (config_value('APP_DATABASE_DSN') ?? ''));
     if ($configuredDsn !== '') {
-        $dbUser = (string) (config_value('APP_DATABASE_USER') ?? '');
-        $dbPassword = (string) (config_value('APP_DATABASE_PASSWORD') ?? '');
-        R::setup($configuredDsn, $dbUser, $dbPassword);
+        Database::connect($baseDir);
         $GLOBALS['pruefapp_database_path'] = $configuredDsn;
-        R::freeze(false);
         if ($lightweight) {
             $initialized = true;
             return;

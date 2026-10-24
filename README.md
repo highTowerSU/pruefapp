@@ -321,3 +321,7 @@ Keine explizite Lizenzdatei vorhanden. Bitte interne Richtlinien beachten.
 ## Sitzungsrolle und Abmeldung
 
 Im Benutzermenü können administrative Konten ihre Rolle für diese Sitzung reduzieren und wiederherstellen. Der Rollenwechsel läuft CSRF-geschützt über CENEOS Base und ändert keine gespeicherten Berechtigungen. Abmelden löscht Sitzung und Cookie und beendet anschließend die Keycloak-SSO-Sitzung.
+
+## MySQL-Umstellung (in Vorbereitung)
+
+Der gemeinsame CENEOS-MySQL-Migrationsweg übernimmt zentrale Mandanten, App-Daten und Revisionshistorie mit erhaltenen IDs. Die Verbindung erfolgt über CENEOS Base/RedBeanPHP mit `APP_DATABASE_DSN`, `APP_DATABASE_USER` und `APP_DATABASE_PASSWORD`. Bestehende SQLite-Konfigurationen bleiben bis zum geprüften Umschalten lesbar. Sicherung und Prüfung gehen der produktiven DSN-Änderung voraus.

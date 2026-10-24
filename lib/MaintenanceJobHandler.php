@@ -206,7 +206,9 @@ final class MaintenanceJobHandler
         // current result.  A completed import can still be the authoritative
         // replacement for an unfinished manual base row; restricting this to
         // data_missing left that duplicate visible forever.
+        $mysql = R::getDatabaseAdapter()->getDatabase()->getPDO()->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql';
         $eligible = "classification = 'migrated_import' AND (result_status = 'data_missing' OR external_number GLOB '*-[0-9][0-9]-[2-9]*')";
+        if ($mysql) $eligible = str_replace("external_number GLOB '*-[0-9][0-9]-[2-9]*'", "external_number REGEXP '-[0-9][0-9]-[2-9]'", $eligible);
         if ($total <= 0) $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE {$eligible}");
 
         while ($row = R::getRow("SELECT id, external_number FROM inspection WHERE id > ? AND {$eligible} ORDER BY id LIMIT 1", [$lastId])) {
@@ -263,10 +265,13 @@ final class MaintenanceJobHandler
         while ($row = R::getRow("SELECT id, device_id, external_number, test_date FROM inspection WHERE id>? AND COALESCE(test_date, '')<>'' ORDER BY id LIMIT 1", [$lastId])) {
             $lastId = (int) $row['id'];
             $number = trim((string) $row['external_number']);
+            $mysql = R::getDatabaseAdapter()->getDatabase()->getPDO()->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql';
+            $distance = $mysql ? "ABS(TIMESTAMPDIFF(SECOND, LEFT(REPLACE(test_date,'T',' '),19), LEFT(REPLACE(?,'T',' '),19)))/86400" : 'ABS(julianday(test_date)-julianday(?))';
+            $cast = $mysql ? 'SIGNED' : 'INTEGER';
             $peers = R::getAll(
-                "SELECT id, external_number, test_date, CAST(ABS(julianday(test_date)-julianday(?)) AS INTEGER) AS days_apart FROM inspection
+                "SELECT id, external_number, test_date, CAST({$distance} AS {$cast}) AS days_apart FROM inspection
                  WHERE device_id=? AND id<? AND COALESCE(test_date, '')<>''
-                   AND ABS(julianday(test_date)-julianday(?))<=180
+                   AND {$distance}<=180
                  ORDER BY test_date, id",
                 [(string) $row['test_date'], (int) $row['device_id'], $lastId, (string) $row['test_date']]
             );
