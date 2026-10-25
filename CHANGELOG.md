@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.10.2026 – Neu angelegte gemeinsame Kunden
+
+- Kunden und Standorte aus Controlcenter und Teilnehmerverwaltung stehen auch in der Prüfapp bereit. Neue Datensätze behalten Mandant und gemeinsame IDs; Kundenfreigaben werden nicht erweitert.
+- SevDesk-/Kimai-Kundensynchronisation und Konfliktklärung liegen zentral in CENEOS Base.
+- Umsetzung: Prüfapp `e676b67`; CENEOS PHP Base `f05b767`.
+
 ## 25.10.2026 – Gemeinsames Controlcenter und App-Rollen
 
 - Kunden, Standorte und Benutzerprofile werden gemeinsam gepflegt. Das Apps-Menü verbindet die Anwendungen; persönliche Systemzuordnungen liegen im zentralen Profil.

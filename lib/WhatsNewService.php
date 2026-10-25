@@ -11,6 +11,17 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-25-new-shared-customers',
+            'date' => '25.10.2026',
+            'title' => 'Neu angelegte gemeinsame Kunden',
+            'items' => [
+                'Neue Kunden und Standorte aus Controlcenter und Teilnehmerverwaltung werden auch in der Prüfapp bereitgestellt.',
+                'Gemeinsame IDs und Mandanten bleiben erhalten. Zusätzliche Kundenfreigaben werden nicht automatisch vergeben.',
+                'SevDesk und Kimai werden zentral mit einer Quellenwahl bei widersprüchlichen Änderungen abgeglichen.',
+            ],
+            'pruefapp_revision' => 'e676b67',
+            'base_revision' => 'f05b767',
+        ], [
             'id' => '2026-10-25-controlcenter-profiles-app-roles',
             'date' => '25.10.2026',
             'title' => 'Gemeinsame Profile und kombinierbare App-Rollen',
