@@ -11,6 +11,17 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-25-automatic-sso-renewal',
+            'date' => '25.10.2026',
+            'title' => 'SSO und Sitzungserneuerung',
+            'items' => [
+                'Bestehende Keycloak-Sitzungen werden bei der Anmeldung automatisch wiederverwendet.',
+                'Aktive Seiten halten die Sitzung aufrecht und erneuern fällige Tokens im Hintergrund. Sitzungsrollen bleiben dabei erhalten.',
+                'Bei einer abgelaufenen Sitzung bleiben die Formulareingaben auf der Seite stehen.',
+            ],
+            'pruefapp_revision' => 'b8946e4',
+            'base_revision' => '9ed8e38',
+        ], [
             'id' => '2026-10-25-new-shared-customers',
             'date' => '25.10.2026',
             'title' => 'Neu angelegte gemeinsame Kunden',

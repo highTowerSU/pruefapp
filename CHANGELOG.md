@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.10.2026 – SSO und Sitzungserneuerung
+
+- Die Anmeldung verwendet bestehende Keycloak-Sitzungen automatisch, ohne einen zusätzlichen Anmeldeknopf je App.
+- Aktive Seiten halten die PHP-Sitzung aufrecht und erneuern fällige Tokens serverseitig. Reduzierte Sitzungsrollen bleiben erhalten; abgelaufene Sitzungen überschreiben keine Formulareingaben.
+- Umsetzung: Prüfapp `b8946e4`; CENEOS PHP Base `9ed8e38`.
+
 ## 25.10.2026 – Neu angelegte gemeinsame Kunden
 
 - Kunden und Standorte aus Controlcenter und Teilnehmerverwaltung stehen auch in der Prüfapp bereit. Neue Datensätze behalten Mandant und gemeinsame IDs; Kundenfreigaben werden nicht erweitert.
