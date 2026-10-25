@@ -17,6 +17,7 @@ final class WhatsNewService
             'items' => [
                 'Das Controlcenter bündelt Kunden, Standorte und Benutzerprofile. Ein gemeinsames Apps-Menü verbindet Prüfapp, Aufträge, Abrechnung und Teilnehmerverwaltung.',
                 'Rollen wie Prüfer/in und Einkäufer/in lassen sich je Anwendung kombinieren. Administrative Rechte bleiben getrennt; reduzierte Sitzungsrollen gelten weiterhin.',
+                'App-interne Kundenfreigaben und Prüfprofile bleiben unter Verwaltung → Prüfapp-Zugriffe & Befähigungen erreichbar.',
             ],
             'pruefapp_revision' => 'ed6684a / eb96b38',
             'base_revision' => 'b666656 / 97ecde0',

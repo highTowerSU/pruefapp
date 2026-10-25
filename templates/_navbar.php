@@ -181,7 +181,8 @@ $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path
                 <li><h6 class="dropdown-header">Administration</h6></li>
                 <li><a class="dropdown-item" href="<?= htmlspecialchars($auditLogUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-clock-rotate-left me-2" aria-hidden="true"></i>Audit &amp; Revisionen</a></li>
                 <?php if (current_user_has_role('admin')): ?>
-                  <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzer</a></li>
+                  <li><a class="dropdown-item" href="<?= htmlspecialchars($userAdminUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Benutzer &amp; Rollen</a></li>
+                  <?php if (config_value('APP_CONTROLCENTER_URL')): ?><li><a class="dropdown-item" href="<?= htmlspecialchars(url_for('admin/nutzer'), ENT_QUOTES) ?>"><i class="fa-solid fa-user-shield me-2" aria-hidden="true"></i>Prüfapp-Zugriffe &amp; Befähigungen</a></li><?php endif; ?>
                 <?php endif; ?>
                 <?php if (current_user_has_role('admin')): ?><li><a class="dropdown-item" href="<?= htmlspecialchars(url_for('admin/base'), ENT_QUOTES) ?>"><i class="fa-solid fa-building-user me-2" aria-hidden="true"></i>Mandanten, Gruppen &amp; Rollen</a></li><?php endif; ?>
                 <?php if (current_user_is_superadmin()): ?>

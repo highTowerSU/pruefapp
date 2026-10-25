@@ -330,3 +330,5 @@ Der gemeinsame CENEOS-MySQL-Migrationsweg übernimmt zentrale Mandanten, App-Dat
 ## Ausbau Controlcenter, Teilnehmer-Domains und gemeinsame Stammdaten
 
 Die zentrale Base wird um ein eigenständig erreichbares Controlcenter, additive Rollen je App und gemeinsame Benutzerprofile ergänzt. Administrative Rechte bleiben je Anwendung getrennt; eine reduzierte Sitzungsrolle unterdrückt zusätzliche Rechte. Kunden und Standorte werden aus demselben mandantengebundenen Verzeichnis verwendet, auch im Teilnehmermodul. Teilnehmer-Hosts wählen den Mandanten automatisch; bisherige Einstiege und Übermittlungslinks bleiben erreichbar. Bootstrap, gemeinsame Theme-/Navigationskomponenten und bestehender Keycloak-Login werden wiederverwendet. Profilfelder für Nextcloud, persönlichen Königsblau-Talk, Kimai und Kontaktdaten gehören in die zentrale Verwaltung; sie enthalten keine Zugangspasswörter.
+
+App-interne Kundenfreigaben, Prüfprofile und Keycloak-Verzeichnisimport bleiben unter „Verwaltung → Prüfapp-Zugriffe & Befähigungen“ erreichbar; gemeinsame Profile und App-Rollen liegen im Controlcenter.
