@@ -4,7 +4,7 @@
 
 - Kunden, Standorte und Benutzerprofile werden gemeinsam gepflegt. Das Apps-Menü verbindet die Anwendungen; persönliche Systemzuordnungen liegen im zentralen Profil.
 - Mehrere App-Rollen wie Prüfer/in und Einkäufer/in können gleichzeitig gelten. Die Prüfberechtigung ist separat vergeben; Sitzungsrollen begrenzen zusätzliche Rechte weiterhin.
-- Was ist neu: Prüfapp `ed6684a`; CENEOS PHP Base `b666656`.
+- Was ist neu: Prüfapp `ed6684a`, `eb96b38`; CENEOS PHP Base `b666656`, `97ecde0`.
 
 ## 25.10.2026 – Gemeinsame MySQL-Datenbankanbindung vorbereitet
 
