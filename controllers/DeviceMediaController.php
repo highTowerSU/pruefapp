@@ -28,7 +28,7 @@ final class DeviceMediaController
 
     public static function uploadInspection(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor', 'inspector')) return forbidden_response();
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) return [404, [], 'Prüfung nicht gefunden'];
         return self::upload((int) $inspection->device_id, (int) $inspection->id, $isHx);
@@ -86,9 +86,10 @@ final class DeviceMediaController
 
     public static function delete(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor', 'inspector')) return forbidden_response();
         $media = R::getRow('SELECT * FROM device_media WHERE id = ?', [(int) ($params['id'] ?? 0)]);
         $device = $media === [] ? null : R::load('device', (int) $media['device_id']);
+        if (empty($media['inspection_id']) && !current_user_has_role('admin', 'editor')) return forbidden_response();
         if ($media === [] || !$device || !$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Foto nicht gefunden'];
         if (is_file((string) $media['path'])) @unlink((string) $media['path']);
         R::exec('DELETE FROM device_media_analysis WHERE media_id = ?', [(int) $media['id']]);
@@ -99,9 +100,10 @@ final class DeviceMediaController
 
     public static function update(array $params, bool $isHx): array
     {
-        if (!current_user_has_role('admin', 'editor')) return forbidden_response();
+        if (!current_user_has_role('admin', 'editor', 'inspector')) return forbidden_response();
         $media = R::getRow('SELECT * FROM device_media WHERE id = ?', [(int) ($params['id'] ?? 0)]);
         $device = $media === [] ? null : R::load('device', (int) $media['device_id']);
+        if (empty($media['inspection_id']) && !current_user_has_role('admin', 'editor')) return forbidden_response();
         if ($media === [] || !$device || !$device->id || !current_user_can_access_customer(device_customer_id($device))) return [404, [], 'Foto nicht gefunden'];
         $type = (string) ($_POST['media_type'] ?? 'condition');
         if (!in_array($type, ['condition', 'type_plate', 'defect', 'disposal', 'other'], true)) $type = 'condition';

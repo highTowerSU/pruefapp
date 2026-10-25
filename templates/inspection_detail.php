@@ -11,7 +11,7 @@ $status = InspectionEvaluationService::presentation((string) ($inspection->resul
 $classification = trim((string) ($inspection->classification ?? ''));
 $isLegacy = $classification === 'legacy';
 $hasOriginalReport = InspectionDataService::originalReportPath((int) ($inspection->id ?? 0)) !== '';
-$canEdit = current_user_has_role('admin', 'editor');
+$canEdit = current_user_has_role('admin', 'editor', 'inspector');
 $reportAllowed = InspectionEvaluationService::reportPathAllowed(
     $status['status'],
     $classification,

@@ -109,8 +109,15 @@ final class InspectionTypeService
     {
         $eligibility = self::examinerEligibility($user, $type);
         $missing = $eligibility['missing'];
-        if (!RolePolicy::allows((string) ($user->role ?? ''), RolePolicy::EDITOR)) {
-            array_unshift($missing, 'Technischer Prüfzugang (Editor/in oder Administration)');
+        $roles = [(string) ($user->role ?? '')];
+        if ((int) ($user->ceneos_identity_id ?? 0) > 0) {
+            $groups = json_decode((string) ($user->ceneos_groups_json ?? '[]'), true) ?: [];
+            $roles = (new \Ceneos\PhpBase\Central\IdentityRepository())->rolesForClaims((int) $user->ceneos_identity_id, 'pruefapp', $groups) ?: $roles;
+        }
+        $isCurrent = function_exists('current_user') && current_user() && (int) current_user()->id === (int) ($user->id ?? 0);
+        $canInspect = $isCurrent ? current_user_has_role('editor', 'inspector') : RolePolicy::allows($roles, RolePolicy::EDITOR, RolePolicy::INSPECTOR);
+        if (!$canInspect) {
+            array_unshift($missing, 'Technischer Prüfzugang (Prüfer/in, Editor/in oder Administration)');
         }
         $identity = trim((string) (($user->email ?? '') ?: ($user->name ?? '') ?: ($user->preferred_username ?? '')));
         if ($identity === '' || !examiner_has_report_signature($identity)) {

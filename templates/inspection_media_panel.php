@@ -1,7 +1,7 @@
 <?php
 /** @var RedBeanPHPOODBBean $inspection */
 $inspectionMedia = $inspectionMedia ?? [];
-$canManageMedia = current_user_has_role('admin', 'editor');
+$canManageMedia = current_user_has_role('admin', 'editor', 'inspector');
 $panelId = 'inspection-media-panel-' . (int) $inspection->id;
 ?>
 <details class="card mb-3" id="<?= $panelId ?>"<?= $inspectionMedia !== [] ? ' open' : '' ?>>
