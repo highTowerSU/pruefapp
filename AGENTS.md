@@ -28,3 +28,9 @@ Deployments laufen über den signierten HTTP-Endpunkt von CENEOS Base, nicht per
 | `auftraege` | `/home/codexuser/auftraege/app` | `https://github.com/highTowerSU/auftraege.git` | `main` |
 
 `CENEOS_DEPLOY_SECRET` kommt ausschließlich aus dem vorhandenen Secret-Store; niemals in Dateien, Git, Logs oder sichtbare Shell-Ausgabe schreiben. Aufruf: `php /home/codexuser/ceneos-php-base/bin/deploy-request.php deploy TARGET`; danach mit `status REQUEST_ID` bis `success` oder `failed` abfragen. Der Worker läuft minütlich. Die Server-Allowlist liegt geschützt in `/etc/ceneos/deploy.php`; neue Targets müssen dort vom Betreiber mit Pfad, Branch und Composer-Option eingetragen werden. Der Worker führt `git pull --ff-only` und, wenn konfiguriert, `composer install` aus.
+
+## Freigegebener SSH-Betrieb auf vserver2
+
+Seit 25.10.2026 hat der Betreiber den öffentlichen Agent-Schlüssel hinterlegt und SSH-Nutzung ausdrücklich freigegeben. Direkter Host: `root@192.168.168.102`, Schlüssel `/home/codexuser/.ssh/id_ed25519`; `IdentityAgent=none` verwenden. Vor Eingriffen den Hostnamen `vserver2` prüfen. Die öffentlichen Namen `vserver2.koenigsbl.au` und `vserver2.server-cd.eu` landen über SSH auf der Firewall; nicht mit dem Anwendungsserver verwechseln.
+
+Laufende Byobu-/tmux-Jobs zuerst prüfen und nicht durch einen zweiten Migrationslauf oder Eingaben unterbrechen. Datenbankumstellungen laufen mit dem gemeinsamen Base-Werkzeug `bin/mysql-migrate-suite.php`; root-eigene Logs/Sicherungen liegen unter `/var/backups/ceneos/`. Quellcode weiterhin über den oben dokumentierten signierten HTTP-Deploy ausrollen. Secrets weder ausgeben noch in Git übernehmen.
