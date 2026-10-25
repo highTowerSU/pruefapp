@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.10.2026 – Gemeinsame eRecht24-Rechtstexte
+
+- Impressum und Datenschutz kommen aus der gemeinsamen mandanten- und appbezogenen Veröffentlichung im Controlcenter. Die öffentlichen Seiten benötigen keine Anmeldung.
+- API-Schlüssel bleiben verschlüsselt; tägliche Aktualisierungen erhalten bei Fehlern die bisherige Veröffentlichung. Noch nicht konfigurierte Mandanten behalten ihre vorhandenen Links.
+- Umsetzung: Prüfapp `536a456`; CENEOS PHP Base `31c92fd`.
+
 ## 25.10.2026 – SSO und Sitzungserneuerung
 
 - Die Anmeldung verwendet bestehende Keycloak-Sitzungen automatisch, ohne einen zusätzlichen Anmeldeknopf je App.

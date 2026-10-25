@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-25-shared-legal-documents',
+            'date' => '25.10.2026',
+            'title' => 'Gemeinsame eRecht24-Rechtstexte',
+            'items' => [
+                'Impressum und Datenschutz werden im Controlcenter je Mandant und App verwaltet und aus eRecht24 aktualisiert.',
+                'Veröffentlichte Texte sind ohne Anmeldung erreichbar. Bisherige Rechtslinks bleiben bis zur Veröffentlichung erhalten.',
+            ],
+            'pruefapp_revision' => '536a456',
+            'base_revision' => '31c92fd',
+        ], [
             'id' => '2026-10-25-automatic-sso-renewal',
             'date' => '25.10.2026',
             'title' => 'SSO und Sitzungserneuerung',
