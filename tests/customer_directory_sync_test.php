@@ -69,6 +69,20 @@ try {
         throw new RuntimeException('Saved PrüFapp changes were not mirrored centrally.');
     }
 
+    $tenants = new \Ceneos\PhpBase\Tenant\TenantRepository();
+    $tenant = $tenants->dispense();$tenant->name='Shared test';$tenant->slug='shared-test';$tenant->is_active=1;$tenants->store($tenant);
+    $tid = (int)$tenant->id;
+    $newCustomer = $directory->saveCustomer($tid,['name'=>'From participant app','invoice_address_city'=>'Bonn']);
+    $newSite = $directory->saveSite($tid,$newCustomer,['name'=>'Shared site','city'=>'Bonn']);
+    CustomerDirectorySyncService::pullSharedRecords($directory);
+    $inbound = \RedBeanPHP\R::findOne('customer','tenant_id=? AND ceneos_customer_id=?',[$tid,$newCustomer]);
+    if (!$inbound || $inbound->name !== 'From participant app') throw new RuntimeException('New shared customer missing');
+    $inboundSite = \RedBeanPHP\R::findOne('site','ceneos_site_id=?',[$newSite]);
+    if (!$inboundSite || (int)$inboundSite->customer_id !== (int)$inbound->id) throw new RuntimeException('Shared site assigned incorrectly');
+    CustomerDirectorySyncService::pullSharedRecords($directory);
+    if ((int)\RedBeanPHP\R::count('customer','tenant_id=? AND ceneos_customer_id=?',[$tid,$newCustomer]) !== 1) throw new RuntimeException('Repeated pull duplicated a customer');
+    if ((int)\RedBeanPHP\R::count('site','ceneos_site_id=?',[$newSite]) !== 1) throw new RuntimeException('Repeated pull duplicated a site');
+
     echo "PASS: PrüFapp customer/site directory sync\n";
 } finally {
     foreach ([$localPath, $localPath . '-wal', $localPath . '-shm', $centralPath, $centralPath . '-wal', $centralPath . '-shm', $configPath] as $path) {

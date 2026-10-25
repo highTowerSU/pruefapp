@@ -80,7 +80,51 @@ final class CustomerDirectorySyncService
                 R::store($site);
             }
         }
+        self::pullSharedRecords($directory);
         self::$synchronized = true;
+    }
+
+    /** New central records become available without granting users additional customer access. */
+    public static function pullSharedRecords(CustomerDirectoryRepository $directory): void
+    {
+        self::ensureLocalColumns();
+        $lock = fopen(sys_get_temp_dir().'/pruefapp-central-directory-pull.lock','c');
+        if (!$lock || !flock($lock,LOCK_EX | LOCK_NB)) return;
+        try {
+        foreach ((new \Ceneos\PhpBase\Tenant\TenantRepository())->all() as $tenant) {
+            if (!(int)($tenant->is_active ?? 1)) continue;
+            $tenantId = (int)$tenant->id;
+            $localIds = [];
+            $records = $directory->customers($tenantId);
+            foreach ($records as $central) {
+                $local = R::findOne('customer','tenant_id=? AND ceneos_customer_id=?',[$tenantId,(int)$central['id']]);
+                if (!$local) {
+                    $local = R::dispense('customer');
+                    $local->tenant_id = $tenantId;
+                    $local->created_at = date(DATE_ATOM);
+                    self::copyCustomerToLocal($local,$central);
+                    $directory->linkSystemRecord($tenantId,'customer',(int)$central['id'],'pruefapp',(string)$local->id);
+                }
+                $localIds[(int)$central['id']] = (int)$local->id;
+            }
+            foreach ($records as $central) {
+                $localId = $localIds[(int)$central['id']];
+                $parentId = $localIds[(int)($central['parent_customer_id'] ?? 0)] ?? null;
+                R::exec('UPDATE customer SET parent_customer_id=? WHERE id=? AND tenant_id=?',[$parentId,$localId,$tenantId]);
+                foreach ($directory->sites($tenantId,(int)$central['id']) as $centralSite) {
+                    $site = R::findOne('site','ceneos_site_id=?',[(int)$centralSite['id']]);
+                    if ($site && (int)$site->customer_id !== $localId) throw new RuntimeException('Gemeinsamer Standort ist lokal einem anderen Kunden zugeordnet. Bitte im Controlcenter prüfen.');
+                    if (!$site) {
+                        $site = R::dispense('site');
+                        $site->customer_id = $localId;
+                        $site->created_at = date(DATE_ATOM);
+                        self::copySiteToLocal($site,$centralSite);
+                        $directory->linkSystemRecord($tenantId,'site',(int)$centralSite['id'],'pruefapp',(string)$site->id);
+                    }
+                }
+            }
+        }
+        } finally { flock($lock,LOCK_UN);fclose($lock); }
     }
 
     public static function syncSaved(string $type, int $localId): void
