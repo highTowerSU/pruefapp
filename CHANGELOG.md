@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 25.10.2026 – Gemeinsames Controlcenter und App-Rollen
+
+- Kunden, Standorte und Benutzerprofile werden gemeinsam gepflegt. Das Apps-Menü verbindet die Anwendungen; persönliche Systemzuordnungen liegen im zentralen Profil.
+- Mehrere App-Rollen wie Prüfer/in und Einkäufer/in können gleichzeitig gelten. Die Prüfberechtigung ist separat vergeben; Sitzungsrollen begrenzen zusätzliche Rechte weiterhin.
+- Was ist neu: Prüfapp `2399f4a` (Ausgangsrevision); CENEOS PHP Base `b666656`.
+
 ## 25.10.2026 – Gemeinsame MySQL-Datenbankanbindung vorbereitet
 
 - Die Prüfapp verwendet für MySQL dieselbe RedBean-Verbindung wie CENEOS Base. Wartungsarbeiten warten auf laufende Anfragen; neue Zugriffe werden während einer Datenübernahme angehalten.

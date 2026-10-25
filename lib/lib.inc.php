@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/RequestTimingService.php';
 
-use \RedBeanPHP\R as R;
+use RedBeanPHP\R as R;
 use Ceneos\PhpBase\Config\Config;
 use Ceneos\PhpBase\Database\RevisionSupport;
 use Ceneos\PhpBase\Database\Database;
@@ -326,7 +326,10 @@ function initialize_database(bool $lightweight = false): void
     }
     if ($dbPath === null) {
         foreach ($dbCandidates as $candidate) {
-            if (is_file($candidate)) { $dbPath = $candidate; break; }
+            if (is_file($candidate)) {
+                $dbPath = $candidate;
+                break;
+            }
         }
     }
 
@@ -382,11 +385,15 @@ function initialize_database(bool $lightweight = false): void
 function schedule_original_report_restore(): void
 {
     static $scheduled = false;
-    if ($scheduled) return;
+    if ($scheduled) {
+        return;
+    }
     $scheduled = true;
 
     $version = 'v7';
-    if ((string) get_app_config('original_report_restore_version', '') === $version) return;
+    if ((string) get_app_config('original_report_restore_version', '') === $version) {
+        return;
+    }
 
     $total = (int) R::getCell("SELECT COUNT(*) FROM inspection WHERE source_type IN ('json','csv') AND result_status IN ('passed','failed')");
     if ($total > 0) {
@@ -403,11 +410,15 @@ function schedule_original_report_restore(): void
 function schedule_imported_room_assignment(): void
 {
     static $scheduled = false;
-    if ($scheduled) return;
+    if ($scheduled) {
+        return;
+    }
     $scheduled = true;
 
     $version = 'v1';
-    if ((string) get_app_config('imported_room_assignment_version', '') === $version) return;
+    if ((string) get_app_config('imported_room_assignment_version', '') === $version) {
+        return;
+    }
     $total = (int) R::getCell("SELECT COUNT(*) FROM device d WHERE COALESCE(d.room_id, 0) = 0 AND TRIM(COALESCE(d.room_snapshot, '')) <> '' AND EXISTS (SELECT 1 FROM inspection i WHERE i.device_id = d.id AND LOWER(COALESCE(i.source_file, '')) LIKE '%ak-elektro%')");
     if ($total > 0) {
         BackgroundJobService::enqueue(
@@ -504,7 +515,9 @@ function ensure_structure_schema(): void
         if ($isMysql) {
             $statement = str_replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'INTEGER PRIMARY KEY AUTO_INCREMENT', $statement);
             // MySQL does not support SQLite's IF NOT EXISTS syntax for indexes.
-            if (str_starts_with(strtoupper(trim($statement)), 'CREATE INDEX IF NOT EXISTS')) continue;
+            if (str_starts_with(strtoupper(trim($statement)), 'CREATE INDEX IF NOT EXISTS')) {
+                continue;
+            }
         }
         R::exec($statement);
     }
@@ -521,9 +534,13 @@ function ensure_structure_schema(): void
     }
 
     $answerColumns = R::getColumns('inspection_answer');
-    if (!isset($answerColumns['remark'])) R::exec("ALTER TABLE inspection_answer ADD COLUMN remark TEXT NOT NULL DEFAULT ''");
+    if (!isset($answerColumns['remark'])) {
+        R::exec("ALTER TABLE inspection_answer ADD COLUMN remark TEXT NOT NULL DEFAULT ''");
+    }
     $draftMediaColumns = R::getColumns('device_draft_media');
-    if (!isset($draftMediaColumns['proposal_json'])) R::exec("ALTER TABLE device_draft_media ADD COLUMN proposal_json TEXT NOT NULL DEFAULT ''");
+    if (!isset($draftMediaColumns['proposal_json'])) {
+        R::exec("ALTER TABLE device_draft_media ADD COLUMN proposal_json TEXT NOT NULL DEFAULT ''");
+    }
 
     if (class_exists(Migrator::class)) {
         Migrator::mark('schema_migration', 1);
@@ -669,7 +686,9 @@ function seed_inspection_catalog(): void
         );
         $versionId = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['electrical-v1']);
     }
-    if ((int) R::getCell('SELECT COUNT(*) FROM inspection_catalog_item WHERE version_id = ?', [$versionId]) > 0) return;
+    if ((int) R::getCell('SELECT COUNT(*) FROM inspection_catalog_item WHERE version_id = ?', [$versionId]) > 0) {
+        return;
+    }
     $items = [
         ['identification', 'Inventarisierung', 'Ist das Prüfobjekt eindeutig identifiziert?', 'Gerätenummer, Geräteart und Anschluss sind eindeutig zugeordnet.', 'boolean', '', '', 10],
         ['visual_label', 'Sichtprüfung', 'Sind keine Schäden an der Beschriftung erkennbar?', 'Beschriftungen sind vollständig und eindeutig erkennbar.', 'boolean', '', '', 20],
@@ -736,22 +755,30 @@ function seed_inspection_types(): void
         R::exec("UPDATE inspection_type_requirement SET validity_days = 700 WHERE code IN ('electrical_basic', 'ladder_basic') AND (validity_days IS NULL OR validity_days = 0)");
         foreach (R::getAll("SELECT id, instruction_certificates_json FROM oauthuser WHERE instruction_certificates_json IS NOT NULL AND instruction_certificates_json <> ''") as $profile) {
             $certificates = json_decode((string) ($profile['instruction_certificates_json'] ?? ''), true);
-            if (!is_array($certificates)) continue;
+            if (!is_array($certificates)) {
+                continue;
+            }
             foreach ($certificates as $certificate) {
                 $followups = is_array($certificate['followups'] ?? null) ? $certificate['followups'] : [];
-                usort($followups, static fn(array $a, array $b): int => strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? '')));
+                usort($followups, static fn (array $a, array $b): int => strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? '')));
                 $latest = trim((string) ($followups[0]['date'] ?? ''));
-                if ($latest === '') continue;
+                if ($latest === '') {
+                    continue;
+                }
                 foreach (array_values(array_filter(array_map('intval', (array) ($certificate['qualification_ids'] ?? [])))) as $qualificationId) {
                     $days = (int) R::getCell('SELECT r.validity_days FROM inspection_type_requirement r JOIN user_qualification q ON q.requirement_code = r.code WHERE q.id = ? LIMIT 1', [$qualificationId]);
-                    if ($days > 0) R::exec('UPDATE user_qualification SET expires_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [date('Y-m-d', strtotime($latest . ' +' . $days . ' days')), date(DATE_ATOM), $qualificationId, (int) $profile['id']]);
+                    if ($days > 0) {
+                        R::exec('UPDATE user_qualification SET expires_at = ?, updated_at = ? WHERE id = ? AND oauthuser_id = ?', [date('Y-m-d', strtotime($latest . ' +' . $days . ' days')), date(DATE_ATOM), $qualificationId, (int) $profile['id']]);
+                    }
                 }
             }
         }
         set_app_config('qualification_followup_model_v1', '1');
     }
     $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
-    if ($ladderCatalog > 0) return;
+    if ($ladderCatalog > 0) {
+        return;
+    }
     R::exec('INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)', ['ladder-v1', 'Leiterprüfung Version 1', 'ladder', $now, $now]);
     $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
     $items = [
@@ -793,14 +820,18 @@ function app_storage_namespace(): string
 function app_data_root(): string
 {
     $configured = config_value('APP_DATA_ROOT');
-    if (is_string($configured) && trim($configured) !== '') return rtrim(trim($configured), '/');
+    if (is_string($configured) && trim($configured) !== '') {
+        return rtrim(trim($configured), '/');
+    }
     return '/var/www/data/pruefapp';
 }
 
 function app_write_import_log(string $type, array $stats): void
 {
     $root = app_data_root() . '/import-logs';
-    if (!is_dir($root)) @mkdir($root, 0770, true);
+    if (!is_dir($root)) {
+        @mkdir($root, 0770, true);
+    }
     @file_put_contents($root . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.json', json_encode(['created_at' => date(DATE_ATOM), 'type' => $type, 'stats' => $stats], JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
@@ -841,7 +872,9 @@ function base_path(): string
     // /var/www/html/pruefapp/bin/downloads. Prefer the shared configuration
     // and otherwise derive the deployed application mount from its directory.
     $configured = class_exists(Config::class) ? Config::string('APP_BASE_PATH') : null;
-    if ($configured === null || $configured === '') $configured = getenv('APP_BASE_PATH') ?: null;
+    if ($configured === null || $configured === '') {
+        $configured = getenv('APP_BASE_PATH') ?: null;
+    }
     if ($configured !== null && $configured !== '') {
         $basePath = '/' . trim(str_replace('\\', '/', $configured), '/');
         return $basePath === '/' ? '' : $basePath;
@@ -973,7 +1006,9 @@ function url_for(string $path = ''): string
     // browsers interpret that as a scheme-relative URL with host "login.php".
     $base = trim(base_path(), '/');
     $tenantPrefix = function_exists('tenant_url_prefix_for_request') ? trim(tenant_url_prefix_for_request(), '/') : '';
-    if ($tenantPrefix !== '') $base = trim($base . '/' . $tenantPrefix, '/');
+    if ($tenantPrefix !== '') {
+        $base = trim($base . '/' . $tenantPrefix, '/');
+    }
     $target = ltrim($path, '/');
     $combined = trim($base . '/' . $target, '/');
 
@@ -988,12 +1023,16 @@ function public_base_urls(): array
         $environment = trim((string) (getenv('APP_PUBLIC_BASE_URLS') ?: ''));
         $configured = $environment !== '' ? json_decode($environment, true) : [];
     }
-    if (!is_array($configured)) return [];
+    if (!is_array($configured)) {
+        return [];
+    }
     $result = [];
     foreach ($configured as $tenant => $url) {
         $tenant = strtolower(trim((string) $tenant));
         $url = rtrim(trim((string) $url), '/');
-        if ($tenant !== '' && preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $url) === 1) $result[$tenant] = $url;
+        if ($tenant !== '' && preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $url) === 1) {
+            $result[$tenant] = $url;
+        }
     }
     return $result;
 }
@@ -1014,11 +1053,17 @@ function public_base_url_for_tenant(?int $tenantId = null): string
         }
         $key = strtolower(trim((string) ($branding['key'] ?? '')));
         $mapped = public_base_urls()[$key] ?? '';
-        if ($mapped !== '') return $mapped;
+        if ($mapped !== '') {
+            return $mapped;
+        }
     }
     $configuredValue = config_value('APP_PUBLIC_BASE_URL');
-    if ($configuredValue === null || trim($configuredValue) === '') $configuredValue = getenv('APP_PUBLIC_BASE_URL') ?: null;
-    if ($configuredValue === null || trim((string) $configuredValue) === '') $configuredValue = get_app_config('public_base_url', '');
+    if ($configuredValue === null || trim($configuredValue) === '') {
+        $configuredValue = getenv('APP_PUBLIC_BASE_URL') ?: null;
+    }
+    if ($configuredValue === null || trim((string) $configuredValue) === '') {
+        $configuredValue = get_app_config('public_base_url', '');
+    }
     $configured = rtrim(trim((string) ($configuredValue ?? '')), '/');
     return preg_match('#^https?://[^/?#]+(?:/[^?#]*)?$#iu', $configured) === 1 ? $configured : '';
 }
@@ -1071,9 +1116,13 @@ function determine_default_role(array $userData): string
 {
     $email = strtolower((string) ($userData['email'] ?? ''));
     $globalAdminEmails = array_map('strtolower', \Ceneos\PhpBase\Config\Config::csv('APP_GLOBAL_ADMIN_EMAILS'));
-    if ($email !== '' && in_array($email, $globalAdminEmails, true)) return 'global-admin';
+    if ($email !== '' && in_array($email, $globalAdminEmails, true)) {
+        return 'global-admin';
+    }
     $superadminEmails = array_filter(array_map('strtolower', array_map('trim', explode(',', (string) (config_value('APP_SUPERADMIN_EMAILS') ?? '')))));
-    if ($email !== '' && in_array($email, $superadminEmails, true)) return 'superadmin';
+    if ($email !== '' && in_array($email, $superadminEmails, true)) {
+        return 'superadmin';
+    }
     $configuredEmails = config_value('APP_ADMIN_EMAILS') ?? '';
     $emailCandidates = array_filter(array_map('trim', explode(',', $configuredEmails)), static function ($value) {
         return $value !== '';
@@ -1193,8 +1242,12 @@ function display_examiner_name(string $value): string
 {
     static $cache = [];
     $value = trim($value);
-    if ($value === '' || !filter_var($value, FILTER_VALIDATE_EMAIL)) return $value;
-    if (array_key_exists($value, $cache)) return $cache[$value];
+    if ($value === '' || !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+        return $value;
+    }
+    if (array_key_exists($value, $cache)) {
+        return $cache[$value];
+    }
     try {
         $user = R::findOne('oauthuser', ' LOWER(email) = LOWER(?) ', [$value]);
         $name = trim((string) ($user->name ?? ''));
@@ -1208,19 +1261,29 @@ function display_examiner_name(string $value): string
 function examiner_signature_data_uri(string $value): string
 {
     $value = trim($value);
-    if ($value === '') return '';
+    if ($value === '') {
+        return '';
+    }
     try {
         $user = filter_var($value, FILTER_VALIDATE_EMAIL)
             ? R::findOne('oauthuser', ' LOWER(email) = LOWER(?) ', [$value])
             : R::findOne('oauthuser', ' LOWER(name) = LOWER(?) OR LOWER(preferred_username) = LOWER(?) ', [$value, $value]);
-        if (!$user || !$user->id) return '';
+        if (!$user || !$user->id) {
+            return '';
+        }
         $path = trim((string) ($user->report_signature_path ?? ''));
-        if ($path === '' || !is_file($path)) return '';
+        if ($path === '' || !is_file($path)) {
+            return '';
+        }
         $root = realpath(app_data_root() . '/user-signatures');
         $real = realpath($path);
-        if ($root === false || $real === false || !str_starts_with($real, $root . DIRECTORY_SEPARATOR)) return '';
+        if ($root === false || $real === false || !str_starts_with($real, $root . DIRECTORY_SEPARATOR)) {
+            return '';
+        }
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($real);
-        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) return '';
+        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+            return '';
+        }
         $body = file_get_contents($real);
         return is_string($body) && $body !== '' ? 'data:' . $mime . ';base64,' . base64_encode($body) : '';
     } catch (Throwable) {
@@ -1256,14 +1319,18 @@ function current_user_true_role(): ?string
     if (!empty($user->ceneos_identity_id)) {
         $groups = json_decode((string) ($user->ceneos_groups_json ?? '[]'), true) ?: [];
         $central = (new \Ceneos\PhpBase\Central\IdentityRepository())->roleForClaims((int) $user->ceneos_identity_id, app_storage_namespace(), $groups);
-        if ($central !== null) $role = $central;
+        if ($central !== null) {
+            $role = $central;
+        }
     }
     // Keep the emergency/bootstrap superadmin available even if an older
     // deployment accidentally stored the account as a plain admin.
     $configured = config_value('APP_SUPERADMIN_EMAILS') ?? '';
     $superadminEmails = array_filter(array_map('strtolower', array_map('trim', explode(',', $configured))));
     $email = strtolower(trim((string) ($user->email ?? '')));
-    if ($email !== '' && in_array($email, $superadminEmails, true)) return 'superadmin';
+    if ($email !== '' && in_array($email, $superadminEmails, true)) {
+        return 'superadmin';
+    }
 
     return $role !== '' ? $role : null;
 }
@@ -1277,17 +1344,25 @@ function current_user_role(): ?string
 /** Customer IDs visible to the current user. Admins are unrestricted; an unassigned user sees nothing. */
 function current_user_customer_ids(): array
 {
-    if (current_user_has_role('admin')) return array_map('intval', array_keys(R::findAll('customer')));
+    if (current_user_has_role('admin')) {
+        return array_map('intval', array_keys(R::findAll('customer')));
+    }
     $userId = current_user_id();
-    if (!$userId) return [];
+    if (!$userId) {
+        return [];
+    }
     $assignments = R::getAll('SELECT customer_id, include_descendants FROM oauthuser_customer WHERE oauthuser_id = ?', [$userId]);
     $visible = [];
     $expandable = [];
     foreach ($assignments as $assignment) {
         $customerId = (int) ($assignment['customer_id'] ?? 0);
-        if ($customerId <= 0) continue;
+        if ($customerId <= 0) {
+            continue;
+        }
         $visible[$customerId] = true;
-        if (!empty($assignment['include_descendants'])) $expandable[$customerId] = true;
+        if (!empty($assignment['include_descendants'])) {
+            $expandable[$customerId] = true;
+        }
     }
     do {
         $added = false;
@@ -1319,7 +1394,10 @@ function device_customer_id($device): int
 
 function current_user_has_role(string ...$roles): bool
 {
-    return \Ceneos\PhpBase\Auth\RolePolicy::allows(current_user_role(), ...$roles);
+    $user = current_user();
+    $groups = $user ? (json_decode((string)($user->ceneos_groups_json ?? '[]'), true) ?: []) : [];
+    $effective = \Ceneos\PhpBase\Auth\EffectiveRoles::resolve(app_storage_namespace(), (int)($user->ceneos_identity_id ?? 0), $groups, current_user_role(), current_user_true_role());
+    return \Ceneos\PhpBase\Auth\RolePolicy::allows($effective, ...$roles);
 }
 
 function current_user_is_superadmin(): bool
@@ -1347,14 +1425,18 @@ function current_user_is_customer(): bool
 function current_user_background_jobs(int $limit = 8): array
 {
     $user = current_user();
-    if ($user === null) return [];
+    if ($user === null) {
+        return [];
+    }
     $all = current_user_is_superadmin();
     $jobs = BackgroundJobService::latest(max(100, $limit), $all ? null : (int) ($user->id ?? 0));
     $notifications = \Ceneos\PhpBase\Notification\NotificationRepository::forUser((int) ($user->id ?? 0), 500);
     $notificationsByJob = [];
     foreach ($notifications as $notification) {
         $jobId = (int) ($notification['job_id'] ?? 0);
-        if ($jobId > 0) $notificationsByJob[$jobId] = $notification;
+        if ($jobId > 0) {
+            $notificationsByJob[$jobId] = $notification;
+        }
     }
     foreach ($jobs as &$job) {
         $job['historical'] = in_array((string) ($job['state'] ?? ''), ['done', 'error', 'cancelled'], true);
@@ -1373,7 +1455,9 @@ function current_user_background_jobs(int $limit = 8): array
 function current_user_notifications(int $limit = 8): array
 {
     $user = current_user();
-    if ($user === null) return [];
+    if ($user === null) {
+        return [];
+    }
     WhatsNewService::publishForCurrentUser();
     $rows = \Ceneos\PhpBase\Notification\NotificationRepository::forUser((int) ($user->id ?? 0), max(1, $limit));
     return array_map(static function (array $row): array {
@@ -1716,7 +1800,8 @@ function ensure_unique_username(string $base, ?int $excludeId = null): string
     }
 }
 
-function generate_username($firstname, $lastname) {
+function generate_username($firstname, $lastname)
+{
     $first = sanitize_username((string) $firstname);
     $last = sanitize_username((string) $lastname);
 
@@ -1733,7 +1818,8 @@ function generate_username($firstname, $lastname) {
     return ensure_unique_username($base);
 }
 
-function generate_password($length = 10) {
+function generate_password($length = 10)
+{
     $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!?$%&';
     return substr(str_shuffle(str_repeat($chars, $length)), 0, $length);
 }
@@ -1776,7 +1862,8 @@ function normalize_email_address(string $email): string
     return $local . '@' . $domain;
 }
 
-function generate_email($username) {
+function generate_email($username)
+{
     $localPart = sanitize_username($username);
     if ($localPart === '') {
         return '';
@@ -1785,7 +1872,8 @@ function generate_email($username) {
     return $localPart . '@lernen.koenigsbl.au';
 }
 
-function render_template($file, $vars = []) {
+function render_template($file, $vars = [])
+{
     global $baseDir;
     static $renderer = null;
 
@@ -1819,13 +1907,21 @@ function decorate_form_label_icons(string $html): string
     ];
     return preg_replace_callback('~<label\b([^>]*)>(.*?)</label>~is', static function (array $match) use ($icons): string {
         $attributes = $match[1];
-        if (!preg_match('/\bclass\s*=\s*["\']([^"\']*)["\']/i', $attributes, $classMatch)) return $match[0];
+        if (!preg_match('/\bclass\s*=\s*["\']([^"\']*)["\']/i', $attributes, $classMatch)) {
+            return $match[0];
+        }
         $classes = preg_split('/\s+/', trim($classMatch[1])) ?: [];
-        if (!in_array('form-label', $classes, true) && !in_array('form-check-label', $classes, true)) return $match[0];
-        if (in_array('visually-hidden', $classes, true) || preg_match('/<i\b[^>]*class\s*=\s*["\'][^"\']*(?:fa-solid|fas|far|fab)/i', $match[2])) return $match[0];
+        if (!in_array('form-label', $classes, true) && !in_array('form-check-label', $classes, true)) {
+            return $match[0];
+        }
+        if (in_array('visually-hidden', $classes, true) || preg_match('/<i\b[^>]*class\s*=\s*["\'][^"\']*(?:fa-solid|fas|far|fab)/i', $match[2])) {
+            return $match[0];
+        }
         $text = trim(preg_replace('/\s+/', ' ', strip_tags($match[2])));
         foreach ($icons as $pattern => $icon) {
-            if (!preg_match($pattern, $text)) continue;
+            if (!preg_match($pattern, $text)) {
+                continue;
+            }
             return '<label' . $attributes . '><i class="fa-solid ' . $icon . ' me-1 text-body-secondary" aria-hidden="true"></i>' . $match[2] . '</label>';
         }
         return $match[0];
@@ -1838,7 +1934,9 @@ function decorate_collapsible_icons(string $html): string
     // amount of escaped raw data. preg_replace_callback duplicates its input
     // while scanning it; avoid turning an otherwise renderable page into a
     // PHP memory exhaustion merely to add optional summary icons.
-    if (strlen($html) > 512 * 1024) return $html;
+    if (strlen($html) > 512 * 1024) {
+        return $html;
+    }
     $icons = [
         '/ereignisprotokoll/i' => 'fa-clock-rotate-left',
         '/neues gerät|gerät anlegen/i' => 'fa-plus-circle',
@@ -1854,10 +1952,14 @@ function decorate_collapsible_icons(string $html): string
         '/gerät|geraet/i' => 'fa-plug',
     ];
     return preg_replace_callback('~<summary\b([^>]*)>(.*?)</summary>~is', static function (array $match) use ($icons): string {
-        if (preg_match('/<i\b[^>]*class\s*=\s*["\'][^"\']*(?:fa-solid|fas|far|fab)/i', $match[2])) return $match[0];
+        if (preg_match('/<i\b[^>]*class\s*=\s*["\'][^"\']*(?:fa-solid|fas|far|fab)/i', $match[2])) {
+            return $match[0];
+        }
         $text = trim(preg_replace('/\s+/', ' ', strip_tags($match[2])));
         foreach ($icons as $pattern => $icon) {
-            if (!preg_match($pattern, $text)) continue;
+            if (!preg_match($pattern, $text)) {
+                continue;
+            }
             return '<summary' . $match[1] . '><i class="fa-solid ' . $icon . ' me-2 text-body-secondary" aria-hidden="true"></i>' . $match[2] . '</summary>';
         }
         return $match[0];
@@ -1870,7 +1972,8 @@ function forbidden_response(?string $message = null): array
 }
 
 // Gibt HTML für farbig markiertes Passwort zurück
-function render_passwort(string $pw): string {
+function render_passwort(string $pw): string
+{
     $html = '';
     foreach (mb_str_split($pw) as $c) {
         $cls = ctype_digit($c) ? 'digit'
@@ -1962,11 +2065,17 @@ function format_datetime_for_display(?string $value, string $format = 'd.m.Y H:i
 function app_asset_version(): string
 {
     static $version;
-    if ($version !== null) return $version;
+    if ($version !== null) {
+        return $version;
+    }
     $base = dirname(__DIR__);
     $version = trim((string) @shell_exec('git -C ' . escapeshellarg($base) . ' rev-parse --short HEAD 2>/dev/null'));
-    if ($version === '') $version = (string) @filemtime($base . '/public/js/search-select.js');
+    if ($version === '') {
+        $version = (string) @filemtime($base . '/public/js/search-select.js');
+    }
     return $version !== '' ? $version : '1';
 }
 
-if (PHP_SAPI !== 'cli' && isset($_SESSION['auth_user_id'])) current_user_role();
+if (PHP_SAPI !== 'cli' && isset($_SESSION['auth_user_id'])) {
+    current_user_role();
+}

@@ -11,6 +11,16 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-25-controlcenter-profiles-app-roles',
+            'date' => '25.10.2026',
+            'title' => 'Gemeinsame Profile und kombinierbare App-Rollen',
+            'items' => [
+                'Das Controlcenter bündelt Kunden, Standorte und Benutzerprofile. Ein gemeinsames Apps-Menü verbindet Prüfapp, Aufträge, Abrechnung und Teilnehmerverwaltung.',
+                'Rollen wie Prüfer/in und Einkäufer/in lassen sich je Anwendung kombinieren. Administrative Rechte bleiben getrennt; reduzierte Sitzungsrollen gelten weiterhin.',
+            ],
+            'pruefapp_revision' => '2399f4a (Ausgangsrevision)',
+            'base_revision' => 'b666656',
+        ], [
             'id' => '2026-10-25-shared-mysql-connections',
             'date' => '25.10.2026',
             'title' => 'Gemeinsame MySQL-Anbindung vorbereitet',

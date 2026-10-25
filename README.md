@@ -325,3 +325,8 @@ Im Benutzermenü können administrative Konten ihre Rolle für diese Sitzung red
 ## MySQL-Umstellung (in Vorbereitung)
 
 Der gemeinsame CENEOS-MySQL-Migrationsweg übernimmt zentrale Mandanten, App-Daten und Revisionshistorie mit erhaltenen IDs. Die Verbindung erfolgt über CENEOS Base/RedBeanPHP mit `APP_DATABASE_DSN`, `APP_DATABASE_USER` und `APP_DATABASE_PASSWORD`. Bestehende SQLite-Konfigurationen bleiben bis zum geprüften Umschalten lesbar. Sicherung und Prüfung gehen der produktiven DSN-Änderung voraus.
+
+
+## Ausbau Controlcenter, Teilnehmer-Domains und gemeinsame Stammdaten
+
+Die zentrale Base wird um ein eigenständig erreichbares Controlcenter, additive Rollen je App und gemeinsame Benutzerprofile ergänzt. Administrative Rechte bleiben je Anwendung getrennt; eine reduzierte Sitzungsrolle unterdrückt zusätzliche Rechte. Kunden und Standorte werden aus demselben mandantengebundenen Verzeichnis verwendet, auch im Teilnehmermodul. Teilnehmer-Hosts wählen den Mandanten automatisch; bisherige Einstiege und Übermittlungslinks bleiben erreichbar. Bootstrap, gemeinsame Theme-/Navigationskomponenten und bestehender Keycloak-Login werden wiederverwendet. Profilfelder für Nextcloud, persönlichen Königsblau-Talk, Kimai und Kontaktdaten gehören in die zentrale Verwaltung; sie enthalten keine Zugangspasswörter.

@@ -9,7 +9,9 @@ if ($loginHeaderUser === null) {
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $helpUrl = url_for('hilfe');
     $backgroundHex = ltrim((string) $navBackgroundColor, '#');
-    if (strlen($backgroundHex) === 3) $backgroundHex = $backgroundHex[0] . $backgroundHex[0] . $backgroundHex[1] . $backgroundHex[1] . $backgroundHex[2] . $backgroundHex[2];
+    if (strlen($backgroundHex) === 3) {
+        $backgroundHex = $backgroundHex[0] . $backgroundHex[0] . $backgroundHex[1] . $backgroundHex[1] . $backgroundHex[2] . $backgroundHex[2];
+    }
     $luminance = strlen($backgroundHex) === 6
         ? (0.299 * hexdec(substr($backgroundHex, 0, 2)) + 0.587 * hexdec(substr($backgroundHex, 2, 2)) + 0.114 * hexdec(substr($backgroundHex, 4, 2)))
         : 0;
@@ -43,87 +45,89 @@ if ($loginHeaderUser === null) {
   <div class="container-fluid app-nav-container">
     <?php
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-    $coursesUrl = url_for('kurse');
-    $auditLogUrl = url_for('admin/audit-log');
-    $userAdminUrl = url_for('admin/nutzer');
-    $settingsUrl = url_for('admin/konfiguration');
-    $vocabularyUrl = url_for('admin/stammdaten');
-    $helpUrl = url_for('hilfe');
-    $structureUrl = url_for('struktur');
-    $devicesUrl = url_for('geraete');
-    $inspectionsUrl = url_for('pruefungen');
-    $inspectionImportUrl = url_for('admin/pruefungen/import');
-    $billingUrl = url_for('admin/abrechnung');
-    $companyUrl = url_for('mandanten');
-    $downloadsUrl = url_for('downloads');
-    $inspectionTypesUrl = url_for('admin/pruefarten');
+$coursesUrl = url_for('kurse');
+$auditLogUrl = url_for('admin/audit-log');
+$userAdminUrl = config_value('APP_CONTROLCENTER_URL') ? rtrim((string) config_value('APP_CONTROLCENTER_URL'), '/') . '/benutzer' : url_for('admin/nutzer');
+$settingsUrl = url_for('admin/konfiguration');
+$vocabularyUrl = url_for('admin/stammdaten');
+$helpUrl = url_for('hilfe');
+$structureUrl = url_for('struktur');
+$devicesUrl = url_for('geraete');
+$inspectionsUrl = url_for('pruefungen');
+$inspectionImportUrl = url_for('admin/pruefungen/import');
+$billingUrl = url_for('admin/abrechnung');
+$companyUrl = url_for('mandanten');
+$downloadsUrl = url_for('downloads');
+$inspectionTypesUrl = url_for('admin/pruefarten');
 
-    $pathIsActive = static function (string $url) use ($currentPath): bool {
-        $prefix = rtrim($url, '/');
-        return $prefix === '' ? ($currentPath === '/' || $currentPath === '') : ($currentPath === $url || strpos($currentPath, $prefix . '/') === 0);
-    };
+$pathIsActive = static function (string $url) use ($currentPath): bool {
+    $prefix = rtrim($url, '/');
+    return $prefix === '' ? ($currentPath === '/' || $currentPath === '') : ($currentPath === $url || strpos($currentPath, $prefix . '/') === 0);
+};
 
-    $coursesPrefix = rtrim($coursesUrl, '/');
-    if ($coursesPrefix === '') {
-        $coursesActive = $currentPath === '/' || $currentPath === '';
-    } else {
-        $coursesActive = $currentPath === $coursesUrl || strpos($currentPath, $coursesPrefix . '/') === 0;
-    }
+$coursesPrefix = rtrim($coursesUrl, '/');
+if ($coursesPrefix === '') {
+    $coursesActive = $currentPath === '/' || $currentPath === '';
+} else {
+    $coursesActive = $currentPath === $coursesUrl || strpos($currentPath, $coursesPrefix . '/') === 0;
+}
 
-    $auditPrefix = rtrim($auditLogUrl, '/');
-    if ($auditPrefix === '') {
-        $auditActive = $currentPath === '/' || $currentPath === '';
-    } else {
-        $auditActive = $currentPath === $auditLogUrl || strpos($currentPath, $auditPrefix . '/') === 0;
-    }
+$auditPrefix = rtrim($auditLogUrl, '/');
+if ($auditPrefix === '') {
+    $auditActive = $currentPath === '/' || $currentPath === '';
+} else {
+    $auditActive = $currentPath === $auditLogUrl || strpos($currentPath, $auditPrefix . '/') === 0;
+}
 
-    $userAdminPrefix = rtrim($userAdminUrl, '/');
-    if ($userAdminPrefix === '') {
-        $userAdminActive = $currentPath === '/' || $currentPath === '';
-    } else {
-        $userAdminActive = $currentPath === $userAdminUrl || strpos($currentPath, $userAdminPrefix . '/') === 0;
-    }
-    $settingsPrefix = rtrim($settingsUrl, '/');
-    if ($settingsPrefix === '') {
-        $settingsActive = $currentPath === '/' || $currentPath === '';
-    } else {
-        $settingsActive = $currentPath === $settingsUrl || strpos($currentPath, $settingsPrefix . '/') === 0;
-    }
+$userAdminPrefix = rtrim($userAdminUrl, '/');
+if ($userAdminPrefix === '') {
+    $userAdminActive = $currentPath === '/' || $currentPath === '';
+} else {
+    $userAdminActive = $currentPath === $userAdminUrl || strpos($currentPath, $userAdminPrefix . '/') === 0;
+}
+$settingsPrefix = rtrim($settingsUrl, '/');
+if ($settingsPrefix === '') {
+    $settingsActive = $currentPath === '/' || $currentPath === '';
+} else {
+    $settingsActive = $currentPath === $settingsUrl || strpos($currentPath, $settingsPrefix . '/') === 0;
+}
 
-    $helpPrefix = rtrim($helpUrl, '/');
-    if ($helpPrefix === '') {
-        $helpActive = $currentPath === '/' || $currentPath === '';
-    } else {
-        $helpActive = $currentPath === $helpUrl || strpos($currentPath, $helpPrefix . '/') === 0;
-    }
+$helpPrefix = rtrim($helpUrl, '/');
+if ($helpPrefix === '') {
+    $helpActive = $currentPath === '/' || $currentPath === '';
+} else {
+    $helpActive = $currentPath === $helpUrl || strpos($currentPath, $helpPrefix . '/') === 0;
+}
 
-    $structurePrefix = rtrim($structureUrl, '/');
-    if ($structurePrefix === '') {
-        $structureActive = $currentPath === '/' || $currentPath === '';
-    } else {
-        $structureActive = $currentPath === $structureUrl || strpos($currentPath, $structurePrefix . '/') === 0;
-    }
-    $devicesActive = $currentPath === $devicesUrl || strpos($currentPath, rtrim($devicesUrl, '/') . '/') === 0;
-    $inspectionsActive = $pathIsActive($inspectionsUrl) || strpos($currentPath, rtrim(url_for('admin/pruefungen'), '/') . '/') === 0;
-    $devicesMenuActive = $devicesActive || $inspectionsActive;
-    $inspectionImportActive = $pathIsActive($inspectionImportUrl);
-    $billingActive = $pathIsActive($billingUrl);
-    $companyActive = $pathIsActive($companyUrl);
-    $vocabularyActive = $pathIsActive($vocabularyUrl);
-    $inspectionTypesActive = $pathIsActive($inspectionTypesUrl);
-    $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive || $vocabularyActive || $inspectionTypesActive;
+$structurePrefix = rtrim($structureUrl, '/');
+if ($structurePrefix === '') {
+    $structureActive = $currentPath === '/' || $currentPath === '';
+} else {
+    $structureActive = $currentPath === $structureUrl || strpos($currentPath, $structurePrefix . '/') === 0;
+}
+$devicesActive = $currentPath === $devicesUrl || strpos($currentPath, rtrim($devicesUrl, '/') . '/') === 0;
+$inspectionsActive = $pathIsActive($inspectionsUrl) || strpos($currentPath, rtrim(url_for('admin/pruefungen'), '/') . '/') === 0;
+$devicesMenuActive = $devicesActive || $inspectionsActive;
+$inspectionImportActive = $pathIsActive($inspectionImportUrl);
+$billingActive = $pathIsActive($billingUrl);
+$companyActive = $pathIsActive($companyUrl);
+$vocabularyActive = $pathIsActive($vocabularyUrl);
+$inspectionTypesActive = $pathIsActive($inspectionTypesUrl);
+$adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive || $vocabularyActive || $inspectionTypesActive;
 
-    ?>
+?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
       <?php
-        $hex = ltrim($navBackgroundColor, '#');
-        if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
-        $luminance = strlen($hex) === 6
-            ? (0.299 * hexdec(substr($hex, 0, 2)) + 0.587 * hexdec(substr($hex, 2, 2)) + 0.114 * hexdec(substr($hex, 4, 2)))
-            : 0;
-        $logoVariant = $luminance > 150 ? 'light' : 'dark';
-        $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path'] ?? '');
-      ?>
+    $hex = ltrim($navBackgroundColor, '#');
+if (strlen($hex) === 3) {
+    $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+}
+$luminance = strlen($hex) === 6
+    ? (0.299 * hexdec(substr($hex, 0, 2)) + 0.587 * hexdec(substr($hex, 2, 2)) + 0.114 * hexdec(substr($hex, 4, 2)))
+    : 0;
+$logoVariant = $luminance > 150 ? 'light' : 'dark';
+$brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path'] ?? '');
+?>
       <?php if (!empty($brandLogo)): ?>
         <?php $brandLogoUrl = preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo); ?>
         <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES) ?>"
@@ -201,7 +205,7 @@ if ($loginHeaderUser === null) {
       <div class="d-flex align-items-center ms-auto gap-3">
         <?php if ($authUser !== null): ?>
           <?php
-            $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
+      $displayName = $authUser->name ?: ($authUser->preferred_username ?: ($authUser->email ?: 'Nutzer'));
             $roleLabel = current_user_role() ? role_label((string) current_user_role()) : null;
             $userMenuId = 'userMenuDropdown';
             $userManagementUrl = $branding['user_management_url'] ?? null;
@@ -218,10 +222,10 @@ if ($loginHeaderUser === null) {
             } else {
                 $userManagementUrl = null;
             }
-            $keycloakAccountUrl = keycloak_account_console_base_url();
-            $hasManagementLink = $userManagementUrl !== null && current_user_has_role('admin');
-            $hasKeycloakLink = $keycloakAccountUrl !== null;
-          ?>
+$keycloakAccountUrl = keycloak_account_console_base_url();
+$hasManagementLink = $userManagementUrl !== null && current_user_has_role('admin');
+$hasKeycloakLink = $keycloakAccountUrl !== null;
+?>
           <div class="d-flex align-items-center gap-2">
             <div class="dropdown navbar-hover-dropdown">
               <button class="btn btn-outline-navbar dropdown-toggle d-flex align-items-center gap-2"
@@ -249,7 +253,8 @@ if ($loginHeaderUser === null) {
                 <li>
                   <a class="dropdown-item" href="<?= htmlspecialchars($downloadsUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-download me-2" aria-hidden="true"></i>Meine Downloads</a>
                 </li>
-                <?php if ($hasManagementLink): ?>
+                <?php if (config_value('APP_CONTROLCENTER_URL')): ?><li><a class="dropdown-item" href="<?= htmlspecialchars(rtrim((string) config_value('APP_CONTROLCENTER_URL'), '/') . '/benutzer', ENT_QUOTES) ?>"><i class="fa-solid fa-id-card me-2" aria-hidden="true"></i>Gemeinsames Profil</a></li><?php endif; ?>
+                  <?php if ($hasManagementLink): ?>
                   <li>
                     <a class="dropdown-item" href="<?= htmlspecialchars($userManagementUrl, ENT_QUOTES) ?>"><i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Nutzerverwaltung</a>
                   </li>
@@ -278,6 +283,7 @@ if ($loginHeaderUser === null) {
           </div>
         <?php endif; ?>
 
+        <?= \Ceneos\PhpBase\View\ApplicationSwitcher::render((string)($branding['key'] ?? '')) ?>
         <?= \Ceneos\PhpBase\View\ThemeSwitcher::render('pruefapp-theme', 'btn-outline-navbar') ?>
         <?php if ($authUser !== null): ?><a class="btn btn-outline-navbar" href="<?= htmlspecialchars(url_for('profil') . '#display-preferences', ENT_QUOTES) ?>" title="Darstellung &amp; Barrierefreiheit" aria-label="Darstellung &amp; Barrierefreiheit"><i class="fa-solid fa-universal-access" aria-hidden="true"></i></a><?php endif; ?>
       </div>
