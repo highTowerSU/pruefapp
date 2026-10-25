@@ -854,7 +854,7 @@ function configure_session(): void
         return;
     }
 
-    session_name(app_session_cookie_name());
+    \Ceneos\PhpBase\Session\SessionConfigurator::configure(!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off', app_session_cookie_name());
 }
 
 require_once __DIR__ . '/version.php';
@@ -1656,6 +1656,7 @@ function initialisiere_oidc(bool $force = false): void
             $_SESSION['user'] = $userInfo;
             $_SESSION['auth_user_id'] = (int) $user->id;
             $_SESSION['user_role'] = (string) ($user->role ?? '');
+            \Ceneos\PhpBase\Session\SessionRenewal::capture($oidc);
             try {
                 $_SESSION['login_reminders'] = UserReminderService::afterLogin($user);
             } catch (\Throwable $reminderError) {
@@ -1703,7 +1704,7 @@ if (PHP_SAPI === 'cli') {
 }
 
 // Seiten ohne Login-Anforderung
-$freieSeiten = ['callback.php', 'login.php', 'logout.php'];
+$freieSeiten = ['callback.php', 'login.php', 'logout.php', 'session-keepalive.php'];
 $aktuelleSeite = basename($_SERVER['PHP_SELF']);
 $requestPath = normalize_request_path(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
 

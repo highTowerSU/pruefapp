@@ -307,6 +307,8 @@ $footerLegal = $branding['legal'] ?? [];
 $footerImpressum = $footerLegal['impressum'] ?? [];
 $footerPrivacy = $footerLegal['privacy'] ?? [];
 echo \Ceneos\PhpBase\View\FooterRenderer::render([
+    'session_keepalive_url' => isset($_SESSION['auth_user_id']) ? url_for('session-keepalive.php') : '',
+    'session_login_url' => url_for('login.php?redirect=' . rawurlencode((string)($_SERVER['REQUEST_URI'] ?? '/'))),
     'app_name' => 'Prüfapp',
     'app_version' => $versionDisplay['version'] ?? '',
     'app_commit' => $versionDisplay['commit'] ?? '',

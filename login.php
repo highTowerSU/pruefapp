@@ -37,6 +37,11 @@ if ($redirectTarget !== null) {
     $_SESSION['login_redirect_to'] = $redirectTarget;
 }
 
+if (\Ceneos\PhpBase\Auth\AutomaticSso::begin($_SERVER, $_SESSION, !empty($flashMessage))) {
+    initialisiere_oidc(force: true);
+    exit;
+}
+
 $branding = get_login_branding($tenantSlug);
 
 $content = render_template('login.php', [

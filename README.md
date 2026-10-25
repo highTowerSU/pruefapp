@@ -335,3 +335,6 @@ App-interne Kundenfreigaben, Prüfprofile und Keycloak-Verzeichnisimport bleiben
 
 ### Neue gemeinsame Kunden übernehmen
 Die Strukturansicht übernimmt auch Kunden und Standorte, die zuerst im Controlcenter oder in der Teilnehmerverwaltung angelegt/importiert wurden. Gemeinsame IDs und Mandanten werden erhalten; vorhandene Prüfdaten und Kundenfreigaben werden nicht umgehängt oder automatisch erweitert.
+
+### Automatische SSO-Anmeldung und Sitzungserneuerung
+Die Loginseite startet den OIDC-Ablauf automatisch und verwendet vorhandene Keycloak-Sitzungen. Auf angemeldeten Seiten erneuert ein gemeinsamer Base-Baustein bei aktiver Nutzung PHP-Sitzung und fällige Tokens. Die App-Cookienamen bleiben erhalten; Rollenreduzierungen werden beim Refresh nicht aufgehoben.
