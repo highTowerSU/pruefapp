@@ -19,8 +19,8 @@ final class WhatsNewService
                 'Aktive Seiten halten die Sitzung aufrecht und erneuern fällige Tokens im Hintergrund. Sitzungsrollen bleiben dabei erhalten.',
                 'Bei einer abgelaufenen Sitzung bleiben die Formulareingaben auf der Seite stehen.',
             ],
-            'pruefapp_revision' => 'b8946e4',
-            'base_revision' => '9ed8e38',
+            'pruefapp_revision' => 'b8946e4 / 77780c2',
+            'base_revision' => '9ed8e38 / d67e363 / 73835e2',
         ], [
             'id' => '2026-10-25-new-shared-customers',
             'date' => '25.10.2026',

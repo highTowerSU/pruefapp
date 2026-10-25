@@ -4,7 +4,7 @@
 
 - Die Anmeldung verwendet bestehende Keycloak-Sitzungen automatisch, ohne einen zusätzlichen Anmeldeknopf je App.
 - Aktive Seiten halten die PHP-Sitzung aufrecht und erneuern fällige Tokens serverseitig. Reduzierte Sitzungsrollen bleiben erhalten; abgelaufene Sitzungen überschreiben keine Formulareingaben.
-- Umsetzung: Prüfapp `b8946e4`; CENEOS PHP Base `9ed8e38`.
+- Umsetzung: Prüfapp `b8946e4`, `77780c2`; CENEOS PHP Base `9ed8e38`, `d67e363`, `73835e2`.
 
 ## 25.10.2026 – Neu angelegte gemeinsame Kunden
 
