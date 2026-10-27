@@ -16,6 +16,7 @@ final class WhatsNewService
             'title' => 'Gemeinsamer Barcode-Scanner',
             'items' => ['Die Barcodekamera im Prüf-Companion wird jetzt gemeinsam mit Aufträge in CENEOS Base gepflegt.', 'Kameraformate werden vom Browser abgefragt; bei Treffer oder Stoppen wird die Kamera freigegeben. Fotoauswertung und manuelle Eingabe bleiben erhalten.'],
             'base_revision' => 'a595e65',
+            'pruefapp_revision' => '060a558',
         ], [
             'id' => '2026-10-25-shared-legal-documents',
             'date' => '25.10.2026',
