@@ -349,3 +349,7 @@
 - Revisionen: Prüfapp `a68d53a`, Ceneos PHP Base `4750c8f`.
 
 Nutzerrelevante Änderungen erscheinen zusätzlich als persönliche „Was ist neu?“-Benachrichtigung und unter **Downloads → Was ist neu?**.
+
+## 28.10.2026 · Gemeinsamer Barcode-Scanner
+
+Barcodekamera aus dem Prüf-Companion nach CENEOS Base ausgelagert; bestehende Fotoauswertung, manuelle Eingabe und Kopplung bleiben nutzbar. Base: `a595e65`. Prüfapp-Revision: siehe zugehörigen Implementierungscommit (wird im folgenden Dokumentationscommit ergänzt).

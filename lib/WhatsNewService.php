@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-28-shared-barcode-scanner',
+            'date' => '28.10.2026',
+            'title' => 'Gemeinsamer Barcode-Scanner',
+            'items' => ['Die Barcodekamera im Prüf-Companion wird jetzt gemeinsam mit Aufträge in CENEOS Base gepflegt.', 'Kameraformate werden vom Browser abgefragt; bei Treffer oder Stoppen wird die Kamera freigegeben. Fotoauswertung und manuelle Eingabe bleiben erhalten.'],
+            'base_revision' => 'a595e65',
+        ], [
             'id' => '2026-10-25-shared-legal-documents',
             'date' => '25.10.2026',
             'title' => 'Gemeinsame eRecht24-Rechtstexte',
