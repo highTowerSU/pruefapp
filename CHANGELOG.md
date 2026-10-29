@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 29.10.2026 – Gespeicherte Zugangsdaten erkennen
+
+- Gemeinsame Geheimnisfelder zeigen gespeicherte und geerbte Werte grün, fehlende Werte ausdrücklich und neue Eingaben als noch nicht gespeichert. Leere Felder behalten bestehende Zugangsdaten.
+- Umsetzung: Prüfapp `b3c59d8`; CENEOS PHP Base `d04ff2e`.
+
 ## 25.10.2026 – Gemeinsame eRecht24-Rechtstexte
 
 - Impressum und Datenschutz kommen aus der gemeinsamen mandanten- und appbezogenen Veröffentlichung im Controlcenter. Die öffentlichen Seiten benötigen keine Anmeldung.

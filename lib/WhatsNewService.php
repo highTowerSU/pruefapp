@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-29-secret-field-status',
+            'date' => '29.10.2026',
+            'title' => 'Gespeicherte Zugangsdaten erkennen',
+            'items' => ['Gespeicherte und geerbte Geheimnisse sind grün gekennzeichnet; fehlende Werte werden ausdrücklich angezeigt.', 'Neue Eingaben zeigen einen ungespeicherten Zustand. Ein leeres Feld behält den bisherigen Wert.'],
+            'base_revision' => 'd04ff2e',
+            'pruefapp_revision' => 'b3c59d8',
+        ], [
             'id' => '2026-10-28-shared-barcode-scanner',
             'date' => '28.10.2026',
             'title' => 'Gemeinsamer Barcode-Scanner',
