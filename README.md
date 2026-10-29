@@ -344,3 +344,5 @@ Die Loginseite startet den OIDC-Ablauf automatisch und verwendet vorhandene Keyc
 Impressum und Datenschutz werden im Controlcenter unter `/rechtstexte` je Mandant und Anwendung zugeordnet, importiert oder über die eRecht24-API aktualisiert. Der gemeinsame Base-Footer verwendet veröffentlichte Texte; bis dahin bleiben die bisherigen Mandantenlinks aktiv. Öffentliche Rechtstexte benötigen keine Anmeldung. API-Schlüssel bleiben im verschlüsselten zentralen Secret-Store.
 
 Barcodekamera im Prüf-Companion verwendet den gemeinsamen CENEOS-Base-Renderer `BarcodeScanner`; bestehende Fotoauswertung und Handy-Kopplung bleiben erhalten.
+
+Geheimnisfelder in Einstellungen verwenden den gemeinsamen CENEOS-Base-Renderer: gespeicherte bzw. übernommene Werte sind grün erkennbar, Eingaben ersetzen erst beim Speichern. Leere Felder behalten bestehende Werte; Geheimnisse werden nicht vorausgefüllt.

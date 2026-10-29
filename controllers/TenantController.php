@@ -368,6 +368,7 @@ class TenantController
 
         $content = render_template('company_form.php', [
             'company' => $companyData,
+            'sevdeskTokenConfigured' => !$isNew && $repository->hasSevDeskToken((int)$company->id),
             'is_new' => $isNew,
             'errors' => $errors,
         ]);
