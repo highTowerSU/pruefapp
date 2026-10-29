@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 29.10.2026 – Gemeinsame Unterschrift-Zeichenfläche
+
+- Profil-Unterschriften verwenden jetzt die gemeinsame Base-Komponente für Maus, Stift und Touch. Bild-Upload, bestehende Signaturen und die Freigabe von Prüfberichten bleiben erhalten.
+- Umsetzung: Prüfapp `75fb291`; CENEOS PHP Base `e389d9d`.
+
 ## 29.10.2026 – Gespeicherte Zugangsdaten erkennen
 
 - Gemeinsame Geheimnisfelder zeigen gespeicherte und geerbte Werte grün, fehlende Werte ausdrücklich und neue Eingaben als noch nicht gespeichert. Leere Felder behalten bestehende Zugangsdaten.

@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-10-29-shared-signature-pad',
+            'date' => '29.10.2026',
+            'title' => 'Gemeinsame Unterschrift-Zeichenfläche',
+            'items' => ['Profil-Unterschriften verwenden die gemeinsame Base-Komponente für Maus, Stift und Finger.', 'Bild-Upload, bestehende Berichtssignaturen und die Freigabe zum Prüfen bleiben erhalten.'],
+            'base_revision' => 'e389d9d',
+            'pruefapp_revision' => '75fb291',
+        ], [
             'id' => '2026-10-29-secret-field-status',
             'date' => '29.10.2026',
             'title' => 'Gespeicherte Zugangsdaten erkennen',
