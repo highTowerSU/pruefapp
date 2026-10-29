@@ -53,12 +53,7 @@
         <?php endif; ?>
         <?php if ($canEdit): ?><form id="profile-signature-panel" data-action-nav="Unterschrift" data-action-icon="fa-signature" method="post" action="<?= htmlspecialchars($profileUrl, ENT_QUOTES) ?>" enctype="multipart/form-data" class="vstack gap-3">
           <div>
-            <label class="form-label" for="signature-pad"><i class="fa-solid fa-pen-fancy me-1" aria-hidden="true"></i>&nbsp;Unterschrift mit Füller zeichnen</label>
-            <div class="signature-pad border rounded-3 bg-white p-2">
-              <canvas id="signature-pad" width="720" height="220" aria-label="Unterschrift zeichnen" tabindex="0"></canvas>
-            </div>
-            <input type="hidden" name="signature_drawing" id="signature-drawing">
-            <div class="d-flex gap-2 align-items-center flex-wrap mt-2"><button class="btn btn-sm btn-outline-secondary" type="button" id="signature-clear"><i class="fa-solid fa-eraser me-1" aria-hidden="true"></i>Zeichnung löschen</button><span class="form-text m-0">Mit Maus, Stift oder Finger unterschreiben.</span></div>
+            <?= \Ceneos\PhpBase\View\SignaturePad::render('signature_drawing', 'Unterschrift mit Füller zeichnen') ?>
           </div>
           <div class="position-relative text-center text-body-secondary"><span class="bg-body px-2">oder</span><hr class="position-absolute top-50 start-0 end-0 m-0 z-n1"></div>
           <div>
@@ -256,31 +251,7 @@
   }
 })();
 </script>
-<script>
-(() => {
-  const canvas = document.getElementById('signature-pad');
-  const field = document.getElementById('signature-drawing');
-  const form = canvas?.closest('form');
-  const clear = document.getElementById('signature-clear');
-  if (!canvas || !field || !form) return;
-  const context = canvas.getContext('2d');
-  let drawing = false; let hasInk = false; let previous = null; let midpoint = null;
-  const scale = () => {
-    const ratio = window.devicePixelRatio || 1; const width = Math.max(320, Math.round(canvas.clientWidth * ratio)); const height = Math.round(220 * ratio);
-    if (canvas.width === width && canvas.height === height) return;
-    const copy = document.createElement('canvas'); copy.width = canvas.width; copy.height = canvas.height; copy.getContext('2d').drawImage(canvas, 0, 0);
-    canvas.width = width; canvas.height = height; context.lineCap = 'round'; context.lineJoin = 'round'; context.lineWidth = 3.2 * ratio; context.strokeStyle = '#3547b8'; context.globalAlpha = .94; context.drawImage(copy, 0, 0, width, height);
-  };
-  const point = event => { const rect = canvas.getBoundingClientRect(); const ratio = canvas.width / rect.width; return {x:(event.clientX - rect.left) * ratio, y:(event.clientY - rect.top) * ratio}; };
-  const start = event => { event.preventDefault(); scale(); drawing = true; previous = point(event); midpoint = previous; hasInk = true; canvas.setPointerCapture?.(event.pointerId); };
-  const draw = event => { if (!drawing) return; event.preventDefault(); const next = point(event); const nextMidpoint = {x:(previous.x + next.x) / 2, y:(previous.y + next.y) / 2}; context.beginPath(); context.moveTo(midpoint.x, midpoint.y); context.quadraticCurveTo(previous.x, previous.y, nextMidpoint.x, nextMidpoint.y); context.stroke(); previous = next; midpoint = nextMidpoint; };
-  const end = event => { if (!drawing) return; drawing = false; previous = null; midpoint = null; canvas.releasePointerCapture?.(event.pointerId); };
-  canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', draw); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
-  clear?.addEventListener('click', () => { context.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; field.value = ''; });
-  form.addEventListener('submit', () => { field.value = hasInk ? canvas.toDataURL('image/png') : ''; });
-  window.addEventListener('resize', scale); scale();
-})();
-</script>
+
 <script>
 (() => {
   const list = document.getElementById('followup-list');

@@ -11,7 +11,7 @@
         }
     ],
     "require": {
-        "ceneos/php-base": "dev-main",
+        "ceneos/php-base": "^1.0",
         "jumbojett/openid-connect-php": "^1.0",
         "gabordemooij/redbean": "dev-master"
     },

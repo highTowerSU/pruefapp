@@ -4,21 +4,25 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9428c05c7691e1309ef2c70d66fce578",
+    "content-hash": "64c4ff50656c14bfc77a539585f21904",
     "packages": [
         {
             "name": "ceneos/php-base",
-            "version": "dev-main",
+            "version": "1.0.0",
             "dist": {
                 "type": "path",
                 "url": "../ceneos-php-base",
-                "reference": "a81f3634bfc903243fe3c35edfe17b378930681f"
+                "reference": "d04ff2ee082cfff585a1a7b66022ee3a4486a6bc"
             },
             "require": {
+                "ext-gd": "*",
                 "ext-json": "*",
+                "ext-openssl": "*",
+                "ext-sodium": "*",
                 "gabordemooij/redbean": "dev-master",
                 "jumbojett/openid-connect-php": "^1.0",
-                "php": "^8.1"
+                "php": "^8.1",
+                "tecnickcom/tcpdf": "^6.10"
             },
             "type": "library",
             "autoload": {
@@ -28,7 +32,7 @@
             },
             "scripts": {
                 "test": [
-                    "php tests/run.php"
+                    "php tests/run.php && php tests/secret_field_test.php && php tests/signature_pdf_test.php && php tests/evidence_test.php && php tests/evidence_worker_test.php && php tests/customer_directory_test.php && php tests/jobs_test.php && php tests/database-portability-test.php && php tests/database-lease-test.php && php tests/identity_roles_test.php && php tests/controlcenter_config_test.php && php tests/sevdesk_contact_import_test.php && php tests/customer_sync_test.php && php tests/kimai_customer_provision_test.php && php tests/session_renewal_test.php && php tests/audit_metadata_test.php && php tests/legal_documents_test.php && php tests/config_isolation_test.php && php tests/commerce_test.php && php tests/companion_test.php"
                 ],
                 "lint": [
                     "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l"
@@ -362,18 +366,94 @@
                 }
             ],
             "time": "2026-06-14T23:24:10+00:00"
+        },
+        {
+            "name": "tecnickcom/tcpdf",
+            "version": "6.11.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/tecnickcom/TCPDF.git",
+                "reference": "fbbaf14cfae8fe646f154f7c530d15ec25764040"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/tecnickcom/TCPDF/zipball/fbbaf14cfae8fe646f154f7c530d15ec25764040",
+                "reference": "fbbaf14cfae8fe646f154f7c530d15ec25764040",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "php": ">=7.1.0"
+            },
+            "suggest": {
+                "ext-gd": "Enables additional image handling in some workflows.",
+                "ext-imagick": "Enables additional image format support when available.",
+                "ext-zlib": "Recommended for compressed streams and related features.",
+                "tecnickcom/tc-lib-pdf": "Modern replacement for TCPDF."
+            },
+            "type": "library",
+            "autoload": {
+                "classmap": [
+                    "config",
+                    "include",
+                    "tcpdf.php",
+                    "tcpdf_barcodes_1d.php",
+                    "tcpdf_barcodes_2d.php",
+                    "include/tcpdf_colors.php",
+                    "include/tcpdf_filters.php",
+                    "include/tcpdf_font_data.php",
+                    "include/tcpdf_fonts.php",
+                    "include/tcpdf_images.php",
+                    "include/tcpdf_static.php",
+                    "include/barcodes/datamatrix.php",
+                    "include/barcodes/pdf417.php",
+                    "include/barcodes/qrcode.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "LGPL-3.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "Nicola Asuni",
+                    "email": "info@tecnick.com",
+                    "role": "lead"
+                }
+            ],
+            "description": "Deprecated legacy PDF engine for PHP. Migrate to tecnickcom/tc-lib-pdf.",
+            "homepage": "https://tcpdf.org",
+            "keywords": [
+                "PDFD32000-2008",
+                "TCPDF",
+                "barcodes",
+                "datamatrix",
+                "pdf",
+                "pdf417",
+                "qrcode"
+            ],
+            "support": {
+                "issues": "https://github.com/tecnickcom/TCPDF/issues",
+                "source": "https://github.com/tecnickcom/TCPDF"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/sponsors/tecnickcom",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-08-28T11:28:19+00:00"
         }
     ],
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "ceneos/php-base": 20,
         "gabordemooij/redbean": 20
     },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {},
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }

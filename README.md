@@ -346,3 +346,5 @@ Impressum und Datenschutz werden im Controlcenter unter `/rechtstexte` je Mandan
 Barcodekamera im Prüf-Companion verwendet den gemeinsamen CENEOS-Base-Renderer `BarcodeScanner`; bestehende Fotoauswertung und Handy-Kopplung bleiben erhalten.
 
 Geheimnisfelder in Einstellungen verwenden den gemeinsamen CENEOS-Base-Renderer: gespeicherte bzw. übernommene Werte sind grün erkennbar, Eingaben ersetzen erst beim Speichern. Leere Felder behalten bestehende Werte; Geheimnisse werden nicht vorausgefüllt.
+
+Die Zeichenfläche für Profil-Unterschriften kommt aus `CENEOS Base SignaturePad`; Bild-Upload, Profilrechte und bestehende Berichtssignaturen bleiben erhalten. PDF-Bestätigungen und Stapelzeitstempel der anderen Apps verwenden dieselbe gemeinsame Basis.
