@@ -1641,6 +1641,7 @@ function initialisiere_oidc(bool $force = false): void
                 $clientId,
                 $clientSecret
             );
+            $oidc->setCodeChallengeMethod('S256');
             $oidc->setRedirectURL(config_value('APP_OIDC_REDIRECT_URL') ?? absolute_url_for('callback.php'));
             $oidc->authenticate();
             $_SESSION['ceneos_id_token'] = (string) $oidc->getIdToken();
@@ -1704,7 +1705,7 @@ if (PHP_SAPI === 'cli') {
 }
 
 // Seiten ohne Login-Anforderung
-$freieSeiten = ['callback.php', 'login.php', 'logout.php', 'session-keepalive.php'];
+$freieSeiten = ['callback.php', 'login.php', 'edulution.php', 'logout.php', 'session-keepalive.php'];
 $aktuelleSeite = basename($_SERVER['PHP_SELF']);
 $requestPath = normalize_request_path(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
 
