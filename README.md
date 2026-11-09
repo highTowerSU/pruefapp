@@ -348,3 +348,7 @@ Barcodekamera im Prüf-Companion verwendet den gemeinsamen CENEOS-Base-Renderer 
 Geheimnisfelder in Einstellungen verwenden den gemeinsamen CENEOS-Base-Renderer: gespeicherte bzw. übernommene Werte sind grün erkennbar, Eingaben ersetzen erst beim Speichern. Leere Felder behalten bestehende Werte; Geheimnisse werden nicht vorausgefüllt.
 
 Die Zeichenfläche für Profil-Unterschriften kommt aus `CENEOS Base SignaturePad`; Bild-Upload, Profilrechte und bestehende Berichtssignaturen bleiben erhalten. PDF-Bestätigungen und Stapelzeitstempel der anderen Apps verwenden dieselbe gemeinsame Basis.
+
+## Direkter Einstieg aus Edulution
+
+`edulution.php` ist der serverseitige Portal-Einstieg. Bestehende App-Sitzungen gehen direkt zur Startansicht. Sonst startet der normale OIDC-Flow mit frischem State/Nonce/PKCE über CENEOS Base, auch nach einem zuvor abgebrochenen automatischen Login. Der Rücksprung bleibt app-intern; Zugriffsrollen, CSRF und die normale Anmeldeseite bleiben erhalten. Die Anfrage benötigt keine Browser-Skripte oder gespeicherten Zugangsdaten.
