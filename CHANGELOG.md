@@ -4,7 +4,7 @@
 
 - Der serverseitige Einstieg `edulution.php` startet SSO ohne zusätzlichen App-Login-Knopf, auch nach einem unterbrochenen Versuch. Bereits angemeldete Sitzungen öffnen direkt die Geräteansicht.
 - Authentifizierung, Rollen und der normale Login-Fallback bleiben erhalten; Browser-Hilfsskripte sind nicht nötig.
-- Umsetzung: Prüfapp `194a5e3`; CENEOS PHP Base `f5bdf59`.
+- Umsetzung: Prüfapp `194a5e3`, `8b49a4c`; CENEOS PHP Base `f5bdf59`, `3b39312`.
 
 ## 29.10.2026 – Gemeinsame Unterschrift-Zeichenfläche
 

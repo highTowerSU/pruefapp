@@ -15,8 +15,8 @@ final class WhatsNewService
             'date' => '10.11.2026',
             'title' => 'Direkter Einstieg aus Edulution',
             'items' => ['Die Edulution-Kachel startet die normale SSO-Anmeldung ohne zusätzlichen App-Login-Knopf.', 'Bereits angemeldete Sitzungen öffnen direkt die Geräteansicht; unterbrochene Versuche können gezielt neu gestartet werden. Rollen und Anmeldeschutz bleiben erhalten.'],
-            'base_revision' => 'f5bdf59',
-            'pruefapp_revision' => '194a5e3',
+            'base_revision' => '3b39312',
+            'pruefapp_revision' => '8b49a4c',
         ], [
             'id' => '2026-10-29-shared-signature-pad',
             'date' => '29.10.2026',
