@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 10.11.2026 – Direkter Edulution-Einstieg
+
+- Der serverseitige Einstieg `edulution.php` startet SSO ohne zusätzlichen App-Login-Knopf, auch nach einem unterbrochenen Versuch. Bereits angemeldete Sitzungen öffnen direkt die Geräteansicht.
+- Authentifizierung, Rollen und der normale Login-Fallback bleiben erhalten; Browser-Hilfsskripte sind nicht nötig.
+- Umsetzung: Prüfapp `194a5e3`; CENEOS PHP Base `f5bdf59`.
+
 ## 29.10.2026 – Gemeinsame Unterschrift-Zeichenfläche
 
 - Profil-Unterschriften verwenden jetzt die gemeinsame Base-Komponente für Maus, Stift und Touch. Bild-Upload, bestehende Signaturen und die Freigabe von Prüfberichten bleiben erhalten.
