@@ -16,7 +16,7 @@ final class WhatsNewService
             'title' => 'Abrechnungsübersicht wieder verfügbar',
             'items' => ['Die Abrechnungsübersicht lädt wieder unter MariaDB.', 'Mehrfach zugeordnete Geräte und Prüfungen werden je Rechnung aus den aktiven Zuordnungen gezählt.'],
             'base_revision' => '3b39312',
-            'pruefapp_revision' => '851fcc6 (Ausgangsrevision)',
+            'pruefapp_revision' => '968fe85',
         ], [
             'id' => '2026-11-10-edulution-native-entry',
             'date' => '10.11.2026',
