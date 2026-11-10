@@ -39,6 +39,10 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 - Administratorische Benutzerübersicht inklusive Rollenzuweisung und Keycloak-Verlinkung
 - Schnellzugriff auf die persönliche Keycloak-Account-Seite über das Benutzermenü
 
+Die Abrechnungsübersicht zählt mehrfach zugeordnete Geräte je Rechnung mit einer
+voraggregierten, für SQLite und MariaDB geeigneten Abfrage. Nur aktive Zuordnungen
+fließen in die Geräte- und Prüfungsanzahl ein.
+
 ## Fachliche Ausrichtung
 
 - **Jetzt:** Dokumentation von Elektroprüfungen nach DGUV Vorschrift 3.

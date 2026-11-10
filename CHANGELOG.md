@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 10.11.2026 – Abrechnungsübersicht unter MariaDB repariert
+
+- Die Abrechnungsübersicht lädt wieder unter MariaDB. Mehrfach zugeordnete Geräte und Prüfungen werden je Rechnung ausschließlich aus aktiven Zuordnungen gezählt; Rechnungsbeträge und Mandantentrennung bleiben korrekt.
+- Ausgangsrevision: Prüfapp `851fcc6`; CENEOS PHP Base `3b39312` (unverändert).
+
 ## 10.11.2026 – Direkter Edulution-Einstieg
 
 - Der serverseitige Einstieg `edulution.php` startet SSO ohne zusätzlichen App-Login-Knopf, auch nach einem unterbrochenen Versuch. Bereits angemeldete Sitzungen öffnen direkt die Geräteansicht.

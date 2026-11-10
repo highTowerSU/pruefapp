@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-10-billing-mariadb-fix',
+            'date' => '10.11.2026',
+            'title' => 'Abrechnungsübersicht wieder verfügbar',
+            'items' => ['Die Abrechnungsübersicht lädt wieder unter MariaDB.', 'Mehrfach zugeordnete Geräte und Prüfungen werden je Rechnung aus den aktiven Zuordnungen gezählt.'],
+            'base_revision' => '3b39312',
+            'pruefapp_revision' => '851fcc6 (Ausgangsrevision)',
+        ], [
             'id' => '2026-11-10-edulution-native-entry',
             'date' => '10.11.2026',
             'title' => 'Direkter Einstieg aus Edulution',
