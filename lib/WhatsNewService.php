@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-12-historical-billing-reconciliation',
+            'date' => '12.11.2026',
+            'title' => 'Historische Rechnungen nachvollziehbar abstimmen',
+            'items' => ['Rechnungen verwenden den tatsächlichen Leistungszeitraum aus SevDesk für ihre Zuordnungsvorschläge.', 'Genehmigte historische Restmengen stehen separat im Abgleich; dafür werden keine zusätzlichen Geräte oder Prüfungen erfunden.', 'Rechnerisch verteilte Sammelregie bleibt von den ursprünglichen Prüfminuten getrennt. Historische Quellergebnisse bleiben erhalten.'],
+            'pruefapp_revision' => 'bad62e0 (Ausgangsrevision)',
+            'base_revision' => '3b39312',
+        ], [
             'id' => '2026-11-10-billing-mariadb-fix',
             'date' => '10.11.2026',
             'title' => 'Abrechnungsübersicht wieder verfügbar',

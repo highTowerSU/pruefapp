@@ -527,6 +527,13 @@ final class BillingController
         }
         if ($customer) $invoice->customer_id = (int) $customer->id;
         $invoice->invoice_number = $number; $invoice->invoice_date = substr((string) ($remote['invoiceDate'] ?? ''), 0, 10);
+        $period = self::importedPerformancePeriod($remote);
+        if ($period['from'] !== '') {
+            $invoice->performance_date_from = $period['from'];
+        }
+        if ($period['until'] !== '') {
+            $invoice->performance_date_until = $period['until'];
+        }
         $invoice->sevdesk_status = $remoteStatus; $invoice->status = $cancelled ? 'cancelled' : (in_array($remoteStatus, ['200', '1000'], true) ? ($remoteStatus === '1000' ? 'paid' : 'final') : 'draft');
         if ($cancelled) $invoice->cancelled_at = date(DATE_ATOM);
         $invoice->raw_json = json_encode($remote, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -674,7 +681,7 @@ final class BillingController
     {
         $invoice = R::load('billinginvoice', $invoiceId); $check = self::reconciliation($invoiceId);
         foreach (R::getCol('SELECT inspection_id FROM billinginvoiceitem WHERE invoice_id=? AND active=1', [$invoiceId]) as $inspectionId) {
-            $status = in_array((string) $invoice->status, ['final', 'paid'], true) && (string) $check['result'] === 'vollständig passend' ? 'abgerechnet' : 'teilabgerechnet';
+            $status = in_array((string) $invoice->status, ['final', 'paid'], true) && in_array((string) $check['result'], ['vollständig passend', 'historisch ausgeglichen'], true) ? 'abgerechnet' : 'teilabgerechnet';
             R::exec('UPDATE inspection SET billing_status=?, updated_at=? WHERE id=?', [$status, date(DATE_ATOM), (int) $inspectionId]);
         }
     }
@@ -693,13 +700,17 @@ final class BillingController
         $regieTransferredOut = (int) R::getCell('SELECT COALESCE(SUM(minutes), 0) FROM billingregietransfer WHERE source_invoice_id=? AND active=1', [$invoiceId]);
         $regieTransferredIn = (int) R::getCell('SELECT COALESCE(SUM(minutes), 0) FROM billingregietransfer WHERE target_invoice_id=? AND active=1', [$invoiceId]);
         $regieTarget = max(0, $nativeRegieTarget - $regieTransferredOut + $regieTransferredIn);
-        $deviceActual = array_sum(array_map(static fn(array $item): float => (float) $item['quantity'], $items));
+        $assignedDeviceQuantity = array_sum(array_map(static fn(array $item): float => (float) $item['quantity'], $items));
+        $invoice = R::load('billinginvoice', $invoiceId);
+        $historicalDeviceBalance = max(0.0, (float) $invoice->historical_device_balance);
+        $historicalBalanceReason = (string) $invoice->historical_balance_reason;
+        $historicalApprovedAt = (string) $invoice->historical_approved_at;
+        $deviceActual = $assignedDeviceQuantity + $historicalDeviceBalance;
         $regieActual = array_sum(array_map(static fn(array $item): int => (int) $item['regie_minutes'], $items));
         $duplicates = (int) R::getCell('SELECT COUNT(*) FROM (SELECT i.external_number FROM billinginvoiceitem bi JOIN inspection i ON i.id=bi.inspection_id WHERE bi.invoice_id=? AND bi.active=1 GROUP BY i.external_number HAVING COUNT(*)>1) duplicates', [$invoiceId]);
         $unclassified = count(array_filter($positions, static fn(array $p): bool => (string) $p['kind'] === 'unclassified'));
-        $invoice = R::load('billinginvoice', $invoiceId);
-        $result = (string) $invoice->status === 'cancelled' ? 'storniert' : ($unclassified > 0 || $items === [] ? 'Zuordnung unvollständig' : (abs($deviceTarget - $deviceActual) > 0.0001 ? 'Geräteanzahl abweichend' : ($regieTarget !== $regieActual ? 'Regiezeit abweichend' : ($duplicates > 0 ? 'Zuordnung unvollständig' : 'vollständig passend'))));
-        return compact('positions', 'items', 'deviceTarget', 'deviceActual', 'nativeRegieTarget', 'regieTransferredOut', 'regieTransferredIn', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
+        $result = (string) $invoice->status === 'cancelled' ? 'storniert' : ($unclassified > 0 || $items === [] ? 'Zuordnung unvollständig' : (abs($deviceTarget - $deviceActual) > 0.0001 ? 'Geräteanzahl abweichend' : ($regieTarget !== $regieActual ? 'Regiezeit abweichend' : ($duplicates > 0 ? 'Zuordnung unvollständig' : ($historicalDeviceBalance > 0 ? 'historisch ausgeglichen' : 'vollständig passend')))));
+        return compact('assignedDeviceQuantity', 'historicalDeviceBalance', 'historicalBalanceReason', 'historicalApprovedAt', 'positions', 'items', 'deviceTarget', 'deviceActual', 'nativeRegieTarget', 'regieTransferredOut', 'regieTransferredIn', 'regieTarget', 'regieActual', 'duplicates', 'unclassified', 'result');
     }
 
     /** @param array<string,mixed> $position */
@@ -719,7 +730,7 @@ final class BillingController
         if ((int) ($invoice->customer_id ?? 0) <= 0) return ['candidates' => [], 'reason' => 'Der SevDesk-Kunde ist im Kundenstamm noch nicht verknüpft; deshalb wird kein unsicherer Sammelvorschlag erzeugt.'];
         $until = trim((string) ($invoice->performance_date_until ?? $invoice->invoice_date ?? ''));
         if ($until === '') return ['candidates' => [], 'reason' => 'Für die Rechnung fehlt ein Datum für den sicheren Vorschlagszeitraum.'];
-        try { $from = (new DateTimeImmutable($until))->modify('-45 days')->format('Y-m-d'); } catch (Throwable) { return ['candidates' => [], 'reason' => 'Das Rechnungsdatum ist nicht auswertbar.']; }
+        try { $from = trim((string) ($invoice->performance_date_from ?? '')) ?: (new DateTimeImmutable($until))->modify('-45 days')->format('Y-m-d'); } catch (Throwable) { return ['candidates' => [], 'reason' => 'Das Rechnungsdatum ist nicht auswertbar.']; }
         // Older Phoenix rows can retain their historical room only in
         // inspection.room_snapshot. Do not lose an otherwise unbilled
         // inspection merely because the current device has since moved or no
@@ -978,6 +989,30 @@ final class BillingController
         }
     }
 
+    /** @param array<string,mixed> $remote @return array{from:string,until:string} */
+    private static function importedPerformancePeriod(array $remote): array
+    {
+        $date = static function (mixed $value): string {
+            if (!is_string($value)) {
+                return '';
+            }
+            $value = trim($value);
+            if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:$|T| )/', $value, $parts)) {
+                return '';
+            }
+            return checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1]) ? substr($value, 0, 10) : '';
+        };
+        $from = $date($remote['deliveryDate'] ?? null);
+        $until = $date($remote['deliveryDateUntil'] ?? null);
+        if ($from !== '' && $until === '') {
+            $until = $from;
+        }
+        if ($from !== '' && $until !== '' && $until < $from) {
+            return ['from' => '', 'until' => ''];
+        }
+        return ['from' => $from, 'until' => $until];
+    }
+
     /**
      * The invoice date is the creation date.  SevDesk's delivery fields are
      * used exclusively for the actual inspection/service dates.
@@ -1096,7 +1131,7 @@ final class BillingController
             'SELECT inv.id, inv.invoice_number, inv.sevdesk_invoice_number, inv.sevdesk_url, inv.invoice_date, inv.status, inv.created_at, c.name AS customer_name, '
             . 'SUM(CASE WHEN bi.active = 1 THEN 1 ELSE 0 END) AS inspection_count, '
             . 'COUNT(DISTINCT CASE WHEN bi.active = 1 THEN bi.device_id END) AS device_count, '
-            . 'COALESCE(SUM(CASE WHEN bi.active = 1 THEN bi.quantity ELSE 0 END), 0) AS billed_device_actual, '
+            . 'COALESCE(SUM(CASE WHEN bi.active = 1 THEN bi.quantity ELSE 0 END), 0) + COALESCE(inv.historical_device_balance, 0) AS billed_device_actual, inv.historical_device_balance, '
             . 'COALESCE(SUM(CASE WHEN bi.active = 1 THEN bi.regie_minutes ELSE 0 END), 0) AS billed_regie_actual, '
             . "COALESCE((SELECT SUM(position.quantity) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='device' OR (position.kind='unclassified' AND position.suggested_kind='device'))), 0) AS billed_device_target, "
             . "COALESCE((SELECT SUM(position.regie_minutes) FROM billinginvoiceposition position WHERE position.invoice_id=inv.id AND (position.kind='regie' OR (position.kind='unclassified' AND position.suggested_kind='regie'))), 0) AS billed_regie_target, "
@@ -1125,7 +1160,7 @@ final class BillingController
                     ? 'nicht prüfbezogen'
                     : ((abs($deviceTarget - $deviceActual) > 0.0001 || $regieTarget !== $regieActual)
                         ? 'abweichend'
-                        : 'passend'));
+                        : ((float) ($row['historical_device_balance'] ?? 0) > 0 ? 'historisch ausgeglichen' : 'passend')));
         }
         unset($row);
         return $rows;

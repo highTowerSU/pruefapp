@@ -84,6 +84,15 @@ fließen in die Geräte- und Prüfungsanzahl ein.
    php -S localhost:8000 index.php
    ```
 
+## Historischer Rechnungsabgleich
+
+Importierte Rechnungen übernehmen den Leistungszeitraum aus den SevDesk-Lieferdaten.
+Historische Sammelregie wird getrennt von den ursprünglichen Prüfminuten zugeordnet.
+Ausdrücklich genehmigte, nicht mehr einzeln belegbare Rechnungsstückzahlen werden als
+historischer Mengenausgleich mit Begründung und Freigabedatum sichtbar ausgewiesen;
+sie erzeugen keine zusätzlichen Geräte oder Prüfungen. Solche Rechnungen heißen
+„historisch ausgeglichen“ und bleiben von vollständig belegten Zuordnungen unterscheidbar.
+
 ## Entwicklung
 
 - Der Einstiegspunkt befindet sich in `index.php`, der Router ist unter `lib/router.php` implementiert.

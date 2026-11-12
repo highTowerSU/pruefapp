@@ -36,11 +36,19 @@ $sevDeskPositions = array_map(static function (array $position) use ($formatQuan
   <div class="card-body">
     <div class="row g-3">
       <div class="col-sm-6 col-lg"><strong>Geräte laut Rechnung</strong><div><?= htmlspecialchars((string) ($reconciliation['deviceTarget'] ?? 0)) ?></div></div>
-      <div class="col-sm-6 col-lg"><strong>Geräte zugeordnet</strong><div><?= htmlspecialchars((string) ($reconciliation['deviceActual'] ?? 0)) ?></div></div>
+      <div class="col-sm-6 col-lg"><strong>Prüfungen belegt</strong><div><?= htmlspecialchars((string) ($reconciliation['assignedDeviceQuantity'] ?? 0)) ?></div></div>
       <div class="col-sm-6 col-lg"><strong>Regie laut SevDesk</strong><div><?= (int) ($reconciliation['nativeRegieTarget'] ?? $reconciliation['regieTarget'] ?? 0) ?> Minuten</div></div>
       <div class="col-sm-6 col-lg"><strong>Regie nach Umbuchungen</strong><div><?= (int) ($reconciliation['regieTarget'] ?? 0) ?> Minuten</div></div>
       <div class="col-sm-6 col-lg"><strong>Regie zugeordnet</strong><div><?= (int) ($reconciliation['regieActual'] ?? 0) ?> Minuten</div></div>
     </div>
+    <?php if ((float) ($reconciliation['historicalDeviceBalance'] ?? 0) > 0): ?>
+    <div class="alert alert-warning mt-3 mb-0">
+      <i class="fa-solid fa-scale-balanced me-1" aria-hidden="true"></i>
+      Historischer Mengenausgleich: <?= htmlspecialchars((string) $reconciliation['historicalDeviceBalance']) ?> Rechnungsstücke ohne einzeln belegbare Prüfung.
+      <div class="small mt-1"><?= htmlspecialchars((string) $reconciliation['historicalBalanceReason']) ?></div>
+      <div class="small mt-1">Freigegeben: <?= htmlspecialchars((string) $reconciliation['historicalApprovedAt']) ?>. Es wurden dafür keine zusätzlichen Geräte oder Prüfungen erzeugt.</div>
+    </div>
+    <?php endif; ?>
     <?php if ((int) ($reconciliation['regieTransferredOut'] ?? 0) > 0 || (int) ($reconciliation['regieTransferredIn'] ?? 0) > 0): ?><div class="alert alert-info py-2 mt-3 mb-0"><i class="fa-solid fa-arrow-right-arrow-left me-1" aria-hidden="true"></i>Regie-Umbuchungen: <?= (int) ($reconciliation['regieTransferredOut'] ?? 0) ?> Min. übertragen · <?= (int) ($reconciliation['regieTransferredIn'] ?? 0) ?> Min. übernommen.</div><?php endif; ?>
     <div class="mt-3"><span class="badge text-bg-<?= (($reconciliation['result'] ?? '') === 'vollständig passend') ? 'success' : 'warning text-dark' ?>"><?= htmlspecialchars((string) ($reconciliation['result'] ?? 'Zuordnung unvollständig')) ?></span><span class="small text-body-secondary ms-2">Doppelte Prüfnummern: <?= (int) ($reconciliation['duplicates'] ?? 0) ?> · Nicht klassifizierte Rechnungspositionen: <?= (int) ($reconciliation['unclassified'] ?? 0) ?></span></div>
     <?php if (($reconciliation['positions'] ?? []) !== []): ?>
@@ -98,7 +106,7 @@ $sevDeskPositions = array_map(static function (array $position) use ($formatQuan
 <h2 class="h5 mt-4">Verknüpfte Prüfungen und Geräte</h2>
 <form method="post" action="<?= htmlspecialchars(url_for('geraete/export'), ENT_QUOTES) ?>" class="mb-3 d-flex align-items-end gap-2 flex-wrap"><input type="hidden" name="scope" value="selection"><input type="hidden" name="invoice_id" value="<?= (int) $invoice->id ?>"><label>Max. Seiten<input class="form-control form-control-sm" type="number" name="bundle_max_pages" min="10" max="5000" value="500"></label><button class="btn btn-sm btn-success" name="format" value="bundle_pdf">Sammel-PDF dieser Rechnung erzeugen</button></form>
 <div class="table-responsive ceneos-sticky-table"><table class="table table-sm align-middle"><thead><tr><th>Gerät</th><th>Prüfung</th><th>Kunde</th><th>Datum</th><th>Zuordnung</th><th>Menge</th></tr></thead><tbody>
-<?php foreach ($items as $item): ?><tr><td><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $item['device_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $item['device_number']) ?> · <?= htmlspecialchars((string) $item['device_name']) ?></a></td><td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $item['inspection_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $item['inspection_number']) ?></a></td><td><?= htmlspecialchars((string) ($item['customer_name'] ?? '—')) ?></td><td><?= htmlspecialchars((string) $item['test_date']) ?></td><td><span class="badge text-bg-<?= !empty($item['active']) ? 'success' : 'secondary' ?>"><?= !empty($item['active']) ? 'aktiv' : 'historisch' ?></span></td><td><?= htmlspecialchars((string) $item['quantity']) ?></td></tr><?php endforeach; ?>
+<?php foreach ($items as $item): ?><tr><td><a href="<?= htmlspecialchars(url_for('geraete?device_id=' . (int) $item['device_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $item['device_number']) ?> · <?= htmlspecialchars((string) $item['device_name']) ?></a></td><td><a href="<?= htmlspecialchars(url_for('admin/pruefungen/' . (int) $item['inspection_id']), ENT_QUOTES) ?>"><?= htmlspecialchars((string) $item['inspection_number']) ?></a></td><td><?= htmlspecialchars((string) ($item['customer_name'] ?? '—')) ?></td><td><?= htmlspecialchars((string) $item['test_date']) ?></td><td><span class="badge text-bg-<?= !empty($item['active']) ? 'success' : 'secondary' ?>"><?= !empty($item['active']) ? 'aktiv' : 'historisch' ?></span></td><td><?= htmlspecialchars((string) $item['quantity']) ?><div class="small text-body-secondary"><?= (int) ($item['regie_minutes'] ?? 0) ?> Min. Regie</div><?php if (!empty($item['description'])): ?><div class="small text-body-secondary"><?= htmlspecialchars((string) $item['description']) ?></div><?php endif; ?></td></tr><?php endforeach; ?>
 <?php if ($items === []): ?><tr><td colspan="6" class="text-body-secondary">Keine verknüpften Positionen.</td></tr><?php endif; ?></tbody></table></div>
 <script>
 (() => {

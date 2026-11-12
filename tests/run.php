@@ -16,6 +16,7 @@ $tests = [
     'notifications_htmx_test.php',
     'billing_v1_test.php',
     'billing_recent_invoices_test.php',
+    'historical_billing_allocation_test.php',
     'inspection_evaluation_test.php',
     'inspection_missing_summary_test.php',
     'inspection_type_workflow_test.php',
