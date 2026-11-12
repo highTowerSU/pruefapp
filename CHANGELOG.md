@@ -5,7 +5,7 @@
 - SevDesk-Importe übernehmen den tatsächlichen Leistungszeitraum statt nur des Rechnungsdatums; Zuordnungsvorschläge berücksichtigen den Zeitraum.
 - Genehmigte historische Restmengen erscheinen separat als „historisch ausgeglichen“, ohne zusätzliche Geräte oder Prüfungen zu erzeugen. Zugeordnete Sammelregie und abweichende historische Rechnungszuordnungen bleiben an den Prüfungen sichtbar.
 - Betreiberfreigegebene Altimporte übernehmen das überlieferte Quellergebnis einschließlich „nicht bestanden“. Originale Prüftage und Prüfminuten bleiben erhalten.
-- Ausgangsrevision: Prüfapp `bad62e0`; CENEOS PHP Base `3b39312` (unverändert).
+- Umsetzung: Prüfapp `48fb044` (Ausgangsrevision `bad62e0`); CENEOS PHP Base `3b39312` (unverändert).
 
 ## 10.11.2026 – Abrechnungsübersicht unter MariaDB repariert
 
