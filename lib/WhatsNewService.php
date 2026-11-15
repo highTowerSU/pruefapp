@@ -14,7 +14,7 @@ final class WhatsNewService
             'id' => '2026-11-15-delete-unfinished-inspections',
             'date' => '15.11.2026',
             'title' => 'Unfertige Prüfungen löschen',
-            'items' => ['Auch bei „Daten fehlen“ lässt sich eine unfertige Prüfung löschen. Fehlende Pflichtfelder verhindern die Löschaktion nicht mehr.', 'Abgeschlossene oder einer Rechnung zugeordnete Prüfungen bleiben geschützt; der Kundenzugriff wird serverseitig geprüft.'],
+            'items' => ['Leiter- und Elektroprüfungen haben denselben Löschknopf für unfertige Prüfungen, auch bei „Daten fehlen“. Fehlende Pflichtfelder verhindern die Löschaktion nicht mehr.', 'Abgeschlossene oder einer Rechnung zugeordnete Prüfungen bleiben geschützt; der Kundenzugriff wird serverseitig geprüft.'],
             'pruefapp_revision' => '001af7f',
             'base_revision' => 'd46877d',
         ], [

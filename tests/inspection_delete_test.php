@@ -36,5 +36,12 @@ if (InspectionController::delete(['id'=>6],false)[0] !== 404 || !R::load('inspec
 $allowedCustomer=true;
 $allowedRole=false;
 if (InspectionController::delete(['id'=>6],false)[0] !== 403 || !R::load('inspection',6)->id) throw new RuntimeException('Rollenprüfung fehlt.');
+$allowedRole=true;
+$inspection=(object)['id'=>10383,'result_status'=>'in_progress','status'=>'in_progress'];
+ob_start();require dirname(__DIR__).'/templates/inspection_delete_button.php';$button=ob_get_clean();
+if (!str_contains($button,'formnovalidate') || !str_contains($button,'/10383/loeschen')) throw new RuntimeException('Gemeinsame Löschaktion fehlt oder validiert Pflichtfelder.');
+foreach (['inspection_edit.php','inspection_ladder_edit.php'] as $view) {
+    if (!str_contains(file_get_contents(dirname(__DIR__).'/templates/'.$view), "render_template('inspection_delete_button.php'")) throw new RuntimeException('Gemeinsamer Löschknopf fehlt: '.$view);
+}
 R::close();
 echo "PASS: unfertige Prüfungen löschbar, abgeschlossene/abgerechnete/fremde Prüfungen geschützt\n";

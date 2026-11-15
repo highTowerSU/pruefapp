@@ -2,7 +2,7 @@
 
 ## 15.11.2026 – Unfertige Prüfungen löschen
 
-- Unfertige Prüfungen mit „Daten fehlen“ können wie Prüfungen in Bearbeitung gelöscht werden. Fehlende Pflichtfelder blockieren die Löschaktion nicht mehr.
+- Leiter- und Elektroprüfungen verwenden denselben Löschknopf. Auch unfertige Prüfungen mit „Daten fehlen“ lassen sich löschen; fehlende Pflichtfelder blockieren die Löschaktion nicht mehr.
 - Der Server prüft den Kundenzugriff und verhindert das Löschen abgeschlossener oder aktiv mit Rechnungen verknüpfter Prüfungen.
 - Umsetzung: Prüfapp `001af7f`; CENEOS PHP Base `d46877d` (unverändert).
 
