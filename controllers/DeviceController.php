@@ -449,7 +449,7 @@ class DeviceController
             if ($eligible === []) { $_SESSION['fehlermeldung'] = 'Für die Auswahl gibt es keine abrechenbare, noch nicht exportierte Prüfung ab 2025.'; return [303, ['Location' => url_for('geraete')], '']; }
             $_SESSION['billing_preselect_inspection_ids'] = $eligible;
             $_SESSION['billing_message'] = count($eligible) . ' Prüfung(en) für die Abrechnung vorbereitet. Bitte Auswahl und Status vor dem Export prüfen.';
-            return [303, ['Location' => url_for('admin/abrechnung?preselect=1')], ''];
+            return [303, ['Location' => url_for('admin/abrechnung?'.http_build_query(['preselect'=>'1','inspection_ids'=>$eligible]))], ''];
         }
         if ($ids === [] || !in_array($action, ['archive', 'delete'], true)) {
             $_SESSION['fehlermeldung'] = 'Bitte mindestens ein Gerät und eine gültige Aktion auswählen.';

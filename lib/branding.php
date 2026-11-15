@@ -101,6 +101,13 @@ function branding_key_for_request_host(): string
 
 function get_branding(): array
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli') {
+        $tenant = (new TenantRepository())->find((int) $GLOBALS['billing_context']['tenant_id']);
+        if (!$tenant || (int) $tenant->is_active !== 1) {
+            throw new RuntimeException('Mandant nicht verfügbar.');
+        }
+        return map_company_branding($tenant);
+    }
     static $branding = null;
 
     if ($branding !== null) {

@@ -379,3 +379,7 @@ Die Zeichenfläche für Profil-Unterschriften kommt aus `CENEOS Base SignaturePa
 ## Direkter Einstieg aus Edulution
 
 `edulution.php` ist der serverseitige Portal-Einstieg. Bestehende App-Sitzungen gehen direkt zur Startansicht. Sonst startet der normale OIDC-Flow mit frischem State/Nonce/PKCE über CENEOS Base, auch nach einem zuvor abgebrochenen automatischen Login. Der Rücksprung bleibt app-intern; Zugriffsrollen, CSRF und die normale Anmeldeseite bleiben erhalten. Die Anfrage benötigt keine Browser-Skripte oder gespeicherten Zugangsdaten.
+
+## Zentraler Bereich für Ausgangsrechnungen
+
+Ausgangsrechnungen aus Prüfungen und Einsätzen werden im Modul Abrechnung unter `/ausgangsrechnungen` verwaltet und erstellt. Vorhandene Rechnungs-IDs, Positionszuordnungen, Zahlungsnachweise und Aktionssperren bleiben mit ihren Quelldaten verknüpft. Die bisherigen Einstiege führen mandantengenau zur Abrechnung; alte POST-Formulare müssen dort neu geöffnet werden. Die bestehende Rechnungslogik wird über einen lokalen, nur per CLI erreichbaren Adapter mit getrenntem Datenbankkontext ausgeführt. Anmeldung, Rollen, CSRF und die gemeinsame Oberfläche liegen bei Abrechnung. Automatische Einsatz-Rechnungsentwürfe werden vom Abrechnungs-Cron angestoßen.

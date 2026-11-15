@@ -1,12 +1,13 @@
 <?php
 
 declare(strict_types=1);
+require_once dirname(__DIR__).'/lib/CentralBillingModule.php';
 
 $schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
 $service = (string) file_get_contents(dirname(__DIR__) . '/lib/ApplicationFailureService.php');
 $index = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $admin = (string) file_get_contents(dirname(__DIR__) . '/controllers/AdminController.php');
-$billing = (string) file_get_contents(dirname(__DIR__) . '/controllers/BillingController.php');
+$billing = (string) file_get_contents(CentralBillingModule::root() . '/modules/pruef/BillingController.php');
 
 foreach ([
     [str_contains($schema, 'CREATE TABLE IF NOT EXISTS appfailure'), 'Die persistente Fehlerdiagnose-Tabelle fehlt.'],

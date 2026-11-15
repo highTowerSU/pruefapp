@@ -1003,6 +1003,13 @@ function redirect_url_for_target(?string $target): string
 
 function url_for(string $path = ''): string
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli') {
+        return ($GLOBALS['billing_url'])($path);
+    }
+    if (preg_match('~^/?admin/abrechnung(?=$|[/?])~', $path)) {
+        require_once __DIR__ . '/CentralBillingModule.php';
+        return CentralBillingModule::url($path);
+    }
     // Keep relative locations unambiguously path-relative.  In particular a
     // base path of "/" must never turn the login target into "//login.php":
     // browsers interpret that as a scheme-relative URL with host "login.php".
@@ -1211,6 +1218,9 @@ function current_user_id(): ?int
 
 function current_user(): ?\RedBeanPHP\OODBBean
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli') {
+        return $GLOBALS['billing_actor']??null;
+    }
     static $cached = false;
     static $user = null;
 
@@ -1311,6 +1321,9 @@ function inspection_report_signature_sql(string $inspectionAlias = 'inspection')
 
 function current_user_true_role(): ?string
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli') {
+        return $GLOBALS['billing_role'];
+    }
     $user = current_user();
 
     if ($user === null) {
@@ -1339,6 +1352,9 @@ function current_user_true_role(): ?string
 
 function current_user_role(): ?string
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli') {
+        return $GLOBALS['billing_role'];
+    }
     $role = current_user_true_role();
     return $role === null ? null : \Ceneos\PhpBase\Auth\SessionRole::effective(app_storage_namespace(), $role, url_for());
 }
@@ -1396,6 +1412,9 @@ function device_customer_id($device): int
 
 function current_user_has_role(string ...$roles): bool
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli') {
+        return \Ceneos\PhpBase\Auth\RolePolicy::allows($GLOBALS['billing_roles'],...$roles);
+    }
     $user = current_user();
     $groups = $user ? (json_decode((string)($user->ceneos_groups_json ?? '[]'), true) ?: []) : [];
     $effective = \Ceneos\PhpBase\Auth\EffectiveRoles::resolve(app_storage_namespace(), (int)($user->ceneos_identity_id ?? 0), $groups, current_user_role(), current_user_true_role());
@@ -1878,6 +1897,9 @@ function generate_email($username)
 
 function render_template($file, $vars = [])
 {
+    if (defined('CENEOS_BILLING_HOSTED') && PHP_SAPI === 'cli' && $file === 'layout.php') {
+        return (string) ($vars['content'] ?? '');
+    }
     global $baseDir;
     static $renderer = null;
 

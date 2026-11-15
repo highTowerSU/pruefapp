@@ -65,6 +65,8 @@ document.querySelector('[data-billing-csv-download]')?.addEventListener('click',
   const action = document.createElement('input');
   action.type = 'hidden'; action.name = 'action'; action.value = 'csv';
   download.append(action);
+  const csrf = source.querySelector('[name="_csrf"]');
+  if (csrf) download.append(csrf.cloneNode(true));
   [['selection_scope', mode], ['filter_query', source.querySelector('[name="filter_query"]')?.value || '']].forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; download.append(input); });
   ids.forEach(id => {
     const input = document.createElement('input');

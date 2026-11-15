@@ -1,9 +1,10 @@
 <?php
 
 declare(strict_types=1);
+require_once dirname(__DIR__).'/lib/CentralBillingModule.php';
 
 $schema = (string) file_get_contents(dirname(__DIR__) . '/lib/lib.inc.php');
-$controller = (string) file_get_contents(dirname(__DIR__) . '/controllers/BillingController.php');
+$controller = (string) file_get_contents(CentralBillingModule::root() . '/modules/pruef/BillingController.php');
 $template = (string) file_get_contents(dirname(__DIR__) . '/templates/billing_index.php');
 $routes = (string) file_get_contents(dirname(__DIR__) . '/index.php');
 $detail = (string) file_get_contents(dirname(__DIR__) . '/templates/inspection_detail.php');

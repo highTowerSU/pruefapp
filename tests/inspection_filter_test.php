@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+require_once dirname(__DIR__).'/lib/CentralBillingModule.php';
 
 require_once dirname(__DIR__) . '/lib/InspectionFilterService.php';
 
@@ -46,7 +47,7 @@ if (!str_contains($latest, 'ORDER BY latest_filter.test_date DESC, latest_filter
 
 $renderer = (string) file_get_contents(dirname(__DIR__) . '/lib/filter_renderer.php');
 $deviceController = (string) file_get_contents(dirname(__DIR__) . '/controllers/DeviceController.php');
-$billingController = (string) file_get_contents(dirname(__DIR__) . '/controllers/BillingController.php');
+$billingController = (string) file_get_contents(CentralBillingModule::root() . '/modules/pruef/BillingController.php');
 $reportController = (string) file_get_contents(dirname(__DIR__) . '/controllers/ReportController.php');
 foreach (['name="examiner"', 'name="due_status"', 'name="year"', 'name="sort"', 'name="per_page"'] as $needle) {
     if (!str_contains($renderer, $needle)) {
