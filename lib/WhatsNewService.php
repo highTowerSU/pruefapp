@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-15-invoice-table-totals',
+            'date' => '15.11.2026',
+            'title' => 'Summen unter den Rechnungstabellen',
+            'items' => ['Gerätemenge und Regiezeit haben in den verknüpften Prüfungen eigene Spalten und eine Summenzeile für aktive Zuordnungen.', 'Auch die Rechnungspositionen zeigen unten die Geräte- und Regiesummen laut Rechnung.'],
+            'pruefapp_revision' => '0a7cca2 (Ausgangsrevision)',
+            'base_revision' => 'd46877d',
+        ], [
             'id' => '2026-11-12-historical-billing-reconciliation',
             'date' => '12.11.2026',
             'title' => 'Historische Rechnungen nachvollziehbar abstimmen',
