@@ -259,14 +259,15 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         [data-bs-theme="dark"] .brand-logo-for-light { display: none; }
         [data-bs-theme="dark"] .brand-logo-for-dark { display: inline-block; }
         .ceneos-workspace { display: flex; flex: 1 1 auto; min-width: 0; }
-        .ceneos-sidebar { order: 2; flex: 0 0 17rem; border-left: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
+        .ceneos-sidebar { order: 0; flex: 0 0 17rem; border-right: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
         .ceneos-sidebar .offcanvas-body { position: sticky; top: var(--app-navbar-height); max-height: calc(100vh - var(--app-navbar-height)); overflow-y: auto; }
         .ceneos-workspace > main { order: 1; min-width: 0; flex: 1 1 auto; }
+        .ceneos-workspace + footer { width: 100%; flex: 0 0 auto; }
         .ceneos-nav-group > summary { cursor: pointer; list-style: none; }
         .ceneos-nav-group > summary::-webkit-details-marker { display: none; }
         @media (max-width: 991.98px) {
             .ceneos-workspace { display: block; }
-            .ceneos-sidebar { border-left: 0; }
+            .ceneos-sidebar { border-right: 0; }
             .ceneos-sidebar .offcanvas-body { position: static; max-height: none; }
         }
     </style>
