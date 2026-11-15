@@ -3,7 +3,7 @@
 ## 15.11.2026 – BSW-Logo lesbar darstellen
 
 - Das transparente BSW-Logo erhält in der Kopfzeile eine weiße Fläche mit Abstand und mehr Höhe. So bleibt die dunkelblaue Originalschrift auch auf dunkelblauem Hintergrund sowie im Hell-/Dunkelmodus lesbar, vor und nach der Anmeldung.
-- Umsetzung: Prüfapp siehe folgende Release-Revision (Ausgangsrevision `8b6bc0a`); CENEOS PHP Base `c14806d` (unverändert).
+- Umsetzung: Prüfapp `4e7943f` (Ausgangsrevision `8b6bc0a`); CENEOS PHP Base `c14806d` (unverändert).
 
 ## 15.11.2026 – Verständliche Meldung bei fehlenden Prüfungen
 

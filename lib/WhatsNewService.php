@@ -15,7 +15,7 @@ final class WhatsNewService
             'date' => '15.11.2026',
             'title' => 'BSW-Logo besser lesbar',
             'items' => ['Das BSW-Logo steht in der Kopfzeile auf einer weißen Fläche mit Abstand und mehr Höhe. Die Originalschrift bleibt dadurch auch auf dunkelblauem Hintergrund lesbar.'],
-            'pruefapp_revision' => 'Ausgangsrevision 8b6bc0a; Umsetzung siehe Changelog',
+            'pruefapp_revision' => '4e7943f',
             'base_revision' => 'c14806d',
         ], [
             'id' => '2026-11-15-inspection-not-found',
