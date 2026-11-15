@@ -4,7 +4,7 @@
 
 - Unfertige Prüfungen mit „Daten fehlen“ können wie Prüfungen in Bearbeitung gelöscht werden. Fehlende Pflichtfelder blockieren die Löschaktion nicht mehr.
 - Der Server prüft den Kundenzugriff und verhindert das Löschen abgeschlossener oder aktiv mit Rechnungen verknüpfter Prüfungen.
-- Ausgangsrevision: Prüfapp `a07d819`; CENEOS PHP Base `d46877d` (unverändert).
+- Umsetzung: Prüfapp `001af7f`; CENEOS PHP Base `d46877d` (unverändert).
 
 ## 15.11.2026 – Summen unter den Rechnungstabellen
 
