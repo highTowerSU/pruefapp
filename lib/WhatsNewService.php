@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-15-inspection-not-found',
+            'date' => '15.11.2026',
+            'title' => 'Verständliche Meldung bei fehlenden Prüfungen',
+            'items' => ['Veraltete oder nicht zugängliche Prüfungslinks zeigen eine verständliche Seite mit direkten Links zur Prüfungs- und Geräteübersicht.'],
+            'pruefapp_revision' => 'Ausgangsrevision b649472; Umsetzung siehe Changelog',
+            'base_revision' => '4290b16',
+        ], [
             'id' => '2026-11-15-right-hand-navigation',
             'date' => '15.11.2026',
             'title' => 'Navigation am rechten Rand',

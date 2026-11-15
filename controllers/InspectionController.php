@@ -6,6 +6,14 @@ use RedBeanPHP\R;
 
 final class InspectionController
 {
+    private static function notFound(): array
+    {
+        return [404, [], render_template('layout.php', [
+            'title' => 'Prüfung nicht verfügbar',
+            'content' => render_template('inspection_not_found.php'),
+        ])];
+    }
+
     public static function storageSlotRows(array $params, bool $isHx): array
     {
         if (!current_user_has_role('admin', 'editor', 'inspector')) {
@@ -120,11 +128,11 @@ final class InspectionController
         RequestTimingService::start('inspection_load');
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id) {
-            return [404, [], 'Prüfung nicht gefunden'];
+            return self::notFound();
         }
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) {
-            return [404, [], 'Prüfung nicht gefunden'];
+            return self::notFound();
         }
         RequestTimingService::stop('inspection_load');
         $classification = trim((string) ($inspection->classification ?? ''));
@@ -1318,14 +1326,14 @@ final class InspectionController
         }
         $inspection = R::load('inspection', (int) ($params['id'] ?? 0));
         if (!$inspection->id || (trim((string) ($inspection->archived_at ?? '')) !== '' && !current_user_is_superadmin())) {
-            return [404, [], 'Prüfung nicht gefunden'];
+            return self::notFound();
         }
         $device = R::load('device', (int) $inspection->device_id);
         if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) {
-            return [404, [], 'Prüfung nicht gefunden'];
+            return self::notFound();
         }
         if (current_user_is_customer() && !InspectionEvaluationService::isCompleted((string) $inspection->result_status)) {
-            return [404, [], 'Prüfung nicht gefunden'];
+            return self::notFound();
         }
         if ((int) ($device->room_id ?? 0) > 0) {
             $room = R::load('room', (int) $device->room_id);

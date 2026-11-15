@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 15.11.2026 – Verständliche Meldung bei fehlenden Prüfungen
+
+- Nicht verfügbare Prüfungs- und Bearbeitungslinks zeigen eine Fehlerseite im App-Layout mit Erklärung und Links zur Prüfungs- und Geräteübersicht. HTTP 404 und die einheitliche Behandlung fehlender Zugriffsrechte bleiben erhalten.
+- Umsetzung: Prüfapp siehe folgende Release-Revision (Ausgangsrevision `b649472`); CENEOS PHP Base `4290b16` (unverändert).
+
 ## 15.11.2026 – Leiterprüfung und importierte Messverfahren korrigiert
 
 - Neuer versionierter Leiterkatalog mit 14 konkreten Sicht-/Funktionsprüfpunkten, Bauartbezug und begründetem „Nicht zutreffend“. Vorhandene Antworten und abgeschlossene Kataloge werden nicht ersetzt; neue und noch unbeantwortete Entwürfe verwenden Version 2.
