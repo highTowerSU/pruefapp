@@ -1731,6 +1731,8 @@ $aktuelleSeite = basename($_SERVER['PHP_SELF']);
 $requestPath = normalize_request_path(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
 
 $freiePfade = [
+    // This entry only redirects to Abrechnung, which performs its own login and role checks.
+    '#^/admin/abrechnung(?:/|$)#',
     '#^/uebermitteln(/|$)#',
     // A companion token is a short-lived, high-entropy work-session key.
     // Mobile scanners must be able to open it without a second OIDC login;
