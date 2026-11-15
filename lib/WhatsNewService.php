@@ -15,7 +15,7 @@ final class WhatsNewService
             'date' => '15.11.2026',
             'title' => 'Verständliche Meldung bei fehlenden Prüfungen',
             'items' => ['Veraltete oder nicht zugängliche Prüfungslinks zeigen eine verständliche Seite mit direkten Links zur Prüfungs- und Geräteübersicht.'],
-            'pruefapp_revision' => 'Ausgangsrevision b649472; Umsetzung siehe Changelog',
+            'pruefapp_revision' => 'fdcc910',
             'base_revision' => '4290b16',
         ], [
             'id' => '2026-11-15-right-hand-navigation',
