@@ -1408,8 +1408,15 @@ final class InspectionController
         if (!$inspection->id) {
             return [404, [], 'Prüfung nicht gefunden'];
         }
-        if (InspectionEvaluationService::normalizeStatus((string) $inspection->result_status, (string) $inspection->status) !== InspectionEvaluationService::IN_PROGRESS) {
-            return [409, [], 'Nur Prüfungen in Bearbeitung können gelöscht werden.'];
+        $device = R::load('device', (int) $inspection->device_id);
+        if (!$device->id || !current_user_can_access_customer(device_customer_id($device))) {
+            return [404, [], 'Prüfung nicht gefunden'];
+        }
+        if (!InspectionEvaluationService::isUnfinished((string) $inspection->result_status, (string) $inspection->status)) {
+            return [409, [], 'Nur nicht abgeschlossene Prüfungen können gelöscht werden.'];
+        }
+        if (R::count('billinginvoiceitem', ' inspection_id=? AND active=1 ', [(int) $inspection->id]) > 0) {
+            return [409, [], 'Die Prüfung ist einer Rechnung zugeordnet. Bitte zuerst die Rechnungszuordnung aufheben.'];
         }
         $deviceId = (int) $inspection->device_id;
         R::trash($inspection);

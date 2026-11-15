@@ -94,6 +94,11 @@ final class InspectionEvaluationService
         return self::statuses()[$canonical] + ['status' => $canonical];
     }
 
+    public static function isUnfinished(?string $status, ?string $workflowStatus = null): bool
+    {
+        return in_array(self::normalizeStatus($status, $workflowStatus), [self::IN_PROGRESS, self::DATA_MISSING], true);
+    }
+
     public static function isCompleted(?string $status): bool
     {
         return in_array(self::normalizeStatus($status), [self::PASSED, self::FAILED, self::LEGACY], true);
