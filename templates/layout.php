@@ -267,6 +267,10 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         .ceneos-nav-group > summary::-webkit-details-marker { display: none; }
         .ceneos-sidebar .nav-link { color: var(--bs-body-color) !important; }
         .ceneos-sidebar .nav-link:hover, .ceneos-sidebar .nav-link:focus-visible, .ceneos-sidebar .nav-link.active { color: var(--bs-body-color) !important; background: var(--bs-secondary-bg) !important; }
+        .ceneos-sidebar .offcanvas-body { display: flex; flex-direction: column; gap: .75rem; }
+        .ceneos-sidebar-top, .ceneos-sidebar-navigation, .ceneos-sidebar-apps { width: 100%; }
+        .ceneos-sidebar-top .app-tenant-indicator { display: flex !important; flex-direction: column; align-items: flex-start; gap: .15rem; width: 100%; }
+        .ceneos-sidebar-apps .dropdown, .ceneos-sidebar-apps .dropdown-toggle { width: 100%; }
         @media (max-width: 991.98px) {
             .ceneos-workspace { display: block; }
             .ceneos-sidebar { border-right: 0; }
