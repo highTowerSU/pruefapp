@@ -114,6 +114,47 @@ $companyActive = $pathIsActive($companyUrl);
 $vocabularyActive = $pathIsActive($vocabularyUrl);
 $inspectionTypesActive = $pathIsActive($inspectionTypesUrl);
 $adminMenuActive = $auditActive || $userAdminActive || $settingsActive || $companyActive || $vocabularyActive || $inspectionTypesActive;
+$appSidebarItems = [
+    ['label' => 'Struktur', 'url' => $structureUrl, 'icon' => 'fa-solid fa-sitemap', 'active' => $structureActive],
+    ['type' => 'dropdown', 'label' => 'Geräte', 'icon' => 'fa-solid fa-plug', 'active' => $devicesMenuActive, 'items' => [
+        ['label' => 'Neue Prüfung', 'url' => $devicesUrl . '#device-inspection-lookup', 'icon' => 'fa-solid fa-barcode'],
+        ['type' => 'divider'],
+        ['label' => 'Geräteübersicht', 'url' => $devicesUrl, 'icon' => 'fa-solid fa-plug', 'active' => $devicesActive],
+        ['label' => 'Prüfungen', 'url' => $inspectionsUrl, 'icon' => 'fa-solid fa-clipboard-check', 'active' => $inspectionsActive],
+    ]],
+];
+if (current_user_has_role('admin')) {
+    $appSidebarItems[] = ['type' => 'dropdown', 'label' => 'Import', 'icon' => 'fa-solid fa-file-import', 'active' => $inspectionImportActive, 'items' => [
+        ['label' => 'Import & Sync', 'url' => $inspectionImportUrl, 'icon' => 'fa-solid fa-arrows-rotate', 'active' => $inspectionImportActive],
+        ['label' => 'Messdaten importieren', 'url' => $inspectionImportUrl . '?view=measurement', 'icon' => 'fa-solid fa-vial'],
+    ]];
+    if (current_user_is_superadmin()) {
+        $appSidebarItems[array_key_last($appSidebarItems)]['items'][] = ['type' => 'divider'];
+        $appSidebarItems[array_key_last($appSidebarItems)]['items'][] = ['label' => 'Berichte neu erzeugen', 'url' => $inspectionImportUrl . '#report-regeneration', 'icon' => 'fa-solid fa-file-pdf'];
+    }
+}
+if (current_user_can_manage_billing()) {
+    $appSidebarItems[] = ['label' => 'Abrechnung', 'url' => $billingUrl, 'icon' => 'fa-solid fa-coins', 'active' => $billingActive];
+}
+if (current_user_has_role('admin') || current_user_is_superadmin()) {
+    $administrationItems = [
+        ['label' => 'Audit & Revisionen', 'url' => $auditLogUrl, 'icon' => 'fa-solid fa-clock-rotate-left', 'active' => $auditActive],
+    ];
+    if (current_user_has_role('admin')) {
+        $administrationItems[] = ['label' => 'Benutzer & Rollen', 'url' => $userAdminUrl, 'icon' => 'fa-solid fa-users-gear', 'active' => $userAdminActive];
+        if (config_value('APP_CONTROLCENTER_URL')) $administrationItems[] = ['label' => 'Prüfapp-Zugriffe & Befähigungen', 'url' => url_for('admin/nutzer'), 'icon' => 'fa-solid fa-user-shield'];
+        $administrationItems[] = ['label' => 'Mandanten, Gruppen & Rollen', 'url' => url_for('admin/base'), 'icon' => 'fa-solid fa-building-user'];
+    }
+    if (current_user_is_superadmin()) {
+        $administrationItems[] = ['type' => 'divider'];
+        $administrationItems[] = ['label' => 'Mandanten', 'url' => $companyUrl, 'icon' => 'fa-solid fa-building', 'active' => $companyActive];
+        $administrationItems[] = ['label' => 'Stammdaten bereinigen', 'url' => $vocabularyUrl, 'icon' => 'fa-solid fa-spell-check', 'active' => $vocabularyActive];
+        $administrationItems[] = ['label' => 'Prüfarten & Befähigungen', 'url' => $inspectionTypesUrl, 'icon' => 'fa-solid fa-clipboard-check', 'active' => $inspectionTypesActive];
+        $administrationItems[] = ['label' => 'Konfiguration', 'url' => $settingsUrl, 'icon' => 'fa-solid fa-gear', 'active' => $settingsActive];
+    }
+    $appSidebarItems[] = ['type' => 'dropdown', 'label' => 'Verwaltung', 'icon' => 'fa-solid fa-screwdriver-wrench', 'active' => $adminMenuActive, 'items' => $administrationItems];
+}
+$appSidebarItems[] = ['label' => 'Hilfe', 'url' => $helpUrl, 'icon' => 'fa-solid fa-circle-question', 'active' => $helpActive];
 
 ?>
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for(), ENT_QUOTES) ?>">
@@ -143,7 +184,7 @@ $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path
 
     <div id="appNavbarContent" class="navbar-collapse collapse d-lg-flex align-items-lg-center ms-lg-auto gap-lg-4 flex-wrap justify-content-lg-end">
       <?php $authUser = current_user(); ?>
-      <?php if ($authUser !== null): ?>
+      <?php if (false && $authUser !== null): ?>
         <ul class="navbar-nav align-items-lg-center gap-lg-2 flex-wrap justify-content-end">
           <li class="nav-item"><a href="<?= htmlspecialchars($structureUrl, ENT_QUOTES) ?>" class="nav-link<?= $structureActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-sitemap me-1" aria-hidden="true"></i>Struktur</a></li>
           <li class="nav-item dropdown">
@@ -197,7 +238,7 @@ $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path
           <?php endif; ?>
           <li class="nav-item"><a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link<?= $helpActive ? ' active fw-semibold' : '' ?>"><i class="fa-solid fa-circle-question me-1" aria-hidden="true"></i>Hilfe</a></li>
         </ul>
-      <?php else: ?>
+      <?php elseif ($authUser === null): ?>
         <div class="d-flex align-items-center gap-3 flex-wrap justify-content-end">
           <a href="<?= htmlspecialchars($helpUrl, ENT_QUOTES) ?>" class="nav-link px-0<?= $helpActive ? ' active fw-semibold text-decoration-underline' : '' ?>">Hilfe</a>
         </div>

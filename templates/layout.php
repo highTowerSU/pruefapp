@@ -258,11 +258,24 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         .brand-logo-for-dark { display: none; }
         [data-bs-theme="dark"] .brand-logo-for-light { display: none; }
         [data-bs-theme="dark"] .brand-logo-for-dark { display: inline-block; }
+        .ceneos-workspace { display: flex; flex: 1 1 auto; min-width: 0; }
+        .ceneos-sidebar { order: 2; flex: 0 0 17rem; border-left: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
+        .ceneos-sidebar .offcanvas-body { position: sticky; top: var(--app-navbar-height); max-height: calc(100vh - var(--app-navbar-height)); overflow-y: auto; }
+        .ceneos-workspace > main { order: 1; min-width: 0; flex: 1 1 auto; }
+        .ceneos-nav-group > summary { cursor: pointer; list-style: none; }
+        .ceneos-nav-group > summary::-webkit-details-marker { display: none; }
+        @media (max-width: 991.98px) {
+            .ceneos-workspace { display: block; }
+            .ceneos-sidebar { border-left: 0; }
+            .ceneos-sidebar .offcanvas-body { position: static; max-height: none; }
+        }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <?php include "templates/_navbar.php"; ?>
+<div class="ceneos-workspace">
+<?= $layoutUser !== null ? \Ceneos\PhpBase\View\AppSidebar::render($appSidebarItems ?? [], [], '', 'Prüfapp') : '' ?>
 <main id="main-content" class="flex-grow-1" tabindex="-1">
 <div class="container app-main-container py-4">
     <header class="page-header mb-4 noprint">
@@ -300,6 +313,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
     <?= $content ?>
 </div>
 </main>
+</div>
 
 <?php $versionDisplay = app_version_display_data(); $baseVersionDisplay = ceneos_base_version_display_data(); ?>
 <?php

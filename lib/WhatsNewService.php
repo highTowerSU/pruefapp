@@ -11,6 +11,11 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-15-right-hand-navigation',
+            'date' => '15.11.2026',
+            'title' => 'Navigation am rechten Rand',
+            'items' => ['Die Fachnavigation ist jetzt als rechte Seitenleiste organisiert. Mandant und App-Wechsel bleiben oben in der Kopfzeile.', 'Auf kleinen Bildschirmen öffnet sich das Menü von rechts, ohne den Inhalt zu verdecken.'],
+        ], [
             'id' => '2026-11-15-ladder-checklist-and-iea',
             'date' => '15.11.2026',
             'title' => 'Leiterprüfung und importierte Messverfahren',

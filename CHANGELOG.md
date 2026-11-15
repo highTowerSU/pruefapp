@@ -398,6 +398,11 @@
 
 Nutzerrelevante Änderungen erscheinen zusätzlich als persönliche „Was ist neu?“-Benachrichtigung und unter **Downloads → Was ist neu?**.
 
+## 15.11.2026 · Navigation am rechten Rand
+
+- Die Fachnavigation der Prüfapp liegt als Seitenleiste rechts; Mandant und App-Wechsel bleiben oben.
+- Auf kleinen Bildschirmen öffnet sich das Menü von rechts.
+
 ## 28.10.2026 · Gemeinsamer Barcode-Scanner
 
 Barcodekamera aus dem Prüf-Companion nach CENEOS Base ausgelagert; bestehende Fotoauswertung, manuelle Eingabe und Kopplung bleiben nutzbar. Base: `a595e65`. Prüfapp-Revision: `060a558`.
