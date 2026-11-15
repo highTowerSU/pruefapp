@@ -271,6 +271,11 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         .ceneos-sidebar-top, .ceneos-sidebar-navigation, .ceneos-sidebar-apps { width: 100%; }
         .ceneos-sidebar-top .app-tenant-indicator { display: flex !important; flex-direction: column; align-items: flex-start; gap: .15rem; width: 100%; }
         .ceneos-sidebar-apps .dropdown, .ceneos-sidebar-apps .dropdown-toggle { width: 100%; }
+        @media (min-width: 992px) {
+            .ceneos-sidebar { align-self: stretch; position: sticky; top: var(--app-navbar-height); height: calc(100vh - var(--app-navbar-height)); }
+            .ceneos-sidebar .offcanvas-body { height: 100%; min-height: 0; }
+            .ceneos-sidebar-navigation { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+        }
         @media (max-width: 991.98px) {
             .ceneos-workspace { display: block; }
             .ceneos-sidebar { border-right: 0; }
@@ -281,8 +286,18 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
 <body class="d-flex flex-column min-vh-100">
 <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <?php include "templates/_navbar.php"; ?>
+<?php
+$sidebarTenantLinks = [];
+foreach (get_branding_companies() as $tenantOption) {
+    if ((int) ($tenantOption->is_active ?? 1) !== 1) continue;
+    $host = trim((string) ($tenantOption->public_host ?? ''));
+    if ($host === '') continue;
+    $sidebarTenantLinks[] = ['name' => (string) ($tenantOption->name ?? 'Mandant'), 'url' => 'https://' . $host . '/', 'active' => (int) ($tenantOption->id ?? 0) === (int) ($branding['company_id'] ?? 0)];
+}
+$sidebarTenantSwitcher = ['current_name' => (string) ($branding['company_name'] ?? ''), 'links' => $sidebarTenantLinks];
+?>
 <div class="ceneos-workspace">
-<?= $layoutUser !== null ? \Ceneos\PhpBase\View\AppSidebar::render($appSidebarItems ?? [], ['current_name' => (string) ($branding['company_name'] ?? '')], \Ceneos\PhpBase\View\ApplicationSwitcher::render((string) ($branding['key'] ?? ''), 'pruefapp'), 'Prüfapp') : '' ?>
+<?= $layoutUser !== null ? \Ceneos\PhpBase\View\AppSidebar::render($appSidebarItems ?? [], $sidebarTenantSwitcher, \Ceneos\PhpBase\View\ApplicationSwitcher::render((string) ($branding['key'] ?? ''), 'pruefapp'), 'Prüfapp') : '' ?>
 <main id="main-content" class="flex-grow-1" tabindex="-1">
 <div class="container app-main-container py-4">
     <header class="page-header mb-4 noprint">
