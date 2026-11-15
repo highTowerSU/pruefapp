@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 15.11.2026 – BSW-Logo lesbar darstellen
+
+- Das transparente BSW-Logo erhält in der Kopfzeile eine weiße Fläche mit Abstand und mehr Höhe. So bleibt die dunkelblaue Originalschrift auch auf dunkelblauem Hintergrund sowie im Hell-/Dunkelmodus lesbar, vor und nach der Anmeldung.
+- Umsetzung: Prüfapp siehe folgende Release-Revision (Ausgangsrevision `8b6bc0a`); CENEOS PHP Base `c14806d` (unverändert).
+
 ## 15.11.2026 – Verständliche Meldung bei fehlenden Prüfungen
 
 - Nicht verfügbare Prüfungs- und Bearbeitungslinks zeigen eine Fehlerseite im App-Layout mit Erklärung und Links zur Prüfungs- und Geräteübersicht. HTTP 404 und die einheitliche Behandlung fehlender Zugriffsrechte bleiben erhalten.

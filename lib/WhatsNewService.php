@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-15-bsw-logo-contrast',
+            'date' => '15.11.2026',
+            'title' => 'BSW-Logo besser lesbar',
+            'items' => ['Das BSW-Logo steht in der Kopfzeile auf einer weißen Fläche mit Abstand und mehr Höhe. Die Originalschrift bleibt dadurch auch auf dunkelblauem Hintergrund lesbar.'],
+            'pruefapp_revision' => 'Ausgangsrevision 8b6bc0a; Umsetzung siehe Changelog',
+            'base_revision' => 'c14806d',
+        ], [
             'id' => '2026-11-15-inspection-not-found',
             'date' => '15.11.2026',
             'title' => 'Verständliche Meldung bei fehlenden Prüfungen',

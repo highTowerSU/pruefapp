@@ -283,7 +283,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         }
     </style>
 </head>
-<body class="d-flex flex-column min-vh-100">
+<body class="d-flex flex-column min-vh-100" data-branding-key="<?= htmlspecialchars((string) ($branding['key'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <?php include "templates/_navbar.php"; ?>
 <?php

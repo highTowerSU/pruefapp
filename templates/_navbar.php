@@ -173,7 +173,7 @@ $brandLogo = $branding['logos'][$logoVariant] ?? ($branding['header_logo']['path
         <?php $brandLogoUrl = preg_match('#^https?://#i', $brandLogo) ? $brandLogo : url_for($brandLogo); ?>
         <img src="<?= htmlspecialchars($brandLogoUrl, ENT_QUOTES) ?>"
              alt="<?= htmlspecialchars($branding['header_logo']['alt'] ?? ($branding['company_name'] ?? '')) ?>"
-             class="navbar-brand-logo img-fluid" style="max-height:1.5em">
+             class="navbar-brand-logo img-fluid">
       <?php endif; ?>
       <span><?= htmlspecialchars($branding['nav_brand'] ?? 'Prüf-Doku') ?></span>
     </a>
