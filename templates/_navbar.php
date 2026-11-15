@@ -325,8 +325,6 @@ $hasKeycloakLink = $keycloakAccountUrl !== null;
           </div>
         <?php endif; ?>
 
-        <?= \Ceneos\PhpBase\View\TenantSwitcher::render(['current_name' => (string) ($branding['company_name'] ?? '')]) ?>
-        <?= \Ceneos\PhpBase\View\ApplicationSwitcher::render((string)($branding['key'] ?? '')) ?>
         <?= \Ceneos\PhpBase\View\ThemeSwitcher::render('pruefapp-theme', 'btn-outline-navbar') ?>
         <?php if ($authUser !== null): ?><a class="btn btn-outline-navbar" href="<?= htmlspecialchars(url_for('profil') . '#display-preferences', ENT_QUOTES) ?>" title="Darstellung &amp; Barrierefreiheit" aria-label="Darstellung &amp; Barrierefreiheit"><i class="fa-solid fa-universal-access" aria-hidden="true"></i></a><?php endif; ?>
       </div>

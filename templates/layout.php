@@ -265,6 +265,8 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
         .ceneos-workspace + footer { width: 100%; flex: 0 0 auto; }
         .ceneos-nav-group > summary { cursor: pointer; list-style: none; }
         .ceneos-nav-group > summary::-webkit-details-marker { display: none; }
+        .ceneos-sidebar .nav-link { color: var(--bs-body-color) !important; }
+        .ceneos-sidebar .nav-link:hover, .ceneos-sidebar .nav-link:focus-visible, .ceneos-sidebar .nav-link.active { color: var(--bs-body-color) !important; background: var(--bs-secondary-bg) !important; }
         @media (max-width: 991.98px) {
             .ceneos-workspace { display: block; }
             .ceneos-sidebar { border-right: 0; }
@@ -276,7 +278,7 @@ $displayPreference = DisplayPreferenceService::forUser((int) ($layoutUser->id ??
 <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 <?php include "templates/_navbar.php"; ?>
 <div class="ceneos-workspace">
-<?= $layoutUser !== null ? \Ceneos\PhpBase\View\AppSidebar::render($appSidebarItems ?? [], [], '', 'Prüfapp') : '' ?>
+<?= $layoutUser !== null ? \Ceneos\PhpBase\View\AppSidebar::render($appSidebarItems ?? [], ['current_name' => (string) ($branding['company_name'] ?? '')], \Ceneos\PhpBase\View\ApplicationSwitcher::render((string) ($branding['key'] ?? ''), 'pruefapp'), 'Prüfapp') : '' ?>
 <main id="main-content" class="flex-grow-1" tabindex="-1">
 <div class="container app-main-container py-4">
     <header class="page-header mb-4 noprint">
