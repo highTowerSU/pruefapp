@@ -4,7 +4,7 @@
 
 - Prüfungsrechnungen werden einschließlich Erstellung, Historie und Positionsabgleich zentral in Abrechnung verwaltet. Bestehende Verknüpfungen bleiben erhalten; Geräteauswahlen werden mitgegeben.
 - Alte Rechnungslinks öffnen mandantengenau die neue Oberfläche. Alte Schreibformulare verlangen die erneute Prüfung in Abrechnung und führen keine Rechnungserstellung mehr aus.
-- Ausgangsrevision: Prüfapp `0c36237`; CENEOS PHP Base `5315db7` (unverändert).
+- Umsetzung: Prüfapp `5dee020`; Abrechnung `1673365`; Aufträge `84a2484`; CENEOS PHP Base `5315db7` (unverändert).
 
 ## 15.11.2026 – BSW-Logo lesbar darstellen
 

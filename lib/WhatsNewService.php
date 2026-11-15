@@ -15,7 +15,7 @@ final class WhatsNewService
             'date' => '15.11.2026',
             'title' => 'Ausgangsrechnungen in Abrechnung',
             'items' => ['Prüfungsrechnungen einschließlich Erstellung, Historie und Positionsabgleich öffnen jetzt im Modul Abrechnung.', 'Bestehende Rechnungszuordnungen bleiben erhalten. Eine Geräteauswahl kann weiterhin zur Abrechnung vorbereitet werden.'],
-            'pruefapp_revision' => '0c36237 (Ausgangsrevision)',
+            'pruefapp_revision' => '5dee020',
             'base_revision' => '5315db7',
         ], [
             'id' => '2026-11-15-bsw-logo-contrast',
