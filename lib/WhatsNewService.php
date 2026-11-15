@@ -15,7 +15,7 @@ final class WhatsNewService
             'date' => '15.11.2026',
             'title' => 'Leiterprüfung und importierte Messverfahren',
             'items' => ['Leiterprüfungen haben konkrete Sicht- und Funktionsprüfpunkte mit Bauartbezug und begründetem „Nicht zutreffend“. Vorhandene Antworten und abgeschlossene Kataloge bleiben erhalten.', 'Die Maske zeigt offene Angaben und behält Eingaben bei Fehlern. Sicherheitsrelevante Mängel müssen beschrieben und mit einer Maßnahme dokumentiert werden.', 'Importierter Ersatzableitstrom IEA wird mit passendem Grenzwert bewertet; die im BENNING-Einzelspeicher dokumentierte Schutzklasse wird übernommen.'],
-            'pruefapp_revision' => 'f137cf7 (Ausgangsrevision)',
+            'pruefapp_revision' => '92d498a',
             'base_revision' => 'd46877d',
         ], [
             'id' => '2026-11-15-delete-unfinished-inspections',
