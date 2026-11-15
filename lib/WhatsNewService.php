@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-15-ladder-checklist-and-iea',
+            'date' => '15.11.2026',
+            'title' => 'Leiterprüfung und importierte Messverfahren',
+            'items' => ['Leiterprüfungen haben konkrete Sicht- und Funktionsprüfpunkte mit Bauartbezug und begründetem „Nicht zutreffend“. Vorhandene Antworten und abgeschlossene Kataloge bleiben erhalten.', 'Die Maske zeigt offene Angaben und behält Eingaben bei Fehlern. Sicherheitsrelevante Mängel müssen beschrieben und mit einer Maßnahme dokumentiert werden.', 'Importierter Ersatzableitstrom IEA wird mit passendem Grenzwert bewertet; die im BENNING-Einzelspeicher dokumentierte Schutzklasse wird übernommen.'],
+            'pruefapp_revision' => 'f137cf7 (Ausgangsrevision)',
+            'base_revision' => 'd46877d',
+        ], [
             'id' => '2026-11-15-delete-unfinished-inspections',
             'date' => '15.11.2026',
             'title' => 'Unfertige Prüfungen löschen',

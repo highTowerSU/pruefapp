@@ -8,7 +8,7 @@ $roomSnapshot = trim((string) ($device->room_snapshot ?? ''));
 $description = trim((string) ($device->description ?? ''));
 ?>
 <div class="border rounded-3 bg-body-tertiary p-3 mb-3">
-  <div class="fw-semibold"><i class="fa-solid fa-plug me-1" aria-hidden="true"></i>Gerät: <?= htmlspecialchars((string) $device->external_number) ?> · <?= htmlspecialchars((string) $device->name) ?></div>
+  <div class="fw-semibold"><i class="fa-solid <?= ($inspectionTypeCode ?? 'electrical') === 'ladder' ? 'fa-stairs' : 'fa-plug' ?> me-1" aria-hidden="true"></i>Gerät: <?= htmlspecialchars((string) $device->external_number) ?> · <?= htmlspecialchars((string) $device->name) ?></div>
   <div class="d-flex flex-wrap gap-2 mt-2" aria-label="Gerätestammdaten">
     <span class="badge text-bg-<?= $deviceManufacturer !== '' ? 'primary' : 'warning' ?>">Hersteller: <?= htmlspecialchars($deviceManufacturer !== '' ? $deviceManufacturer : 'nicht hinterlegt') ?></span>
     <span class="badge text-bg-<?= $deviceModel !== '' ? 'secondary' : 'warning' ?>">Modell: <?= htmlspecialchars($deviceModel !== '' ? $deviceModel : 'nicht hinterlegt') ?></span>

@@ -423,19 +423,25 @@ final class InspectionController
         InspectionDataService::replaceAnswers($inspectionId, $answers, $catalogId);
     }
 
-    /** Dedicated server-side ladder workflow; device attributes are retained as an inspection snapshot. */
+    /** Dedicated server-side ladder workflow; source answers remain tied to their catalog version. */
     private static function editLadder(object $inspection, object $device): array
     {
         $user = current_user();
         $error = null;
-        $catalogId = (int) ($inspection->catalog_version_id ?: InspectionTypeService::defaultCatalogId(InspectionTypeService::LADDER));
-        $inspection->catalog_version_id = $catalogId;
-        $attributes = InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::LADDER);
         $answersByKey = [];
         foreach (InspectionDataService::answers((int) $inspection->id) as $answer) {
             $answersByKey[(string) $answer['item_key']] = $answer;
         }
-        $catalog = R::getAll('SELECT * FROM inspection_catalog_item WHERE version_id = ? ORDER BY sort_order, id', [$catalogId]);
+        $catalogId = (int) ($inspection->catalog_version_id ?: InspectionTypeService::defaultCatalogId(InspectionTypeService::LADDER));
+        if ($answersByKey === [] && InspectionEvaluationService::isUnfinished((string) $inspection->result_status, (string) $inspection->status)) {
+            $catalogId = InspectionTypeService::defaultCatalogId(InspectionTypeService::LADDER);
+        }
+        $inspection->catalog_version_id = $catalogId;
+        $catalog = LadderInspectionService::decorateCatalog(R::getAll('SELECT * FROM inspection_catalog_item WHERE version_id = ? ORDER BY sort_order, id', [$catalogId]));
+        $snapshot = json_decode((string) $inspection->device_attributes_snapshot_json, true);
+        $attributes = array_replace(InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::LADDER), is_array($snapshot) ? $snapshot : []);
+        $catalog = LadderInspectionService::decorateCatalog($catalog, $attributes);
+        $completionRequested = $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['complete'] ?? '') === '1';
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $permission = InspectionTypeService::permissionForUser($user, InspectionTypeService::LADDER);
             if (!$permission['allowed']) {
@@ -449,71 +455,77 @@ final class InspectionController
                 $error = 'Das nächste Prüfdatum ist ein Pflichtfeld.';
             }
             $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
-            $attributes = is_array($_POST['attributes'] ?? null) ? $_POST['attributes'] : [];
-            $values = is_array($_POST['finding'] ?? null) ? $_POST['finding'] : [];
-            $remarks = is_array($_POST['remark'] ?? null) ? $_POST['remark'] : [];
-            $answers = [];
-            foreach ($catalog as $item) {
-                $key = (string) $item['item_key'];
-                $value = strtolower(trim((string) ($values[$key] ?? '')));
-                $severity = in_array($value, ['green', 'orange', 'red'], true) ? $value : '';
-                $answers[] = [
-                    'item_key' => $key, 'category' => (string) $item['category'], 'question_snapshot' => (string) $item['question'], 'criterion_snapshot' => (string) $item['criterion'],
-                    'answer_value' => $value, 'outcome' => in_array($value, ['ok', 'green'], true) ? 'passed' : (in_array($value, ['orange', 'red'], true) ? 'failed' : 'missing'),
-                    'required' => (int) $item['required'], 'sort_order' => (int) $item['sort_order'], 'severity' => $severity, 'remark' => trim((string) ($remarks[$key] ?? '')),
-                ];
-            }
-            $complete = ($_POST['complete'] ?? '') === '1';
+            $attributes = array_replace($attributes, is_array($_POST['attributes'] ?? null) ? $_POST['attributes'] : []);
+            $catalog = LadderInspectionService::decorateCatalog($catalog, $attributes);
+            $answers = LadderInspectionService::answers($catalog, (array) ($_POST['finding'] ?? []), (array) ($_POST['remark'] ?? []), $attributes);
+            $answersByKey = array_column($answers, null, 'item_key');
+            $inspection->metadata_notes = trim((string) ($_POST['metadata_notes'] ?? ''));
+            $inspection->customer_hint = trim((string) ($_POST['customer_hint'] ?? ''));
             $failedAction = trim((string) ($_POST['failed_action'] ?? ''));
+            $inspection->failed_action = $failedAction;
+            $evaluation = InspectionEvaluationService::evaluate($inspection->export(), $answers, [], $completionRequested);
+            $missingDescriptions = LadderInspectionService::missingDescriptions($answers);
+            if ($error === null && $completionRequested && ($evaluation['missing'] !== [] || $missingDescriptions !== [])) {
+                $error = 'Zum Abschluss bitte die offenen Prüfpunkte und Begründungen vervollständigen.';
+            } elseif ($error === null && $completionRequested && $evaluation['status'] === InspectionEvaluationService::FAILED && !in_array($failedAction, ['blocked', 'repair', 'disposed'], true)) {
+                $error = 'Bei einem sicherheitsrelevanten Mangel bitte Sperre, Reparatur oder Entsorgung dokumentieren.';
+            }
             if ($error === null) {
-                InspectionTypeService::saveDeviceAttributes((int) $device->id, InspectionTypeService::LADDER, $attributes);
-                $inspection->device_attributes_snapshot_json = json_encode(InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::LADDER), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                $inspection->metadata_notes = trim((string) ($_POST['metadata_notes'] ?? ''));
-                $inspection->customer_hint = trim((string) ($_POST['customer_hint'] ?? ''));
-                $inspection->updated_at = date(DATE_ATOM);
-                R::store($inspection);
-                InspectionDataService::replaceAnswers((int) $inspection->id, $answers, $catalogId);
-                $evaluation = InspectionEvaluationService::evaluate($inspection->export(), $answers, [], $complete);
-                if ($complete && $evaluation['status'] === InspectionEvaluationService::FAILED && !in_array($failedAction, ['blocked', 'repair', 'disposed'], true)) {
-                    $error = 'Bei einer nicht bestandenen Leiterprüfung bitte Sperre, Reparatur oder Entsorgung dokumentieren.';
-                } else {
+                R::begin();
+                try {
+                    InspectionTypeService::saveDeviceAttributes((int) $device->id, InspectionTypeService::LADDER, $attributes);
+                    $inspection->device_attributes_snapshot_json = json_encode(InspectionTypeService::deviceAttributes((int) $device->id, InspectionTypeService::LADDER), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    InspectionDataService::replaceAnswers((int) $inspection->id, $answers, $catalogId);
                     $inspection->result_status = $evaluation['status'];
                     $inspection->result_reason_code = $evaluation['reason_code'];
                     $inspection->result_reason_text = $evaluation['reason'];
                     $inspection->status = InspectionEvaluationService::isCompleted($evaluation['status']) ? 'completed' : $evaluation['status'];
-                    $inspection->failed_action = $failedAction;
+                    $inspection->failed_action = !$completionRequested || $evaluation['status'] === InspectionEvaluationService::FAILED ? $failedAction : '';
+                    $inspection->updated_at = date(DATE_ATOM);
                     R::store($inspection);
-                    DeviceFindingService::syncFromInspection((int) $device->id, (int) $inspection->id, InspectionTypeService::LADDER, $answers, $failedAction);
-                    DeviceFindingService::syncCustomerHint((int) $device->id, (int) $inspection->id, InspectionTypeService::LADDER, (string) $inspection->customer_hint);
-                    if ($failedAction === 'disposed') {
-                        R::exec('UPDATE device SET archived_at = ? WHERE id = ?', [date(DATE_ATOM), (int) $device->id]);
-                    }
-                    if ($complete && InspectionEvaluationService::reportAllowed($evaluation['status'], (string) $inspection->classification) && class_exists('ReportController')) {
-                        $relativeReport = 'reports/current/' . (int) $inspection->id . '.pdf';
-                        $reportPath = app_data_root() . '/' . $relativeReport;
-                        if (!is_dir(dirname($reportPath))) {
-                            mkdir(dirname($reportPath), 0770, true);
+                    if ($completionRequested) {
+                        DeviceFindingService::syncFromInspection((int) $device->id, (int) $inspection->id, InspectionTypeService::LADDER, $answers, (string) $inspection->failed_action);
+                        DeviceFindingService::syncCustomerHint((int) $device->id, (int) $inspection->id, InspectionTypeService::LADDER, (string) $inspection->customer_hint);
+                        if ((string) $inspection->failed_action === 'disposed') {
+                            R::exec('UPDATE device SET archived_at = ? WHERE id = ?', [date(DATE_ATOM), (int) $device->id]);
                         }
-                        $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, ReportController::inspectionPdfBranding($device));
-                        if (file_put_contents($reportPath, $pdf, LOCK_EX) === false) {
-                            throw new RuntimeException('Der Prüfbericht konnte nicht gespeichert werden.');
-                        }
-                        $inspection->report_path = $relativeReport;
-                        R::store($inspection);
-                        InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $reportPath, true);
                     }
-                    if ($complete) {
-                        return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id)], ''];
+                    audit_log('leiterpruefung_gespeichert', ['inspection_id' => (int) $inspection->id, 'catalog_version_id' => $catalogId, 'completed' => $completionRequested, 'result' => $evaluation['status']]);
+                    R::commit();
+                } catch (Throwable $exception) {
+                    R::rollback();
+                    throw $exception;
+                }
+                if ($completionRequested && InspectionEvaluationService::reportAllowed($evaluation['status'], (string) $inspection->classification) && class_exists('ReportController')) {
+                    $relativeReport = 'reports/current/' . (int) $inspection->id . '.pdf';
+                    $reportPath = app_data_root() . '/' . $relativeReport;
+                    if (!is_dir(dirname($reportPath))) {
+                        mkdir(dirname($reportPath), 0770, true);
                     }
+                    $pdf = ReportController::renderPdf(ReportController::inspectionPdfRows($inspection, $device), 'Prüfbericht ' . (string) $inspection->external_number, ReportController::inspectionPdfBranding($device));
+                    if (file_put_contents($reportPath, $pdf, LOCK_EX) === false) {
+                        throw new RuntimeException('Der Prüfbericht konnte nicht gespeichert werden.');
+                    }
+                    $inspection->report_path = $relativeReport;
+                    R::store($inspection);
+                    InspectionDataService::registerReportAsset((int) $inspection->id, 'generated', $reportPath, true);
+                }
+                if ($completionRequested) {
+                    return [303, ['Location' => url_for('admin/pruefungen/' . (int) $inspection->id)], ''];
                 }
             }
         }
+        $assessment = InspectionEvaluationService::evaluate($inspection->export(), array_values($answersByKey), [], true);
+        $missingRequirements = $completionRequested || (string) $inspection->result_status === InspectionEvaluationService::DATA_MISSING
+            ? array_values(array_unique(array_merge($assessment['missing'], LadderInspectionService::missingDescriptions(array_values($answersByKey))))) : [];
+        $answeredCount = count(array_filter($answersByKey, static fn(array $answer): bool => in_array($answer['outcome'] ?? '', ['passed', 'failed', 'skipped'], true)));
+        $resultPresentation = InspectionEvaluationService::presentation((string) $inspection->result_status, (string) $inspection->status);
         $inspectionMedia = DeviceMediaService::forInspection((int) $inspection->id);
         $companionSession = InspectionCompanionService::activeForInspection((int) $inspection->id, (int) current_user()->id);
         if ($companionSession !== []) {
             $companionSession['token'] = (string) ($_SESSION['inspection_companion_tokens'][(int) $inspection->id] ?? '');
         }
-        return [200, [], render_template('layout.php', ['title' => 'Leiterprüfung bearbeiten', 'content' => render_template('inspection_ladder_edit.php', compact('inspection', 'device', 'attributes', 'catalog', 'answersByKey', 'error', 'inspectionMedia', 'companionSession'))])];
+        return [200, [], render_template('layout.php', ['title' => 'Leiterprüfung bearbeiten', 'content' => render_template('inspection_ladder_edit.php', compact('inspection', 'device', 'attributes', 'catalog', 'answersByKey', 'error', 'inspectionMedia', 'companionSession', 'missingRequirements', 'answeredCount', 'resultPresentation'))])];
     }
 
     public static function index(array $params, bool $isHx): array

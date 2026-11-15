@@ -175,6 +175,23 @@ try {
         throw new RuntimeException('Nach Eintrag der Kabellänge muss derselbe RPE-Wert bewertet werden können.');
     }
 
+    $sourceClassCase = R::dispense('inspection');
+    $sourceClassCase->device_id = $deviceId;
+    $sourceClassCase->dedupe_key = 'source-class-ii';
+    $sourceClassCase->public_id = 'source-class-ii';
+    $sourceClassCase->source_type = 'manual';
+    $sourceClassCase->external_number = 'source-class-ii';
+    $sourceClassCase->test_date = '2026-10-04';
+    $sourceClassCase->storage_slot = '999';
+    $sourceClassCase->protection_class = 'I';
+    $sourceClassCase->inspection_type_code = 'electrical';
+    $sourceClassId = (int) R::store($sourceClassCase);
+    $classCsv = $root . '/class-ii.csv';
+    file_put_contents($classCsv, "Speicher Nr;Bezeichnung;Prüfdatum;Prüfergebnis;IBer Wert;IBer Einheit;IBer Ergebnis;RISO Wert;RISO Einheit;RISO Ergebnis\n999;Klasse II;04/10/2026;bestanden;0.10;mA;bestanden;19.99;MOhm;bestanden\n");
+    $service->importPendingMeasurements($classCsv, '');
+    $sourceClassCase = R::load('inspection', $sourceClassId);
+    if ($sourceClassCase->protection_class !== 'II' || $sourceClassCase->inspection_type !== 'SK2') throw new RuntimeException('Ausdrückliche BENNING-Schutzklasse II wurde nicht übernommen.');
+
     echo "PASS: Messdaten werden pro CSV-Zeile über Prüfdatum und Speicherplatz zugeordnet\n";
 } finally {
     R::close();

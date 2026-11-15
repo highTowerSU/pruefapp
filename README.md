@@ -93,6 +93,19 @@ historischer Mengenausgleich mit Begründung und Freigabedatum sichtbar ausgewie
 sie erzeugen keine zusätzlichen Geräte oder Prüfungen. Solche Rechnungen heißen
 „historisch ausgeglichen“ und bleiben von vollständig belegten Zuordnungen unterscheidbar.
 
+## Leiterprüfung und importierte Messverfahren
+
+Leiterprüfungen verwenden einen versionierten Katalog für Sicht- und Funktionsprüfung.
+Grundlegende Bauteile müssen bewertet werden; bauartabhängige Teile können mit
+Begründung als nicht zutreffend dokumentiert werden. Bestehende Antworten und
+abgeschlossene Katalogversionen werden beim Einführen neuer Prüfpunkte nicht ersetzt.
+Die Bearbeitung zeigt den Bewertungsstand und konkrete offene Angaben.
+
+BENNING-Messdaten behalten ihr Messverfahren: vorhandener Ersatzableitstrom (IEA)
+wird mit dem zur Schutzklasse gehörenden Grenzwert bewertet, statt einen zusätzlich
+nicht aufgenommenen IPE-/Berührungsstromwert zu verlangen. Eine ausdrücklich im
+Messdatensatz enthaltene Schutzklasse wird bei Einzelspeicher-Importen übernommen.
+
 ## Entwicklung
 
 - Der Einstiegspunkt befindet sich in `index.php`, der Router ist unter `lib/router.php` implementiert.

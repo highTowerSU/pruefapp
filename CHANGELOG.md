@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 15.11.2026 – Leiterprüfung und importierte Messverfahren korrigiert
+
+- Neuer versionierter Leiterkatalog mit 14 konkreten Sicht-/Funktionsprüfpunkten, Bauartbezug und begründetem „Nicht zutreffend“. Vorhandene Antworten und abgeschlossene Kataloge werden nicht ersetzt; neue und noch unbeantwortete Entwürfe verwenden Version 2.
+- Die Leiter-Maske zeigt Bewertungsstand, konkrete fehlende Angaben und erhält Eingaben bei Fehlern. Hinweise/Mängel benötigen eine Beschreibung; sicherheitsrelevante Mängel sperren die Nutzung ohne pauschale 28-Tage-Frist. Fehlerhafte Abschlussversuche speichern keine Teiländerungen.
+- Vorhandener Ersatzableitstrom IEA wird als eigenständiges Messverfahren mit Schutzklassen-Grenzwert und Einheitenauswertung berücksichtigt. Ausdrückliche BENNING-Schutzklassen werden beim Einzelspeicher-Import übernommen.
+- Eng begrenztes Korrekturwerkzeug für die vier gemeldeten Elektroprüfungen: quellenbelegte Schutzklasse, vollständige Neubewertung, Sicherung und Audit; keine erfundenen Messwerte oder Antworten.
+- Ausgangsrevision: Prüfapp `f137cf7`; CENEOS PHP Base `d46877d` (unverändert).
+
 ## 15.11.2026 – Unfertige Prüfungen löschen
 
 - Leiter- und Elektroprüfungen verwenden denselben Löschknopf. Auch unfertige Prüfungen mit „Daten fehlen“ lassen sich löschen; fehlende Pflichtfelder blockieren die Löschaktion nicht mehr.

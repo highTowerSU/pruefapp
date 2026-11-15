@@ -290,6 +290,12 @@ final class ElectricalInspectionImportService
             if (!$inspection) { $skipped++; $this->auditSkipped(['_audit_correlation_id' => $correlationId], $csvPath, 'Keine bestehende Prüfung für Prüfdatum und Speicherplatz gefunden.', ['test_date' => $testDate, 'storage_slot' => $slot]); continue; }
             $configuredSlots = array_values(array_filter(array_column(DeviceStorageSlotService::fromDevice($inspection), 'number'), static fn(string $number): bool => $number !== ''));
             $multipleSlots = count($configuredSlots) > 1;
+            $sourceClass = InspectionEvaluationService::normalizeProtectionClass((string) ($record['inspection_type'] ?? $record['device_type'] ?? ''));
+            if (!$multipleSlots && in_array($sourceClass, ['I', 'II', 'III'], true)
+                && (string) ($inspection->inspection_type_code ?? 'electrical') === 'electrical') {
+                $inspection->protection_class = $sourceClass;
+                $inspection->inspection_type = InspectionEvaluationService::canonicalInspectionType((string) ($record['inspection_type'] ?? ''), $sourceClass);
+            }
             // Das passive Kabelprogramm ist ein Messverfahren innerhalb SK I,
             // keine vierte Schutzklasse. SK-II-Geräte samt Leitung bleiben SK II.
             if (!$multipleSlots

@@ -198,3 +198,26 @@ if (InspectionEvaluationService::reportPathAllowed('in_progress', 'native', 'rep
 }
 
 echo "PASS: kanonische Prüfstatus und serverseitige Messregeln\n";
+
+// Imported BENNING observations must retain their actual leakage-current method.
+foreach (['I' => ['RPE' => 0.15, 'RISO' => 19.99, 'IEA' => 0.31], 'II' => ['RISO' => 19.99, 'IEA' => 0.10]] as $class => $values) {
+    $observations = [];
+    foreach ($values as $key => $value) $observations[] = ['measurement_key' => $key, 'numeric_value' => $value, 'unit' => $key === 'RISO' ? 'MOhm' : ($key === 'RPE' ? 'Ohm' : 'mA')];
+    $case = array_replace($base, ['protection_class' => $class]);
+    if (InspectionEvaluationService::evaluate($case, $answers, $observations, true)['status'] !== 'passed') throw new RuntimeException('Vorhandener Ersatzableitstrom darf nicht als fehlender IPE-/IBER-Wert erscheinen.');
+    $observations[count($observations)-1]['numeric_value'] = $class === 'I' ? 3.6 : 0.6;
+    $observations[count($observations)-1]['outcome'] = 'passed';
+    if (InspectionEvaluationService::evaluate($case, $answers, $observations, true)['status'] !== 'failed') throw new RuntimeException('IEA-Grenzwert muss trotz positivem Quelltext gelten.');
+}
+$ieaUnknown = InspectionEvaluationService::evaluateMeasurement($base, ['measurement_key'=>'IEA','text_value'=>'unlesbar','outcome'=>'passed']);
+if ($ieaUnknown['outcome'] !== 'missing') throw new RuntimeException('IEA ohne auswertbaren Messwert darf nicht bestehen.');
+$ieaAbove = InspectionEvaluationService::evaluateMeasurement($base, ['measurement_key'=>'IEA','numeric_value'=>3.5,'text_value'=>'>3.5','outcome'=>'passed','unit'=>'mA']);
+if ($ieaAbove['outcome'] !== 'failed') throw new RuntimeException('Streng größerer IEA-Wert am Grenzwert darf nicht bestehen.');
+$ieaUnbounded = InspectionEvaluationService::evaluateMeasurement($base, ['measurement_key'=>'IEA','numeric_value'=>0.1,'text_value'=>'>0.1','outcome'=>'passed','unit'=>'mA']);
+if ($ieaUnbounded['outcome'] !== 'missing') throw new RuntimeException('Unbestimmte obere Stromgrenze darf nicht bestehen.');
+
+foreach ([['numeric_value'=>0.004,'unit'=>'A','expected'=>'failed'],['numeric_value'=>310,'unit'=>'µA','expected'=>'passed'],['numeric_value'=>0.1,'unit'=>'unknown','expected'=>'missing']] as $test) {
+    if (InspectionEvaluationService::evaluateMeasurement($base, $test+['measurement_key'=>'IEA','outcome'=>'passed'])['outcome'] !== $test['expected']) throw new RuntimeException('IEA-Einheit wurde falsch bewertet.');
+}
+
+if (InspectionEvaluationService::evaluate(array_replace($base,['protection_class'=>'unbekannt']),$answers,$measurements,true)['status'] !== 'data_missing') throw new RuntimeException('Unbekannte Schutzklasse darf nicht wegen leerer Messpflichtliste bestehen.');

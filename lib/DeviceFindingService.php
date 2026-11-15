@@ -15,8 +15,9 @@ final class DeviceFindingService
             $severity = strtolower(trim((string) ($answer['severity'] ?? '')));
             if (!in_array($severity, ['green', 'orange', 'red'], true)) continue;
             $state = 'open';
-            $dueDate = $severity === 'orange' ? date('Y-m-d', strtotime('+28 days')) : null;
-            $blocked = $severity === 'red' ? 1 : 0;
+            $ladderDefect = $type === 'ladder' && in_array($severity, ['orange', 'red'], true);
+            $dueDate = $severity === 'orange' && !$ladderDefect ? date('Y-m-d', strtotime('+28 days')) : null;
+            $blocked = $severity === 'red' || $ladderDefect ? 1 : 0;
             R::exec(
                 'INSERT INTO device_finding (device_id, inspection_id, inspection_type_code, item_key, severity, state, action, due_date, blocked, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [$deviceId, $inspectionId, $type, (string) ($answer['item_key'] ?? ''), $severity, $state, $failedAction, $dueDate, $blocked, trim((string) ($answer['remark'] ?? $answer['question_snapshot'] ?? '')), date(DATE_ATOM), date(DATE_ATOM)]

@@ -21,6 +21,7 @@ $tests = [
     'inspection_delete_test.php',
     'inspection_missing_summary_test.php',
     'inspection_type_workflow_test.php',
+    'ladder_checklist_test.php',
     'inspection_migration_test.php',
     'pending_measurement_job_test.php',
     'pending_measurement_mixed_dates_test.php',

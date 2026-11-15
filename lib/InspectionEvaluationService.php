@@ -158,14 +158,23 @@ final class InspectionEvaluationService
     {
         $protectionClass = self::normalizeProtectionClass((string) ($inspection['protection_class'] ?? ''));
         $required = self::requiredMeasurementKeys($protectionClass);
-        if ($protectionClass !== 'I') {
-            return $required;
-        }
-
         $slotResults = json_decode((string) ($inspection['measurement_slots_json'] ?? ''), true);
         if (is_array($slotResults) && count($slotResults) > 1) {
             return $required;
         }
+        $keys = array_map(static fn(array $measurement): string => self::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? '')), $measurements);
+        $alternativeFor = match ($protectionClass) {
+            'I' => 'IPE',
+            'II' => 'IBER',
+            default => '',
+        };
+        if ($alternativeFor !== '' && in_array('IEA', $keys, true) && !in_array($alternativeFor, $keys, true)) {
+            $required = array_map(static fn(string $key): string => $key === $alternativeFor ? 'IEA' : $key, $required);
+        }
+        if ($protectionClass !== 'I') {
+            return $required;
+        }
+
 
         foreach ($measurements as $measurement) {
             if (self::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? '')) === 'KABEL'
@@ -301,6 +310,10 @@ final class InspectionEvaluationService
             }
         }
 
+        if ($inspectionType === 'electrical' && !in_array(self::normalizeProtectionClass((string) ($inspection['protection_class'] ?? '')), ['I', 'II', 'III', 'KABEL', 'DREHSTROM'], true)) {
+            $missing[] = 'Gültige Schutzklasse';
+        }
+
         $requiredFields = $inspectionType === 'electrical'
             ? ['protection_class' => 'Schutzklasse', 'examiner' => 'Prüfer', 'test_date' => 'Prüfdatum', 'next_due_date' => 'Nächstes Prüfdatum']
             : ['examiner' => 'Prüfer', 'test_date' => 'Prüfdatum', 'next_due_date' => 'Nächstes Prüfdatum'];
@@ -372,6 +385,23 @@ final class InspectionEvaluationService
             $unit = 'mA';
             $rule = 'ipe_v1';
             $passedByValue = $value !== null ? $value <= $limit : null;
+        } elseif ($key === 'IEA') {
+            $class = self::normalizeProtectionClass((string) ($inspection['protection_class'] ?? ''));
+            $limit = match ($class) { 'I', 'DREHSTROM' => 3.5, 'II' => 0.5, default => null };
+            $reportedUnit = mb_strtolower(trim((string) ($measurement['unit'] ?? '')));
+            $factor = match ($reportedUnit) { 'ma' => 1.0, 'a' => 1000.0, 'µa', 'μa', 'ua' => 0.001, default => null };
+            $value = $factor !== null && $value !== null ? $value * $factor : null;
+            $unit = 'mA';
+            $rule = 'iea_by_protection_class_v1';
+            $passedByValue = $value !== null && $limit !== null ? $value >= 0 && $value <= $limit : null;
+            if ($limit === null || $value === null) {
+                $explicit = 'missing';
+            }
+            $reported = trim((string) ($measurement['text_value'] ?? $measurement['value'] ?? ''));
+            if (str_starts_with($reported, '>') && $limit !== null && $value !== null) {
+                $passedByValue = $value >= $limit ? false : null;
+                $explicit = $passedByValue === false ? 'failed' : 'missing';
+            }
         } elseif ($key === 'IBER') {
             $limit = 0.5;
             $unit = 'mA';
@@ -440,6 +470,7 @@ final class InspectionEvaluationService
             'RPE', 'RSL' => 'Schutzleiterwiderstand ' . $key,
             'RISO' => 'Isolationswiderstand RISO',
             'IPE' => 'Schutzleiterstrom IPE',
+            'IEA' => 'Ersatzableitstrom IEA',
             'IBER' => 'Berührungsstrom IB',
             default => $key !== '' ? $key : 'Messwert',
         };

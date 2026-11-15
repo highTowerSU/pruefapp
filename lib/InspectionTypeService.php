@@ -189,7 +189,7 @@ final class InspectionTypeService
     {
         return match (self::normalize($type)) {
             self::LADDER => [
-                'ladder_kind' => ['label' => 'Leiterart', 'type' => 'select', 'options' => ['stehleiter' => 'Stehleiter', 'anlegeleiter' => 'Anlegeleiter', 'schiebleiter' => 'Schiebeleiter', 'steckleiter' => 'Steckleiter', 'mehrzweckleiter' => 'Mehrzweckleiter', 'podestleiter' => 'Podestleiter', 'tritt' => 'Tritt', 'sonstige' => 'Sonstige']],
+                'ladder_kind' => ['label' => 'Leiterart', 'type' => 'select', 'options' => ['stehleiter' => 'Stehleiter', 'anlegeleiter' => 'Anlegeleiter', 'schiebleiter' => 'Schiebeleiter', 'teleskopleiter' => 'Teleskopleiter', 'steckleiter' => 'Steckleiter', 'mehrzweckleiter' => 'Mehrzweckleiter', 'podestleiter' => 'Podestleiter', 'tritt' => 'Tritt', 'sonstige' => 'Sonstige']],
                 'material' => ['label' => 'Werkstoff', 'type' => 'select', 'options' => ['aluminium' => 'Aluminium', 'kunststoff' => 'Kunststoff', 'holz' => 'Holz', 'stahl' => 'Stahl', 'edelstahl' => 'Edelstahl']],
                 'ladder_length_cm' => ['label' => 'Leiterlänge (cm)', 'type' => 'number'],
                 'rung_count' => ['label' => 'Sprossen/Stufen', 'type' => 'number'],

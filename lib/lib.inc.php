@@ -82,6 +82,7 @@ require_once __DIR__ . '/DeviceFindingService.php';
 require_once __DIR__ . '/InspectionFilterService.php';
 require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
+require_once __DIR__ . '/LadderInspectionService.php';
 require_once __DIR__ . '/InspectionMigrationService.php';
 require_once __DIR__ . '/AiProviderService.php';
 require_once __DIR__ . '/DeviceVocabularyService.php';
@@ -775,25 +776,26 @@ function seed_inspection_types(): void
         }
         set_app_config('qualification_followup_model_v1', '1');
     }
-    $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
+    $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', [LadderInspectionService::CATALOG_CODE]);
     if ($ladderCatalog > 0) {
         return;
     }
-    R::exec('INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)', ['ladder-v1', 'Leiterprüfung Version 1', 'ladder', $now, $now]);
-    $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', ['ladder-v1']);
-    $items = [
-        ['general_state', 'Allgemeiner Zustand', 'Ist die Leiter sauber, unbeschädigt und standsicher?', 'Keine Beschädigungen, Verschmutzungen oder instabilen Bauteile.', 10],
-        ['rails', 'Holme und Stützschenkel', 'Sind Holme und Stützschenkel frei von Verformungen, Rissen und scharfen Kanten?', 'Keine Verformungen, Beschädigungen oder Verletzungsgefahr.', 20],
-        ['rungs', 'Sprossen und Stufen', 'Sind Sprossen, Stufen und Plattformen sicher und trittsicher?', 'Verbindung zum Holm und Trittflächen sind intakt.', 30],
-        ['spreaders', 'Spreizsicherung', 'Ist die Spreizsicherung vollständig, befestigt und funktionsfähig?', 'Spreizsicherung ist bei der Leiterart vorhanden und funktionsfähig.', 40],
-        ['fittings', 'Beschlagteile', 'Sind Beschlagteile vollständig und frei von Beschädigung oder Korrosion?', 'Befestigungen und bewegliche Teile sind funktionsfähig.', 50],
-        ['feet', 'Leiterfüße und Rollen', 'Sind Füße, Rollen und Zusatzteile für den Untergrund geeignet?', 'Keine Abnutzung oder Beschädigung mit Beeinträchtigung der Standsicherheit.', 60],
-        ['extensions', 'Ausschiebbare Teile', 'Funktionieren Einrastung, Zugseil und Rollenführung?', 'Nur bei ausziehbaren Leiterarten erforderlich.', 70],
-        ['markings', 'Kennzeichnung', 'Sind Kennzeichnungen und Sicherheitsinformationen vorhanden?', 'Betriebsanleitung/Piktogramme sind erkennbar.', 80],
-        ['overall', 'Gesamtbeurteilung', 'Ist die Leiter verwendungsfähig?', 'Gesamtbeurteilung mit dokumentierter Gefahrenstufe.', 90],
-    ];
-    foreach ($items as [$key, $category, $question, $criterion, $sort]) {
-        R::exec('INSERT INTO inspection_catalog_item (version_id, item_key, category, question, criterion, input_type, required, applies_to_json, sort_order) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)', [$ladderCatalog, $key, $category, $question, $criterion, 'finding', '{}', $sort]);
+    R::begin();
+    try {
+        R::exec('INSERT INTO inspection_catalog_version (code, name, inspection_type_code, active, locked_at, created_at) VALUES (?, ?, ?, 1, ?, ?)', [LadderInspectionService::CATALOG_CODE, 'Leiterprüfung Version 2 – Sicht und Funktion', 'ladder', $now, $now]);
+        $ladderCatalog = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code = ?', [LadderInspectionService::CATALOG_CODE]);
+        foreach (LadderInspectionService::definitions() as $item) {
+            R::exec('INSERT INTO inspection_catalog_item (version_id, item_key, category, question, criterion, input_type, required, applies_to_json, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [$ladderCatalog, $item['item_key'], $item['category'], $item['question'], $item['criterion'], $item['input_type'], $item['required'], $item['applies_to_json'], $item['sort_order']]);
+        }
+        R::exec("UPDATE inspection_catalog_version SET active=0 WHERE code='ladder-v1'");
+        R::commit();
+    } catch (Throwable $error) {
+        R::rollback();
+        $existing = (int) R::getCell('SELECT id FROM inspection_catalog_version WHERE code=?', [LadderInspectionService::CATALOG_CODE]);
+        if ($existing > 0 && (int) R::getCell('SELECT COUNT(*) FROM inspection_catalog_item WHERE version_id=?', [$existing]) === count(LadderInspectionService::definitions())) {
+            return;
+        }
+        throw $error;
     }
 }
 
