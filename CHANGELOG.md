@@ -4,7 +4,7 @@
 
 - Leiter- und Elektroprüfungen verwenden denselben Löschknopf. Auch unfertige Prüfungen mit „Daten fehlen“ lassen sich löschen; fehlende Pflichtfelder blockieren die Löschaktion nicht mehr.
 - Der Server prüft den Kundenzugriff und verhindert das Löschen abgeschlossener oder aktiv mit Rechnungen verknüpfter Prüfungen.
-- Umsetzung: Prüfapp `001af7f`; CENEOS PHP Base `d46877d` (unverändert).
+- Umsetzung: Prüfapp `001af7f`, `3c1fd30`; CENEOS PHP Base `d46877d` (unverändert).
 
 ## 15.11.2026 – Summen unter den Rechnungstabellen
 
