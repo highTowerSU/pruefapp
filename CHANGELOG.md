@@ -4,7 +4,7 @@
 
 - Rechnungspositionen zeigen unten die Gerätemenge und Regieminuten laut Rechnung. Unter den verknüpften Prüfungen stehen die Summen der aktiven Zuordnungen; historische, deaktivierte Zeilen zählen nicht mit.
 - Gerätemenge und zugeordnete Regiezeit sind in der Prüfungstabelle als eigene Spalten sichtbar.
-- Ausgangsrevision: Prüfapp `0a7cca2`; CENEOS PHP Base `d46877d` (unverändert).
+- Umsetzung: Prüfapp `7a5beb3`; CENEOS PHP Base `d46877d` (unverändert).
 
 ## 12.11.2026 – Historische Rechnungen nachvollziehbar abstimmen
 
