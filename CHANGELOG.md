@@ -5,7 +5,7 @@
 - Offene Prüfungen, Freigaben und die chronologische Betragsvorschau bleiben in der Prüfapp. Standardmäßig sind offene Prüfungen auch ohne Freigabe sichtbar; archivierte Dubletten und aktive Rechnungszuordnungen bleiben aus der offenen Liste ausgeschlossen.
 - Erst nach dem Erstellen eines Entwurfs über dieselbe zentrale Rechnungslogik öffnet sich die Rechnung in Abrechnung. Dort liegt die Rechnungsübersicht; die Vorbereitung ist zurückverlinkt.
 - Mehrfachauswahl funktioniert über alle Tabellenzeilen ohne verschachtelte Formulare. Lokale Freigaben sind gegen fremde Mandanten und CSRF geschützt; eine leere Auswahl erstellt keine Rechnung.
-- Umsetzung: kb-abrechnung `f050439`; Prüfapp siehe folgende Release-Revision; CENEOS PHP Base `2c16d88` (unverändert).
+- Umsetzung: Prüfapp `c61653f`; kb-abrechnung `f050439`; CENEOS PHP Base `2c16d88` (unverändert).
 
 ## 16.11.2026 – Prüfungsrechnungen nach Bruttobetrag vorbereiten
 
