@@ -3,7 +3,7 @@
 ## 16.11.2026 – Companion nach Sitzungsende neu verbinden
 
 - Abgelaufene oder getrennte Companion-Links zeigen eine gestaltete Seite mit Anleitung zum erneuten Koppeln und Rückweg zur Prüfapp. Barcode- und Fotoübertragungen öffnen bei Sitzungsende dieselbe Seite; HTTP 410 und Cache-Schutz bleiben erhalten.
-- Umsetzung: Prüfapp siehe zugehörige Implementierungsrevision; CENEOS PHP Base `fbd25ec` (unverändert).
+- Umsetzung: Prüfapp `74f12fc`; CENEOS PHP Base `fbd25ec` (unverändert).
 
 ## 16.11.2026 – Rechnungsdetails und rechnungsbezogene Sammel-PDFs
 

@@ -12,6 +12,7 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-companion-expired',
+            'pruefapp_revision' => '74f12fc',
             'date' => '16.11.2026',
             'title' => 'Companion nach Sitzungsende neu verbinden',
             'items' => ['Bei abgelaufener oder getrennter Verbindung zeigt der Companion eine verständliche Seite mit Anleitung zum erneuten Koppeln. Auch Barcode- und Fotoübertragungen führen bei Sitzungsende dorthin.'],
