@@ -65,10 +65,10 @@ namespace {
             self::$calls++;
             ensurePreparation($args[1] === 'RE-TEST' && ($args[9]['reference'] ?? '') === 'Elektroprüfung X', 'SevDesk numbering/reference missing');
             ensurePreparation(count($args[3]) === 140, 'Wrong number of exported inspections');
-            ensurePreparation(!str_contains($args[3][0]['description'], 'Kaltgerätekabel') && !str_contains($args[3][0]['description'], 'ACME MX'), 'Additional device description leaked into title');
+            ensurePreparation(!str_contains($args[3][0]['description'], 'Kaltgerätekabel') && str_contains($args[3][0]['description'], 'ACME MX'), 'Manufacturer/model missing or unwanted device description present');
             ensurePreparation(!str_contains($args[3][0]['details'], 'Hersteller / Modell:') && !str_contains($args[3][0]['details'], "\n"), 'Device descriptions or multiline metadata still present');
             ensurePreparation(str_contains($args[3][0]['details'], ' · Prüfdatum: ') && str_contains($args[3][0]['details'], ' · Gerätenummer: '), 'Compact metadata separators missing');
-            ensurePreparation(str_contains($args[3][0]['regie_details'], 'Tischrücken'), 'Regie reason missing');
+            ensurePreparation($args[3][0]['regie_details'] === 'Tischrücken', 'Regie must contain only the reason, without repeated metadata');
             ensurePreparation(($args[9]['time_to_pay'] ?? null) === 10 && str_contains($args[9]['foot_text'] ?? '', 'sofort fällig'), 'Immediate payment lost');
             ensurePreparation(str_contains($args[9]['head_text'] ?? '', 'RE-TEST August 2026') && !str_contains($args[9]['head_text'] ?? '', '{rechnungsnummer}'), 'Head text placeholders not filled');
             ensurePreparation(str_contains($args[9]['subject'] ?? '', 'August 2026') && !str_contains($args[9]['subject'] ?? '', 'RE-OLD'), 'Historical invoice number/date copied');

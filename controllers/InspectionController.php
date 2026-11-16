@@ -262,6 +262,9 @@ final class InspectionController
                 $inspection->examiner = trim((string) (($user->email ?? '') ?: ($user->name ?? '')));
             }
             $inspection->regie_minutes = max(0, (int) ($_POST['regie_minutes'] ?? 0));
+            if ($error === null && $inspection->regie_minutes > 0 && $inspection->regie_reason === '') {
+                $error = 'Bitte begründe die eingetragene Regiezeit.';
+            }
             $checklist = is_array($_POST['checklist'] ?? null) ? array_map(static fn ($value): string => in_array((string) $value, ['ja', 'ok', 'nein'], true) ? ((string) $value === 'ok' ? 'ja' : (string) $value) : '', $_POST['checklist']) : [];
             $inspection->checklist_json = json_encode($checklist, JSON_UNESCAPED_UNICODE);
             $complete = ($_POST['complete'] ?? '') === '1';
