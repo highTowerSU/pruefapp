@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-created-invoice-reconciliation',
+            'date' => '16.11.2026',
+            'title' => 'Eigene Prüfungsrechnungen korrekt abgleichen',
+            'items' => ['Die Rechnungsübersicht zeigt Bruttosummen in Euro sowie Gerätemenge und Regie direkt nach der Erstellung. Echte SevDesk-Positionen ergänzen den Abgleich; ein ausstehender Abruf wird verständlich angezeigt.', 'Mehrere eigenständige Prüfungen desselben Geräts sind ein neutraler Hinweis. Nur tatsächlich doppelte Prüfungszuordnungen warnen.'],
+            'base_revision' => 'a5badda',
+        ], [
             'id' => '2026-11-16-bundle-ci-cover',
             'pruefapp_revision' => 'd91984c',
             'date' => '16.11.2026',

@@ -47,6 +47,7 @@ namespace {
         public function nextInvoiceNumber(): string { return 'RE-TEST'; }
         public function request(string $method, string $path, ?array $payload = null): array
         {
+            if ($path==='/Invoice/12345') return ['objects'=>['id'=>'12345','invoiceNumber'=>'RE-TEST','sumNet'=>'840.00','sumGross'=>'999.60']];
             ensurePreparation(str_contains($path, 'contact[id]=123'), 'Wrong reference recipient filter');
             if (str_contains($path, 'offset=0&')) {
                 $objects = [];
@@ -60,6 +61,14 @@ namespace {
             return ['objects' => [['id' => '101', 'contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung IX']]];
         }
         public function __construct(...$args) {}
+        public function invoicePositions(string $id): array
+        {
+            ensurePreparation($id==='12345','Wrong invoice snapshot requested');
+            return [
+                ['id'=>'pos-device','name'=>'Elektroprüfung','quantity'=>140,'text'=>'','positionNumber'=>0,'unity'=>['id'=>1]],
+                ['id'=>'pos-regie','name'=>'Regiezeit · DEV-1','quantity'=>0.05,'text'=>'Tischrücken','positionNumber'=>1,'unity'=>['id'=>1]],
+            ];
+        }
         public function createDraftInvoice(...$args): array
         {
             self::$calls++;
@@ -160,6 +169,8 @@ namespace {
     $created = BillingController::export([], false);
     ensurePreparation(SevDeskClient::$calls === 1 && $created[0] === 303 && str_contains($created[1]['Location'] ?? '', '/ausgangsrechnungen/pruef/rechnung/'), 'Created draft did not open its central invoice');
     $invoiceId = (int) R::getCell("SELECT id FROM billinginvoice WHERE status='sevdesk' ORDER BY id DESC LIMIT 1");
+    ensurePreparation((float)R::load('billinginvoice',$invoiceId)->amount_gross===999.60,'Real invoice gross amount was not stored');
+    ensurePreparation(R::count('billinginvoiceposition','invoice_id=?',[$invoiceId])===2 && (int)R::getCell("SELECT regie_minutes FROM billinginvoiceposition WHERE invoice_id=? AND kind='regie'",[$invoiceId])===3,'Created invoice snapshot or native hourly regie missing');
     R::exec('INSERT INTO billinginvoiceitem(invoice_id,inspection_id,device_id,active) VALUES(?,141,1,0)', [$invoiceId]);
     ensurePreparation(ReportController::bundleInspectionIds([1], $invoiceId) === range(1, 140), 'Invoice bundle includes inactive or other inspections of the same device');
     $_POST = ['bundle_max_pages' => 500];
