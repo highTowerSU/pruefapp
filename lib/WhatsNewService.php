@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-invoice-texts-and-pdf',
+            'date' => '16.11.2026',
+            'title' => 'Vollständige Rechnungstexte und passende Sammel-PDFs',
+            'items' => ['Historische Kopf-/Fußtexte und Betreff stehen bei der Vorbereitung als editierbare Vorlage bereit. Sofortige Fälligkeit bleibt erhalten; Nummer und Leistungszeitraum gehören zur neuen Rechnung.', 'Vorhandene Gerätenamen, Hersteller, Modelle und Regiebegründungen erscheinen in den Positionen. Rechnungsbezogene Sammel-PDFs enthalten nur die aktiven Prüfungszuordnungen der Rechnung.'],
+            'kb_abrechnung_revision' => 'eb55fb2',
+            'base_revision' => 'ccd9653',
+        ], [
             'id' => '2026-11-16-local-billing-preparation',
             'date' => '16.11.2026',
             'title' => 'Offene Prüfungen in der Prüfapp vorbereiten',

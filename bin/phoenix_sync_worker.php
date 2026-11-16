@@ -211,9 +211,14 @@ try {
         if (!function_exists('shell_exec')) throw new RuntimeException('PDF-Zusammenführung ist auf diesem Server nicht verfügbar.');
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['device_ids'] ?? [])), static fn(int $value): bool => $value > 0)));
         if ($ids === []) throw new RuntimeException('Keine Geräte für die Sammel-PDF.');
-        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $inspectionIds = ReportController::bundleInspectionIds($ids, (int) ($payload['invoice_id'] ?? 0));
+        if (!empty($payload['inspection_ids'])) {
+            $inspectionIds = array_values(array_intersect($inspectionIds, array_map('intval', $payload['inspection_ids'])));
+        }
+        if ($inspectionIds === []) throw new RuntimeException('Keine aktiven abgeschlossenen Prüfungen für diese Sammel-PDF.');
+        $marks = implode(',', array_fill(0, count($inspectionIds), '?'));
         $statusExpression = InspectionEvaluationService::sqlStatusExpression('i');
-        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.device_id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $ids);
+        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $inspectionIds);
         $files = [];
         foreach ($rows as $row) {
             $source = $resolveReportSource((string) $row['report_path']);

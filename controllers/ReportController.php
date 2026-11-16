@@ -76,13 +76,44 @@ final class ReportController
 
     private static function queuePdfBundle(array $ids, string $filterQuery, int $invoiceId, int $maxPages): array
     {
-        if ($invoiceId > 0) $ids = array_map('intval', R::getCol('SELECT DISTINCT device_id FROM billinginvoiceitem WHERE invoice_id = ?', [$invoiceId]));
-        if ($ids === []) $ids = self::filteredIds($filterQuery);
+        if ($invoiceId > 0) {
+            $invoice = R::load('billinginvoice', $invoiceId);
+            if (!current_user_can_manage_billing() || !$invoice->id || (int) $invoice->tenant_id !== (int) (get_branding()['company_id'] ?? 0)) {
+                return [404, [], 'Rechnung nicht gefunden.'];
+            }
+            $inspectionIds = self::bundleInspectionIds([], $invoiceId);
+            if ($inspectionIds === []) {
+                return [422, [], 'Für diese Rechnung sind keine aktiven abgeschlossenen Prüfungen verknüpft.'];
+            }
+            $marks = implode(',', array_fill(0, count($inspectionIds), '?'));
+            $ids = array_map('intval', R::getCol("SELECT DISTINCT device_id FROM inspection WHERE id IN ($marks)", $inspectionIds));
+        } elseif ($ids === []) {
+            $ids = self::filteredIds($filterQuery);
+        }
         if ($ids === []) return [422, [], 'Keine Geräte für die Sammel-PDF gefunden.'];
         $ownerId = (int) (current_user()->id ?? 0);
-        $job = BackgroundJobService::enqueue('pdf_bundle', ['type' => 'pdf_bundle', 'device_ids' => $ids, 'invoice_id' => $invoiceId, 'max_pages' => max(10, min(5000, $maxPages ?: 500)), 'owner_user_id' => $ownerId], ['owner_user_id' => $ownerId, 'total' => count($ids), 'message' => 'Das Sammel-PDF wird im Hintergrund vorbereitet.']);
+        if ($ownerId <= 0) {
+            return [409, [], 'Bitte einmal in der Prüfapp anmelden, damit der PDF-Export deinem Konto zugeordnet werden kann.'];
+        }
+        $job = BackgroundJobService::enqueue('pdf_bundle', ['type' => 'pdf_bundle', 'device_ids' => $ids, 'inspection_ids' => $inspectionIds ?? [], 'invoice_id' => $invoiceId, 'max_pages' => max(10, min(5000, $maxPages ?: 500)), 'owner_user_id' => $ownerId], ['owner_user_id' => $ownerId, 'total' => count($ids), 'message' => 'Das Sammel-PDF wird im Hintergrund vorbereitet.']);
         $id = (string) ($job['id'] ?? '');
         return [303, ['Location' => url_for('geraete?zip_job=' . $id)], ''];
+    }
+
+    /** @return list<int> */
+    public static function bundleInspectionIds(array $deviceIds, int $invoiceId = 0): array
+    {
+        $status = InspectionEvaluationService::sqlStatusExpression('i');
+        $where = "{$status} IN ('passed','failed') AND COALESCE(i.archived_at,'')=''";
+        if ($invoiceId > 0) {
+            return array_map('intval', R::getCol("SELECT DISTINCT i.id FROM inspection i JOIN billinginvoiceitem bi ON bi.inspection_id=i.id WHERE bi.invoice_id=? AND bi.active=1 AND $where ORDER BY i.id", [$invoiceId]));
+        }
+        $deviceIds = array_values(array_unique(array_filter(array_map('intval', $deviceIds), static fn(int $id): bool => $id > 0)));
+        if ($deviceIds === []) {
+            return [];
+        }
+        $marks = implode(',', array_fill(0, count($deviceIds), '?'));
+        return array_map('intval', R::getCol("SELECT i.id FROM inspection i WHERE i.device_id IN ($marks) AND $where ORDER BY i.id", $deviceIds));
     }
 
     public static function renderOds(array $rows, string $title, ?array $branding = null): string { return (string) (self::ods($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }
