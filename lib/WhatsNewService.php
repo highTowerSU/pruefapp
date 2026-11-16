@@ -12,6 +12,7 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-mariadb-device-export',
+            'pruefapp_revision' => '784b7d7',
             'date' => '16.11.2026',
             'title' => 'Geräteexport unter MariaDB korrigiert',
             'items' => ['Die Gerätenummernsortierung funktioniert in Export und Geräteübersicht mit MariaDB und SQLite. Der Export bricht nicht mehr durch eine SQLite-spezifische Abfrage ab.'],

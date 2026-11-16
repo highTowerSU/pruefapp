@@ -3,7 +3,7 @@
 ## 16.11.2026 – Geräteexport unter MariaDB
 
 - Geräteübersicht und Export verwenden dieselbe treiberabhängige Gerätenummernsortierung. MariaDB erhält gültiges REGEXP/UNSIGNED-SQL, SQLite behält die bestehende Sortierung. Der 500er beim Export durch SQLite-GLOB auf MariaDB entfällt.
-- Umsetzung: zugehörige Prüfapp-Revision; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `784b7d7`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – Keine Fehlwarnungen bei eigenen Prüfungsrechnungen
 
