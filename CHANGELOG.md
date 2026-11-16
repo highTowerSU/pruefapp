@@ -3,12 +3,12 @@
 ## 16.11.2026 – Regiezeit nur mit Begründung erfassen
 
 - Beim Speichern einer Prüfung benötigt Regiezeit größer null eine Begründung. Das Formular kennzeichnet das Feld und prüft sofort; auch ohne Browserprüfung lehnt der Server leere Begründungen ab. Historische Datensätze werden nicht nachträglich verändert.
-- Umsetzung: zugehörige Prüfapp-Revision; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `a78147c`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – Kompakte Rechnungspositionen
 
 - Prüfungsdaten stehen durch Mittelpunkte getrennt kompakt zusammen. Prüfpositionen verwenden Hersteller und Modell anstelle zusätzlicher Gerätebeschreibungen. Regiepositionen enthalten nur die Gerätezuordnung und ihre Begründung, ohne wiederholte Prüfungsdaten.
-- Umsetzung: Prüfapp `031d9b4`; kb-abrechnung `117cb7b`; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `031d9b4`; kb-abrechnung `117cb7b`, `c02db09`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – SevDesk-Nummernkreis und deutsche Leistungsdaten
 

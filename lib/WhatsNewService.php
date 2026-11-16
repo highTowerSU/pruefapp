@@ -12,6 +12,7 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-regie-reason-required',
+            'pruefapp_revision' => 'a78147c',
             'date' => '16.11.2026',
             'title' => 'Regiezeit mit Begründung erfassen',
             'items' => ['Sobald bei einer Prüfung Regiezeit eingetragen wird, ist eine Begründung erforderlich. Leere Begründungen werden im Formular und beim Speichern abgefangen.'],
@@ -19,7 +20,7 @@ final class WhatsNewService
         ], [
             'id' => '2026-11-16-compact-invoice-positions',
             'pruefapp_revision' => '031d9b4',
-            'kb_abrechnung_revision' => '117cb7b',
+            'kb_abrechnung_revision' => '117cb7b / c02db09',
             'date' => '16.11.2026',
             'title' => 'Kompakte Rechnungspositionen',
             'items' => ['Prüfung, Prüfdatum und Gerätenummer stehen mit Mittelpunkten getrennt zusammen. Prüfpositionen verwenden Hersteller und Modell. Regiepositionen zeigen nur die Gerätezuordnung und ihre Begründung.'],
