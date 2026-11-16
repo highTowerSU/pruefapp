@@ -48,7 +48,7 @@ namespace {
         public function request(string $method, string $path, ?array $payload = null): array
         {
             ensurePreparation(str_contains($path, 'contact[id]=123'), 'Wrong reference recipient filter');
-            return ['objects' => [['contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung IX']]];
+            return ['objects' => [['id' => '1', 'contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung IX'], ['id' => '2', 'contact' => ['id' => '999'], 'customerInternalNote' => 'Elektroprüfung C']]];
         }
         public function __construct(...$args) {}
         public function createDraftInvoice(...$args): array
