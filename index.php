@@ -6,9 +6,10 @@ RequestTimingService::registerShutdownHeader();
 require_once __DIR__ . '/lib/lib.inc.php';
 RequestTimingService::stop('bootstrap');
 
-// Outgoing invoices are owned by Abrechnung. Stale forms must never create a second invoice.
+// Preparation stays in Prüfapp; existing invoices are owned by Abrechnung.
+require_once __DIR__ . '/lib/CentralBillingModule.php';
 $billingPath=(string)(parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/');
-if(preg_match('~/(admin/abrechnung(?:/.*)?)$~D',$billingPath,$billingRoute)){
+if(preg_match('~/(admin/abrechnung(?:/.*)?)$~D',$billingPath,$billingRoute) && !CentralBillingModule::isPreparationPath($billingRoute[1])){
     $target=url_for($billingRoute[1]).(!empty($_SERVER['QUERY_STRING'])?'?'.$_SERVER['QUERY_STRING']:'');
     header('Cache-Control: no-store');
     if(($_SERVER['REQUEST_METHOD']??'GET')==='GET'){header('Location: '.$target,true,302);exit;}

@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-local-billing-preparation',
+            'date' => '16.11.2026',
+            'title' => 'Offene Prüfungen in der Prüfapp vorbereiten',
+            'items' => ['Offene Prüfungen, Freigaben und die Betragsvorschau bleiben unter „Abrechnung vorbereiten“ in der Prüfapp. Offene Prüfungen sind dort auch ohne bisherige Freigabe sichtbar; archivierte Dubletten bleiben ausgeblendet.', 'Erst nach dem Erstellen eines Rechnungsentwurfs öffnet sich die Rechnung in Abrechnung. Die Mehrfachauswahl bleibt über alle Tabellenzeilen erhalten.'],
+            'kb_abrechnung_revision' => 'f050439',
+            'base_revision' => '2c16d88',
+        ], [
             'id' => '2026-11-16-billing-gross-batches',
             'date' => '16.11.2026',
             'title' => 'Prüfungsrechnungen nach Bruttobetrag vorbereiten',

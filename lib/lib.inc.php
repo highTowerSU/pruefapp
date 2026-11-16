@@ -1008,7 +1008,9 @@ function url_for(string $path = ''): string
     }
     if (preg_match('~^/?admin/abrechnung(?=$|[/?])~', $path)) {
         require_once __DIR__ . '/CentralBillingModule.php';
-        return CentralBillingModule::url($path);
+        if (!CentralBillingModule::isPreparationPath($path)) {
+            return CentralBillingModule::url($path);
+        }
     }
     // Keep relative locations unambiguously path-relative.  In particular a
     // base path of "/" must never turn the login target into "//login.php":

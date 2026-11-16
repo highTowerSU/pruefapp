@@ -6,6 +6,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 ## Features
 
+- Offene Prüfungen, Abrechnungsfreigaben und die Betragsvorschau werden in der Prüfapp vorbereitet. Erst beim Erstellen eines Rechnungsentwurfs öffnet sich dessen Nachweis in der zentralen Abrechnung.
 - Prüfungsabrechnung mit chronologischer Betragsvorschau je Rechnungsempfänger und Leistungsjahr (standardmäßig über 500 und unter 1.000 Euro brutto); fehlende Abrechnungsfreigaben werden mit direktem Prüflink erklärt.
 - Anmeldung per OpenID Connect (Keycloak)
 - Verwaltung von Prüfaufträgen inklusive Einstellungen und Verknüpfungen

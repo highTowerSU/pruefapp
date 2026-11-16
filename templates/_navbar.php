@@ -134,7 +134,7 @@ if (current_user_has_role('admin')) {
     }
 }
 if (current_user_can_manage_billing()) {
-    $appSidebarItems[] = ['label' => 'Abrechnung', 'url' => $billingUrl, 'icon' => 'fa-solid fa-coins', 'active' => $billingActive];
+    $appSidebarItems[] = ['label' => 'Abrechnung vorbereiten', 'url' => $billingUrl, 'icon' => 'fa-solid fa-coins', 'active' => $billingActive];
 }
 if (current_user_has_role('admin') || current_user_is_superadmin()) {
     $administrationItems = [

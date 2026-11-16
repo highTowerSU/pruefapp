@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 final class CentralBillingModule
 {
+    public static function isPreparationPath(string $path): bool
+    {
+        $path = (string) (parse_url('/' . ltrim($path, '/'), PHP_URL_PATH) ?? '');
+        return preg_match('~^/admin/abrechnung(?:/?|/export|/pruefung/[1-9][0-9]*/abrechenbarkeit)$~D', $path) === 1;
+    }
+
     public static function root(): string
     {
         $source = dirname(__DIR__);

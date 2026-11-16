@@ -28,7 +28,7 @@ $batchFilters = array_diff_key($filters ?? [], array_flip(['page', 'preselect', 
                 <h2 class="h5"><i class="fa-solid fa-file-invoice-dollar me-1" aria-hidden="true"></i>Vorschlag: <?= $money($batch['totals']['gross_cents']) ?> brutto</h2>
                 <p class="mb-1"><?= htmlspecialchars($batch['customer']) ?> · Leistungsjahr <?= htmlspecialchars($batch['year']) ?> · <?= htmlspecialchars($batch['from']) ?> bis <?= htmlspecialchars($batch['until']) ?></p>
                 <p class="mb-1"><?= (int) $batch['totals']['count'] ?> Prüfungen · <?= (int) $batch['totals']['minutes'] ?> Regieminuten · <?= $money($batch['totals']['net_cents']) ?> netto + <?= $money($batch['totals']['tax_cents']) ?> USt.</p>
-                <p class="small mb-0">Die Prüfungen sind unten vorausgewählt. Prüfe die Auswahl und klicke auf „SevDesk-Entwurf“. Die Summe ist eine Vorschau anhand der aktuellen Mandantenpreise; geändert werden noch keine Rechnungen.</p>
+                <p class="small mb-0">Die Prüfungen sind unten vorausgewählt. Prüfe die Auswahl und klicke auf „Rechnungsentwurf erstellen“. Danach öffnet sich die Rechnung in Abrechnung. Die Summe ist eine Vorschau anhand der aktuellen Mandantenpreise; geändert werden noch keine Rechnungen.</p>
             </div>
         <?php elseif ($batch !== null && empty($batchError) && ($unapprovedCount ?? 0) === 0): ?>
             <div class="alert alert-info mt-3 mb-0">Aktuell erreicht keine chronologische Auswahl derselben Rechnungsempfänger und Leistungsjahre die gewählten Grenzen. Restmengen und einzelne zu große Positionen bleiben zur Prüfung offen.</div>
