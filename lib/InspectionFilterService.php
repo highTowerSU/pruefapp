@@ -8,6 +8,15 @@ final class InspectionFilterService
 {
     public const DUE_SOON_DAYS = 30;
 
+    /** Shared visible-device-number ordering for lists and exports. */
+    public static function deviceNumberOrder(): string
+    {
+        $mysql = R::getPDO()->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+        $numeric = $mysql ? "d.external_number REGEXP '^[0-9]'" : "d.external_number GLOB '[0-9]*'";
+        $cast = $mysql ? 'CAST(d.external_number AS UNSIGNED)' : 'CAST(d.external_number AS INTEGER)';
+        return "CASE WHEN {$numeric} THEN 0 ELSE 1 END, {$cast}, LOWER(d.external_number), d.id";
+    }
+
     /** @return array<string, string> */
     public static function dueOptions(): array
     {

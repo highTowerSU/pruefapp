@@ -11,7 +11,15 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-mariadb-device-export',
+            'date' => '16.11.2026',
+            'title' => 'Geräteexport unter MariaDB korrigiert',
+            'items' => ['Die Gerätenummernsortierung funktioniert in Export und Geräteübersicht mit MariaDB und SQLite. Der Export bricht nicht mehr durch eine SQLite-spezifische Abfrage ab.'],
+            'base_revision' => 'a5badda',
+        ], [
             'id' => '2026-11-16-created-invoice-reconciliation',
+            'pruefapp_revision' => '4c3f9b0 / f7e8966',
+            'kb_abrechnung_revision' => 'd1779ac / 278c662',
             'date' => '16.11.2026',
             'title' => 'Eigene Prüfungsrechnungen korrekt abgleichen',
             'items' => ['Die Rechnungsübersicht zeigt Bruttosummen in Euro sowie Gerätemenge und Regie direkt nach der Erstellung. Echte SevDesk-Positionen ergänzen den Abgleich; ein ausstehender Abruf wird verständlich angezeigt.', 'Mehrere eigenständige Prüfungen desselben Geräts sind ein neutraler Hinweis. Doppelte Prüfungs-IDs und gleicher Prüftag/Speicherplatz werden gezielt getrennt gekennzeichnet.'],

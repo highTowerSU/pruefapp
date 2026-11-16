@@ -1,10 +1,15 @@
 # Änderungsprotokoll
 
+## 16.11.2026 – Geräteexport unter MariaDB
+
+- Geräteübersicht und Export verwenden dieselbe treiberabhängige Gerätenummernsortierung. MariaDB erhält gültiges REGEXP/UNSIGNED-SQL, SQLite behält die bestehende Sortierung. Der 500er beim Export durch SQLite-GLOB auf MariaDB entfällt.
+- Umsetzung: zugehörige Prüfapp-Revision; CENEOS PHP Base `a5badda` (unverändert).
+
 ## 16.11.2026 – Keine Fehlwarnungen bei eigenen Prüfungsrechnungen
 
 - Eigene Rechnungen erhalten echte SevDesk-Positionsdaten für den Mengen-/Regieabgleich. Gerätemenge und Regie sind sofort aus den erstellten Zuordnungen sichtbar; Fehlende Snapshots werden als ausstehender Abgleich angezeigt. Die Rechnungsübersicht zeigt echte Bruttosummen im deutschen Euroformat.
 - Mehrere unterschiedliche Prüfungen desselben Geräts sind ein neutraler Hinweis. Doppelte Prüfungs-IDs sowie gleicher Prüftag/Speicherplatz werden gezielt und getrennt gekennzeichnet.
-- Umsetzung: zugehörige Prüfapp- und kb-abrechnung-Revisionen; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `4c3f9b0`, `f7e8966`; kb-abrechnung `d1779ac`, `278c662`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – CI-Deckblatt für Sammelberichte
 

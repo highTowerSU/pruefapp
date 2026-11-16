@@ -72,9 +72,9 @@ class DeviceController
             'room' => 'd.room_id, d.name',
             // „ID“ meint in der Geräteansicht die sichtbare Gerätenummer,
             // nicht die interne Datenbank-ID. Daher natürlich numerisch sortieren.
-            'id' => "CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id",
+            'id' => InspectionFilterService::deviceNumberOrder(),
             'name' => 'LOWER(d.name), d.id',
-            'external_number' => "CASE WHEN d.external_number GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(d.external_number AS INTEGER), LOWER(d.external_number), d.id",
+            'external_number' => InspectionFilterService::deviceNumberOrder(),
             'manufacturer' => 'LOWER(COALESCE(d.manufacturer, \'\')), LOWER(d.name), d.id',
             'inspection_newest' => "(SELECT MAX(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id AND COALESCE(i2.archived_at, '')='') DESC, d.name",
             'inspection_oldest' => "COALESCE((SELECT MIN(i2.test_date) FROM inspection i2 WHERE i2.device_id = d.id AND COALESCE(i2.archived_at, '')=''), '9999-12-31'), d.name",
