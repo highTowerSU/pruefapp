@@ -74,7 +74,7 @@ final class ImportedMeasurementRecoveryService
             $path = (string) ($before['report_path'] ?? '');
             $newPath = str_starts_with($path, 'reports/current/') ? '' : $path;
             $changed = \RedBeanPHP\R::exec(
-                "UPDATE inspection SET measurements_json=?,report_path=?,updated_at=? WHERE id=? AND raw_json=? AND COALESCE(measurements_json,'')=? AND COALESCE(updated_at,'')=?",
+                "UPDATE inspection SET measurements_json=?,report_path=?,updated_at=? WHERE id=? AND COALESCE(raw_json,'')=? AND COALESCE(measurements_json,'')=? AND COALESCE(updated_at,'')=?",
                 [json_encode($fresh['measurements'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $newPath, date(DATE_ATOM), $id, (string) $before['raw_json'], (string) ($before['measurements_json'] ?? ''), (string) ($before['updated_at'] ?? '')]
             );
             if ($changed !== 1) throw new RuntimeException('Prüfung wurde parallel geändert: ' . $id);
