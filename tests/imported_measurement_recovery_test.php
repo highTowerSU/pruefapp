@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+require_once dirname(__DIR__) . '/lib/ImportedMeasurementRecoveryService.php';
+$header = ['Speicher Nr','Bezeichnung','Prüfdatum','Prüfergebnis','RPE Wert','RPE Einheit','RPE Ergebnis','IPE Wert','IPE Einheit','IPE Ergebnis','IBer Wert','IBer Einheit','IBer Ergebnis','IEA Wert','IEA Einheit','IEA Ergebnis','RISO Wert','RISO Einheit','RISO Ergebnis','RISO Spannung','Kabel Wert','Kabel Einheit','Kabel Ergebnis','Sichtprüfung Ergebnis','FI/RCD Test','FI/RCD Wert','FI/RCD Einheit','FI/RCD Ergebnis'];
+$row = ['040','Klasse I','05/01/2026','bestanden','0.01','Ohm','bestanden','<0.15','mA','bestanden','','','','','','','>19.99','MOhm','bestanden','500V','','','','','','','',''];
+$inspection = ['test_date'=>'2026-01-05','storage_slot'=>'40','raw_json'=>json_encode(compact('header','row'))];
+$plan = ImportedMeasurementRecoveryService::plan($inspection);
+if ($plan['status']!=='ready' || count($plan['measurements'])!==3 || $plan['measurements'][2]['value']!=='>19.99' || $plan['measurements'][2]['voltage']!=='500V') throw new RuntimeException('Benning readings, comparators or voltage lost.');
+$inspection['storage_slot']='41';
+if (ImportedMeasurementRecoveryService::plan($inspection)['status']!=='identity_conflict') throw new RuntimeException('Different memory slot accepted.');
+$broken = ['077','Klasse I','15/08/2025','bestanden','0','21','Ohm','bestanden','0','20','mA','bestanden','','','','','','','>19','99','MOhm','bestanden','500V','','','','','','','',''];
+$plan = ImportedMeasurementRecoveryService::plan(['test_date'=>'2025-08-15','storage_slot'=>'77','raw_json'=>json_encode(['header'=>['damaged header'],'row'=>$broken])]);
+if ($plan['status']!=='ready' || $plan['measurements'][0]['value']!=='0.21' || $plan['measurements'][1]['value']!=='0.20' || $plan['measurements'][2]['value']!=='>19.99') throw new RuntimeException('Split decimal columns were not reconstructed correctly.');
+$raw = ['date'=>'2024-03-25','step4'=>'Messung Isolationswiderstand R ISO Ergebnis im M Ohm.','result4'=>'20','criterion4'=>'≥ 1 MΩ','step5'=>'Messung des Berührungsstromes IB mit direkter Messung, Ergebnis in mA.','result5'=>'0,10','criterion5'=>'< 0,5 mA'];
+$plan = ImportedMeasurementRecoveryService::plan(['test_date'=>'2024-03-25','raw_json'=>json_encode($raw)]);
+if ($plan['status']!=='ready' || array_column($plan['measurements'],'name')!==['RISO','IBER'] || $plan['measurements'][1]['unit']!=='mA' || $plan['measurements'][1]['value']!=='0,10') throw new RuntimeException('Flat Phoenix questions were not restored correctly.');
+$raw = ['date'=>'2024-06-19','checklist'=>[['step'=>'Messung Schutzleiterwiderstand R SL mit Ergebnis in Ohm.','result'=>'0,14','unit'=>null,'check'=>true]]];
+$plan = ImportedMeasurementRecoveryService::plan(['test_date'=>'2024-06-19','raw_json'=>json_encode($raw)]);
+if ($plan['measurements'][0]['name']!=='RSL' || $plan['measurements'][0]['result']!=='bestanden' || $plan['measurements'][0]['unit']!=='Ω') throw new RuntimeException('Structured Phoenix value or source outcome lost.');
+$raw['checklist'][0]['result']='bestanden';
+if (ImportedMeasurementRecoveryService::plan(['test_date'=>'2024-06-19','raw_json'=>json_encode($raw)])['status']!=='no_readings') throw new RuntimeException('Outcome label invented a numeric reading.');
+$importer = new ElectricalInspectionImportService(sys_get_temp_dir());
+$method = new ReflectionMethod($importer, 'headerlessBenningRecord');
+$record = $method->invoke($importer, $header, $row);
+if (count($record['measurements'])!==3) throw new RuntimeException('Future Benning imports still discard source readings.');
+echo "PASS: Stored Benning/Phoenix readings, source identity, split decimals, voltage and no invented values\n";
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+use RedBeanPHP\R;
+R::setup('sqlite::memory:');
+R::exec('CREATE TABLE inspection (id INTEGER PRIMARY KEY,device_id INTEGER,external_number TEXT,test_date TEXT,storage_slot TEXT,source_type TEXT,archived_at TEXT,raw_json TEXT,measurements_json TEXT,report_path TEXT,updated_at TEXT,result_status TEXT,status TEXT,protection_class TEXT,cable_length_m TEXT,warming_device_snapshot INTEGER)');
+R::exec('CREATE TABLE inspection_measurement (id INTEGER PRIMARY KEY,inspection_id INTEGER,measurement_key TEXT,name_snapshot TEXT,numeric_value REAL,text_value TEXT,unit TEXT,outcome TEXT,limit_value REAL,limit_unit TEXT,rule_key TEXT,rule_version TEXT,voltage TEXT,raw_json TEXT,sort_order INTEGER,created_at TEXT,updated_at TEXT)');
+R::exec('CREATE TABLE inspection_report_asset (id INTEGER PRIMARY KEY,inspection_id INTEGER,asset_type TEXT,path TEXT,active INTEGER)');
+R::exec('CREATE TABLE inspection_diagnostic (id INTEGER PRIMARY KEY,inspection_id INTEGER,code TEXT,message TEXT,severity TEXT,details_json TEXT,created_at TEXT)');
+$sourceJson=json_encode(compact('header','row'));
+foreach([1,2]as$id) R::exec("INSERT INTO inspection VALUES(?,9,'SOURCE-26','2026-01-05','40','reconciled','',?,'[]','reports/current/1.pdf','2026-01-05','passed','completed','I','2',0)",[$id,$sourceJson]);
+R::exec("INSERT INTO inspection_report_asset VALUES(1,1,'generated','reports/current/1.pdf',1),(2,1,'import_original','original/source.pdf',1)");
+R::freeze(true);
+$plan=ImportedMeasurementRecoveryService::plan(R::load('inspection',1)->export());
+$backups=[];
+$result=ImportedMeasurementRecoveryService::apply(1,$plan,static function($before,$assets)use(&$backups){$backups[]=[$before,$assets];});
+$after=R::load('inspection',1);
+if($result['measurements']!==3||count($backups)!==1||R::count('inspection_measurement','inspection_id=1')!==3)throw new RuntimeException('Recovery did not persist canonical fields with backup.');
+if($after->result_status!=='passed'||$after->status!=='completed'||$after->test_date!=='2026-01-05'||(int)$after->device_id!==9||$after->raw_json!==$sourceJson)throw new RuntimeException('Recovery changed inspection identity, source or result.');
+if($after->report_path!==''||(int)R::getCell('SELECT active FROM inspection_report_asset WHERE id=1')!==0||(int)R::getCell('SELECT active FROM inspection_report_asset WHERE id=2')!==1)throw new RuntimeException('Report invalidation modified the source original.');
+if(ImportedMeasurementRecoveryService::apply(1,$plan,static function(){throw new RuntimeException('Backup must not repeat.');})['status']!=='already_present')throw new RuntimeException('Recovery is not idempotent.');
+try {ImportedMeasurementRecoveryService::apply(2,$plan,static function(){throw new RuntimeException('Simulated backup failure');});throw new LogicException('Backup failure accepted.');}catch(RuntimeException $error){if($error->getMessage()!=='Simulated backup failure')throw $error;}
+if(R::count('inspection_measurement','inspection_id=2')!==0||R::load('inspection',2)->measurements_json!=='[]')throw new RuntimeException('Failed backup left partial changes.');
+echo "PASS: Canonical persistence, immutable source/identity/result, original reports, idempotence and rollback\n";

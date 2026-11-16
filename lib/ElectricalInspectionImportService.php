@@ -76,6 +76,44 @@ final class ElectricalInspectionImportService
         return $stats;
     }
 
+    /** Read preserved Benning columns without importing or changing a record. */
+    public function measurementsFromStoredCsv(array $raw): ?array
+    {
+        $header = $raw['header'] ?? null;
+        $row = $raw['row'] ?? null;
+        if (!is_array($header) || !is_array($row) || count($row) < 4) return null;
+        foreach (array_merge($header, $row) as $value) if (!is_scalar($value) && $value !== null) return null;
+        $header = array_map('strval', $header);
+        $row = array_map(static fn($value): string => (string) $value, $row);
+        if ($this->findColumn($header, ['speicher nr', 'speichernr', 'speicherplatz']) === null) {
+            // The importer already recognizes the ST 725 fixed record layout.
+            // Its damaged/headerless exports use the same documented columns.
+            $header = $this->benningHeaders();
+            if (preg_match('/^\d+$/', trim($row[0])) !== 1
+                || preg_match('/^(?:Klasse\s+(?:I{1,3}|[123])|Kabel)$/iu', trim($row[1])) !== 1) return null;
+        }
+        $row = $this->repairDecimalColumns($header, $row);
+        while (count($row) > count($header) && trim((string) end($row)) === '') array_pop($row);
+        if (count($row) !== count($header)) return null;
+        $record = $this->csvRecord($header, $row);
+        $measurements = [];
+        foreach ($record['measurements'] as $measurement) {
+            $key = InspectionEvaluationService::measurementKey((string) ($measurement['name'] ?? ''));
+            $value = trim((string) ($measurement['value'] ?? ''));
+            if (!in_array($key, ['RPE', 'RSL', 'RISO', 'IPE', 'IBER', 'IEA', 'FI/RCD', 'KABEL'], true) || $value === '') continue;
+            $unit = mb_strtolower(trim((string) ($measurement['unit'] ?? '')));
+            $allowed = match ($key) {
+                'RPE', 'RSL' => ['ohm', 'ω'],
+                'RISO' => ['mohm', 'mω'],
+                'IPE', 'IBER', 'IEA' => ['ma'],
+                default => null,
+            };
+            if ($allowed !== null && !in_array($unit, $allowed, true)) return null;
+            $measurements[] = $measurement;
+        }
+        return ['test_date' => $record['test_date'], 'source_date_raw' => $this->value(array_combine($header, $row), ['Prüfdatum', 'Datum', 'date']), 'storage_slot' => $record['storage_slot'], 'measurements' => $measurements];
+    }
+
     /**
      * Reads source rows without writing inspections.  CSV values are enriched
      * with their paired ODS device row exactly like the regular importer.
@@ -174,6 +212,10 @@ final class ElectricalInspectionImportService
             $record['inspection_type'] = trim((string) ($record['type']['brezel_name'] ?? $record['type']['name'] ?? $record['type']['title'] ?? ''));
         }
         if (isset($record['date']) && !isset($record['test_date'])) $record['test_date'] = (string) $record['date'];
+        if (empty($record['measurements'])) {
+            require_once __DIR__ . '/ImportedMeasurementRecoveryService.php';
+            $record['measurements'] = ImportedMeasurementRecoveryService::readingsFromPhoenix($record);
+        }
         return $record;
     }
 
@@ -702,7 +744,7 @@ final class ElectricalInspectionImportService
             'manufacturer' => '',
             'device_model' => '',
             'room_snapshot' => '',
-            'measurements' => [],
+            'measurements' => $this->measurementsFromStoredCsv(['header' => $header, 'row' => $row])['measurements'] ?? [],
             'checklist' => [],
             'raw' => ['header' => $header, 'row' => $row, 'values' => $values],
         ];
@@ -711,6 +753,10 @@ final class ElectricalInspectionImportService
     /** @return array{imported:int,updated:int,devices:int,reports:int} */
     private function importRecord(array $record, string $sourceType, string $sourcePath, string $root): array
     {
+        if (empty($record['measurements'])) {
+            require_once __DIR__ . '/ImportedMeasurementRecoveryService.php';
+            $record['measurements'] = ImportedMeasurementRecoveryService::readingsFromPhoenix($record['raw'] ?? $record);
+        }
         $record = $this->applyImportRules($record);
         $rawExternal = trim((string) ($record['external_number'] ?? $record['number'] ?? ''));
         $slot = trim((string) ($record['storage_slot'] ?? ''));
@@ -845,6 +891,9 @@ final class ElectricalInspectionImportService
         $inspection->updated_at = date(DATE_ATOM);
         if (!$inspection->created_at) $inspection->created_at = $inspection->updated_at;
         R::store($inspection);
+        if ($importMeasurements !== []) {
+            InspectionDataService::replaceMeasurements((int) $inspection->id, $importMeasurements, $inspection->export());
+        }
         $this->persistSourceSnapshot($inspection, $sourceType, $sourcePath, $record, $report);
         if ($report !== null) {
             InspectionDataService::registerReportAsset((int) $inspection->id, 'import_original', app_data_root() . '/' . $report, true);

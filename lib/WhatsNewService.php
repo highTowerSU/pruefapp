@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-import-measurement-recovery',
+            'date' => '16.11.2026',
+            'title' => 'Messwerte älterer Importe wiederherstellen',
+            'items' => ['In alten CSV- und Phoenix-Quelldaten vorhandene Messwerte lassen sich geprüft und gesichert in die Messwertfelder übernehmen. Vergleichszeichen, Einheiten und Prüfspannungen bleiben erhalten.', 'Bestehende Messwerte, Prüfungsidentität und Gesamtergebnis bleiben erhalten. Generierte Berichte werden nach der Übernahme erneuert.'],
+            'base_revision' => 'a5badda',
+        ], [
             'id' => '2026-11-16-bundle-contents-layout',
             'pruefapp_revision' => '573083f / 76ab735 / a8c16c4',
             'date' => '16.11.2026',
