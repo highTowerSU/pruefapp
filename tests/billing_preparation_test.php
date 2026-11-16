@@ -20,6 +20,7 @@ namespace {
     require_once dirname(__DIR__) . '/controllers/BillingController.php';
     require_once dirname(__DIR__) . '/lib/InspectionEvaluationService.php';
     require_once dirname(__DIR__) . '/lib/InspectionFilterService.php';
+    require_once dirname(__DIR__) . '/lib/InspectionDataService.php';
     require_once dirname(__DIR__) . '/controllers/ReportController.php';
 
     function current_user_can_manage_billing(): bool { return true; }
@@ -28,6 +29,8 @@ namespace {
     function public_base_url_for_tenant($id): string { return 'https://pruef.example.test'; }
     function display_examiner_name($name): string { return $name; }
     function audit_log($action, $details): void {}
+    function app_data_root(): string { return '/tmp/isolated-billing-report-test'; }
+    function examiner_has_report_signature($value): bool { return $value === 'test-examiner'; }
     function current_user(): object { return (object) ['id' => 1, 'name' => 'Isolated test']; }
     final class BackgroundJobService
     {
@@ -48,7 +51,7 @@ namespace {
             ensurePreparation(count($args[3]) === 140, 'Wrong number of exported inspections');
             ensurePreparation(str_contains($args[3][0]['description'], 'Kaltgerätekabel') && str_contains($args[3][0]['description'], 'ACME MX'), 'Device source data missing');
             ensurePreparation(str_contains($args[3][0]['regie_details'], 'Tischrücken'), 'Regie reason missing');
-            ensurePreparation(($args[9]['time_to_pay'] ?? null) === 0 && str_contains($args[9]['foot_text'] ?? '', 'sofort fällig'), 'Immediate payment lost');
+            ensurePreparation(($args[9]['time_to_pay'] ?? null) === 10 && str_contains($args[9]['foot_text'] ?? '', 'sofort fällig'), 'Immediate payment lost');
             ensurePreparation(str_contains($args[9]['subject'] ?? '', 'August 2026') && !str_contains($args[9]['subject'] ?? '', 'RE-OLD'), 'Historical invoice number/date copied');
             return ['objects' => ['id' => '12345', 'invoiceNumber' => 'RE-TEST']];
         }
@@ -79,7 +82,7 @@ namespace {
     $map = ['i' => 'inspection', 'd' => 'device', 'r' => 'room', 'f' => 'floor', 'b' => 'building', 's' => 'site', 'c' => 'customer', 'bi' => 'billinginvoiceitem', 'inv' => 'billinginvoice', 'p' => 'billinginvoiceposition'];
     foreach ($map as $alias => $table) {
         preg_match_all('/\\b' . $alias . '\\.([a-z_]+)/', $source, $matches);
-        $fields = array_unique(array_merge($matches[1], ['name', 'sort_order', 'area_id', 'parent_customer_id', 'sevdesk_api_url', 'inspection_id', 'active', 'duplicate_of_inspection_id', 'archived_at', 'classification', 'status', 'billable', 'billing_not_billable_comment', 'updated_at', 'billing_exported_at', 'billing_export_id', 'billing_exported_by', 'raw_json']));
+        $fields = array_unique(array_merge($matches[1], ['name', 'sort_order', 'area_id', 'parent_customer_id', 'sevdesk_api_url', 'inspection_id', 'active', 'duplicate_of_inspection_id', 'archived_at', 'classification', 'status', 'billable', 'billing_not_billable_comment', 'updated_at', 'billing_exported_at', 'billing_export_id', 'billing_exported_by', 'raw_json', 'report_path']));
         $fields = array_diff($fields, ['id']);
         R::exec('CREATE TABLE ' . $table . ' (id INTEGER PRIMARY KEY,' . implode(',', array_map(static fn(string $field): string => $field . (str_ends_with($field, '_id') ? ' INTEGER DEFAULT NULL' : " TEXT DEFAULT ''"), $fields)) . ')');
     }
@@ -92,6 +95,9 @@ namespace {
     for ($id = 1; $id <= 202; $id++) {
         R::exec("INSERT INTO inspection(id,device_id,test_date,result_status,status,billing_eligibility,billing_status,classification,external_number) VALUES(?,?,'2026-08-01','passed','completed','not_billable','not_exported','native',?)", [$id, $id === 201 ? 2 : 1, 'TEST-' . $id]);
     }
+    R::exec("CREATE TABLE inspection_report_asset(id INTEGER PRIMARY KEY,inspection_id INTEGER,asset_type TEXT,active INTEGER,path TEXT)");
+    R::exec("CREATE TABLE inspection_source_snapshot(id INTEGER PRIMARY KEY,inspection_id INTEGER,original_report_path TEXT)");
+    R::exec("UPDATE inspection SET examiner='test-examiner' WHERE id<=200");
     R::exec("UPDATE inspection SET archived_at='2026-11-15',duplicate_of_inspection_id=1 WHERE id=202");
     R::exec('UPDATE inspection SET raw_json=?,regie_minutes=3,regie_reason=? WHERE id=1', [json_encode(['ods'=>['values'=>['Notiz Gerät'=>'Kaltgerätekabel','Hersteller'=>'ACME','Modell'=>'MX']]]), 'Tischrücken']);
     R::exec("UPDATE device SET name='Gerät 0001' WHERE id=1");
@@ -140,6 +146,10 @@ namespace {
     $_POST = ['bundle_max_pages' => 500];
     $bundle = BillingController::invoiceBundle(['id' => $invoiceId], false);
     ensurePreparation($bundle[0] === 303 && count(BackgroundJobService::$payload['inspection_ids']) === 140 && str_contains($bundle[1]['Location'], 'zip_job='), 'Invoice PDF handoff failed');
+    R::exec("UPDATE inspection SET examiner='' WHERE id=1");
+    $_POST = ['format'=>'bundle_pdf','invoice_id'=>$invoiceId];
+    ensurePreparation(ReportController::export([], false)[0] === 422, 'Partially missing reports must not silently create incomplete invoice PDF');
+    R::exec("UPDATE inspection SET examiner='test-examiner' WHERE id=1");
     $_POST = ['format'=>'bundle_pdf','invoice_id'=>999999];
     ensurePreparation(ReportController::export([], false)[0] === 404, 'Missing invoice fell back to all devices');
     define('CENEOS_BILLING_HOSTED', true);

@@ -85,6 +85,10 @@ final class ReportController
             if ($inspectionIds === []) {
                 return [422, [], 'Für diese Rechnung sind keine aktiven abgeschlossenen Prüfungen verknüpft.'];
             }
+            $availability = self::bundleAvailability($inspectionIds);
+            if ($availability['missing'] > 0) {
+                return [422, [], 'Für diese Rechnung fehlen noch ' . $availability['missing'] . ' von ' . $availability['total'] . ' Einzelberichten: Originalbericht oder zugeordnete Prüferunterschrift fehlen.'];
+            }
             $marks = implode(',', array_fill(0, count($inspectionIds), '?'));
             $ids = array_map('intval', R::getCol("SELECT DISTINCT device_id FROM inspection WHERE id IN ($marks)", $inspectionIds));
         } elseif ($ids === []) {
@@ -114,6 +118,27 @@ final class ReportController
         }
         $marks = implode(',', array_fill(0, count($deviceIds), '?'));
         return array_map('intval', R::getCol("SELECT i.id FROM inspection i WHERE i.device_id IN ($marks) AND $where ORDER BY i.id", $deviceIds));
+    }
+
+    /** @return array{total:int,available:int,missing:int} */
+    public static function bundleAvailability(array $inspectionIds): array
+    {
+        if ($inspectionIds === []) {
+            return ['total' => 0, 'available' => 0, 'missing' => 0];
+        }
+        $marks = implode(',', array_fill(0, count($inspectionIds), '?'));
+        $rows = R::getAll("SELECT id,report_path,examiner,result_status,classification FROM inspection WHERE id IN ($marks)", $inspectionIds);
+        $available = 0;
+        foreach ($rows as $row) {
+            $original = InspectionDataService::originalReportPath((int) $row['id']);
+            $path = (string) $row['report_path'];
+            $existing = $path !== '' && (is_file($path) || is_file(app_data_root() . '/' . ltrim($path, '/')))
+                && InspectionEvaluationService::reportPathAllowed((string) $row['result_status'], (string) $row['classification'], $path);
+            if ($original !== '' || $existing || examiner_has_report_signature((string) $row['examiner'])) {
+                $available++;
+            }
+        }
+        return ['total' => count($rows), 'available' => $available, 'missing' => count($rows) - $available];
     }
 
     public static function renderOds(array $rows, string $title, ?array $branding = null): string { return (string) (self::ods($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }

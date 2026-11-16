@@ -221,8 +221,9 @@ try {
         $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $inspectionIds);
         $files = [];
         foreach ($rows as $row) {
-            $source = $resolveReportSource((string) $row['report_path']);
-            $pathAllowed = InspectionEvaluationService::reportPathAllowed(
+            $original = InspectionDataService::originalReportPath((int) $row['id']);
+            $source = $original !== '' ? $original : $resolveReportSource((string) $row['report_path']);
+            $pathAllowed = $original !== '' || InspectionEvaluationService::reportPathAllowed(
                 (string) $row['result_status'],
                 (string) $row['classification'],
                 (string) $row['report_path']
