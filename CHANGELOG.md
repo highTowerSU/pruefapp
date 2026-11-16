@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 16.11.2026 – Kompakte Rechnungspositionen
+
+- Prüfungsdaten stehen durch Mittelpunkte getrennt kompakt zusammen. Zusätzliche Gerätebeschreibungen, Hersteller-/Modelltexte und Importnotizen entfallen; Einsatzorte und Regiebegründungen bleiben erhalten.
+- Umsetzung: zugehörige Prüfapp- und kb-abrechnung-Revisionen; CENEOS PHP Base `a5badda` (unverändert).
+
 ## 16.11.2026 – SevDesk-Nummernkreis und deutsche Leistungsdaten
 
 - Neue Prüfungsrechnungen fragen die nächste freie RE-Rechnungsnummer bei SevDesk ab; Nummer und Kopf-/Betrefftexte passen zusammen. Keine selbst erzeugte PR-Ersatznummer bei der Anlage.
