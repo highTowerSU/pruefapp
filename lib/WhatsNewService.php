@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-bundle-contents-layout',
+            'date' => '16.11.2026',
+            'title' => 'Lesbares Inhaltsverzeichnis im Sammel-PDF',
+            'items' => ['Das Inhaltsverzeichnis nutzt die Seitenbreite mit mehr Platz für Raum und Gerät. Lange Angaben umbrechen sauber; Seiten- und Prüfnummern bleiben kompakt.', 'Seitenverweise berücksichtigen sämtliche Inhaltsseiten, auch bei aufgeteilten Sammelberichten.', 'Prüfberichte zeigen tatsächliche Messwerte auch bei vorhandener Prüfliste. Fehlende Messwerte werden klar benannt; Stammdaten sind keine Messungen. Logos bleiben unverzerrt und veraltete generierte Berichte werden erneuert.'],
+            'base_revision' => 'a5badda',
+        ], [
             'id' => '2026-11-16-regie-reason-required',
             'pruefapp_revision' => 'a78147c',
             'date' => '16.11.2026',

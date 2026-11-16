@@ -228,6 +228,9 @@ try {
                 (string) $row['classification'],
                 (string) $row['report_path']
             );
+            if ($original === '' && !InspectionReportWriter::isCurrentFile($source)) {
+                $pathAllowed = false;
+            }
             if (!$pathAllowed && (string) $row['classification'] !== 'legacy') {
                 $inspection = R::load('inspection', (int) $row['id']);
                 $device = R::load('device', (int) $row['device_id']);
@@ -248,7 +251,18 @@ try {
         }
         if ($files === []) throw new RuntimeException('Keine fertigen Prüfberichte gefunden.');
         $maxPages = max(10, (int) ($payload['max_pages'] ?? 500)); $parts = []; $current = []; $currentPages = 0;
-        foreach ($files as $row) { if ($current !== [] && $currentPages + (int) $row['pages'] + 2 > $maxPages) { $parts[] = $current; $current = []; $currentPages = 0; } $current[] = $row; $currentPages += (int) $row['pages']; }
+        require_once dirname(__DIR__) . '/lib/BundleContentsService.php';
+        foreach ($files as $row) {
+            $candidate = array_merge($current, [$row]);
+            $contentsPages = count(BundleContentsService::layout($candidate));
+            if ($current !== [] && $currentPages + (int) $row['pages'] + 1 + $contentsPages > $maxPages) {
+                $parts[] = $current;
+                $current = [];
+                $currentPages = 0;
+            }
+            $current[] = $row;
+            $currentPages += (int) $row['pages'];
+        }
         if ($current !== []) $parts[] = $current;
         $outDir = app_data_root() . '/exports/sammelpdf-' . $id; if (!is_dir($outDir)) mkdir($outDir, 0770, true);
         $partStart = min((int) ($statusInitial['step'] ?? 0), count($parts));
@@ -259,9 +273,11 @@ try {
             else { $partStart = $existingPart; break; }
         }
         foreach (array_slice($parts, $partStart, null, true) as $partIndex => $part) {
-            $toc = [['Inhaltsverzeichnis', 'Seite', 'Raum', 'Gerät', 'Prüfung']]; $page = 3;
-            foreach ($part as $row) { $room = trim(implode(' · ', array_filter([$row['site_name'], $row['building_name'], $row['floor_name'], $row['room_number']]))) ?: 'ohne Raum'; $toc[] = [$room, (string) $page, (string) $row['device_number'] . ' · ' . (string) $row['device_name'], (string) $row['external_number'], (string) $row['test_date']]; $page += (int) $row['pages']; }
-            $cover = $outDir . '/cover-' . $partIndex . '.pdf'; $tocPdf = $outDir . '/toc-' . $partIndex . '.pdf'; file_put_contents($cover, ReportController::renderPdf([['Sammelbericht', 'Wert'], ['Erstellt', date('d.m.Y H:i')], ['Teil', ($partIndex + 1) . ' von ' . count($parts)]], 'Sammelbericht Prüfungen')); file_put_contents($tocPdf, ReportController::renderPdf($toc, 'Inhaltsverzeichnis Prüfberichte'));
+            $contents = ReportController::renderBundleContents($part);
+            $cover = $outDir . '/cover-' . $partIndex . '.pdf';
+            $tocPdf = $outDir . '/toc-' . $partIndex . '.pdf';
+            file_put_contents($cover, ReportController::renderPdf([['Sammelbericht', 'Wert'], ['Erstellt', date('d.m.Y H:i')], ['Teil', ($partIndex + 1) . ' von ' . count($parts)]], 'Sammelbericht Prüfungen'));
+            file_put_contents($tocPdf, $contents['body']);
             $output = $outDir . '/Pruefberichte-' . sprintf('%03d', $partIndex + 1) . '.pdf'; $inputs = [$cover, $tocPdf]; foreach ($part as $row) $inputs[] = $row['source']; $command = 'pdfunite ' . implode(' ', array_map('escapeshellarg', $inputs)) . ' ' . escapeshellarg($output) . ' 2>&1'; $result = shell_exec($command); if (!is_file($output)) throw new RuntimeException('Sammel-PDF konnte nicht erstellt werden: ' . trim((string) $result)); $outputs[] = $output; @unlink($cover); @unlink($tocPdf); $progress($partIndex + 1, count($parts), (string) ($part[0]['device_number'] ?? ''), 'Sammel-PDF erstellt');
         }
         if (count($outputs) === 1) {

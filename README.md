@@ -386,3 +386,7 @@ Die Zeichenfläche für Profil-Unterschriften kommt aus `CENEOS Base SignaturePa
 ## Zentraler Bereich für Ausgangsrechnungen
 
 Ausgangsrechnungen aus Prüfungen und Einsätzen werden im Modul Abrechnung unter `/ausgangsrechnungen` verwaltet und erstellt. Vorhandene Rechnungs-IDs, Positionszuordnungen, Zahlungsnachweise und Aktionssperren bleiben mit ihren Quelldaten verknüpft. Die bisherigen Einstiege führen mandantengenau zur Abrechnung; alte POST-Formulare müssen dort neu geöffnet werden. Die bestehende Rechnungslogik wird über einen lokalen, nur per CLI erreichbaren Adapter mit getrenntem Datenbankkontext ausgeführt. Anmeldung, Rollen, CSRF und die gemeinsame Oberfläche liegen bei Abrechnung. Automatische Einsatz-Rechnungsentwürfe werden vom Abrechnungs-Cron angestoßen.
+
+Sammel-PDFs verwenden ein eigenes Inhaltsverzeichnis im A4-Querformat mit breiten Raum-/Gerätespalten, schmalen Seiten-/Prüfnummernspalten und umbrochenen Texten. Seitenverweise und Teilgrößen berücksichtigen sämtliche Inhaltsseiten.
+
+Prüfberichte unterscheiden Messwerte strikt von Stammdaten und ergänzen strukturierte Messwerte auch bei vorhandener Prüfliste. Fehlende Messwerte sind ausdrücklich als fehlend ausgewiesen. Generierte Einzelberichte tragen eine Render-Version; Sammel-PDFs erneuern veraltete generierte Berichte, während registrierte Originale erhalten bleiben. Online-Links verwenden den öffentlichen Host des aufgelösten Berichtsmandanten, auch ohne Raumzuordnung. Logos werden ohne Verzerrung eingepasst.

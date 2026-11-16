@@ -142,15 +142,73 @@ final class ReportController
     }
 
     public static function renderOds(array $rows, string $title, ?array $branding = null): string { return (string) (self::ods($rows, $title, $branding ?? (function_exists('get_branding') ? get_branding() : []))[2] ?? ''); }
-    public static function renderPdf(array $rows, string $title, ?array $branding = null): string { return (string) (self::pdf($rows, $title, $branding ?? (function_exists('get_report_branding') ? get_report_branding() : (function_exists('get_branding') ? get_branding() : [])))[2] ?? ''); }
+    public static function renderPdf(array $rows, string $title, ?array $branding = null): string
+    {
+        $body = (string) (self::pdf($rows, $title, $branding ?? (function_exists('get_report_branding') ? get_report_branding() : (function_exists('get_branding') ? get_branding() : [])))[2] ?? '');
+        if (($rows[0] ?? []) === ['Prüfung', 'Wert'] && str_starts_with($body, '%PDF-')) {
+            $body .= "\n%Pruefapp-Report: " . InspectionReportWriter::CACHE_VERSION . "\n";
+        }
+        return $body;
+    }
+    /** @return array{body:string,pages:int} */
+    public static function renderBundleContents(array $entries): array
+    {
+        require_once dirname(__DIR__) . '/lib/BundleContentsService.php';
+        $layout = BundleContentsService::layout($entries);
+        $reportPage = count($layout) + 2; // One cover, then all contents pages.
+        $references = [];
+        foreach (array_values($entries) as $index => $entry) {
+            $references[$index] = (string) $reportPage;
+            $reportPage += max(1, (int) ($entry['pages'] ?? 1));
+        }
+        $streams = [];
+        foreach ($layout as $pageIndex => $rows) {
+            $stream = "BT /F1 16 Tf 0.12 0.25 0.38 rg 24 556 Td (" . self::pdfEscape(self::pdfText('Inhaltsverzeichnis Prüfberichte')) . ") Tj ET\n";
+            $stream .= 'BT /F1 8 Tf 0.3 0.3 0.3 rg 760 556 Td (' . ($pageIndex + 1) . ' / ' . count($layout) . ") Tj ET\n";
+            $x = 24;
+            foreach (BundleContentsService::HEADERS as $column => $header) {
+                $width = BundleContentsService::WIDTHS[$column];
+                $stream .= "0.12 0.25 0.38 rg {$x} 505 {$width} 25 re f\n";
+                $stream .= 'BT /F1 8 Tf 1 1 1 rg ' . ($x + 6) . ' 515 Td (' . self::pdfEscape(self::pdfText($header)) . ") Tj ET\n";
+                $x += $width;
+            }
+            $y = BundleContentsService::TOP;
+            foreach ($rows as $rowIndex => $row) {
+                $height = $row['height'];
+                $bottom = $y - $height;
+                $x = 24;
+                $cells = $row['cells'];
+                $cells[1] = [$references[$row['entry']]];
+                foreach ($cells as $column => $lines) {
+                    $width = BundleContentsService::WIDTHS[$column];
+                    $shade = $rowIndex % 2 === 0 ? '1 1 1' : '0.96 0.97 0.98';
+                    $stream .= "{$shade} rg {$x} {$bottom} {$width} {$height} re f 0.78 0.81 0.84 RG 0.4 w {$x} {$bottom} {$width} {$height} re S\n";
+                    // Clip each cell as an additional guard against glyph overhang.
+                    $stream .= "q {$x} {$bottom} {$width} {$height} re W n\n";
+                    foreach ($lines as $lineIndex => $line) {
+                        $textX = $x + 6;
+                        $textY = $y - 13 - $lineIndex * 10;
+                        $stream .= "BT /F1 8 Tf 0.12 0.13 0.15 rg {$textX} {$textY} Td (" . self::pdfEscape(self::pdfText($line)) . ") Tj ET\n";
+                    }
+                    $stream .= "Q\n";
+                    $x += $width;
+                }
+                $y = $bottom;
+            }
+            $streams[] = $stream;
+        }
+        return ['body' => self::buildPdf($streams), 'pages' => count($layout)];
+    }
+
     public static function inspectionPdfRows(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
     {
         $canonicalMeasurements = InspectionDataService::measurements((int) $inspection->id);
         $canonicalAnswers = InspectionDataService::answers((int) $inspection->id);
         $measurements = $canonicalMeasurements !== [] ? array_map(static function (array $measurement): array {
             return [
+                'key' => (string) $measurement['measurement_key'],
                 'name' => (string) ($measurement['name_snapshot'] ?: $measurement['measurement_key']),
-                'value' => (string) ($measurement['text_value'] !== '' ? $measurement['text_value'] : $measurement['numeric_value']),
+                'value' => (string) (trim((string) ($measurement['text_value'] ?? '')) !== '' ? $measurement['text_value'] : $measurement['numeric_value']),
                 'unit' => (string) $measurement['unit'],
                 'result' => InspectionEvaluationService::presentation((string) $measurement['outcome'])['label'],
                 'limit' => $measurement['limit_value'] !== null ? (string) $measurement['limit_value'] . ' ' . (string) $measurement['limit_unit'] : '',
@@ -176,6 +234,9 @@ final class ReportController
             ? get_report_branding((int) ($customer->tenant_id ?? 0))
             : (function_exists('get_branding') ? get_branding() : []);
         $tenantId = (int) ($customer->tenant_id ?? 0);
+        if ($tenantId <= 0) {
+            $tenantId = (int) ($tenantBranding['company_id'] ?? 0);
+        }
         $rows = [['Prüfung', 'Wert']];
         $scalar = static function ($value): string {
             if (is_scalar($value)) return (string) $value;
@@ -701,17 +762,15 @@ final class ReportController
         $resultClass = str_contains($result, 'durch') || str_contains($result, 'nicht') ? 'bad' : ($result === 'bestanden' ? 'good' : 'pending');
         $raw = [];
         foreach (array_slice($rows, 1) as $row) { $label = (string) ($row[0] ?? ''); if ($label !== '') $raw[$label] = (string) ($row[1] ?? ''); }
-        $known = ['Prüfnummer','Datum','Prüfart','Prüfungstyp','Prüfer','Nächste Prüfung','Gerät','Ergebnis','Regiezeit','Regiebegründung','Prüfungsabschluss','Inventarnummer','Geräteart','Hersteller','Typ','Wärmegerät','Mandant','Auftraggeber','Liegenschaft','Gebäude','Etage','Raum-Nr.','__raw_json','__measurements_json','__checklist_json','__profile_signature','__inspection_url','__device_url'];
-        $items = [];
-        foreach (array_slice($rows, 1) as $row) { $label = (string) ($row[0] ?? ''); if ($label !== '' && !in_array($label, $known, true) && $label !== 'Prüfschritte') $items[] = ['Messung', $label, (string) ($row[1] ?? ''), '', '']; }
-        $rawJson = json_decode((string) ($values['__raw_json'] ?? ''), true) ?: [];
+        $reportItems = InspectionReportWriter::itemsFromRows($rows);
         $metadata = [['Prüfungs-Nr.', $values['Prüfnummer'] ?? ''], ['Datum', $values['Datum'] ?? ''], ['Art der Prüfung', $values['Prüfart'] ?? ($values['Prüfungstyp'] ?? '')], ['Prüfer', $values['Prüfer'] ?? ''], ['Nächste Prüfung', $values['Nächste Prüfung'] ?? ''], ['Gerät', $values['Gerät'] ?? ''], ['Inventar-Nr.', $values['Inventarnummer'] ?? ''], ['Geräteart', $values['Geräteart'] ?? ''], ['Hersteller', $values['Hersteller'] ?? ''], ['Typ', $values['Typ'] ?? ''], ['Wärmegerät', $values['Wärmegerät'] ?? ''], ['Mandant', $values['Mandant'] ?? ''], ['Auftraggeber', $values['Auftraggeber'] ?? ''], ['Liegenschaft', $values['Liegenschaft'] ?? ''], ['Gebäude', $values['Gebäude'] ?? ''], ['Etage', $values['Etage'] ?? ''], ['Raum-Nr.', $values['Raum-Nr.'] ?? '']];
         $html = '<!doctype html><meta charset="utf-8"><style>@page{size:A4 portrait;margin:12mm 13mm 14mm 20mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#202124;font-size:10px;margin:0}header{display:grid;grid-template-columns:1fr 1.7fr 1fr;align-items:start;gap:22px;padding-bottom:18px;margin-bottom:48px}header img{max-width:145px;max-height:68px;object-fit:contain}header .company{line-height:1.45}header .report{text-align:right;font-weight:bold}.report span{display:block;font-weight:normal;margin-top:6px}h1{font-size:18px;color:' . $primary . ';margin:0 0 4px}.meta{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:12px 26px;margin:0 10px 38px}.meta div{display:grid;grid-template-columns:92px 1fr;min-height:19px;line-height:1.3}.meta strong{font-weight:bold}.result{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:bold}.good{background:#d1e7dd;color:#0f5132}.bad{background:#f8d7da;color:#842029}.pending{background:#fff3cd;color:#664d03}h2{font-size:14px;color:#202124;margin:0 0 9px}.measurements{width:100%;border-collapse:collapse;table-layout:fixed}.measurements th{background:#ddd;color:#111;text-align:left;padding:7px;border:1px solid #222}.measurements td{border:1px solid #222;padding:7px;vertical-align:top;line-height:1.35}.measurements tr:nth-child(even) td{background:#fafafa}.ok{font-weight:bold;text-align:center}.footer{display:grid;grid-template-columns:1fr 1fr;margin:42px 5px 0;gap:50px}.line{border-bottom:1px solid #666;height:34px}.muted{color:#6c757d;font-size:9px}.footnote{position:fixed;bottom:-7mm;left:0;right:0;display:flex;justify-content:space-between;font-size:8px;color:#555}</style><header>' . ($logo !== '' ? '<img src="' . $logo . '" alt="' . $esc($company) . '">' : '<div></div>') . '<div class="company"><h1>' . $esc($company) . '</h1><div>Prüfbericht</div></div><div class="report">Prüfberichts-Nr.:<span>' . $esc($values['Prüfnummer'] ?? '') . '</span></div></header><div class="meta">';
         foreach ($metadata as [$label, $value]) if ($value !== '') $html .= '<div><strong>' . $esc($label) . '</strong><span>' . nl2br($esc($value)) . '</span></div>';
         $html .= '<div><strong>Ergebnis</strong><span class="result ' . $resultClass . '">' . $esc($values['Ergebnis'] ?? 'ausstehend') . '</span></div></div><h2>Prüfergebnisse</h2><table class="measurements"><thead><tr><th style="width:14%">Fragentyp</th><th style="width:43%">Prüffrage</th><th style="width:35%">Kriterium</th><th style="width:8%">Ergebnis</th></tr></thead><tbody>';
-        $auditOk = ($rawJson['audit_ok'] ?? false) === true;
-        $resultCell = static function (string $result) use ($esc, $auditOk): string { $lower = mb_strtolower($result); $class = str_contains($lower, 'nicht') || str_contains($lower, 'durch') || str_contains($lower, 'fail') ? 'bad' : (str_contains($lower, 'bestanden') || in_array($lower, ['ok','ja','gut'], true) || ($result === '' && $auditOk) ? 'good' : 'pending'); return '<td class="ok"><span class="result ' . $class . '">' . $esc($result !== '' ? $result : 'OK') . '</span></td>'; };
-        if (isset($rawJson['step0'])) { foreach ($rawJson as $key => $question) if (preg_match('/^step(\d+)$/', (string) $key, $m)) { $n=(int)$m[1]; $category=$n===0?'Inventarisierung':($n<=3?'Sichtprüfung':($n<=6?'Messung':($n===7?'Funktionsprüfung':'Organisatorische Hinweise'))); $result=(string)($rawJson['result'.$n]??''); $criterion=(string)($rawJson['criterion'.$n]??''); $html.='<tr><td>'.$esc($category).'</td><td>'.$esc((string)$question).'</td><td>'.$esc($criterion).'</td>'.$resultCell($result).'</tr>'; } } else foreach ($items as [$category,$question,$result,$criterion,$unused]) $html.='<tr><td>'.$esc($category).'</td><td>'.$esc($question).'</td><td>'.$esc($criterion).'</td>'.$resultCell($result).'</tr>';
+        foreach ($reportItems as $item) {
+            $mark = $item['failed'] ? '×' : ($item['ok'] ? '✓' : '—');
+            $html .= '<tr><td>' . $esc($item['category']) . '</td><td>' . $esc($item['question']) . '</td><td>' . $esc($item['criterion']) . '</td><td class="ok">' . $esc($mark) . '<br><small>' . $esc($item['result']) . '</small></td></tr>';
+        }
         $onlineLink = trim((string) ($values['__inspection_url'] ?? ''));
         $deviceLink = trim((string) ($values['__device_url'] ?? ''));
         $onlineNote = $onlineLink !== '' ? '<div class="muted" style="margin-top:8px">Prüfung online: <a href="' . $esc($onlineLink) . '">' . $esc($onlineLink) . '</a>' . ($deviceLink !== '' ? '<br>Gerät und Fotos: <a href="' . $esc($deviceLink) . '">' . $esc($deviceLink) . '</a>' : '') . '</div>' : '';

@@ -1,5 +1,13 @@
 # Änderungsprotokoll
 
+## 16.11.2026 – Lesbares Inhaltsverzeichnis im Sammel-PDF
+
+- Eigene Tabelle im Querformat über die volle Nutzbreite: breite Raum-/Standort- und Gerätespalten, schmale Seiten-/Prüfnummernspalten, korrekte Überschriften und deutsche Prüfdatumsangaben. Lange Texte umbrechen mit Abstand und Zellbegrenzung.
+- Seitenverweise und Teilgrößen berücksichtigen alle Inhaltsseiten statt pauschal nur einer Seite.
+- Berichtsmessungen werden aus tatsächlichen Messdaten ergänzt, auch bei vorhandener Prüfliste. Stammdaten sind keine Messungen; fehlende Messwerte erhalten keinen Erfolgsstatus.
+- Logos behalten ihr Seitenverhältnis. Veraltete generierte Berichte werden für Sammel-PDFs erneuert; Online-Links nutzen den öffentlichen Berichtsmandanten auch ohne Raumzuordnung.
+- Umsetzung: zugehörige Prüfapp-Revision; CENEOS PHP Base `a5badda` (unverändert).
+
 ## 16.11.2026 – Regiezeit nur mit Begründung erfassen
 
 - Beim Speichern einer Prüfung benötigt Regiezeit größer null eine Begründung. Das Formular kennzeichnet das Feld und prüft sofort; auch ohne Browserprüfung lehnt der Server leere Begründungen ab. Historische Datensätze werden nicht nachträglich verändert.

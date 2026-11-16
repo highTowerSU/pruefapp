@@ -4,6 +4,26 @@ declare(strict_types=1);
 
 final class InspectionReportWriter
 {
+    public const CACHE_VERSION = '2026-11-16-measurements-logo-links';
+
+    public static function isCurrentFile(string $path): bool
+    {
+        if ($path === '' || !is_file($path)) return false;
+        $file = fopen($path, 'rb');
+        if ($file === false) return false;
+        fseek($file, -min(256, filesize($path)), SEEK_END);
+        $tail = stream_get_contents($file);
+        fclose($file);
+        return str_contains((string) $tail, '%Pruefapp-Report: ' . self::CACHE_VERSION);
+    }
+
+    /** Shared report rows for both document renderers. */
+    public static function itemsFromRows(array $rows): array
+    {
+        $values = self::values($rows);
+        return self::reportItems($rows, $values, self::decodeJson($values['__raw_json'] ?? ''), self::decodeJson($values['__measurements_json'] ?? ''), self::decodeJson($values['__checklist_json'] ?? ''));
+    }
+
     public static function render(array $rows, string $title, array $branding): ?string
     {
         if (!class_exists('ZipArchive')) {
@@ -145,7 +165,7 @@ final class InspectionReportWriter
             . '<table:table-row>';
         $xml .= '<table:table-cell table:style-name="CellNoBorder"><text:p text:style-name="PLogo">';
         if ($logoName !== null) {
-            $xml .= self::imageXml($logoName, '4.2cm', '1.26cm', 'Logo');
+            $xml .= self::imageXml($logoName, $images[$logoName]['display_width'], $images[$logoName]['display_height'], 'Logo');
         }
         $xml .= '</text:p></table:table-cell>';
         $xml .= '<table:table-cell table:style-name="CellNoBorder">'
@@ -325,6 +345,7 @@ final class InspectionReportWriter
         $globalPassed = self::isPassed((string) ($values['Ergebnis'] ?? '')) || (($raw['audit_ok'] ?? false) === true);
         $globalFailed = self::isFailed((string) ($values['Ergebnis'] ?? ''));
         $items = [];
+        $measurementMap = self::measurementMap($measurements, $rows);
         if ($checklist !== []) {
             foreach (array_values($checklist) as $index => $step) {
                 if (!is_array($step)) {
@@ -350,13 +371,12 @@ final class InspectionReportWriter
                 ];
             }
             if ($items !== []) {
-                return $items;
+                return self::withMeasurements($items, $measurementMap, $values);
             }
         }
 
         $manualChecklistItems = self::manualChecklistItems($checklist, $values);
 
-        $measurementMap = self::measurementMap($measurements, $rows);
         $steps = [];
         foreach ($raw as $key => $question) {
             if (preg_match('/^step(\d+)$/', (string) $key, $match)) {
@@ -381,7 +401,7 @@ final class InspectionReportWriter
                     'failed' => $failed,
                 ];
             }
-            return $items;
+            return self::withMeasurements($items, $measurementMap, $values);
         }
 
         $manualFunctionItems = [];
@@ -394,40 +414,42 @@ final class InspectionReportWriter
         } else {
             $items = self::defaultQuestions($values, $globalPassed);
         }
-        $recognized = [];
-        foreach ($measurementMap as $name => $measurement) {
-            if (!in_array($name, ['RPE', 'RSL', 'RISO', 'IPE', 'IBER', 'IEA', 'KABEL', 'FI/RCD'], true)) {
-                continue;
-            }
-            $recognized[] = $name;
-            $display = (string) ($measurement['display'] ?? '');
-            $failed = self::isFailed($display);
-            $items[] = [
-                'category' => 'Messung',
-                'question' => self::measurementQuestion($name),
-                'criterion' => self::measurementCriterion($name, $values),
-                'result' => $display,
-                'ok' => !$failed && (self::isPassed($display) || $globalPassed),
-                'failed' => $failed,
-            ];
-        }
-        if ($recognized === []) {
-            foreach ($measurementMap as $name => $measurement) {
-                $display = (string) ($measurement['display'] ?? '');
-                $items[] = [
-                    'category' => 'Messung',
-                    'question' => $name,
-                    'criterion' => '',
-                    'result' => $display,
-                    'ok' => self::isPassed($display) || $globalPassed,
-                    'failed' => self::isFailed($display),
-                ];
-            }
-        }
+        $items = self::withMeasurements($items, $measurementMap, $values);
         $items = array_merge($items, $manualFunctionItems);
         $closing = self::defaultClosingQuestions($globalPassed, $globalFailed);
         if ($manualChecklistItems !== []) array_shift($closing);
         return array_merge($items, $closing);
+    }
+
+    /** Merge actual readings even when an imported checklist is present. */
+    private static function withMeasurements(array $items, array $measurements, array $values): array
+    {
+        foreach ($measurements as $key => $measurement) {
+            $status = (string) ($measurement['status'] ?? '');
+            $reading = [
+                'category' => 'Messung',
+                'question' => in_array($key, ['RPE', 'RSL', 'RISO', 'IPE', 'IBER', 'IEA', 'KABEL', 'FI/RCD'], true)
+                    ? self::measurementQuestion($key) : $key,
+                'criterion' => (string) (($measurement['limit'] ?? '') ?: self::measurementCriterion($key, $values)),
+                'result' => (string) $measurement['display'],
+                'ok' => self::isPassed($status),
+                'failed' => self::isFailed($status),
+            ];
+            $replaced = false;
+            foreach ($items as &$item) {
+                if (self::measurementNameForQuestion((string) $item['question']) === $key) {
+                    $item = array_replace($item, array_diff_key($reading, ['question' => true]));
+                    $replaced = true;
+                    break;
+                }
+            }
+            unset($item);
+            if (!$replaced) $items[] = $reading;
+        }
+        if ($measurements === [] && stripos((string) ($values['Prüfart'] ?? ''), 'Leiter') === false) {
+            $items[] = ['category' => 'Messung', 'question' => 'Keine Messwerte hinterlegt', 'criterion' => '', 'result' => '—', 'ok' => false, 'failed' => false];
+        }
+        return $items;
     }
 
     private static function manualChecklistItems(array $checklist, array $values): array
@@ -520,28 +542,30 @@ final class InspectionReportWriter
 
     private static function measurementMap(array $measurements, array $rows): array
     {
+        require_once __DIR__ . '/InspectionEvaluationService.php';
         $map = [];
         foreach ($measurements as $measurement) {
-            if (!is_array($measurement)) {
-                continue;
-            }
-            $name = mb_strtoupper(trim((string) ($measurement['name'] ?? 'MESSUNG')));
+            if (!is_array($measurement)) continue;
+            $name = trim((string) ($measurement['key'] ?? $measurement['measurement_key'] ?? $measurement['name'] ?? ''));
+            if ($name === '') continue;
+            $key = InspectionEvaluationService::measurementKey($name);
+            $questionKey = self::measurementNameForQuestion($name);
+            if (!InspectionEvaluationService::isSupportedMeasurementKey($key) && $questionKey !== '') $key = $questionKey;
             $parts = array_values(array_filter([
                 trim((string) ($measurement['value'] ?? '')),
                 trim((string) ($measurement['unit'] ?? '')),
             ], static fn(string $value): bool => $value !== ''));
             $status = trim((string) ($measurement['result'] ?? ''));
             $display = trim(implode(' ', $parts) . ($status !== '' ? ' · ' . $status : ''));
-            $map[$name] = ['display' => $display];
+            $map[$key] = ['display' => $display, 'status' => $status, 'limit' => trim((string) ($measurement['limit'] ?? ''))];
         }
+        // Only explicitly recognized reading labels are eligible as a legacy
+        // fallback. Metadata must never turn into successful measurements.
         if ($map === []) {
-            $known = ['PRÜFNUMMER', 'DATUM', 'PRÜFART', 'PRÜFUNGSTYP', 'PRÜFER', 'NÄCHSTE PRÜFUNG', 'GERÄT', 'ERGEBNIS', 'REGIEZEIT', 'REGIEBEGRÜNDUNG', 'INVENTARNUMMER', 'GERÄTEART', 'HERSTELLER', 'TYP', 'WÄRMEGERÄT', 'AUFTRAGGEBER', 'LIEGENSCHAFT', 'GEBÄUDE', 'ETAGE', 'RAUM-NR.', 'PRÜFUNGSABSCHLUSS'];
             foreach (array_slice($rows, 1) as $row) {
-                $name = mb_strtoupper(trim((string) ($row[0] ?? '')));
-                if ($name === '' || str_starts_with($name, '__') || in_array($name, $known, true) || $name === 'PRÜFSCHRITTE') {
-                    continue;
-                }
-                $map[$name] = ['display' => trim((string) ($row[1] ?? ''))];
+                $key = InspectionEvaluationService::measurementKey((string) ($row[0] ?? ''));
+                if (!in_array($key, ['RPE', 'RSL', 'RISO', 'IPE', 'IBER', 'IEA', 'KABEL', 'FI/RCD'], true)) continue;
+                $map[$key] = ['display' => trim((string) ($row[1] ?? '')), 'status' => '', 'limit' => ''];
             }
         }
         return $map;
@@ -657,7 +681,20 @@ final class InspectionReportWriter
             'jpg', 'jpeg' => 'image/jpeg',
             default => 'image/png',
         };
-        return ['body' => (string) file_get_contents($path), 'mime' => $mime, 'extension' => $extension === 'jpeg' ? 'jpg' : $extension];
+        $body = (string) file_get_contents($path);
+        $size = @getimagesize($path);
+        $width = (float) ($size[0] ?? 0);
+        $height = (float) ($size[1] ?? 0);
+        if ($extension === 'svg' && preg_match('/viewBox=["\']\s*[-0-9.]+[ ,]+[-0-9.]+[ ,]+([0-9.]+)[ ,]+([0-9.]+)["\']/i', $body, $match)) {
+            $width = (float) $match[1];
+            $height = (float) $match[2];
+        }
+        $scale = $width > 0 && $height > 0 ? min(4.2 / $width, 1.3 / $height) : 0;
+        return [
+            'body' => $body, 'mime' => $mime, 'extension' => $extension === 'jpeg' ? 'jpg' : $extension,
+            'display_width' => $scale > 0 ? round($width * $scale, 4) . 'cm' : '4.2cm',
+            'display_height' => $scale > 0 ? round($height * $scale, 4) . 'cm' : '1.26cm',
+        ];
     }
 
     private static function manifestXml(array $images): string
