@@ -19,7 +19,7 @@ final class WhatsNewService
             'base_revision' => 'a5badda',
         ], [
             'id' => '2026-11-16-import-measurement-recovery',
-            'pruefapp_revision' => '699bb13 / d91984c / 39dd50e',
+            'pruefapp_revision' => '699bb13 / d91984c / 39dd50e / d8198da',
             'date' => '16.11.2026',
             'title' => 'Messwerte älterer Importe wiederherstellen',
             'items' => ['In alten CSV- und Phoenix-Quelldaten vorhandene Messwerte lassen sich geprüft und gesichert in die Messwertfelder übernehmen. Vergleichszeichen, Einheiten und Prüfspannungen bleiben erhalten.', 'Bestehende Messwerte, Prüfungsidentität und Gesamtergebnis bleiben erhalten. Generierte Berichte werden nach der Übernahme erneuert.'],
