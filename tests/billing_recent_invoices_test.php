@@ -16,6 +16,7 @@ R::setup('sqlite::memory:');
 R::exec('CREATE TABLE billinginvoice (id INTEGER PRIMARY KEY, tenant_id INTEGER, customer_id INTEGER, invoice_number TEXT, sevdesk_invoice_number TEXT, sevdesk_url TEXT, invoice_date TEXT, status TEXT, created_at TEXT, historical_device_balance REAL DEFAULT 0, historical_balance_reason TEXT, historical_approved_at TEXT,amount_net REAL,amount_gross REAL,raw_json TEXT)');
 R::exec('CREATE TABLE customer (id INTEGER PRIMARY KEY, name TEXT)');
 R::exec('CREATE TABLE billinginvoiceitem (id INTEGER PRIMARY KEY, invoice_id INTEGER, inspection_id INTEGER, device_id INTEGER, active INTEGER, quantity REAL, regie_minutes INTEGER)');
+R::exec('CREATE TABLE inspection (id INTEGER PRIMARY KEY, external_number TEXT,test_date TEXT,storage_slot TEXT)');
 R::exec('CREATE TABLE billinginvoiceposition (id INTEGER PRIMARY KEY, invoice_id INTEGER, position_number TEXT, kind TEXT, suggested_kind TEXT, quantity REAL, regie_minutes INTEGER)');
 foreach ([[1, 7], [2, 7], [3, 7], [4, 8]] as [$id, $tenant]) {
     R::exec("INSERT INTO billinginvoice (id, tenant_id, status, created_at) VALUES (?, ?, 'draft', '2026-11-10')", [$id, $tenant]);
@@ -48,7 +49,7 @@ R::exec('UPDATE billinginvoice SET historical_device_balance=2 WHERE id=2');
 $rows = (new ReflectionMethod(BillingController::class, 'recentInvoices'))->invoke(null);
 $updated = array_column($rows, null, 'id');
 if ((int) $updated[2]['billed_device_actual'] !== 3) throw new RuntimeException('Historische Restmenge fehlt in der Übersicht.');
-R::exec('CREATE TABLE inspection (id INTEGER PRIMARY KEY, external_number TEXT)');
+
 R::exec('CREATE TABLE billingregietransfer (source_invoice_id INTEGER, target_invoice_id INTEGER, minutes INTEGER, active INTEGER)');
 R::exec("INSERT INTO inspection (id,external_number) SELECT id,'TEST-' || id FROM billinginvoiceitem");
 
@@ -61,5 +62,9 @@ if ($check['result'] !== 'historisch ausgeglichen' || (int) $check['assignedDevi
 R::exec('INSERT INTO billinginvoiceitem(invoice_id,inspection_id,device_id,active,quantity,regie_minutes) VALUES(3,99,40,1,1,0),(3,99,40,1,1,0)');
 $duplicates=array_column((new ReflectionMethod(BillingController::class,'recentInvoices'))->invoke(null),null,'id');
 if(!$duplicates[3]['device_assignment_warning'])throw new RuntimeException('Real duplicate inspection allocation did not warn.');
+R::exec("INSERT INTO inspection(id,external_number,test_date,storage_slot)VALUES(97,'A','2026-08-12','043'),(98,'B','2026-08-12','043')");
+R::exec('INSERT INTO billinginvoiceitem(invoice_id,inspection_id,device_id,active,quantity,regie_minutes)VALUES(2,97,50,1,1,0),(2,98,50,1,1,0)');
+$slotRows=array_column((new ReflectionMethod(BillingController::class,'recentInvoices'))->invoke(null),null,'id');
+if((int)$slotRows[2]['same_slot_inspection_count']!==2||$slotRows[2]['device_assignment_warning'])throw new RuntimeException('Same-slot source warning must be separate from duplicate inspection IDs.');
 R::close();
 echo "PASS: recent invoices count active repeated devices without multiplying totals or crossing tenants\n";
