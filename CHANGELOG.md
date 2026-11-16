@@ -3,7 +3,7 @@
 ## 16.11.2026 – Unterschriften ohne Papierhintergrund
 
 - Helle neutrale Hintergründe von Profil- und importierten Berichtsunterschriften werden transparent dargestellt. Dunkle und farbige Striche sowie vorhandene Transparenz bleiben erhalten; Originaldateien werden nicht verändert. Abgeleitete Bilder werden quellabhängig zwischengespeichert, generierte Berichte erneuert.
-- Umsetzung: Prüfapp siehe nachgetragene Revision; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `4c8ce6a`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – Geräteexport unter MariaDB
 

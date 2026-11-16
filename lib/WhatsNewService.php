@@ -12,6 +12,7 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-transparent-signatures',
+            'pruefapp_revision' => '4c8ce6a',
             'date' => '16.11.2026',
             'title' => 'Unterschriften ohne Papierhintergrund',
             'items' => ['Heller Papierhintergrund wird bei vorhandenen und neuen Profil- sowie importierten Berichtsunterschriften automatisch transparent dargestellt. Originaldateien bleiben erhalten.'],
