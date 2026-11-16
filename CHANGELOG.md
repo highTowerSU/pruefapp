@@ -1,6 +1,6 @@
 # Änderungsprotokoll
 
-## 16.11.2026 – Lesbares Inhaltsverzeichnis im Sammel-PDF
+## 16.11.2026 – Prüfberichte und Sammel-PDFs korrigiert
 
 - Eigene Tabelle im Querformat über die volle Nutzbreite: breite Raum-/Standort- und Gerätespalten, schmale Seiten-/Prüfnummernspalten, korrekte Überschriften und deutsche Prüfdatumsangaben. Lange Texte umbrechen mit Abstand und Zellbegrenzung.
 - Seitenverweise und Teilgrößen berücksichtigen alle Inhaltsseiten statt pauschal nur einer Seite.
