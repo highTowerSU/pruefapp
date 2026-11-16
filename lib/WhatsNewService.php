@@ -12,13 +12,14 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-bundle-ci-cover',
+            'pruefapp_revision' => 'd91984c',
             'date' => '16.11.2026',
             'title' => 'Sammelberichte mit CI-Deckblatt',
             'items' => ['Deckblatt und Inhaltsverzeichnis verwenden Dokumentlogo, CI-Farben und einheitliche Kopf-/Fußzeilen. Das Deckblatt zeigt Auftraggeber, Prüfzeitraum und den tatsächlichen Umfang des Sammelberichts.'],
             'base_revision' => 'a5badda',
         ], [
             'id' => '2026-11-16-import-measurement-recovery',
-            'pruefapp_revision' => '699bb13',
+            'pruefapp_revision' => '699bb13 / d91984c',
             'date' => '16.11.2026',
             'title' => 'Messwerte älterer Importe wiederherstellen',
             'items' => ['In alten CSV- und Phoenix-Quelldaten vorhandene Messwerte lassen sich geprüft und gesichert in die Messwertfelder übernehmen. Vergleichszeichen, Einheiten und Prüfspannungen bleiben erhalten.', 'Bestehende Messwerte, Prüfungsidentität und Gesamtergebnis bleiben erhalten. Generierte Berichte werden nach der Übernahme erneuert.'],
