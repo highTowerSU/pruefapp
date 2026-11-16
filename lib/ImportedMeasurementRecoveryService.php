@@ -11,6 +11,18 @@ final class ImportedMeasurementRecoveryService
 {
     public static function plan(array $inspection): array
     {
+        $legacyJson = trim((string) ($inspection['measurements_json'] ?? ''));
+        $legacy = $legacyJson === '' ? [] : json_decode($legacyJson, true);
+        if ($legacyJson !== '' && $legacy === null && $legacyJson !== 'null') return ['status' => 'invalid_existing_json'];
+        $existing = [];
+        foreach (is_array($legacy) ? $legacy : [] as $measurement) {
+            if (!is_array($measurement)) continue;
+            $key = InspectionEvaluationService::measurementKey((string) ($measurement['measurement_key'] ?? $measurement['name'] ?? ''));
+            if (in_array($key, ['RPE','RSL','RISO','IPE','IBER','IEA','FI/RCD','KABEL'], true) && trim((string) ($measurement['value'] ?? $measurement['text_value'] ?? $measurement['numeric_value'] ?? '')) !== '') $existing[] = $measurement;
+        }
+        if ($existing !== []) {
+            return ['status' => 'ready', 'source_kind' => 'existing_measurement_json', 'source_date' => (string) ($inspection['test_date'] ?? ''), 'raw_sha256' => hash('sha256', (string) ($inspection['raw_json'] ?? '')), 'measurements' => $existing];
+        }
         $raw = json_decode((string) ($inspection['raw_json'] ?? ''), true);
         if (!is_array($raw)) return ['status' => 'no_source'];
         $csv = (new ElectricalInspectionImportService(sys_get_temp_dir()))->measurementsFromStoredCsv($raw);
@@ -48,8 +60,7 @@ final class ImportedMeasurementRecoveryService
             $inspection = \RedBeanPHP\R::load('inspection', $id);
             if (!$inspection->id) throw new RuntimeException('Prüfung fehlt: ' . $id);
             $before = $inspection->export();
-            if (\RedBeanPHP\R::count('inspection_measurement', 'inspection_id=?', [$id]) > 0
-                || !in_array(trim((string) ($before['measurements_json'] ?? '')), ['', '[]', '{}', 'null'], true)) {
+            if (\RedBeanPHP\R::count('inspection_measurement', 'inspection_id=?', [$id]) > 0) {
                 \RedBeanPHP\R::rollback();
                 return ['id' => $id, 'status' => 'already_present'];
             }

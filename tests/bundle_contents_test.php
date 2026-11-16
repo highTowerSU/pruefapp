@@ -56,3 +56,18 @@ if (count($longLayout) < 2) {
 }
 file_put_contents('/tmp/pruefapp-bundle-contents-preview.pdf', $pdf['body']);
 echo "PASS: Full-width contents, wrapped columns, multi-page references and long device names\n";
+
+$branding = ['company_name'=>'CENEOS GmbH','theme_colors'=>['primary'=>'#FFC800','primary_text'=>'#FFFFFF']];
+$context = ['part'=>1,'parts'=>2,'created_at'=>'2026-11-16T18:00:00+01:00','invoice_number'=>'RE-2193'];
+foreach ($entries as &$entry) $entry['customer_name']='Antoniuskolleg';
+unset($entry);
+$cover = ReportController::renderBundleCover($entries, $branding, $context);
+$total = 1 + count($layout) + array_sum(array_column($entries,'pages'));
+if (!str_contains($cover, '/Count 1>>') || !str_contains($cover, '(Antoniuskolleg)') || !str_contains($cover, '(Rechnungsbezug: RE-2193')) throw new RuntimeException('Cover metadata missing or cover has multiple pages.');
+if (!str_contains($cover, '1.000 0.784 0.000 rg') || !str_contains($cover, '(Seite 1 von ' . $total . ')')) throw new RuntimeException('Cover CI or total-page footer incorrect.');
+$contents = ReportController::renderBundleContents($entries,$branding,$context);
+if ($contents['pages']!==count($layout) || !str_contains($contents['body'],'(Seite 2 von '.$total.')') || !str_contains($contents['body'],'(CENEOS GmbH)')) throw new RuntimeException('Contents branding changed pagination or omitted shared page footer.');
+if (str_contains($contents['body'],'1 1 1 rg 30 515')) throw new RuntimeException('Yellow table header must not use unreadable white text.');
+file_put_contents('/tmp/pruefapp-bundle-ci-cover.pdf',$cover);
+file_put_contents('/tmp/pruefapp-bundle-ci-contents.pdf',$contents['body']);
+echo "PASS: One-page CI cover, actual document metadata, contrast, shared header/footer and stable references\n";

@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-bundle-ci-cover',
+            'date' => '16.11.2026',
+            'title' => 'Sammelberichte mit CI-Deckblatt',
+            'items' => ['Deckblatt und Inhaltsverzeichnis verwenden Dokumentlogo, CI-Farben und einheitliche Kopf-/Fußzeilen. Das Deckblatt zeigt Auftraggeber, Prüfzeitraum und den tatsächlichen Umfang des Sammelberichts.'],
+            'base_revision' => 'a5badda',
+        ], [
             'id' => '2026-11-16-import-measurement-recovery',
             'pruefapp_revision' => '699bb13',
             'date' => '16.11.2026',

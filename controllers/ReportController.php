@@ -151,10 +151,14 @@ final class ReportController
         return $body;
     }
     /** @return array{body:string,pages:int} */
-    public static function renderBundleContents(array $entries): array
+    public static function renderBundleContents(array $entries, ?array $branding = null, array $context = []): array
     {
         require_once dirname(__DIR__) . '/lib/BundleContentsService.php';
+        $branding ??= function_exists('get_report_branding') ? get_report_branding() : [];
+        $theme = self::bundleTheme($branding);
+        $logo = self::bundleLogo($branding);
         $layout = BundleContentsService::layout($entries);
+        $totalPages = self::bundleTotalPages($entries);
         $reportPage = count($layout) + 2; // One cover, then all contents pages.
         $references = [];
         foreach (array_values($entries) as $index => $entry) {
@@ -163,13 +167,12 @@ final class ReportController
         }
         $streams = [];
         foreach ($layout as $pageIndex => $rows) {
-            $stream = "BT /F1 16 Tf 0.12 0.25 0.38 rg 24 556 Td (" . self::pdfEscape(self::pdfText('Inhaltsverzeichnis Prüfberichte')) . ") Tj ET\n";
-            $stream .= 'BT /F1 8 Tf 0.3 0.3 0.3 rg 760 556 Td (' . ($pageIndex + 1) . ' / ' . count($layout) . ") Tj ET\n";
+            $stream = self::bundleChrome($branding, $theme, $logo, 'Inhaltsverzeichnis', $context, $pageIndex + 2, $totalPages);
             $x = 24;
             foreach (BundleContentsService::HEADERS as $column => $header) {
                 $width = BundleContentsService::WIDTHS[$column];
-                $stream .= "0.12 0.25 0.38 rg {$x} 505 {$width} 25 re f\n";
-                $stream .= 'BT /F1 8 Tf 1 1 1 rg ' . ($x + 6) . ' 515 Td (' . self::pdfEscape(self::pdfText($header)) . ") Tj ET\n";
+                $stream .= $theme['primary'] . " rg {$x} 505 {$width} 25 re f\n";
+                $stream .= self::bundleText($header, $x + 6, 515, 8, $theme['primary_text'], true);
                 $x += $width;
             }
             $y = BundleContentsService::TOP;
@@ -181,7 +184,7 @@ final class ReportController
                 $cells[1] = [$references[$row['entry']]];
                 foreach ($cells as $column => $lines) {
                     $width = BundleContentsService::WIDTHS[$column];
-                    $shade = $rowIndex % 2 === 0 ? '1 1 1' : '0.96 0.97 0.98';
+                    $shade = $rowIndex % 2 === 0 ? '1 1 1' : $theme['tint'];
                     $stream .= "{$shade} rg {$x} {$bottom} {$width} {$height} re f 0.78 0.81 0.84 RG 0.4 w {$x} {$bottom} {$width} {$height} re S\n";
                     // Clip each cell as an additional guard against glyph overhang.
                     $stream .= "q {$x} {$bottom} {$width} {$height} re W n\n";
@@ -197,7 +200,133 @@ final class ReportController
             }
             $streams[] = $stream;
         }
-        return ['body' => self::buildPdf($streams), 'pages' => count($layout)];
+        return ['body' => self::buildPdf($streams, $logo), 'pages' => count($layout)];
+    }
+
+    public static function renderBundleCover(array $entries, ?array $branding = null, array $context = []): string
+    {
+        require_once dirname(__DIR__) . '/lib/BundleContentsService.php';
+        $branding ??= function_exists('get_report_branding') ? get_report_branding() : [];
+        $theme = self::bundleTheme($branding);
+        $logo = self::bundleLogo($branding);
+        $totalPages = self::bundleTotalPages($entries);
+        $stream = self::bundleChrome($branding, $theme, $logo, 'Sammelbericht', $context, 1, $totalPages);
+        $stream .= $theme['tint'] . " rg 24 286 794 218 re f\n";
+        $stream .= $theme['primary'] . " rg 24 286 6 218 re f\n";
+        $stream .= self::bundleText('PRÜFDOKUMENTATION', 48, 468, 10, $theme['dark'], true);
+        $stream .= self::bundleText('Prüfberichte', 46, 420, 36, $theme['dark'], true);
+        $customers = array_values(array_unique(array_filter(array_map(static fn(array $row): string => trim((string) ($row['customer_name'] ?? '')), $entries))));
+        $customerText = $customers === [] ? 'Dokumentation der durchgeführten Prüfungen' : implode(' · ', $customers);
+        $lines = BundleContentsService::wrap($customerText, 720 * 8 / 18);
+        foreach (array_slice($lines, 0, 3) as $index => $line) {
+            $stream .= self::bundleText($line, 48, 376 - $index * 25, 18, $theme['dark']);
+        }
+        if (count($lines) > 3) $stream .= self::bundleText(count($customers) . ' Auftraggeber', 48, 299, 9, $theme['muted']);
+        $devices = [];
+        foreach ($entries as $index => $row) {
+            $key = (int) ($row['device_id'] ?? 0) > 0 ? 'id:' . (int) $row['device_id'] : 'number:' . trim((string) ($row['device_number'] ?? ''));
+            $devices[$key === 'number:' ? 'unknown:' . $index : $key] = true;
+        }
+        foreach ([['Prüfberichte', count($entries)], ['Geräte', count($devices)], ['Seiten insgesamt', $totalPages]] as $index => [$label, $value]) {
+            $x = 48 + $index * 254;
+            $stream .= "0.96 0.97 0.98 rg {$x} 174 238 82 re f\n";
+            $stream .= $theme['primary'] . " rg {$x} 253 238 3 re f\n";
+            $stream .= self::bundleText((string) $value, $x + 16, 211, 28, $theme['dark'], true);
+            $stream .= self::bundleText($label, $x + 16, 188, 10, $theme['muted']);
+        }
+        $dates = [];
+        foreach ($entries as $row) {
+            $value = (string) ($row['test_date'] ?? '');
+            $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+            if ($date && $date->format('Y-m-d') === $value) $dates[$value] = $date->format('d.m.Y');
+        }
+        ksort($dates);
+        $period = $dates === [] ? 'nicht hinterlegt' : reset($dates) . (count($dates) > 1 ? ' bis ' . end($dates) : '');
+        $stream .= self::bundleText('Prüfzeitraum', 48, 139, 9, $theme['muted']);
+        $stream .= self::bundleText($period, 48, 119, 13, $theme['dark'], true);
+        $sites = array_values(array_unique(array_filter(array_map(static fn(array $row): string => trim((string) ($row['site_name'] ?? '')), $entries))));
+        $scope = implode(' · ', $sites);
+        if (trim((string) ($context['invoice_number'] ?? '')) !== '') $scope = 'Rechnungsbezug: ' . trim((string) $context['invoice_number']) . ($scope !== '' ? ' · ' . $scope : '');
+        foreach (array_slice(BundleContentsService::wrap($scope, 720 * 8 / 10), 0, 2) as $index => $line) $stream .= self::bundleText($line, 48, 87 - $index * 14, 10, $theme['muted']);
+        $stream .= self::bundleText('Einzelberichte mit zugehörigem Inhaltsverzeichnis', 48, 48, 9, $theme['muted']);
+        return self::buildPdf([$stream], $logo);
+    }
+
+    private static function bundleTotalPages(array $entries): int
+    {
+        return 1 + count(BundleContentsService::layout($entries)) + array_sum(array_map(static fn(array $row): int => max(1, (int) ($row['pages'] ?? 1)), $entries));
+    }
+
+    private static function bundleText(string $text, float $x, float $y, float $size, string $color, bool $bold = false): string
+    {
+        return 'BT /' . ($bold ? 'F2' : 'F1') . " {$size} Tf {$color} rg {$x} {$y} Td (" . self::pdfEscape(self::pdfText($text)) . ") Tj ET\n";
+    }
+
+    private static function bundleTheme(array $branding): array
+    {
+        $primary = self::brandColor($branding, 'primary', '#F8C400');
+        $rgb = [hexdec(substr($primary, 1, 2)), hexdec(substr($primary, 3, 2)), hexdec(substr($primary, 5, 2))];
+        $format = static fn(array $color): string => implode(' ', array_map(static fn(float $value): string => number_format($value / 255, 3, '.', ''), $color));
+        $luminance = 0.2126 * $rgb[0] + 0.7152 * $rgb[1] + 0.0722 * $rgb[2];
+        return [
+            'primary' => $format($rgb),
+            'primary_text' => $luminance > 150 ? '0.12 0.13 0.15' : '1 1 1',
+            'tint' => $format(array_map(static fn(int $value): float => 255 * 0.94 + $value * 0.06, $rgb)),
+            'dark' => '0.12 0.13 0.15', 'muted' => '0.34 0.37 0.40',
+        ];
+    }
+
+    private static function bundleLogo(array $branding): ?array
+    {
+        $asset = InspectionReportWriter::documentLogo($branding);
+        if ($asset === null) return null;
+        $size = @getimagesizefromstring($asset['body']);
+        if (!is_array($size)) return null;
+        $body = $asset['body'];
+        if (($size[2] ?? 0) !== IMAGETYPE_JPEG) {
+            if (!function_exists('imagecreatefromstring')) return null;
+            $source = @imagecreatefromstring($body);
+            if ($source === false) return null;
+            $image = imagecreatetruecolor($size[0], $size[1]);
+            imagefill($image, 0, 0, imagecolorallocate($image, 255, 255, 255));
+            imagecopy($image, $source, 0, 0, 0, 0, $size[0], $size[1]);
+            ob_start();
+            imagejpeg($image, null, 95);
+            $body = (string) ob_get_clean();
+            imagedestroy($image);
+            imagedestroy($source);
+        }
+        return ['body' => $body, 'width' => (int) $size[0], 'height' => (int) $size[1]];
+    }
+
+    private static function bundleChrome(array $branding, array $theme, ?array $logo, string $title, array $context, int $page, int $total): string
+    {
+        $company = trim((string) ($branding['company_name'] ?? 'CENEOS'));
+        $stream = '';
+        if ($logo !== null) {
+            $scale = min(140 / $logo['width'], 33 / $logo['height']);
+            $width = round($logo['width'] * $scale, 3);
+            $height = round($logo['height'] * $scale, 3);
+            $stream .= "q {$width} 0 0 {$height} 24 548 cm /Logo Do Q\n";
+        } else {
+            $stream .= self::bundleText($company, 24, 558, 16, $theme['dark'], true);
+        }
+        $stream .= self::bundleText($company, 190, 565, 12, $theme['dark'], true);
+        $stream .= self::bundleText('Prüfberichte und Dokumentation', 190, 549, 8, $theme['muted']);
+        $stream .= self::bundleText($title, 644, 565, 12, $theme['dark'], true);
+        $part = max(1, (int) ($context['part'] ?? 1));
+        $parts = max($part, (int) ($context['parts'] ?? 1));
+        $stream .= self::bundleText('Teil ' . $part . ' von ' . $parts, 644, 549, 8, $theme['muted']);
+        $stream .= $theme['primary'] . " rg 24 535 794 4 re f\n24 24 794 1 re f\n";
+        $stream .= self::bundleText($company, 24, 11, 7, $theme['muted']);
+        try {
+            $created = (new DateTimeImmutable((string) ($context['created_at'] ?? 'now')))->setTimezone(new DateTimeZone(date_default_timezone_get()))->format('d.m.Y H:i');
+        } catch (Throwable) {
+            $created = date('d.m.Y H:i');
+        }
+        $stream .= self::bundleText('Erstellt am ' . $created, 330, 11, 7, $theme['muted']);
+        $stream .= self::bundleText('Seite ' . $page . ' von ' . $total, 730, 11, 7, $theme['muted']);
+        return $stream;
     }
 
     public static function inspectionPdfRows(\RedBeanPHP\OODBBean $inspection, \RedBeanPHP\OODBBean $device): array
@@ -802,6 +931,37 @@ final class ReportController
         return preg_match('/^#[0-9A-F]{6}$/', $value) ? $value : $fallback;
     }
     private static function pdfEscape(string $value): string { return str_replace(['\\', '(', ')', "\r", "\n"], ['\\\\', '\\(', '\\)', '', ''], $value); }
-    private static function buildPdf(array $streams): string { $objects = ['1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj', '2 0 obj<< /Type /Pages /Kids [' . implode(' ', array_map(static fn($i): string => (string) (4 + $i) . ' 0 R', array_keys($streams))) . '] /Count ' . count($streams) . '>>endobj', '3 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>endobj']; foreach ($streams as $i => $body) $objects[] = (4 + $i) . ' 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources<< /Font<< /F1 3 0 R>>>> /Contents ' . (4 + count($streams) + $i) . ' 0 R>>endobj'; foreach ($streams as $i => $body) $objects[] = (4 + count($streams) + $i) . ' 0 obj<< /Length ' . strlen($body) . ">>stream\n" . $body . "endstream endobj"; $pdf = "%PDF-1.4\n"; $offsets = []; foreach ($objects as $object) { $offsets[] = strlen($pdf); $pdf .= $object . "\n"; } $xref = strlen($pdf); $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n"; foreach ($offsets as $offset) $pdf .= sprintf("%010d 00000 n \n", $offset); return $pdf . "trailer<< /Size " . (count($objects) + 1) . " /Root 1 0 R>>\nstartxref\n" . $xref . "\n%%EOF"; }
+    private static function buildPdf(array $streams, ?array $logo = null): string
+    {
+        $count = count($streams);
+        $imageId = 5 + 2 * $count;
+        $objects = [
+            '1 0 obj<< /Type /Catalog /Pages 2 0 R>>endobj',
+            '2 0 obj<< /Type /Pages /Kids [' . implode(' ', array_map(static fn($index): string => (string) (5 + $index) . ' 0 R', array_keys($streams))) . '] /Count ' . $count . '>>endobj',
+            '3 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>endobj',
+            '4 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding>>endobj',
+        ];
+        $imageResource = $logo !== null ? ' /XObject<< /Logo ' . $imageId . ' 0 R>>' : '';
+        foreach ($streams as $index => $body) {
+            $objects[] = (5 + $index) . ' 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources<< /Font<< /F1 3 0 R /F2 4 0 R>>' . $imageResource . '>> /Contents ' . (5 + $count + $index) . ' 0 R>>endobj';
+        }
+        foreach ($streams as $index => $body) {
+            $objects[] = (5 + $count + $index) . ' 0 obj<< /Length ' . strlen($body) . ">>stream\n" . $body . "endstream endobj";
+        }
+        if ($logo !== null) {
+            $objects[] = $imageId . ' 0 obj<< /Type /XObject /Subtype /Image /Width ' . $logo['width'] . ' /Height ' . $logo['height'] . ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' . strlen($logo['body']) . ">>stream\n" . $logo['body'] . "\nendstream endobj";
+        }
+        $pdf = "%PDF-1.4\n";
+        $offsets = [];
+        foreach ($objects as $object) {
+            $offsets[] = strlen($pdf);
+            $pdf .= $object . "\n";
+        }
+        $xref = strlen($pdf);
+        $pdf .= "xref\n0 " . (count($objects) + 1) . "\n0000000000 65535 f \n";
+        foreach ($offsets as $offset) $pdf .= sprintf("%010d 00000 n \n", $offset);
+        return $pdf . "trailer<< /Size " . (count($objects) + 1) . " /Root 1 0 R>>\nstartxref\n" . $xref . "\n%%EOF";
+    }
+
     private static function quoteRgb(float $value): array { return $value <= 10 ? [209, 231, 221] : ($value <= 20 ? [183, 228, 199] : ($value <= 40 ? [255, 243, 205] : ($value <= 60 ? [255, 230, 156] : ($value <= 80 ? [255, 218, 106] : [255, 184, 107])))); }
 }

@@ -24,6 +24,12 @@ final class InspectionReportWriter
         return self::reportItems($rows, $values, self::decodeJson($values['__raw_json'] ?? ''), self::decodeJson($values['__measurements_json'] ?? ''), self::decodeJson($values['__checklist_json'] ?? ''));
     }
 
+    /** Shared source asset for document headers, with the configured paper variant. */
+    public static function documentLogo(array $branding): ?array
+    {
+        return self::logoAsset($branding);
+    }
+
     public static function render(array $rows, string $title, array $branding): ?string
     {
         if (!class_exists('ZipArchive')) {
@@ -435,6 +441,9 @@ final class InspectionReportWriter
                 'ok' => self::isPassed($status),
                 'failed' => self::isFailed($status),
             ];
+            if (trim((string) ($measurement['voltage'] ?? '')) !== '') {
+                $reading['criterion'] .= ($reading['criterion'] !== '' ? ' · ' : '') . 'Prüfspannung: ' . trim((string) $measurement['voltage']);
+            }
             $replaced = false;
             foreach ($items as &$item) {
                 if (self::measurementNameForQuestion((string) $item['question']) === $key) {
@@ -558,7 +567,7 @@ final class InspectionReportWriter
             ], static fn(string $value): bool => $value !== ''));
             $status = trim((string) ($measurement['result'] ?? ''));
             $display = trim(implode(' ', $parts) . ($status !== '' ? ' · ' . $status : ''));
-            $map[$key] = ['display' => $display, 'status' => $status, 'limit' => trim((string) ($measurement['limit'] ?? ''))];
+            $map[$key] = ['display' => $display, 'status' => $status, 'limit' => trim((string) ($measurement['limit'] ?? '')), 'voltage' => trim((string) ($measurement['voltage'] ?? ''))];
         }
         // Only explicitly recognized reading labels are eligible as a legacy
         // fallback. Metadata must never turn into successful measurements.

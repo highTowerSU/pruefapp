@@ -48,3 +48,18 @@ if(ImportedMeasurementRecoveryService::apply(1,$plan,static function(){throw new
 try {ImportedMeasurementRecoveryService::apply(2,$plan,static function(){throw new RuntimeException('Simulated backup failure');});throw new LogicException('Backup failure accepted.');}catch(RuntimeException $error){if($error->getMessage()!=='Simulated backup failure')throw $error;}
 if(R::count('inspection_measurement','inspection_id=2')!==0||R::load('inspection',2)->measurements_json!=='[]')throw new RuntimeException('Failed backup left partial changes.');
 echo "PASS: Canonical persistence, immutable source/identity/result, original reports, idempotence and rollback\n";
+
+$legacy=[['name'=>'RPE','value'=>'0.18','unit'=>'Ω','result'=>'bestanden']];
+R::exec('UPDATE inspection SET measurements_json=? WHERE id=2',[json_encode($legacy)]);
+$plan=ImportedMeasurementRecoveryService::plan(R::load('inspection',2)->export());
+if($plan['source_kind']!=='existing_measurement_json'||$plan['measurements']!==$legacy)throw new RuntimeException('Existing actual readings must take precedence over older source rows.');
+ImportedMeasurementRecoveryService::apply(2,$plan,static function(){});
+if(R::getCell('SELECT text_value FROM inspection_measurement WHERE inspection_id=2')!=='0.18')throw new RuntimeException('Existing legacy reading was replaced.');
+$inspection=['test_date'=>'2024-03-25','measurements_json'=>json_encode([['name'=>'Mandant','value'=>'CENEOS GmbH']]),'raw_json'=>json_encode(['date'=>'2024-03-25','step4'=>'Messung Isolationswiderstand R ISO Ergebnis im M Ohm.','result4'=>'20'])];
+if(ImportedMeasurementRecoveryService::plan($inspection)['status']!=='ready')throw new RuntimeException('Non-measurement metadata blocked real source recovery.');
+echo "PASS: Existing real legacy readings win; misplaced metadata does not block recovery\n";
+
+$method=new ReflectionMethod($importer,'csvRecord');
+$metadataOnly=$method->invoke($importer,['number','date','audit_ok','created_by','step4','result4'],['209805','2023-11-19','true','test@example.test','Messung Isolationswiderstand R ISO Ergebnis im M Ohm.','20']);
+if($metadataOnly['measurements']!==[])throw new RuntimeException('Future CSV imports still classify metadata as measurements.');
+if(ImportedMeasurementRecoveryService::readingsFromPhoenix($metadataOnly['raw'])[0]['value']!=='20')throw new RuntimeException('Legacy CSV question value cannot be recovered.');

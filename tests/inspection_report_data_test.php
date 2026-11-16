@@ -35,3 +35,7 @@ if (InspectionReportWriter::isCurrentFile($cache)) throw new RuntimeException('S
 file_put_contents($cache, '%PDF-test' . "\n%Pruefapp-Report: " . InspectionReportWriter::CACHE_VERSION . "\n");
 if (!InspectionReportWriter::isCurrentFile($cache)) throw new RuntimeException('Current PDF rejected.');
 unlink($cache);
+
+$items=$method->invoke(null,$rows,$values,[],[['name'=>'RISO','value'=>'>19.99','unit'=>'MΩ','result'=>'bestanden','voltage'=>'500V']],$checklist);
+$readings=array_values(array_filter($items,static fn($item)=>$item['category']==='Messung'));
+if(!str_contains($readings[0]['criterion'],'500V'))throw new RuntimeException('Recovered test voltage is absent from report.');

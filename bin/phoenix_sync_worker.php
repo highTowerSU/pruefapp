@@ -218,7 +218,7 @@ try {
         if ($inspectionIds === []) throw new RuntimeException('Keine aktiven abgeschlossenen Prüfungen für diese Sammel-PDF.');
         $marks = implode(',', array_fill(0, count($inspectionIds), '?'));
         $statusExpression = InspectionEvaluationService::sqlStatusExpression('i');
-        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $inspectionIds);
+        $rows = R::getAll("SELECT i.id, i.device_id, i.external_number, i.test_date, i.report_path, i.classification, i.result_status, i.status, d.external_number AS device_number, d.name AS device_name, c.id AS customer_id, c.name AS customer_name, c.tenant_id AS tenant_id, s.name AS site_name, b.name AS building_name, f.name AS floor_name, r.number AS room_number FROM inspection i JOIN device d ON d.id=i.device_id LEFT JOIN room r ON r.id=d.room_id LEFT JOIN floor f ON f.id=r.floor_id LEFT JOIN building b ON b.id=f.building_id LEFT JOIN site s ON s.id=b.site_id LEFT JOIN customer c ON c.id=s.customer_id WHERE i.id IN ($marks) AND {$statusExpression} IN ('passed','failed') ORDER BY c.name, b.name, f.sort_order, f.name, r.number, d.external_number, i.test_date DESC, i.id DESC", $inspectionIds);
         $files = [];
         foreach ($rows as $reportIndex => $row) {
             // Keep the part checkpoint intact while refreshing cached reports.
@@ -276,10 +276,13 @@ try {
             else { $partStart = $existingPart; break; }
         }
         foreach (array_slice($parts, $partStart, null, true) as $partIndex => $part) {
-            $contents = ReportController::renderBundleContents($part);
+            $branding = get_report_branding((int) ($part[0]['tenant_id'] ?? 0));
+            $invoice = (int) ($payload['invoice_id'] ?? 0) > 0 ? R::load('billinginvoice', (int) $payload['invoice_id']) : null;
+            $documentContext = ['part' => $partIndex + 1, 'parts' => count($parts), 'created_at' => (string) ($job['created_at'] ?? date(DATE_ATOM)), 'invoice_number' => (string) ($invoice->invoice_number ?? '')];
+            $contents = ReportController::renderBundleContents($part, $branding, $documentContext);
             $cover = $outDir . '/cover-' . $partIndex . '.pdf';
             $tocPdf = $outDir . '/toc-' . $partIndex . '.pdf';
-            file_put_contents($cover, ReportController::renderPdf([['Sammelbericht', 'Wert'], ['Erstellt', date('d.m.Y H:i')], ['Teil', ($partIndex + 1) . ' von ' . count($parts)]], 'Sammelbericht Prüfungen'));
+            file_put_contents($cover, ReportController::renderBundleCover($part, $branding, $documentContext));
             file_put_contents($tocPdf, $contents['body']);
             $output = $outDir . '/Pruefberichte-' . sprintf('%03d', $partIndex + 1) . '.pdf'; $inputs = [$cover, $tocPdf]; foreach ($part as $row) $inputs[] = $row['source']; $command = 'pdfunite ' . implode(' ', array_map('escapeshellarg', $inputs)) . ' ' . escapeshellarg($output) . ' 2>&1'; $result = shell_exec($command); if (!is_file($output)) throw new RuntimeException('Sammel-PDF konnte nicht erstellt werden: ' . trim((string) $result)); $outputs[] = $output; @unlink($cover); @unlink($tocPdf); $progress($partIndex + 1, count($parts), (string) ($part[0]['device_number'] ?? ''), 'Sammel-PDF erstellt');
         }

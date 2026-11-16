@@ -64,7 +64,7 @@ final class BundleContentsService
     }
 
     /** @return list<string> */
-    private static function wrap(string $text, float $width): array
+    public static function wrap(string $text, float $width): array
     {
         $words = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $lines = [];

@@ -668,7 +668,7 @@ final class ElectricalInspectionImportService
         $number = $this->value($values, ['number', 'Nummer', 'Prüfungsnr']);
         $date = $this->value($values, ['Prüfdatum', 'date', 'Datum']);
         $measurements = [];
-        $known = ['RPE', 'IPE', 'IBer', 'IEA', 'RISO', 'Kabel', 'FI/RCD', 'Sichtprüfung'];
+        $known = ['RPE', 'RSL', 'IPE', 'IBer', 'IEA', 'RISO', 'Kabel', 'FI/RCD', 'Sichtprüfung'];
         foreach ($known as $prefix) {
             $value = $this->value($values, [$prefix . ' Wert', strtolower($prefix) . ' value']);
             $unit = $this->value($values, [$prefix . ' Einheit', strtolower($prefix) . ' unit']);
@@ -679,14 +679,8 @@ final class ElectricalInspectionImportService
                 $measurements[] = $measurement;
             }
         }
-        $metadataColumns = ['Speicher Nr', 'Speicherplatz', 'Prüfdatum', 'date', 'Datum', 'Prüfergebnis', 'number', 'Nummer', 'Prüfungsnr', 'Bezeichnung', 'Prüfart', 'Typ', 'Hersteller', 'Modell', 'Raumnummer', 'Raum'];
-        foreach ($values as $key => $value) {
-            if ($value === '' || $key === 'RISO Spannung' || in_array($key, $header, true) && (str_contains(strtolower($key), 'wert') || str_contains(strtolower($key), 'einheit') || str_contains(strtolower($key), 'ergebnis'))) continue;
-            // “Bezeichnung” in a Benning export means protection class, not a
-            // measurement. Keep it in raw_json, but never present it as one.
-            if (in_array($key, $metadataColumns, true)) continue;
-            if (count($measurements) < 30) $measurements[] = ['name' => $key, 'value' => $value, 'unit' => '', 'result' => ''];
-        }
+        // Non-measurement CSV fields remain in raw data; never turn metadata
+        // or Phoenix question/creator fields into electrical measurements.
         $cableLength = $this->value($values, ['Kabellänge', 'Leitungslänge', 'cable_length_m', 'cable_length']);
         $regieRaw = $this->value($values, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten', 'regie_minutes']);
         $record = [

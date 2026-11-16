@@ -25,8 +25,7 @@ if (isset($options['plan'])) {
     foreach ($ids as $id) {
         // Read one raw source at a time: historical ODS snapshots can be large.
         $inspection = R::getRow('SELECT id,test_date,storage_slot,raw_json,measurements_json FROM inspection WHERE id=?', [(int) $id]);
-        if (R::count('inspection_measurement', 'inspection_id=?', [(int) $id]) > 0
-            || !in_array(trim((string) ($inspection['measurements_json'] ?? '')), ['', '[]', '{}', 'null'], true)) {
+        if (R::count('inspection_measurement', 'inspection_id=?', [(int) $id]) > 0) {
             $plan = ['status' => 'already_present'];
         } else {
             $plan = ImportedMeasurementRecoveryService::plan($inspection);
@@ -45,6 +44,8 @@ if (isset($options['plan'])) {
     echo json_encode(['plan' => $path] + $stats, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), "\n";
     exit;
 }
+$lock = fopen('/var/backups/ceneos/pruefapp-measurement-recovery.lock', 'c');
+if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) throw new RuntimeException('Eine Messwert-Reparatur läuft bereits.');
 $file = fopen($path, 'rb');
 if ($file === false) throw new RuntimeException('Plan fehlt.');
 $directory = '/var/backups/ceneos/pruefapp-measurement-recovery-' . gmdate('Ymd-His');
