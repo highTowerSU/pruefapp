@@ -5,7 +5,7 @@
 - Kopf-/Fußtext und Betreff verwenden historische Rechnungen als editierbare Vorlage; neue Rechnungsnummer und Leistungszeitraum werden ersetzt. „Sofort fällig“ bleibt erhalten und entspricht null Tagen Zahlungsziel.
 - Rechnungspositionen enthalten die vorhandenen Gerätenamen, Hersteller-/Modelldaten und Regiebegründungen einschließlich eindeutig zugeordneter ODS-Angaben. Fehlende Stammdaten werden nicht erfunden.
 - Der Sammel-PDF-Knopf startet innerhalb der authentifizierten Abrechnung und öffnet anschließend die Prüfapp-Aufgabe. Das PDF enthält nur aktive abgeschlossene Prüfungen dieser Rechnung, keine anderen Prüfungen derselben Geräte.
-- Umsetzung: kb-abrechnung `eb55fb2`; CENEOS PHP Base `ccd9653`; Prüfapp siehe folgende Release-Revision.
+- Umsetzung: Prüfapp `c94845b`; kb-abrechnung `eb55fb2`; CENEOS PHP Base `ccd9653`.
 
 ## 16.11.2026 – Abrechnung in der Prüfapp vorbereiten
 
