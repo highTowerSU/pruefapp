@@ -1,5 +1,11 @@
 # Änderungsprotokoll
 
+## 16.11.2026 – SevDesk-Nummernkreis und deutsche Leistungsdaten
+
+- Neue Prüfungsrechnungen fragen die nächste freie RE-Rechnungsnummer bei SevDesk ab; Nummer und Kopf-/Betrefftexte passen zusammen. Keine selbst erzeugte PR-Ersatznummer bei der Anlage.
+- Referenz/Bestellnummer wird je Rechnungsempfänger als „Elektroprüfung I, II, …“ fortgeführt. Leistungszeiträume in der Detailansicht verwenden TT.MM.JJJJ.
+- Umsetzung: zugehörige Prüfapp-, kb-abrechnung- und CENEOS-PHP-Base-Implementierungsrevisionen.
+
 ## 16.11.2026 – Companion nach Sitzungsende neu verbinden
 
 - Abgelaufene oder getrennte Companion-Links zeigen eine gestaltete Seite mit Anleitung zum erneuten Koppeln und Rückweg zur Prüfapp. Barcode- und Fotoübertragungen öffnen bei Sitzungsende dieselbe Seite; HTTP 410 und Cache-Schutz bleiben erhalten.

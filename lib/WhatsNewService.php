@@ -11,6 +11,11 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-sevdesk-numbering',
+            'date' => '16.11.2026',
+            'title' => 'SevDesk-Rechnungsnummern und fortlaufende Referenzen',
+            'items' => ['Prüfungsrechnungen übernehmen die nächste freie Rechnungsnummer aus SevDesk für Nummer und Kopf-/Betrefftexte. Die Referenz lautet je Empfänger fortlaufend „Elektroprüfung I, II, …“.', 'Leistungszeiträume werden in der Rechnungsansicht deutsch als TT.MM.JJJJ angezeigt.'],
+        ], [
             'id' => '2026-11-16-companion-expired',
             'pruefapp_revision' => '74f12fc',
             'date' => '16.11.2026',

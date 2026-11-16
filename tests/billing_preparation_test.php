@@ -44,14 +44,22 @@ namespace {
     final class SevDeskClient
     {
         public static int $calls = 0;
+        public function nextInvoiceNumber(): string { return 'RE-TEST'; }
+        public function request(string $method, string $path, ?array $payload = null): array
+        {
+            ensurePreparation(str_contains($path, 'contact[id]=123'), 'Wrong reference recipient filter');
+            return ['objects' => [['contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung IX']]];
+        }
         public function __construct(...$args) {}
         public function createDraftInvoice(...$args): array
         {
             self::$calls++;
+            ensurePreparation($args[1] === 'RE-TEST' && ($args[9]['reference'] ?? '') === 'Elektroprüfung X', 'SevDesk numbering/reference missing');
             ensurePreparation(count($args[3]) === 140, 'Wrong number of exported inspections');
             ensurePreparation(str_contains($args[3][0]['description'], 'Kaltgerätekabel') && str_contains($args[3][0]['description'], 'ACME MX'), 'Device source data missing');
             ensurePreparation(str_contains($args[3][0]['regie_details'], 'Tischrücken'), 'Regie reason missing');
             ensurePreparation(($args[9]['time_to_pay'] ?? null) === 10 && str_contains($args[9]['foot_text'] ?? '', 'sofort fällig'), 'Immediate payment lost');
+            ensurePreparation(str_contains($args[9]['head_text'] ?? '', 'RE-TEST August 2026') && !str_contains($args[9]['head_text'] ?? '', '{rechnungsnummer}'), 'Head text placeholders not filled');
             ensurePreparation(str_contains($args[9]['subject'] ?? '', 'August 2026') && !str_contains($args[9]['subject'] ?? '', 'RE-OLD'), 'Historical invoice number/date copied');
             return ['objects' => ['id' => '12345', 'invoiceNumber' => 'RE-TEST']];
         }
@@ -101,7 +109,7 @@ namespace {
     R::exec("UPDATE inspection SET archived_at='2026-11-15',duplicate_of_inspection_id=1 WHERE id=202");
     R::exec('UPDATE inspection SET raw_json=?,regie_minutes=3,regie_reason=? WHERE id=1', [json_encode(['ods'=>['values'=>['Notiz Gerät'=>'Kaltgerätekabel','Hersteller'=>'ACME','Modell'=>'MX']]]), 'Tischrücken']);
     R::exec("UPDATE device SET name='Gerät 0001' WHERE id=1");
-    R::exec('INSERT INTO billinginvoice(id,tenant_id,customer_id,invoice_number,status,invoice_date,raw_json) VALUES(50,2,3,?,?,?,?)', ['RE-OLD','paid','2025-01-01',json_encode(['headText'=>'<p>Vielen Dank für Ihren Auftrag!</p>','footText'=>'<p>Der Rechnungsbetrag ist sofort fällig.</p>','header'=>'Rechnung Nr. RE-OLD Elektroprüfung März II 2025','timeToPay'=>10])]);
+    R::exec('INSERT INTO billinginvoice(id,tenant_id,customer_id,invoice_number,status,invoice_date,raw_json) VALUES(50,2,3,?,?,?,?)', ['RE-OLD','paid','2025-01-01',json_encode(['headText'=>'<p>Vielen Dank für Ihren Auftrag! Rechnung RE-OLD {leistungszeitraum}</p>','footText'=>'<p>Der Rechnungsbetrag ist sofort fällig.</p>','header'=>'Rechnung Nr. RE-OLD Elektroprüfung März II 2025','timeToPay'=>10])]);
     $_GET = [];
     $_POST = [];
     $_SESSION = [];

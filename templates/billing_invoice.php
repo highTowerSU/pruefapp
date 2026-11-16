@@ -28,7 +28,7 @@ $sevDeskPositions = array_map(static function (array $position) use ($formatQuan
   <dt class="col-sm-3">SevDesk-Rechnungsnummer</dt><dd class="col-sm-9"><?= htmlspecialchars((string) ($invoice->sevdesk_invoice_number ?: '—')) ?></dd>
   <dt class="col-sm-3">Datum</dt><dd class="col-sm-9"><?= htmlspecialchars((string) ($invoice->invoice_date ?: '—')) ?></dd>
   <dt class="col-sm-3">SevDesk-Positionen</dt><dd class="col-sm-9"><?= $sevDeskPositions === [] ? '—' : htmlspecialchars(implode(' · ', $sevDeskPositions)) ?></dd>
-  <dt class="col-sm-3">Leistungszeitraum</dt><dd class="col-sm-9"><?php $from = trim((string) ($invoice->performance_date_from ?? '')); $until = trim((string) ($invoice->performance_date_until ?? '')); ?><?= htmlspecialchars($from === '' ? '—' : ($from === $until || $until === '' ? $from : $from . ' bis ' . $until)) ?></dd>
+  <dt class="col-sm-3">Leistungszeitraum</dt><dd class="col-sm-9"><?php $from = format_datetime_for_display((string) ($invoice->performance_date_from ?? ''), 'd.m.Y'); $until = format_datetime_for_display((string) ($invoice->performance_date_until ?? ''), 'd.m.Y'); ?><?= htmlspecialchars($from === '' ? '—' : ($from === $until || $until === '' ? $from : $from . ' bis ' . $until)) ?></dd>
   <?php if (trim((string) ($invoice->recipient_address ?? '')) !== ''): ?><dt class="col-sm-3">Rechnungsempfänger</dt><dd class="col-sm-9"><?= nl2br(htmlspecialchars((string) $invoice->recipient_address)) ?></dd><?php endif; ?>
   <dt class="col-sm-3">Status</dt><dd class="col-sm-9"><span class="badge text-bg-secondary"><?= htmlspecialchars((string) $invoice->status) ?></span></dd>
 </dl>
