@@ -6,7 +6,7 @@
 - Seitenverweise und Teilgrößen berücksichtigen alle Inhaltsseiten statt pauschal nur einer Seite.
 - Berichtsmessungen werden aus tatsächlichen Messdaten ergänzt, auch bei vorhandener Prüfliste. Stammdaten sind keine Messungen; fehlende Messwerte erhalten keinen Erfolgsstatus.
 - Logos behalten ihr Seitenverhältnis. Veraltete generierte Berichte werden für Sammel-PDFs erneuert; Online-Links nutzen den öffentlichen Berichtsmandanten auch ohne Raumzuordnung.
-- Umsetzung: zugehörige Prüfapp-Revision; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `573083f`, `76ab735`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – Regiezeit nur mit Begründung erfassen
 

@@ -12,6 +12,7 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-bundle-contents-layout',
+            'pruefapp_revision' => '573083f / 76ab735',
             'date' => '16.11.2026',
             'title' => 'Lesbare Sammel-PDFs und korrekte Berichtsdaten',
             'items' => ['Das Inhaltsverzeichnis nutzt die Seitenbreite mit mehr Platz für Raum und Gerät. Lange Angaben umbrechen sauber; Seiten- und Prüfnummern bleiben kompakt.', 'Seitenverweise berücksichtigen sämtliche Inhaltsseiten, auch bei aufgeteilten Sammelberichten.', 'Prüfberichte zeigen tatsächliche Messwerte auch bei vorhandener Prüfliste. Fehlende Messwerte werden klar benannt; Stammdaten sind keine Messungen. Logos bleiben unverzerrt und veraltete generierte Berichte werden erneuert.'],
