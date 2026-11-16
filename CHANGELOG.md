@@ -4,7 +4,7 @@
 
 - Neue Prüfungsrechnungen fragen die nächste freie RE-Rechnungsnummer bei SevDesk ab; Nummer und Kopf-/Betrefftexte passen zusammen. Keine selbst erzeugte PR-Ersatznummer bei der Anlage.
 - Referenz/Bestellnummer wird je Rechnungsempfänger als „Elektroprüfung I, II, …“ fortgeführt. Leistungszeiträume in der Detailansicht verwenden TT.MM.JJJJ.
-- Umsetzung: Prüfapp `2584d07`; kb-abrechnung `40219f6`; CENEOS PHP Base `979abbc`.
+- Umsetzung: Prüfapp `2584d07`; kb-abrechnung `40219f6`, `1971584`; CENEOS PHP Base `979abbc`.
 
 ## 16.11.2026 – Companion nach Sitzungsende neu verbinden
 

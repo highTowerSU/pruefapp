@@ -13,7 +13,7 @@ final class WhatsNewService
         return array_merge([[
             'id' => '2026-11-16-sevdesk-numbering',
             'pruefapp_revision' => '2584d07',
-            'kb_abrechnung_revision' => '40219f6',
+            'kb_abrechnung_revision' => '40219f6 / 1971584',
             'base_revision' => '979abbc',
             'date' => '16.11.2026',
             'title' => 'SevDesk-Rechnungsnummern und fortlaufende Referenzen',

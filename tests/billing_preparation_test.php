@@ -48,7 +48,16 @@ namespace {
         public function request(string $method, string $path, ?array $payload = null): array
         {
             ensurePreparation(str_contains($path, 'contact[id]=123'), 'Wrong reference recipient filter');
-            return ['objects' => [['id' => '1', 'contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung IX'], ['id' => '2', 'contact' => ['id' => '999'], 'customerInternalNote' => 'Elektroprüfung C']]];
+            if (str_contains($path, 'offset=0&')) {
+                $objects = [];
+                for ($id = 1; $id < 100; $id++) {
+                    $objects[] = ['id' => (string) $id, 'contact' => ['id' => '999'], 'customerInternalNote' => 'Elektroprüfung C'];
+                }
+                $objects[] = ['id' => '100', 'contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung V'];
+                return ['objects' => $objects];
+            }
+            ensurePreparation(str_contains($path, 'offset=100&'), 'Incorrect reference pagination');
+            return ['objects' => [['id' => '101', 'contact' => ['id' => '123'], 'customerInternalNote' => 'Elektroprüfung IX']]];
         }
         public function __construct(...$args) {}
         public function createDraftInvoice(...$args): array
