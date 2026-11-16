@@ -16,6 +16,7 @@ final class WhatsNewService
             'title' => 'Prüfungsrechnungen nach Bruttobetrag vorbereiten',
             'items' => ['Die nächste Rechnung lässt sich chronologisch je Rechnungsempfänger und Leistungsjahr mit Vorschau zwischen 500 und 1.000 Euro brutto vorbereiten. Regie und Umsatzsteuer sind berücksichtigt; der Entwurf wird erst auf Knopfdruck erstellt.', 'Bei fehlenden Abrechnungsfreigaben führt ein direkter Link zu den offenen Prüfungen. Der Rechnungsstatusfilter bleibt bei direkten Links erhalten.'],
             'kb_abrechnung_revision' => '3b9d9db',
+            'pruefapp_revision' => '88864e8',
             'base_revision' => '1191df0',
         ], [
             'id' => '2026-11-15-central-outgoing-invoices',

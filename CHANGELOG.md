@@ -4,7 +4,7 @@
 
 - Neue Vorschau für die nächste chronologische Rechnung je Rechnungsempfänger und Leistungsjahr, standardmäßig strikt über 500 und unter 1.000 Euro brutto inklusive Regie und Umsatzsteuer. Auswahl und Preise werden vor dem Erstellen des Entwurfs erneut geprüft.
 - Leere Abrechnungslisten erklären fehlende Freigaben und verlinken die offenen Prüfungen zur Prüfung der Abrechenbarkeit. Der Filter „Noch nicht abgerechnet“ behält auch bei direkten Links seinen Wert.
-- Umsetzung: kb-abrechnung `3b9d9db`; Prüfapp siehe folgende Release-Revision; CENEOS PHP Base `1191df0` (unverändert).
+- Umsetzung: Prüfapp `88864e8`; kb-abrechnung `3b9d9db`; CENEOS PHP Base `1191df0` (unverändert).
 
 ## 15.11.2026 – Ausgangsrechnungen im Modul Abrechnung
 
