@@ -63,3 +63,10 @@ $method=new ReflectionMethod($importer,'csvRecord');
 $metadataOnly=$method->invoke($importer,['number','date','audit_ok','created_by','step4','result4'],['209805','2023-11-19','true','test@example.test','Messung Isolationswiderstand R ISO Ergebnis im M Ohm.','20']);
 if($metadataOnly['measurements']!==[])throw new RuntimeException('Future CSV imports still classify metadata as measurements.');
 if(ImportedMeasurementRecoveryService::readingsFromPhoenix($metadataOnly['raw'])[0]['value']!=='20')throw new RuntimeException('Legacy CSV question value cannot be recovered.');
+
+if(class_exists(ZipArchive::class)){
+ $file=tempnam(sys_get_temp_dir(),'source-ods-');$zip=new ZipArchive();$zip->open($file,ZipArchive::OVERWRITE);
+ $zip->addFromString('content.xml','<?xml version="1.0"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"><office:body><office:spreadsheet><table:table><table:table-row><table:table-cell>Speicherplatz</table:table-cell><table:table-cell>Nr. neu</table:table-cell></table:table-row><table:table-row><table:table-cell>007</table:table-cell><table:table-cell>100009245</table:table-cell><table:table-cell>Unbeschriftete Notiz</table:table-cell></table:table-row></table:table></office:spreadsheet></office:body></office:document-content>');$zip->close();
+ $readOds=new ReflectionMethod($importer,'readOds');$ods=$readOds->invoke($importer,$file);unlink($file);
+ if(($ods['7']['external_number']??'')!=='100009245'||!in_array('Unbeschriftete Notiz',$ods['7']['_source_values'],true))throw new RuntimeException('Extra ODS cells broke source identity or were lost.');
+}

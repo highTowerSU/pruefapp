@@ -1368,7 +1368,9 @@ final class ElectricalInspectionImportService
                 continue;
             }
             if ($header === null || count(array_filter($values, static fn($value): bool => $value !== '')) === 0) continue;
-            $sourceValues = array_combine($header, array_pad($values, count($header), '')) ?: [];
+            $rowHeader = $header;
+            while (count($rowHeader) < count($values)) $rowHeader[] = 'Zusatzspalte ' . (count($rowHeader) + 1);
+            $sourceValues = array_combine($rowHeader, array_pad($values, count($rowHeader), '')) ?: [];
             $slot = $this->value($sourceValues, ['Speicherplatz']);
             if ($slot !== '') {
                 $regieRaw = $this->value($sourceValues, ['Regiezeit', 'Regiezeit (Min.)', 'Regiezeit Minuten']);
