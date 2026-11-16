@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 16.11.2026 – Unterschriften ohne Papierhintergrund
+
+- Helle neutrale Hintergründe von Profil- und importierten Berichtsunterschriften werden transparent dargestellt. Dunkle und farbige Striche sowie vorhandene Transparenz bleiben erhalten; Originaldateien werden nicht verändert. Abgeleitete Bilder werden quellabhängig zwischengespeichert, generierte Berichte erneuert.
+- Umsetzung: Prüfapp siehe nachgetragene Revision; CENEOS PHP Base `a5badda` (unverändert).
+
 ## 16.11.2026 – Geräteexport unter MariaDB
 
 - Geräteübersicht und Export verwenden dieselbe treiberabhängige Gerätenummernsortierung. MariaDB erhält gültiges REGEXP/UNSIGNED-SQL, SQLite behält die bestehende Sortierung. Der 500er beim Export durch SQLite-GLOB auf MariaDB entfällt.

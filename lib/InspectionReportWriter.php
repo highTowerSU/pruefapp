@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class InspectionReportWriter
 {
-    public const CACHE_VERSION = '2026-11-16-measurements-logo-links';
+    public const CACHE_VERSION = '2026-11-16-transparent-signatures';
 
     public static function isCurrentFile(string $path): bool
     {
@@ -663,6 +663,9 @@ final class InspectionReportWriter
             if (!is_string($candidate) || !preg_match('#^data:(image/(?:png|jpeg|svg\+xml));base64,(.+)$#s', trim($candidate), $match)) {
                 continue;
             }
+            require_once __DIR__ . '/SignatureImageService.php';
+            $candidate = SignatureImageService::dataUri(trim($candidate), function_exists('app_data_root') ? app_data_root() . '/signature-cache' : '');
+            preg_match('#^data:(image/(?:png|jpeg|svg\+xml));base64,(.+)$#s', $candidate, $match);
             $body = base64_decode($match[2], true);
             if (!is_string($body) || $body === '') {
                 continue;

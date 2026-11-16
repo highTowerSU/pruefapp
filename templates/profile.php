@@ -59,7 +59,7 @@
           <div>
             <label for="report-signature" class="form-label"><i class="fa-solid fa-image me-1" aria-hidden="true"></i>&nbsp;Bilddatei</label>
             <input class="form-control" id="report-signature" name="report_signature" type="file" accept="image/png,image/jpeg">
-            <div class="form-text">Alternativ PNG oder JPEG, maximal 2 MB und 4000 × 2000 Pixel.</div>
+            <div class="form-text">Alternativ PNG oder JPEG, maximal 2 MB und 4000 × 2000 Pixel. Heller Papierhintergrund wird automatisch transparent dargestellt; das Original bleibt erhalten.</div>
           </div>
           <div class="d-flex gap-2 flex-wrap">
             <button class="btn btn-primary" type="submit" name="action" value="upload_signature"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i>Unterschrift übernehmen</button>

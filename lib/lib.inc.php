@@ -1299,7 +1299,9 @@ function examiner_signature_data_uri(string $value): string
             return '';
         }
         $body = file_get_contents($real);
-        return is_string($body) && $body !== '' ? 'data:' . $mime . ';base64,' . base64_encode($body) : '';
+        return is_string($body) && $body !== ''
+            ? SignatureImageService::dataUri('data:' . $mime . ';base64,' . base64_encode($body), app_data_root() . '/signature-cache')
+            : '';
     } catch (Throwable) {
         return '';
     }

@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-transparent-signatures',
+            'date' => '16.11.2026',
+            'title' => 'Unterschriften ohne Papierhintergrund',
+            'items' => ['Heller Papierhintergrund wird bei vorhandenen und neuen Profil- sowie importierten Berichtsunterschriften automatisch transparent dargestellt. Originaldateien bleiben erhalten.'],
+            'base_revision' => 'a5badda',
+        ], [
             'id' => '2026-11-16-mariadb-device-export',
             'pruefapp_revision' => '784b7d7',
             'date' => '16.11.2026',
