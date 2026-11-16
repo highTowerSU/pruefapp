@@ -12,6 +12,8 @@ final class WhatsNewService
     {
         return array_merge([[
             'id' => '2026-11-16-compact-invoice-positions',
+            'pruefapp_revision' => '031d9b4',
+            'kb_abrechnung_revision' => '117cb7b',
             'date' => '16.11.2026',
             'title' => 'Kompakte Rechnungspositionen',
             'items' => ['Prüfung, Prüfdatum und Gerätenummer stehen mit Mittelpunkten getrennt zusammen. Zusätzliche Gerätebeschreibungen entfallen; Einsatzorte und Regiebegründungen bleiben erhalten.'],
