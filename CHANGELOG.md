@@ -5,7 +5,7 @@
 - Benning-Datensätze verlieren ihre vorhandenen Messwertspalten nicht mehr im Ersatzformat. Phoenix-Fragen und Prüflisten liefern ebenfalls strukturierte Messwerte.
 - Gesicherter Reparaturweg mit Quellhash, Datum-/Speicherplatzprüfung, Plan und Sicherung. Werte, Vergleichszeichen, Einheiten und Prüfspannungen werden in die kanonischen Felder übernommen; bestehende Messwerte bleiben erhalten. Gesamtergebnis und Prüfungsidentität werden nicht verändert.
 - Nur generierte Berichtcaches werden erneuert; Originalberichte bleiben erhalten.
-- Umsetzung: zugehörige Prüfapp-Revision; CENEOS PHP Base `a5badda` (unverändert).
+- Umsetzung: Prüfapp `699bb13`; CENEOS PHP Base `a5badda` (unverändert).
 
 ## 16.11.2026 – Prüfberichte und Sammel-PDFs korrigiert
 
