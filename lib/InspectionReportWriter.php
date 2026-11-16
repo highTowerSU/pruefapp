@@ -551,6 +551,7 @@ final class InspectionReportWriter
             $key = InspectionEvaluationService::measurementKey($name);
             $questionKey = self::measurementNameForQuestion($name);
             if (!InspectionEvaluationService::isSupportedMeasurementKey($key) && $questionKey !== '') $key = $questionKey;
+            if (!in_array($key, ['RPE', 'RSL', 'RISO', 'IPE', 'IBER', 'IEA', 'KABEL', 'FI/RCD'], true)) continue;
             $parts = array_values(array_filter([
                 trim((string) ($measurement['value'] ?? '')),
                 trim((string) ($measurement['unit'] ?? '')),

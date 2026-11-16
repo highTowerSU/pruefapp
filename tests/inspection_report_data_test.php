@@ -8,6 +8,7 @@ $rows = [['Prüfung','Wert'], ['Mandant','CENEOS GmbH'], ['Ergebnisbegründung',
 $readings = [
     ['key'=>'RPE','name'=>'Schutzleiterwiderstand RPE','value'=>'0.12','unit'=>'Ω','result'=>'bestanden','limit'=>'0.3 Ω'],
     ['name'=>'IB','value'=>'0.1','unit'=>'mA','result'=>'bestanden'],
+    ['name'=>'Mandant','value'=>'CENEOS GmbH','result'=>'bestanden'],
 ];
 $checklist = [['step'=>'Sichtprüfung der Leitung','result'=>'Ja','check'=>true,'category'=>'Sichtprüfung']];
 $items = $method->invoke(null, $rows, $values, [], $readings, $checklist);
