@@ -15,8 +15,8 @@ final class WhatsNewService
             'date' => '16.11.2026',
             'title' => 'Vollständige Rechnungstexte und passende Sammel-PDFs',
             'items' => ['Historische Kopf-/Fußtexte und Betreff stehen bei der Vorbereitung als editierbare Vorlage bereit. Der Text „sofort fällig“ und die bisherigen Zahlungstage bleiben erhalten; Nummer und Leistungszeitraum gehören zur neuen Rechnung.', 'Vorhandene Gerätenamen, Hersteller, Modelle und Regiebegründungen erscheinen in den Positionen. Rechnungsbezogene Sammel-PDFs enthalten nur die aktiven Prüfungszuordnungen der Rechnung.'],
-            'kb_abrechnung_revision' => 'eb55fb2',
-            'pruefapp_revision' => 'c94845b',
+            'kb_abrechnung_revision' => 'eb55fb2 / 0aa8452',
+            'pruefapp_revision' => 'c94845b / 4a04085',
             'base_revision' => 'ccd9653',
         ], [
             'id' => '2026-11-16-local-billing-preparation',
