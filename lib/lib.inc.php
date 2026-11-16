@@ -80,6 +80,7 @@ require_once __DIR__ . '/InspectionEvaluationService.php';
 require_once __DIR__ . '/InspectionTypeService.php';
 require_once __DIR__ . '/DeviceFindingService.php';
 require_once __DIR__ . '/InspectionFilterService.php';
+require_once __DIR__ . '/SignatureImageService.php';
 require_once __DIR__ . '/UserReminderService.php';
 require_once __DIR__ . '/InspectionDataService.php';
 require_once __DIR__ . '/LadderInspectionService.php';
