@@ -11,6 +11,12 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-16-companion-expired',
+            'date' => '16.11.2026',
+            'title' => 'Companion nach Sitzungsende neu verbinden',
+            'items' => ['Bei abgelaufener oder getrennter Verbindung zeigt der Companion eine verständliche Seite mit Anleitung zum erneuten Koppeln. Auch Barcode- und Fotoübertragungen führen bei Sitzungsende dorthin.'],
+            'base_revision' => 'fbd25ec',
+        ], [
             'id' => '2026-11-16-invoice-texts-and-pdf',
             'date' => '16.11.2026',
             'title' => 'Vollständige Rechnungstexte und passende Sammel-PDFs',

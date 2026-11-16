@@ -35,7 +35,9 @@ final class InspectionCompanionController
     public static function open(array $params, bool $isHx): array
     {
         $session = InspectionCompanionService::byToken((string) ($params['token'] ?? ''));
-        if ($session === []) return [410, [], 'Diese Companion-Verbindung ist abgelaufen oder wurde getrennt.'];
+        if ($session === []) {
+            return self::expired($params, $isHx);
+        }
         $session['token'] = (string) ($params['token'] ?? '');
         $viewer = current_user();
         $viewerId = $viewer ? (int) $viewer->id : (int) $session['owner_user_id'];
@@ -72,7 +74,9 @@ final class InspectionCompanionController
     public static function barcode(array $params, bool $isHx): array
     {
         $session = self::usableSession((string) ($params['token'] ?? ''));
-        if ($session === []) return [410, [], 'Verbindung abgelaufen.'];
+        if ($session === []) {
+            return self::expired($params, $isHx);
+        }
         $barcode = trim((string) ($_POST['barcode'] ?? ''));
         if ($barcode === '') return [422, [], 'Kein Barcode erkannt.'];
         InspectionCompanionInboxService::addBarcode($session, $barcode);
@@ -84,7 +88,9 @@ final class InspectionCompanionController
     public static function barcodePhoto(array $params, bool $isHx): array
     {
         $session = self::usableSession((string) ($params['token'] ?? ''));
-        if ($session === []) return [410, [], 'Verbindung abgelaufen.'];
+        if ($session === []) {
+            return self::expired($params, $isHx);
+        }
         $upload = (array) ($_FILES['barcode_photo'] ?? []);
         if ((int) ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_file((string) ($upload['tmp_name'] ?? ''))) return [422, [], 'Bitte fotografiere oder wähle einen Barcode aus.'];
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string) $upload['tmp_name']);
@@ -108,8 +114,7 @@ final class InspectionCompanionController
     {
         $session = self::usableSession((string) ($params['token'] ?? ''));
         if ($session === []) {
-            $message = '<div class="alert alert-warning py-2 mb-0"><i class="fa-solid fa-link-slash me-1" aria-hidden="true"></i>Die Companion-Verbindung ist nicht mehr aktiv. Bitte am Prüfplatz neu verbinden.</div>';
-            return $isHx ? [200, [], $message] : [410, [], 'Verbindung abgelaufen.'];
+            return self::expired($params, $isHx);
         }
         try {
             $id = InspectionCompanionInboxService::addPhoto($session, (array) ($_FILES['photo'] ?? []), (string) ($_POST['media_type'] ?? 'condition'), (string) ($_POST['caption'] ?? ''));
@@ -224,6 +229,22 @@ final class InspectionCompanionController
             usleep(1000000);
         }
         exit;
+    }
+
+    /** Expired mobile requests return to the same safe, read-only pairing page. */
+    private static function expired(array $params, bool $isHx): array
+    {
+        $headers = ['Cache-Control' => 'private, no-store'];
+        if ($isHx) {
+            $headers['HX-Redirect'] = url_for('companion/' . rawurlencode((string) ($params['token'] ?? '')));
+            return [410, $headers, 'Die Companion-Verbindung ist nicht mehr aktiv.'];
+        }
+
+        $headers['Content-Type'] = 'text/html; charset=utf-8';
+        return [410, $headers, render_template('layout.php', [
+            'title' => 'Companion-Verbindung beendet',
+            'content' => render_template('inspection_companion_expired.php'),
+        ])];
     }
 
     private static function usableSession(string $token): array
