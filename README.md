@@ -6,6 +6,7 @@ Dieses Projekt stellt eine Verwaltungsoberfläche für die Dokumentation von Pr�
 
 ## Features
 
+- Prüfungsabrechnung mit chronologischer Betragsvorschau je Rechnungsempfänger und Leistungsjahr (standardmäßig über 500 und unter 1.000 Euro brutto); fehlende Abrechnungsfreigaben werden mit direktem Prüflink erklärt.
 - Anmeldung per OpenID Connect (Keycloak)
 - Verwaltung von Prüfaufträgen inklusive Einstellungen und Verknüpfungen
 - Import, Export und Druck von Listen (z. B. Prüfobjekte/Teilnehmende)
