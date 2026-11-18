@@ -1,5 +1,10 @@
 # Änderungsprotokoll
 
+## 18.11.2026 – Menübereich beim Mandantenwechsel beibehalten
+
+- Beim Wechsel zum anderen Mandanten bleibt der aktuelle Menübereich geöffnet. Detailseiten führen zur zugehörigen Übersicht; Datensatz-IDs und Filter bleiben beim bisherigen Mandanten.
+- Umsetzung: Prüfapp `a4dcec6`; CENEOS PHP Base `e805bef`.
+
 ## 16.11.2026 – Unterschriften ohne Papierhintergrund
 
 - Helle neutrale Hintergründe von Profil- und importierten Berichtsunterschriften werden transparent dargestellt. Dunkle und farbige Striche sowie vorhandene Transparenz bleiben erhalten; Originaldateien werden nicht verändert. Abgeleitete Bilder werden quellabhängig zwischengespeichert, generierte Berichte erneuert.

@@ -11,6 +11,13 @@ final class WhatsNewService
     public static function entries(): array
     {
         return array_merge([[
+            'id' => '2026-11-18-tenant-menu',
+            'pruefapp_revision' => 'a4dcec6',
+            'date' => '18.11.2026',
+            'title' => 'Menübereich beim Mandantenwechsel beibehalten',
+            'items' => ['Beim Mandantenwechsel bleibt der aktuelle Menübereich geöffnet. Detailseiten wechseln zur zugehörigen Übersicht.'],
+            'base_revision' => 'e805bef',
+        ], [
             'id' => '2026-11-16-transparent-signatures',
             'pruefapp_revision' => '4c8ce6a / 35bdc6c',
             'date' => '16.11.2026',
