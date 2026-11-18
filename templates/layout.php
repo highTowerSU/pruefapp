@@ -294,7 +294,7 @@ foreach (get_branding_companies() as $tenantOption) {
     if ($host === '') continue;
     $sidebarTenantLinks[] = ['name' => (string) ($tenantOption->name ?? 'Mandant'), 'url' => 'https://' . $host . '/', 'active' => (int) ($tenantOption->id ?? 0) === (int) ($branding['company_id'] ?? 0)];
 }
-$sidebarTenantSwitcher = ['current_name' => (string) ($branding['company_name'] ?? ''), 'links' => $sidebarTenantLinks];
+$sidebarTenantSwitcher = ['current_name' => (string) ($branding['company_name'] ?? ''), 'links' => $sidebarTenantLinks, 'base_path' => rtrim(url_for(), '/')];
 ?>
 <div class="ceneos-workspace">
 <?= $layoutUser !== null ? \Ceneos\PhpBase\View\AppSidebar::render($appSidebarItems ?? [], $sidebarTenantSwitcher, \Ceneos\PhpBase\View\ApplicationSwitcher::render((string) ($branding['key'] ?? ''), 'pruefapp'), 'Prüfapp') : '' ?>
