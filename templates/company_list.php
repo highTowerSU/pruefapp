@@ -99,7 +99,7 @@
     </div>
   </div>
   <div class="table-responsive ceneos-sticky-table">
-    <table class="table table-hover align-middle mb-0">
+    <table class="table table-hover align-middle mb-0" data-ceneos-filter-table>
       <thead class="table-light">
         <tr>
           <th scope="col">Name &amp; Kunde</th>
