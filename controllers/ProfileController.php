@@ -275,6 +275,7 @@ final class ProfileController
                 return [303, ['Location' => $profileUrl], ''];
             }
             if ($action === 'delete_signature') {
+                (new \Ceneos\PhpBase\Evidence\ProfileSignature())->remove((int)($user->ceneos_identity_id ?? 0));
                 $oldPath = trim((string) ($user->report_signature_path ?? ''));
                 $user->report_signature_path = '';
                 $user->report_signature_updated_at = date(DATE_ATOM);
@@ -344,6 +345,17 @@ final class ProfileController
             $user->report_signature_path = $target;
             $user->report_signature_updated_at = date(DATE_ATOM);
             R::store($user);
+            $identity = (int)($user->ceneos_identity_id ?? 0);
+            if ($identity > 0) {
+                $profiles = new \Ceneos\PhpBase\Evidence\ProfileSignature();
+                try {
+                    $profiles->importFile($identity,$target,$directory);
+                } catch (\Throwable $error) {
+                    $profiles->remove($identity);
+                    $_SESSION['fehlermeldung'] = 'Die Unterschrift wurde in Prüf gespeichert. Die Übernahme ins gemeinsame Profil war nicht möglich.';
+                    error_log('[profile-signature] '.get_class($error));
+                }
+            }
             audit_log('profilsignatur_gespeichert', ['oauthuser_id' => (int) $user->id]);
             $queuedReports = self::queueMissingReportsForExaminer($user);
             $_SESSION['meldung'] = 'Die Unterschrift wurde gespeichert.' . ($queuedReports > 0 ? ' ' . $queuedReports . ' fertige Prüfung(en) werden nun im Hintergrund als Bericht erzeugt.' : ' Neue Prüfberichte werden nun freigegeben.');
